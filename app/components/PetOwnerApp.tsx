@@ -1,14 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Icon, type IconName } from "./Icon";
 import AddPetExperience from "./integrations/AddPetExperience";
 import CommunityExperience from "./integrations/CommunityExperience";
 import LocationModal from "./integrations/LocationModal";
 import SlivaCareDrawer from "./integrations/SlivaCareDrawer";
 import PlatformDiscovery from "./platform/PlatformDiscovery";
+import CareMarketplace from "./platform/CareMarketplace";
+import PawDatingExperience from "./pawdating/PawDatingExperience";
 import type { LocationResult } from "../lib/petowner-api";
+import { PLATFORM_API_URL } from "../lib/platform-api";
 import {
   careTimeline,
   communityPosts,
@@ -36,6 +39,10 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
   { id: "events", label: "Pet Event", icon: "calendar" },
   { id: "petspot", label: "PetSpot", icon: "map" },
   { id: "pethub", label: "PetHub", icon: "video" },
+  { id: "consult", label: "Konsultasi Dokter", icon: "heart" },
+  { id: "adoption", label: "Adopsi", icon: "paw" },
+  { id: "documents", label: "Pet Documents", icon: "download" },
+  { id: "pawdating", label: "PAW Dating", icon: "heart" },
   { id: "profile", label: "Akun", icon: "user" },
 ];
 
@@ -51,6 +58,10 @@ const titles: Record<AppView, { title: string; subtitle: string }> = {
   events: { title: "Pet Event", subtitle: "Festival, workshop, meet-up, dan aktivitas pet pilihan." },
   petspot: { title: "PetSpot", subtitle: "Temukan cafe, mall, taman, dan playground yang pet friendly." },
   pethub: { title: "PetHub", subtitle: "Live streaming, video, channel, dan pet thread dalam satu hub." },
+  consult: { title: "Konsultasi Dokter Hewan", subtitle: "Chat, voice call, atau video call dengan dokter terverifikasi." },
+  adoption: { title: "Adopsi Bertanggung Jawab", subtitle: "Temukan teman baru dengan screening dan pendampingan Slivadoc." },
+  documents: { title: "Pet Documents", subtitle: "Akte pet dan dokumen perjalanan pesawat atau kapal dalam satu alur." },
+  pawdating: { title: "PAW Dating", subtitle: "Temukan pasangan sehat dengan screening, silsilah, dan persetujuan yang aman." },
   profile: { title: "Akun & Keluarga", subtitle: "Kelola profil, pembayaran, keamanan, dan benefit." },
 };
 
@@ -70,6 +81,7 @@ export default function PetOwnerApp() {
   const [favoriteIds, setFavoriteIds] = useState<string[]>(["svc-pawsitive"]);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [toast, setToast] = useState("");
+  const [loginOpen, setLoginOpen] = useState(false);
 
   const selectedPet = petProfiles.find((pet) => pet.id === selectedPetId) ?? petProfiles[0] ?? pets[0];
   const cartCount = Object.values(cart).reduce((total, quantity) => total + quantity, 0);
@@ -95,6 +107,7 @@ export default function PetOwnerApp() {
   useEffect(() => { window.localStorage.setItem("slivadoc.favorites", JSON.stringify(favoriteIds)); }, [favoriteIds]);
   useEffect(() => { window.localStorage.setItem("slivadoc.cart", JSON.stringify(cart)); }, [cart]);
   useEffect(() => { const listener = (event: Event) => { setToast(`Detail ${(event as CustomEvent<string>).detail} dibuka`); window.setTimeout(() => setToast(""), 2600); }; window.addEventListener("slivadoc:notice", listener); return () => window.removeEventListener("slivadoc:notice", listener); }, []);
+  useEffect(() => { const listener = () => setLoginOpen(true); window.addEventListener("slivadoc:login-required", listener); return () => window.removeEventListener("slivadoc:login-required", listener); }, []);
 
   const notify: Notify = (message) => {
     setToast(message);
@@ -177,6 +190,10 @@ export default function PetOwnerApp() {
           {(["academy", "events", "petspot", "pethub"] as AppView[]).includes(activeView) && (
             <PlatformDiscovery mode={activeView as "academy" | "events" | "petspot" | "pethub"} petName={selectedPet.name} notify={notify} navigate={setActiveView} />
           )}
+          {(["consult", "adoption", "documents"] as AppView[]).includes(activeView) && (
+            <CareMarketplace mode={activeView as "consult" | "adoption" | "documents"} pet={selectedPet} notify={notify} />
+          )}
+          {activeView === "pawdating" && <PawDatingExperience pet={selectedPet} notify={notify} />}
           {activeView === "profile" && <ProfileView notify={notify} />}
         </div>
       </main>
@@ -203,6 +220,7 @@ export default function PetOwnerApp() {
           onClose={() => setBookingOpen(false)}
         />
       )}
+      {loginOpen && <PetOwnerLogin close={() => setLoginOpen(false)} notify={notify} />}
 
       {toast && (
         <div className="toast" role="status">
@@ -213,6 +231,8 @@ export default function PetOwnerApp() {
     </div>
   );
 }
+
+function PetOwnerLogin({close,notify}:{close:()=>void;notify:Notify}){const[mode,setMode]=useState<"login"|"register">("login");const[busy,setBusy]=useState(false);const[message,setMessage]=useState("");async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);setMessage("");const values=Object.fromEntries(new FormData(event.currentTarget));try{const endpoint=mode==="login"?"/api/v1/auth/login":"/api/v1/auth/petowner/register";const response=await fetch(`${PLATFORM_API_URL}${endpoint}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(values)});const data=await response.json();if(!response.ok)throw new Error(data.message||"Login belum dapat diproses");if(mode==="register"){setMessage(`OTP sudah dikirim ke ${values.email}. Verifikasi melalui halaman akun.`);return}localStorage.setItem("slivadoc.access_token",data.access_token);localStorage.setItem("slivadoc.refresh_token",data.refresh_token);notify("Login berhasil. Kamu sekarang bisa posting, komentar, dan konsultasi.");close()}catch(error){setMessage(error instanceof Error?error.message:"Login gagal")}finally{setBusy(false)}}return <div className="modal-overlay" onMouseDown={close}><section className="modal petowner-login" onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={close}>×</button><span className="world-kicker">SLIVADOC PET OWNER</span><h2>{mode==="login"?"Login untuk melanjutkan":"Buat akun pet parent"}</h2><p>Posting, komentar, konsultasi, adopsi, dan dokumen pet memerlukan akun terverifikasi.</p><form className="world-form" onSubmit={submit}>{mode==="register"&&<><label><span>Nama lengkap</span><input name="full_name" required/></label><label><span>WhatsApp</span><input name="phone" required/></label></>}<label><span>Email</span><input name="email" type="email" required/></label><label><span>Password</span><input name="password" type="password" minLength={8} required/></label>{message&&<div className="form-message">{message}</div>}<button className="primary-button full" disabled={busy}>{busy?"Memproses…":mode==="login"?"Login":"Daftar & kirim OTP"}</button></form><button className="text-button" onClick={()=>setMode(mode==="login"?"register":"login")}>{mode==="login"?"Belum punya akun? Daftar":"Sudah punya akun? Login"}</button></section></div>}
 
 function Logo() {
   return (

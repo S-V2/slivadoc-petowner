@@ -18,7 +18,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function askSlivaCare(message: string, history: AssistantMessage[]) {
-  return request<{ answer: string; mode: "openai" | "offline_dataset" }>("/api/assistant/chat", {
+  return request<{ answer: string; mode: "openai" | "offline_dataset"; degraded?: boolean; fallbackReason?: string; notice?: string }>("/api/assistant/chat", {
     method: "POST",
     body: JSON.stringify({ message, history: history.slice(-8), userId: "petowner-evans-mobile", pet: { name: "Milo", species: "Dog", breed: "Golden Retriever", age: "3 tahun", weight: "28.4 kg" } }),
   });

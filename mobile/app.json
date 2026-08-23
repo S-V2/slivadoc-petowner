@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Slivadoc",
+    "slug": "slivadoc-pet-owner",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "slivadoc",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#EAF8FF"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.slivadoc.petowner",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Slivadoc menggunakan kamera untuk foto profil hewan dan dokumen kesehatan.",
+        "NSPhotoLibraryUsageDescription": "Slivadoc menggunakan galeri untuk melampirkan foto dan dokumen hewan."
+      }
+    },
+    "android": {
+      "package": "com.slivadoc.petowner",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#EAF8FF"
+      },
+      "predictiveBackGestureEnabled": true,
+      "permissions": ["CAMERA"]
+    },
+    "plugins": [],
+    "extra": {
+      "apiBaseUrl": "http://localhost:8080"
+    }
+  }
+}

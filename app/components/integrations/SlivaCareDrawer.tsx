@@ -72,7 +72,7 @@ export default function SlivaCareDrawer({ pet, onClose, notify }: Props) {
         history: assistantMessages.slice(-8),
       });
       setAssistantMessages((current) => [...current, { role: "assistant", content: result.answer }]);
-      if (result.mode === "offline_dataset") notify("OpenAI belum dikonfigurasi; jawaban memakai dataset pet lokal");
+      if (result.mode === "offline_dataset") notify(result.notice || "Jawaban memakai dataset pet lokal Slivadoc");
     } catch (cause) {
       const answer = cause instanceof Error ? cause.message : "SlivaCare belum dapat menjawab.";
       setAssistantMessages((current) => [...current, { role: "assistant", content: answer }]);

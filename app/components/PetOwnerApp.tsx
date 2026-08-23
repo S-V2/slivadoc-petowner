@@ -7,6 +7,7 @@ import AddPetExperience from "./integrations/AddPetExperience";
 import CommunityExperience from "./integrations/CommunityExperience";
 import LocationModal from "./integrations/LocationModal";
 import SlivaCareDrawer from "./integrations/SlivaCareDrawer";
+import PlatformDiscovery from "./platform/PlatformDiscovery";
 import type { LocationResult } from "../lib/petowner-api";
 import {
   careTimeline,
@@ -31,6 +32,10 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
   { id: "health", label: "Kesehatan", icon: "heart" },
   { id: "shop", label: "Pet Shop", icon: "bag" },
   { id: "community", label: "Komunitas", icon: "users" },
+  { id: "academy", label: "Pet Academy", icon: "sparkle" },
+  { id: "events", label: "Pet Event", icon: "calendar" },
+  { id: "petspot", label: "PetSpot", icon: "map" },
+  { id: "pethub", label: "PetHub", icon: "video" },
   { id: "profile", label: "Akun", icon: "user" },
 ];
 
@@ -42,6 +47,10 @@ const titles: Record<AppView, { title: string; subtitle: string }> = {
   health: { title: "Pusat Kesehatan", subtitle: "Riwayat lengkap dan jadwal perawatan Milo." },
   shop: { title: "Sliva Pet Shop", subtitle: "Kebutuhan pilihan yang dikurasi dokter hewan." },
   community: { title: "Komunitas", subtitle: "Berbagi, belajar, dan membantu sesama pet parent." },
+  academy: { title: "Pet Academy", subtitle: "Program training terverifikasi untuk pet dan pet parent." },
+  events: { title: "Pet Event", subtitle: "Festival, workshop, meet-up, dan aktivitas pet pilihan." },
+  petspot: { title: "PetSpot", subtitle: "Temukan cafe, mall, taman, dan playground yang pet friendly." },
+  pethub: { title: "PetHub", subtitle: "Live streaming, video, channel, dan pet thread dalam satu hub." },
   profile: { title: "Akun & Keluarga", subtitle: "Kelola profil, pembayaran, keamanan, dan benefit." },
 };
 
@@ -85,6 +94,7 @@ export default function PetOwnerApp() {
   useEffect(() => { window.localStorage.setItem("slivadoc.petProfiles", JSON.stringify(petProfiles)); }, [petProfiles]);
   useEffect(() => { window.localStorage.setItem("slivadoc.favorites", JSON.stringify(favoriteIds)); }, [favoriteIds]);
   useEffect(() => { window.localStorage.setItem("slivadoc.cart", JSON.stringify(cart)); }, [cart]);
+  useEffect(() => { const listener = (event: Event) => { setToast(`Detail ${(event as CustomEvent<string>).detail} dibuka`); window.setTimeout(() => setToast(""), 2600); }; window.addEventListener("slivadoc:notice", listener); return () => window.removeEventListener("slivadoc:notice", listener); }, []);
 
   const notify: Notify = (message) => {
     setToast(message);
@@ -164,6 +174,9 @@ export default function PetOwnerApp() {
             <ShopView addToCart={addToCart} setCartOpen={setCartOpen} notify={notify} />
           )}
           {activeView === "community" && <CommunityExperience notify={notify} onOpenLocation={() => setLocationOpen(true)} />}
+          {(["academy", "events", "petspot", "pethub"] as AppView[]).includes(activeView) && (
+            <PlatformDiscovery mode={activeView as "academy" | "events" | "petspot" | "pethub"} petName={selectedPet.name} notify={notify} navigate={setActiveView} />
+          )}
           {activeView === "profile" && <ProfileView notify={notify} />}
         </div>
       </main>
@@ -316,7 +329,7 @@ function PageHeading({ activeView, selectedPet }: { activeView: AppView; selecte
         <p>{activeView === "health" ? `Riwayat lengkap dan jadwal perawatan ${selectedPet.name}.` : item.subtitle}</p>
       </div>
       {activeView !== "home" && (
-        <button className="secondary-button heading-action" type="button"><Icon name="download" size={17} /> Unduh ringkasan</button>
+        <button className="secondary-button heading-action" type="button" onClick={() => downloadViewSummary(activeView)}><Icon name="download" size={17} /> Unduh ringkasan</button>
       )}
     </div>
   );
@@ -330,6 +343,10 @@ function HomeView({ selectedPet, setActiveView, openBooking, setChatOpen, notify
     { label: "Darurat 24/7", note: "Bantuan cepat", icon: "🚑", color: "red", action: () => notify("Menghubungkan ke hotline darurat 24/7") },
     { label: "Beli Produk", note: "Same day delivery", icon: "🛍️", color: "violet", action: () => setActiveView("shop") },
     { label: "Pet Hotel", note: "Titip dengan aman", icon: "🏡", color: "yellow", action: () => openBooking(services[2]) },
+    { label: "Pet Academy", note: "Training & kelas", icon: "🎓", color: "mint", action: () => setActiveView("academy") },
+    { label: "Pet Event", note: "Event di kotamu", icon: "🎟️", color: "peach", action: () => setActiveView("events") },
+    { label: "PetSpot", note: "Tempat pet friendly", icon: "📍", color: "blue", action: () => setActiveView("petspot") },
+    { label: "PetHub Live", note: "Live & pet thread", icon: "▶️", color: "violet", action: () => setActiveView("pethub") },
   ];
 
   return (
@@ -586,7 +603,7 @@ function ProfileView({ notify }: { notify: Notify }) {
 }
 
 function MobileNav({ activeView, setActiveView, cartCount }: { activeView: AppView; setActiveView: (view: AppView) => void; cartCount: number }) {
-  const items = navItems.filter((item) => ["home", "discover", "bookings", "shop", "profile"].includes(item.id));
+  const items = navItems.filter((item) => ["home", "discover", "academy", "pethub", "profile"].includes(item.id));
   return <nav className="mobile-nav">{items.map((item) => <button type="button" key={item.id} className={activeView === item.id ? "active" : ""} onClick={() => setActiveView(item.id)}><span><Icon name={item.icon} size={20} />{item.id === "shop" && cartCount > 0 && <i>{cartCount}</i>}</span><small>{item.label}</small></button>)}</nav>;
 }
 
@@ -626,7 +643,13 @@ function Progress({ label, value }: { label: string; value: number }) { return <
 function Family({ name, role, initials, green }: { name: string; role: string; initials: string; green?: boolean }) { return <div className="family-row"><span className={`avatar ${green ? "avatar-green" : "avatar-blue"}`}>{initials}</span><p><b>{name}</b><small>{role}</small></p><Icon name="chevron" size={15} /></div>; }
 function SummaryCard({ icon, value, label, tone }: { icon: string; value: string; label: string; tone: string }) { return <div className="activity-summary-card"><span className={tone}>{icon}</span><p><b>{value}</b><small>{label}</small></p><Icon name="chevron" size={16} /></div>; }
 function CheckItem({ done, title, note }: { done?: boolean; title: string; note: string }) { return <div className="check-item"><span className={done ? "done" : ""}>{done ? <Icon name="check" size={13} /> : "!"}</span><p><b>{title}</b><small>{note}</small></p></div>; }
-function Notification({ icon, tone, title, note, time, unread }: { icon: string; tone: string; title: string; note: string; time: string; unread?: boolean }) { return <button type="button" className={`notification ${unread ? "unread" : ""}`}><span className={tone}>{icon}</span><p><b>{title}</b><small>{note}</small><em>{time} lalu</em></p>{unread && <i />}</button>; }
+function Notification({ icon, tone, title, note, time, unread }: { icon: string; tone: string; title: string; note: string; time: string; unread?: boolean }) { return <button type="button" className={`notification ${unread ? "unread" : ""}`} onClick={() => window.dispatchEvent(new CustomEvent("slivadoc:notice", { detail: title }))}><span className={tone}>{icon}</span><p><b>{title}</b><small>{note}</small><em>{time} lalu</em></p>{unread && <i />}</button>; }
+
+function downloadViewSummary(view: AppView) {
+  const content = [`Slivadoc Pet Owner · ${titles[view].title}`, titles[view].subtitle, `Dibuat: ${new Date().toLocaleString("id-ID")}`, "", "Ringkasan ini dibuat dari tampilan aktif dan siap dilengkapi oleh data API Slivadoc."].join("\n");
+  const url = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
+  const anchor = document.createElement("a"); anchor.href = url; anchor.download = `slivadoc-${view}-summary.txt`; anchor.click(); URL.revokeObjectURL(url);
+}
 function Group({ emoji, name, members, notify }: { emoji: string; name: string; members: string; notify: Notify }) { return <div className="group-row"><span>{emoji}</span><p><b>{name}</b><small>{members}</small></p><button type="button" onClick={() => notify(`Bergabung ke ${name}`)}>Gabung</button></div>; }
 function Payment({ logo, name, note, notify }: { logo: string; name: string; note: string; notify: Notify }) { return <button className="payment-row" type="button" onClick={() => notify(`Kelola ${name}`)}><span>{logo}</span><p><b>{name}</b><small>{note}</small></p><Icon name="chevron" size={15} /></button>; }
 function Setting({ icon, label, note, notify }: { icon: IconName; label: string; note: string; notify: Notify }) { return <button className="setting-row" type="button" onClick={() => notify(`${label} dibuka`)}><span><Icon name={icon} size={19} /></span><p><b>{label}</b><small>{note}</small></p><Icon name="chevron" size={16} /></button>; }

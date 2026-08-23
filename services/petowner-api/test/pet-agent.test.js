@@ -21,3 +21,54 @@ test("offline assistant remains pet-only", async () => {
   assert.equal(accepted.status, 200);
   assert.equal(accepted.body.mode, "offline_dataset");
 });
+
+test("falls back safely when OpenAI moderation is rate limited", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: { code: "insufficient_quota" } }), {
+    status: 429,
+    headers: { "Content-Type": "application/json" },
+  });
+
+  try {
+    const result = await answerPetQuestion(
+      { message: "Kucing saya muntah, apa yang perlu diperhatikan?", userId: "rate-limit-test" },
+      { openAIKey: "test-key", openAIModel: "test-model" },
+    );
+    assert.equal(result.status, 200);
+    assert.equal(result.body.mode, "offline_dataset");
+    assert.equal(result.body.degraded, true);
+    assert.equal(result.body.fallbackReason, "openai_quota_or_rate_limit");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("falls back safely when the Responses API is rate limited", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestCount = 0;
+  globalThis.fetch = async () => {
+    requestCount += 1;
+    if (requestCount === 1) {
+      return new Response(JSON.stringify({ results: [{ flagged: false }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ error: { code: "rate_limit_exceeded" } }), {
+      status: 429,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const result = await answerPetQuestion(
+      { message: "Anjing saya diare, apa yang perlu dipantau?", userId: "responses-rate-limit-test" },
+      { openAIKey: "test-key", openAIModel: "test-model" },
+    );
+    assert.equal(result.status, 200);
+    assert.equal(result.body.mode, "offline_dataset");
+    assert.equal(result.body.fallbackReason, "openai_quota_or_rate_limit");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

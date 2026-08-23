@@ -13,7 +13,7 @@ type Props = {
   onOpenNotifications: () => void;
   locationTitle: string;
   onLocation: () => void;
-  onNavigate: (tab: "discover" | "activity" | "health") => void;
+  onNavigate: (tab: "discover" | "world" | "activity" | "health") => void;
 };
 
 export function HomeScreen({ onAction, onBook, onOpenChat, onOpenNotifications, locationTitle, onLocation, onNavigate }: Props) {
@@ -24,6 +24,7 @@ export function HomeScreen({ onAction, onBook, onOpenChat, onOpenNotifications, 
     { label: "Home Care", note: "Ke rumah", icon: "home", emoji: "🏠", color: "#FFF1E8", onPress: () => onBook(services[3]) },
     { label: "Darurat", note: "24 jam", icon: "medkit", emoji: "🚑", color: colors.red50, onPress: () => onAction("Menghubungkan hotline darurat 24/7") },
     { label: "Pet Hotel", note: "Terpercaya", icon: "bed", emoji: "🏡", color: colors.violet50, onPress: () => onBook(services[2]) },
+    { label: "Sliva World", note: "Academy & Hub", icon: "planet", emoji: "🌐", color: colors.sky50, onPress: () => onNavigate("world") },
   ];
 
   return (

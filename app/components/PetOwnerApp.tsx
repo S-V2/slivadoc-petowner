@@ -295,7 +295,15 @@ function HomeView({ selectedPet, setActiveView, openBooking, setChatOpen, notify
   return (
     <div className="home-layout">
       <section className="hero-card">
-        <Image className="hero-image" src="/slivadoc-pet-hero.png" alt="Pet owner bersama anjing golden retriever dan kucing abu-abu" fill priority sizes="(max-width: 900px) 100vw, 70vw" />
+        <Image
+          className="hero-image"
+          src="/slivadoc-pet-hero.png"
+          alt="Pet owner bersama anjing golden retriever dan kucing abu-abu"
+          fill
+          priority
+          unoptimized
+          sizes="(max-width: 900px) 100vw, 70vw"
+        />
         <div className="hero-overlay" />
         <div className="hero-copy">
           <span className="soft-badge"><Icon name="shield" size={14} /> TERLINDUNGI SLIVACARE+</span>

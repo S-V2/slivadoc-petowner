@@ -54,7 +54,7 @@ export function SlivaCareModal({ visible, onClose, onAction }: Props) {
     try {
       const result = await askSlivaCare(body, messages);
       setMessages((current) => [...current, { role: "assistant", content: result.answer }]);
-      if (result.mode === "offline_dataset") onAction("OpenAI belum dikonfigurasi; memakai dataset pet lokal");
+      if (result.mode === "offline_dataset") onAction(result.notice || "Jawaban memakai dataset pet lokal Slivadoc");
     } catch (cause) {
       setMessages((current) => [...current, { role: "assistant", content: cause instanceof Error ? cause.message : "SlivaCare belum dapat menjawab" }]);
     } finally { setLoading(false); }

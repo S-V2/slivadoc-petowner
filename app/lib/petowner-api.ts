@@ -85,7 +85,7 @@ export function askSlivaCare(input: {
   pet?: { name?: string; species?: string; breed?: string; age?: string; weight?: string };
   history: AssistantMessage[];
 }) {
-  return apiFetch<{ answer: string; mode: "openai" | "offline_dataset"; sources?: string[] }>("/api/assistant/chat", { method: "POST", body: JSON.stringify(input) });
+  return apiFetch<{ answer: string; mode: "openai" | "offline_dataset"; sources?: string[]; degraded?: boolean; fallbackReason?: string; notice?: string }>("/api/assistant/chat", { method: "POST", body: JSON.stringify(input) });
 }
 
 export function getCommunityPosts() {

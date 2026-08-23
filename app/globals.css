@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./platform-discovery.css";
 
 :root {
   --sky-25: #f7fcff;

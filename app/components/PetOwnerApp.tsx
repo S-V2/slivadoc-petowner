@@ -1,8 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon, type IconName } from "./Icon";
+import AddPetExperience from "./integrations/AddPetExperience";
+import CommunityExperience from "./integrations/CommunityExperience";
+import LocationModal from "./integrations/LocationModal";
+import SlivaCareDrawer from "./integrations/SlivaCareDrawer";
+import type { LocationResult } from "../lib/petowner-api";
 import {
   careTimeline,
   communityPosts,
@@ -42,11 +47,14 @@ const titles: Record<AppView, { title: string; subtitle: string }> = {
 
 export default function PetOwnerApp() {
   const [activeView, setActiveView] = useState<AppView>("home");
+  const [petProfiles, setPetProfiles] = useState<Pet[]>(pets);
   const [selectedPetId, setSelectedPetId] = useState(pets[0].id);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [addPetOpen, setAddPetOpen] = useState(false);
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<LocationResult | null>(null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
@@ -54,8 +62,29 @@ export default function PetOwnerApp() {
   const [cart, setCart] = useState<Record<string, number>>({});
   const [toast, setToast] = useState("");
 
-  const selectedPet = pets.find((pet) => pet.id === selectedPetId) ?? pets[0];
+  const selectedPet = petProfiles.find((pet) => pet.id === selectedPetId) ?? petProfiles[0] ?? pets[0];
   const cartCount = Object.values(cart).reduce((total, quantity) => total + quantity, 0);
+
+  useEffect(() => {
+    const savedPets = window.localStorage.getItem("slivadoc.petProfiles");
+    const savedLocation = window.localStorage.getItem("slivadoc.location");
+    const savedFavorites = window.localStorage.getItem("slivadoc.favorites");
+    const savedCart = window.localStorage.getItem("slivadoc.cart");
+    try {
+      queueMicrotask(() => {
+        if (savedPets) setPetProfiles(JSON.parse(savedPets));
+        if (savedLocation) setCurrentLocation(JSON.parse(savedLocation));
+        if (savedFavorites) setFavoriteIds(JSON.parse(savedFavorites));
+        if (savedCart) setCart(JSON.parse(savedCart));
+      });
+    } catch {
+      window.localStorage.removeItem("slivadoc.petProfiles");
+    }
+  }, []);
+
+  useEffect(() => { window.localStorage.setItem("slivadoc.petProfiles", JSON.stringify(petProfiles)); }, [petProfiles]);
+  useEffect(() => { window.localStorage.setItem("slivadoc.favorites", JSON.stringify(favoriteIds)); }, [favoriteIds]);
+  useEffect(() => { window.localStorage.setItem("slivadoc.cart", JSON.stringify(cart)); }, [cart]);
 
   const notify: Notify = (message) => {
     setToast(message);
@@ -87,8 +116,11 @@ export default function PetOwnerApp() {
       <main className="main-shell">
         <Topbar
           selectedPet={selectedPet}
+          petProfiles={petProfiles}
           selectedPetId={selectedPetId}
           setSelectedPetId={setSelectedPetId}
+          locationLabel={currentLocation?.label.split(",").slice(0, 2).join(", ") ?? "Pilih lokasi spesifik"}
+          onOpenLocation={() => setLocationOpen(true)}
           cartCount={cartCount}
           onOpenNotifications={() => setNotificationOpen(true)}
           onOpenCart={() => setCartOpen(true)}
@@ -108,6 +140,7 @@ export default function PetOwnerApp() {
           )}
           {activeView === "pets" && (
             <PetsView
+              petProfiles={petProfiles}
               selectedPetId={selectedPetId}
               setSelectedPetId={setSelectedPetId}
               setAddPetOpen={setAddPetOpen}
@@ -130,7 +163,7 @@ export default function PetOwnerApp() {
           {activeView === "shop" && (
             <ShopView addToCart={addToCart} setCartOpen={setCartOpen} notify={notify} />
           )}
-          {activeView === "community" && <CommunityView notify={notify} />}
+          {activeView === "community" && <CommunityExperience notify={notify} onOpenLocation={() => setLocationOpen(true)} />}
           {activeView === "profile" && <ProfileView notify={notify} />}
         </div>
       </main>
@@ -144,9 +177,10 @@ export default function PetOwnerApp() {
       </button>
 
       {notificationOpen && <NotificationDrawer onClose={() => setNotificationOpen(false)} notify={notify} />}
-      {chatOpen && <ChatDrawer onClose={() => setChatOpen(false)} notify={notify} />}
+      {chatOpen && <SlivaCareDrawer pet={selectedPet} onClose={() => setChatOpen(false)} notify={notify} />}
       {cartOpen && <CartDrawer cart={cart} setCart={setCart} onClose={() => setCartOpen(false)} notify={notify} />}
-      {addPetOpen && <AddPetModal onClose={() => setAddPetOpen(false)} notify={notify} />}
+      {addPetOpen && <AddPetExperience onClose={() => setAddPetOpen(false)} notify={notify} onSaved={(pet) => { setPetProfiles((current) => [...current, pet]); setSelectedPetId(pet.id); }} />}
+      {locationOpen && <LocationModal current={currentLocation} onClose={() => setLocationOpen(false)} onSelect={(location) => { setCurrentLocation(location); window.localStorage.setItem("slivadoc.location", JSON.stringify(location)); setLocationOpen(false); notify("Lokasi layanan berhasil diperbarui"); }} />}
       {bookingOpen && selectedService && (
         <BookingModal
           service={selectedService}
@@ -215,16 +249,22 @@ function Sidebar({ activeView, setActiveView, notify }: { activeView: AppView; s
 
 function Topbar({
   selectedPet,
+  petProfiles,
   selectedPetId,
   setSelectedPetId,
+  locationLabel,
+  onOpenLocation,
   cartCount,
   onOpenNotifications,
   onOpenCart,
   notify,
 }: {
   selectedPet: Pet;
+  petProfiles: Pet[];
   selectedPetId: string;
   setSelectedPetId: (id: string) => void;
+  locationLabel: string;
+  onOpenLocation: () => void;
   cartCount: number;
   onOpenNotifications: () => void;
   onOpenCart: () => void;
@@ -233,9 +273,9 @@ function Topbar({
   return (
     <header className="topbar">
       <div className="mobile-brand"><Logo /></div>
-      <button className="location-picker" type="button" onClick={() => notify("Pilih lokasi layanan") }>
+      <button className="location-picker" type="button" onClick={onOpenLocation}>
         <span><Icon name="map" size={18} /></span>
-        <span><small>Lokasi kamu</small><b>Kebayoran Baru, Jakarta</b></span>
+        <span><small>Lokasi kamu</small><b>{locationLabel}</b></span>
         <Icon name="chevron" size={15} />
       </button>
       <label className="global-search">
@@ -250,7 +290,7 @@ function Topbar({
         <label className="pet-switcher compact-select">
           <span className="pet-mini">{selectedPet.avatar}</span>
           <select aria-label="Pilih hewan" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>
-            {pets.map((pet) => <option key={pet.id} value={pet.id}>{pet.name}</option>)}
+            {petProfiles.map((pet) => <option key={pet.id} value={pet.id}>{pet.name}</option>)}
           </select>
         </label>
         <button className="icon-button" type="button" onClick={onOpenCart} aria-label="Keranjang">
@@ -384,15 +424,15 @@ function HomeView({ selectedPet, setActiveView, openBooking, setChatOpen, notify
   );
 }
 
-function PetsView({ selectedPetId, setSelectedPetId, setAddPetOpen, setActiveView, notify }: { selectedPetId: string; setSelectedPetId: (id: string) => void; setAddPetOpen: (value: boolean) => void; setActiveView: (view: AppView) => void; notify: Notify }) {
-  const pet = pets.find((item) => item.id === selectedPetId) ?? pets[0];
+function PetsView({ petProfiles, selectedPetId, setSelectedPetId, setAddPetOpen, setActiveView, notify }: { petProfiles: Pet[]; selectedPetId: string; setSelectedPetId: (id: string) => void; setAddPetOpen: (value: boolean) => void; setActiveView: (view: AppView) => void; notify: Notify }) {
+  const pet = petProfiles.find((item) => item.id === selectedPetId) ?? petProfiles[0] ?? pets[0];
   return (
     <div className="two-column-page">
       <section>
         <div className="pet-card-grid">
-          {pets.map((item) => (
+          {petProfiles.map((item) => (
             <button className={`pet-profile-card ${selectedPetId === item.id ? "selected" : ""}`} type="button" key={item.id} onClick={() => setSelectedPetId(item.id)}>
-              <span className="pet-profile-avatar" style={{ background: `${item.color}24` }}>{item.avatar}<i><Icon name="check" size={11} /></i></span>
+              <span className="pet-profile-avatar" style={{ background: `${item.color}24` }}>{item.photoUrl ? <img src={item.photoUrl} alt={item.name} /> : item.avatar}<i><Icon name="check" size={11} /></i></span>
               <span className="pet-profile-copy"><b>{item.name}</b><small>{item.breed}</small><em>{item.gender} • {item.age}</em></span>
               <span className="pet-score-small"><b>{item.healthScore}</b><small>Health</small></span>
             </button>

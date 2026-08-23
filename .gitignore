@@ -30,6 +30,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+!**/.env.example
 
 # vercel
 .vercel
@@ -42,3 +44,7 @@ next-env.d.ts
 /.sites-runtime/
 /outputs/
 /work/
+
+# runtime API data
+/services/petowner-api/data/*.json
+!/services/petowner-api/data/.gitkeep

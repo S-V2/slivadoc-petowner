@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import * as ExpoLocation from "expo-location";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { HomeScreen } from "./src/screens/HomeScreen";
@@ -19,17 +20,21 @@ import { DiscoverScreen } from "./src/screens/DiscoverScreen";
 import { ActivityScreen } from "./src/screens/ActivityScreen";
 import { HealthScreen } from "./src/screens/HealthScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
+import { CommunityScreen } from "./src/screens/CommunityScreen";
 import { pets, services, type Service } from "./src/data";
 import { colors, shadow } from "./src/theme";
 import { Pill, PrimaryButton, SoftButton } from "./src/components/ui";
+import { reverseGeocode } from "./src/api";
+import { SlivaCareModal } from "./src/components/SlivaCareModal";
 
-type Tab = "home" | "discover" | "activity" | "health" | "profile";
+type Tab = "home" | "discover" | "activity" | "health" | "community" | "profile";
 
 const tabs: { id: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; activeIcon: keyof typeof Ionicons.glyphMap }[] = [
   { id: "home", label: "Beranda", icon: "home-outline", activeIcon: "home" },
   { id: "discover", label: "Jelajahi", icon: "search-outline", activeIcon: "search" },
   { id: "activity", label: "Aktivitas", icon: "calendar-outline", activeIcon: "calendar" },
   { id: "health", label: "Kesehatan", icon: "heart-outline", activeIcon: "heart" },
+  { id: "community", label: "Komunitas", icon: "people-outline", activeIcon: "people" },
   { id: "profile", label: "Akun", icon: "person-outline", activeIcon: "person" },
 ];
 
@@ -40,6 +45,7 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<Service>(services[0]);
+  const [locationTitle, setLocationTitle] = useState("Pilih lokasi spesifik");
 
   const notify = (message: string) => setToast(message);
   useEffect(() => {
@@ -49,16 +55,28 @@ export default function App() {
   }, [toast]);
 
   const openBooking = (service: Service = services[0]) => { setSelectedService(service); setBookingOpen(true); };
+  const updateLocation = async () => {
+    try {
+      const permission = await ExpoLocation.requestForegroundPermissionsAsync();
+      if (permission.status !== "granted") return notify("Izin lokasi diperlukan untuk mencari layanan terdekat");
+      notify("Mendeteksi lokasi perangkat...");
+      const position = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.High });
+      const result = await reverseGeocode(position.coords.latitude, position.coords.longitude);
+      setLocationTitle(result.label.split(",").slice(0, 3).join(", "));
+      notify("Lokasi layanan berhasil diperbarui");
+    } catch (cause) { notify(cause instanceof Error ? cause.message : "Lokasi belum dapat ditemukan"); }
+  };
 
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.app}>
-          {tab === "home" ? <HomeScreen onAction={notify} onBook={openBooking} onOpenChat={() => setChatOpen(true)} onOpenNotifications={() => setNotificationsOpen(true)} onNavigate={(next) => setTab(next)} /> : null}
+          {tab === "home" ? <HomeScreen onAction={notify} onBook={openBooking} onOpenChat={() => setChatOpen(true)} onOpenNotifications={() => setNotificationsOpen(true)} locationTitle={locationTitle} onLocation={updateLocation} onNavigate={(next) => setTab(next)} /> : null}
           {tab === "discover" ? <DiscoverScreen onBook={openBooking} onAction={notify} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
           {tab === "activity" ? <ActivityScreen onAction={notify} onBook={() => openBooking()} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
           {tab === "health" ? <HealthScreen onAction={notify} onBook={() => openBooking()} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
+          {tab === "community" ? <CommunityScreen onAction={notify} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
           {tab === "profile" ? <ProfileScreen onAction={notify} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
 
           <View style={styles.tabBar}>
@@ -71,7 +89,7 @@ export default function App() {
       </SafeAreaView>
 
       <NotificationModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} onAction={notify} />
-      <ChatModal visible={chatOpen} onClose={() => setChatOpen(false)} onAction={notify} />
+      <SlivaCareModal visible={chatOpen} onClose={() => setChatOpen(false)} onAction={notify} />
       <BookingModal visible={bookingOpen} service={selectedService} onClose={() => setBookingOpen(false)} onDone={() => { setBookingOpen(false); setTab("activity"); notify("Booking berhasil dibuat"); }} />
       {toast ? <View style={styles.toast}><View style={styles.toastCheck}><Ionicons name="checkmark" size={13} color={colors.white} /></View><Text style={styles.toastText}>{toast}</Text></View> : null}
     </SafeAreaProvider>

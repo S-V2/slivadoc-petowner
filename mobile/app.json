@@ -18,7 +18,8 @@
       "bundleIdentifier": "com.slivadoc.petowner",
       "infoPlist": {
         "NSCameraUsageDescription": "Slivadoc menggunakan kamera untuk foto profil hewan dan dokumen kesehatan.",
-        "NSPhotoLibraryUsageDescription": "Slivadoc menggunakan galeri untuk melampirkan foto dan dokumen hewan."
+        "NSPhotoLibraryUsageDescription": "Slivadoc menggunakan galeri untuk melampirkan foto dan dokumen hewan.",
+        "NSLocationWhenInUseUsageDescription": "Slivadoc menggunakan lokasi untuk menemukan layanan dan komunitas hewan terdekat."
       }
     },
     "android": {
@@ -28,11 +29,15 @@
         "backgroundColor": "#EAF8FF"
       },
       "predictiveBackGestureEnabled": true,
-      "permissions": ["CAMERA"]
+      "permissions": ["CAMERA", "ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
     },
-    "plugins": [],
+    "plugins": [
+      ["expo-location", { "locationWhenInUsePermission": "Izinkan Slivadoc menggunakan lokasi untuk menemukan layanan hewan terdekat." }],
+      ["expo-image-picker", { "photosPermission": "Izinkan Slivadoc memilih foto hewan dan dokumen kesehatan." }]
+    ],
     "extra": {
-      "apiBaseUrl": "http://localhost:8080"
+      "apiBaseUrl": "http://localhost:8080",
+      "petOwnerApiUrl": "http://localhost:8090"
     }
   }
 }

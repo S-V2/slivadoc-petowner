@@ -1,0 +1,50 @@
+[
+  {
+    "id": "emergency-red-flags",
+    "topics": ["darurat", "sesak", "kejang", "keracunan", "pendarahan", "tidak sadar", "tertabrak", "muntah terus"],
+    "title": "Tanda darurat pada hewan",
+    "content": "Kesulitan bernapas, kejang berulang atau lebih dari lima menit, tidak sadar, pendarahan berat, dugaan keracunan, tertabrak, perut membesar mendadak, atau muntah/diare terus disertai lemas adalah kondisi darurat. Hubungi dokter hewan atau klinik 24 jam segera. Jangan memaksa makan, minum, atau memberikan obat manusia."
+  },
+  {
+    "id": "nutrition-basics",
+    "topics": ["makan", "nutrisi", "diet", "obesitas", "berat", "pakan", "anjing", "kucing"],
+    "title": "Nutrisi dasar",
+    "content": "Gunakan pakan lengkap dan seimbang sesuai spesies, tahap usia, ukuran, kondisi tubuh, dan rekomendasi dokter. Perubahan pakan dilakukan bertahap selama sekitar 5-7 hari. Air bersih harus selalu tersedia. Cokelat, xylitol, bawang, anggur/kismis, alkohol, dan obat manusia dapat berbahaya bagi hewan tertentu."
+  },
+  {
+    "id": "vaccination",
+    "topics": ["vaksin", "rabies", "dhppi", "jadwal", "anak anjing", "anak kucing"],
+    "title": "Vaksinasi",
+    "content": "Jadwal vaksin ditentukan dokter berdasarkan spesies, usia, riwayat, risiko lingkungan, dan regulasi setempat. Hewan sebaiknya diperiksa terlebih dahulu dan berada dalam kondisi sehat saat vaksinasi. Simpan sertifikat serta tanggal vaksin berikutnya di rekam medis."
+  },
+  {
+    "id": "parasite-prevention",
+    "topics": ["kutu", "caplak", "cacing", "parasit", "gatal"],
+    "title": "Pencegahan parasit",
+    "content": "Pencegahan kutu, caplak, dan cacing perlu disesuaikan dengan spesies, berat badan, usia, gaya hidup, dan wilayah. Jangan memakai produk anjing pada kucing tanpa persetujuan dokter karena bahan tertentu dapat toksik."
+  },
+  {
+    "id": "medicine-safety",
+    "topics": ["obat", "dosis", "antibiotik", "parasetamol", "ibuprofen", "resep"],
+    "title": "Keamanan obat",
+    "content": "Jangan memberikan obat manusia atau mengubah dosis obat hewan tanpa arahan dokter. Parasetamol dan ibuprofen dapat sangat berbahaya pada hewan tertentu. Dosis yang aman memerlukan pemeriksaan spesies, berat badan, umur, kondisi organ, diagnosis, dan interaksi obat."
+  },
+  {
+    "id": "digestive-care",
+    "topics": ["muntah", "diare", "tidak mau makan", "pencernaan", "feses"],
+    "title": "Masalah pencernaan",
+    "content": "Catat frekuensi, durasi, warna, adanya darah, makanan terakhir, kemungkinan benda asing atau racun, serta kondisi energi dan hidrasi. Anak hewan, hewan senior, atau gejala disertai darah, lemas, nyeri, dan dehidrasi memerlukan pemeriksaan lebih cepat."
+  },
+  {
+    "id": "skin-care",
+    "topics": ["kulit", "bulu", "gatal", "alergi", "grooming", "rontok"],
+    "title": "Kulit dan grooming",
+    "content": "Gatal dapat disebabkan parasit, alergi, infeksi, atau faktor lain. Hindari sampo manusia dan produk beraroma keras. Foto area kulit, catat pemicu dan durasi, lalu konsultasikan bila ada luka, bau, nanah, kerontokan meluas, atau hewan terus menggaruk."
+  },
+  {
+    "id": "behavior-welfare",
+    "topics": ["perilaku", "stres", "cemas", "agresif", "latihan", "enrichment"],
+    "title": "Perilaku dan kesejahteraan",
+    "content": "Perubahan perilaku mendadak dapat berkaitan dengan nyeri atau penyakit. Gunakan penguatan positif, rutinitas konsisten, aktivitas sesuai spesies, tempat aman, dan konsultasi dokter sebelum menyimpulkan masalah murni perilaku."
+  }
+]

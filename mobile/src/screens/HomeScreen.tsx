@@ -11,10 +11,12 @@ type Props = {
   onBook: (service?: Service) => void;
   onOpenChat: () => void;
   onOpenNotifications: () => void;
+  locationTitle: string;
+  onLocation: () => void;
   onNavigate: (tab: "discover" | "activity" | "health") => void;
 };
 
-export function HomeScreen({ onAction, onBook, onOpenChat, onOpenNotifications, onNavigate }: Props) {
+export function HomeScreen({ onAction, onBook, onOpenChat, onOpenNotifications, locationTitle, onLocation, onNavigate }: Props) {
   const pet = pets[0];
   const quickActions = [
     { label: "Booking", note: "Klinik", icon: "calendar", emoji: "📅", color: colors.sky50, onPress: () => onBook() },
@@ -26,7 +28,7 @@ export function HomeScreen({ onAction, onBook, onOpenChat, onOpenNotifications, 
 
   return (
     <Screen>
-      <TopHeader title="Kebayoran Baru, Jakarta" subtitle="Lokasi kamu" onNotification={onOpenNotifications} />
+      <Pressable onPress={onLocation}><TopHeader title={locationTitle} subtitle="Lokasi kamu • ketuk untuk perbarui" onNotification={onOpenNotifications} /></Pressable>
       <View style={styles.greetingRow}>
         <View>
           <Text style={styles.greeting}>Selamat siang, Evans! 👋</Text>

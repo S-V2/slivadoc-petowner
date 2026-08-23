@@ -11,13 +11,15 @@ export type AppView =
 export type Pet = {
   id: string;
   name: string;
-  type: "Dog" | "Cat";
+  type: "Dog" | "Cat" | "Rabbit" | "Bird" | "Other";
   breed: string;
   age: string;
   weight: string;
   gender: string;
   color: string;
   avatar: string;
+  photoUrl?: string;
+  birthDate?: string;
   healthScore: number;
   nextCare: string;
   microchip: string;

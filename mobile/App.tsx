@@ -21,17 +21,19 @@ import { ActivityScreen } from "./src/screens/ActivityScreen";
 import { HealthScreen } from "./src/screens/HealthScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { CommunityScreen } from "./src/screens/CommunityScreen";
+import { WorldScreen } from "./src/screens/WorldScreen";
 import { pets, services, type Service } from "./src/data";
 import { colors, shadow } from "./src/theme";
 import { Pill, PrimaryButton, SoftButton } from "./src/components/ui";
 import { reverseGeocode } from "./src/api";
 import { SlivaCareModal } from "./src/components/SlivaCareModal";
 
-type Tab = "home" | "discover" | "activity" | "health" | "community" | "profile";
+type Tab = "home" | "discover" | "world" | "activity" | "health" | "community" | "profile";
 
 const tabs: { id: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; activeIcon: keyof typeof Ionicons.glyphMap }[] = [
   { id: "home", label: "Beranda", icon: "home-outline", activeIcon: "home" },
   { id: "discover", label: "Jelajahi", icon: "search-outline", activeIcon: "search" },
+  { id: "world", label: "World", icon: "planet-outline", activeIcon: "planet" },
   { id: "activity", label: "Aktivitas", icon: "calendar-outline", activeIcon: "calendar" },
   { id: "health", label: "Kesehatan", icon: "heart-outline", activeIcon: "heart" },
   { id: "community", label: "Komunitas", icon: "people-outline", activeIcon: "people" },
@@ -74,6 +76,7 @@ export default function App() {
         <View style={styles.app}>
           {tab === "home" ? <HomeScreen onAction={notify} onBook={openBooking} onOpenChat={() => setChatOpen(true)} onOpenNotifications={() => setNotificationsOpen(true)} locationTitle={locationTitle} onLocation={updateLocation} onNavigate={(next) => setTab(next)} /> : null}
           {tab === "discover" ? <DiscoverScreen onBook={openBooking} onAction={notify} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
+          {tab === "world" ? <WorldScreen onAction={notify} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
           {tab === "activity" ? <ActivityScreen onAction={notify} onBook={() => openBooking()} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
           {tab === "health" ? <HealthScreen onAction={notify} onBook={() => openBooking()} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
           {tab === "community" ? <CommunityScreen onAction={notify} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}

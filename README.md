@@ -12,6 +12,10 @@ Aplikasi end-user Slivadoc dalam satu monorepo: web responsive dan mobile Androi
 - Chat care team realtime melalui Socket.IO
 - SlivaCare Assistant dengan kurasi pengetahuan pet, topic gate, Moderation API, konteks profil pet, dan emergency escalation
 - Expo app untuk Android dan iOS dengan lokasi, SlivaCare, komunitas, serta upload foto
+- Sliva Academy: katalog training, profil trainer, jadwal, detail, dan enrollment
+- Pet Event: featured banner, detail acara, kapasitas, tiket, dan registrasi
+- PetSpot: discovery cafe, mall, taman, dan lokasi pet-friendly berbasis jarak
+- PetHub: live streaming, channel, feed, pet thread, reaction, komentar, share, dan composer
 
 ## Persyaratan
 
@@ -51,6 +55,9 @@ npm run dev
 
 Buka alamat lokal yang ditampilkan Vite, biasanya `http://localhost:5173`.
 
+Fitur Sliva Academy, Pet Event, PetSpot, dan PetHub membaca data dari API utama
+Slivadoc di `NEXT_PUBLIC_PLATFORM_API_URL` (default `http://localhost:8080`).
+
 ## 3. Menjalankan mobile Android/iOS
 
 Buka terminal ketiga:
@@ -66,6 +73,9 @@ Tekan `a` untuk Android Emulator atau `i` untuk iOS Simulator. Default koneksi A
 - Android Emulator: `http://10.0.2.2:8090`
 - iOS Simulator: `http://localhost:8090`
 - HP fisik: salin `mobile/.env.example` menjadi `mobile/.env`, lalu ganti dengan IP LAN komputer, misalnya `http://192.168.1.10:8090`
+
+Isi juga `EXPO_PUBLIC_PLATFORM_API_URL` dengan host backend utama pada port
+`8080` agar Sliva World memakai data produksi yang sama dengan dashboard.
 
 HP dan komputer harus berada di Wi-Fi yang sama. Pastikan port `8090` tidak diblokir firewall.
 
@@ -111,8 +121,12 @@ Development memakai geolocation browser/native serta OpenStreetMap/Nominatim mel
 | Komunitas | `GET/POST /api/community/posts`, like, comments |
 | Realtime komunitas | `community:join`, `community:new-post`, `community:update` |
 | Realtime chat | `chat:join`, `chat:history`, `chat:send`, `chat:message` |
+| Sliva Academy | `GET /api/v1/public/academy/programs`, `POST /api/v1/academy/enrollments` |
+| Pet Event | `GET /api/v1/public/events`, `POST /api/v1/events/{eventID}/registrations` |
+| PetSpot | `GET /api/v1/public/petspots` dengan koordinat opsional |
+| PetHub | public feed/streams, create thread, dan reaction di `/api/v1/pethub/*` |
 
-Gateway saat ini menyimpan posting dan chat ke file JSON lokal di `services/petowner-api/data/`. Ini cocok untuk development/demo. Tahap produksi berikutnya adalah memindahkan route ke `slivadoc-backend`, memakai PostgreSQL, auth bearer Slivadoc, signed user identity, object moderation, push notification, dan horizontal scaling Socket.IO dengan Redis adapter.
+Gateway menyimpan posting komunitas lama dan chat ke file JSON lokal untuk development. Modul Sliva World sudah terhubung ke `slivadoc-backend`, PostgreSQL, dan bearer session Slivadoc; UI menyediakan fallback lokal agar tetap dapat dipreview ketika backend belum dinyalakan.
 
 ## Validasi
 

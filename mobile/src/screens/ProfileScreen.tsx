@@ -1,51 +1,42 @@
-import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
 import { colors, shadow } from "../theme";
 import { Card, Pill, Screen, SectionTitle, SoftButton, TopHeader } from "../components/ui";
+import type { MobileOwner } from "../api";
 
-export function ProfileScreen({ onAction, onOpenNotifications }: { onAction: (message: string) => void; onOpenNotifications: () => void }) {
-  const [careReminder, setCareReminder] = useState(true);
+export function ProfileScreen({ onAction, onOpenNotifications,owner,petCount,activityCount,points,onLogin,onLogout }: { onAction: (message: string) => void; onOpenNotifications: () => void;owner?:MobileOwner;petCount:number;activityCount:number;points:number;onLogin:()=>void;onLogout:()=>void }) {
+  if(!owner)return <Screen><TopHeader title="Akun" subtitle="Pet Owner Slivadoc" onNotification={onOpenNotifications}/><Card style={styles.settings}><View style={styles.profileRow}><View style={styles.avatar}><Ionicons name="person-outline" size={30} color={colors.sky600}/></View><View style={styles.profileCopy}><Text style={styles.name}>Masuk ke akunmu</Text><Text style={styles.meta}>Profil akun hanya ditampilkan setelah login berhasil.</Text></View></View><SoftButton label="Masuk sebagai Pet Owner" icon="log-in-outline" onPress={onLogin}/></Card></Screen>;
+  const initials=owner.full_name.split(" ").map(item=>item[0]).slice(0,2).join("").toUpperCase();
   return <Screen>
     <TopHeader title="Akun & Keluarga" subtitle="Profil pet parent" onNotification={onOpenNotifications} />
     <Card style={styles.profileCard}>
       <LinearGradient colors={[colors.sky500, "#61BDEC", colors.violet]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cover}><Text style={styles.coverText}>SLIVADOC PET FAMILY</Text></LinearGradient>
-      <View style={styles.profileRow}><View style={styles.avatar}><Text style={styles.avatarText}>EM</Text><Pressable onPress={() => onAction("Ubah foto profil")} style={styles.camera}><Ionicons name="camera" size={13} color={colors.white} /></Pressable></View><View style={styles.profileCopy}><Text style={styles.name}>Evans Moris Cheahn</Text><Text style={styles.meta}>Pet Parent sejak April 2026</Text><Pill tone="yellow">✦ GOLD MEMBER</Pill></View><Pressable onPress={() => onAction("Mode edit profil diaktifkan")} style={styles.edit}><Ionicons name="create-outline" size={16} color={colors.sky600} /></Pressable></View>
-      <View style={styles.stats}><Stat value="2" label="Hewan" /><Stat value="12" label="Booking" /><Stat value="2.450" label="Points" /><Stat value="Gold" label="Member" /></View>
+      <View style={styles.profileRow}><View style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View><View style={styles.profileCopy}><Text style={styles.name}>{owner.full_name}</Text><Text style={styles.meta}>{owner.email} · sejak {new Date(owner.member_since).toLocaleDateString("id-ID",{month:"long",year:"numeric"})}</Text><Pill tone="mint">✓ AKUN AKTIF</Pill></View><Pressable onPress={() => onAction("Edit profil tersedia melalui data akun Slivadoc")} style={styles.edit}><Ionicons name="create-outline" size={16} color={colors.sky600} /></Pressable></View>
+      <View style={styles.stats}><Stat value={String(petCount)} label="Hewan" /><Stat value={String(activityCount)} label="Aktivitas" /><Stat value={points.toLocaleString("id-ID")} label="Points" /><Stat value={points>0?"Member":"Regular"} label="Status" /></View>
     </Card>
 
-    <SectionTitle eyebrow="KEANGGOTAAN" title="SlivaCare+ Family" />
+    <SectionTitle eyebrow="SLIVA POINT" title="Saldo dan aturan klaim" />
     <LinearGradient colors={["#158FD5", "#4AB5EA", "#776DE1"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.memberCard}>
-      <View style={styles.memberTop}><View style={styles.shield}><Ionicons name="shield-checkmark" size={21} color={colors.white} /></View><View style={styles.memberCopy}><Text style={styles.memberName}>Family Protection</Text><Text style={styles.memberNote}>Milo & Luna terlindungi</Text></View><Pill tone="mint">AKTIF</Pill></View>
-      <Text style={styles.price}>Rp149.000<Text style={styles.pricePeriod}>/bulan</Text></Text>
-      <View style={styles.benefits}><Benefit text="Konsultasi chat tanpa batas" /><Benefit text="Cashback perawatan hingga 20%" /><Benefit text="Emergency assistance 24/7" /></View>
-      <Pressable onPress={() => onAction("Detail benefit SlivaCare+ dibuka")} style={styles.memberButton}><Text style={styles.memberButtonText}>Kelola langganan</Text><Ionicons name="chevron-forward" size={16} color={colors.white} /></Pressable>
+      <View style={styles.memberTop}><View style={styles.shield}><Text style={{color:colors.white}}>✦</Text></View><View style={styles.memberCopy}><Text style={styles.memberName}>{points.toLocaleString("id-ID")} Sliva Points</Text><Text style={styles.memberNote}>{points?"Tersedia untuk klaim sesuai syarat":"Belum ada transaksi lunas"}</Text></View><Pill tone="mint">API</Pill></View>
+      <View style={styles.benefits}><Benefit text="floor(nilai transaksi bersih ÷ Rp10.000)" /><Benefit text="Dikalikan multiplier membership" /><Benefit text="Refund membatalkan poin transaksi" /></View>
     </LinearGradient>
-
-    <SectionTitle eyebrow="PEMBAYARAN" title="Dompet & metode bayar" />
-    <Card style={styles.walletSection}>
-      <Pressable onPress={() => onAction("Riwayat SlivaPay dibuka")} style={styles.wallet}><View style={styles.walletIcon}><Ionicons name="wallet" size={20} color={colors.white} /></View><View style={styles.walletCopy}><Text style={styles.walletLabel}>Saldo SlivaPay</Text><Text style={styles.walletValue}>Rp425.000</Text></View><Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,.8)" /></Pressable>
-      <Payment logo="VISA" name="•••• 8421" note="Kartu utama" onPress={() => onAction("Kelola kartu Visa")} /><Payment logo="GP" name="GoPay" note="Terhubung" onPress={() => onAction("Kelola GoPay")} /><SoftButton label="Tambah metode pembayaran" icon="add" onPress={() => onAction("Tambah metode pembayaran")} />
-    </Card>
 
     <SectionTitle eyebrow="PREFERENSI" title="Pengaturan akun" />
     <Card style={styles.settings}>
-      <Setting icon="notifications-outline" title="Pengingat perawatan" note="Vaksin, obat, grooming" right={<Switch value={careReminder} onValueChange={setCareReminder} trackColor={{ false: "#DCE4EA", true: colors.sky100 }} thumbColor={careReminder ? colors.sky500 : colors.white} />} />
-      <Setting icon="people-outline" title="Keluarga & akses" note="2 anggota memiliki akses" onPress={() => onAction("Akses keluarga dibuka")} />
+      <Setting icon="notifications-outline" title="Notifikasi" note="Kategori kesehatan, booking, order, dan keamanan" onPress={onOpenNotifications}/>
+      <Setting icon="people-outline" title="Keluarga & akses" note="Kelola akses setiap pet" onPress={() => onAction("Akses keluarga dibuka")} />
       <Setting icon="shield-checkmark-outline" title="Privasi & keamanan" note="PIN, biometrik, sesi aktif" onPress={() => onAction("Keamanan akun dibuka")} />
-      <Setting icon="location-outline" title="Alamat tersimpan" note="Rumah, kantor, dan 1 lainnya" onPress={() => onAction("Alamat tersimpan dibuka")} />
-      <Setting icon="language-outline" title="Bahasa & tampilan" note="Bahasa Indonesia • Sistem" onPress={() => onAction("Bahasa dan tampilan dibuka")} />
-      <Setting icon="cloud-download-outline" title="Data & dokumen" note="Unduh arsip data Slivadoc" onPress={() => onAction("Arsip data disiapkan")} last />
+      <Setting icon="mail-outline" title="Email login" note={owner.email} onPress={() => onAction(owner.email)} />
+      <Setting icon="call-outline" title="Nomor telepon" note={owner.phone||"Belum diisi"} onPress={() => onAction(owner.phone||"Nomor belum diisi")} last />
     </Card>
 
-    <View style={styles.footer}><Pressable onPress={() => onAction("Pusat bantuan dibuka")}><Text style={styles.footerLink}>Pusat Bantuan</Text></Pressable><Pressable onPress={() => onAction("Syarat dan privasi dibuka")}><Text style={styles.footerLink}>Syarat & Privasi</Text></Pressable><Pressable onPress={() => onAction("Konfirmasi keluar diperlukan")}><Text style={styles.logout}>Keluar</Text></Pressable><Text style={styles.version}>Slivadoc Pet Owner v0.1.0 • UI Prototype</Text></View>
+    <View style={styles.footer}><Pressable onPress={() => onAction("Pusat bantuan dibuka")}><Text style={styles.footerLink}>Pusat Bantuan</Text></Pressable><Pressable onPress={() => onAction("Syarat dan privasi dibuka")}><Text style={styles.footerLink}>Syarat & Privasi</Text></Pressable><Pressable onPress={onLogout}><Text style={styles.logout}>Keluar</Text></Pressable><Text style={styles.version}>Slivadoc Pet Owner Mobile</Text></View>
   </Screen>;
 }
 
 function Stat({ value, label }: { value: string; label: string }) { return <View style={styles.stat}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>; }
 function Benefit({ text }: { text: string }) { return <View style={styles.benefit}><View style={styles.benefitCheck}><Ionicons name="checkmark" size={10} color={colors.sky600} /></View><Text style={styles.benefitText}>{text}</Text></View>; }
-function Payment({ logo, name, note, onPress }: { logo: string; name: string; note: string; onPress: () => void }) { return <Pressable onPress={onPress} style={styles.payment}><View style={styles.paymentLogo}><Text style={styles.paymentLogoText}>{logo}</Text></View><View style={styles.paymentCopy}><Text style={styles.paymentName}>{name}</Text><Text style={styles.paymentNote}>{note}</Text></View><Ionicons name="chevron-forward" size={16} color="#A2ADBA" /></Pressable>; }
 function Setting({ icon, title, note, onPress, right, last }: { icon: keyof typeof Ionicons.glyphMap; title: string; note: string; onPress?: () => void; right?: React.ReactNode; last?: boolean }) { return <Pressable disabled={!onPress} onPress={onPress} style={[styles.setting, last && styles.noBorder]}><View style={styles.settingIcon}><Ionicons name={icon} size={19} color={colors.sky600} /></View><View style={styles.settingCopy}><Text style={styles.settingTitle}>{title}</Text><Text style={styles.settingNote}>{note}</Text></View>{right ?? <Ionicons name="chevron-forward" size={17} color="#A3AFBC" />}</Pressable>; }
 
 const styles = StyleSheet.create({

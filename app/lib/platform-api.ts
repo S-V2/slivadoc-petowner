@@ -16,7 +16,8 @@ export type GlobalSearchResult = { category:string;id:string;title:string;subtit
 export type MedicalRecord = { id:string;record_type:string;title:string;complaint:string;diagnosis:string;treatment:string;clinical_notes:string;doctor_name:string;occurred_at:string;weight_kg?:number;temperature_c?:number;attachments:unknown[];prescriptions:unknown[];next_control_at?:string };
 export type CommunityPost = { id:string;user_id:string;author_name:string;pet_id:string;pet_name:string;group_id:string;group_name:string;body:string;category:string;image_url:string;location:string;like_count:number;comment_count:number;liked:boolean;created_at:string };
 export type CommunityComment = { id:string;user_id:string;author_name:string;body:string;parent_id?:string;created_at:string };
-export type CommunityGroup = { id:string;name:string;slug:string;description:string;category:string;city:string;cover_url:string;visibility:string;member_count:number;owner:boolean;joined:boolean };
+export type CommunityGroup = { id:string;name:string;slug:string;description:string;category:string;city:string;cover_url:string;visibility:string;member_count:number;owner:boolean;joined:boolean;membership_status?:""|"pending"|"active"|"blocked" };
+export type CommunityGroupMessage = { id:string;sender_user_id:string;sender_name:string;body:string;created_at:string;mine:boolean };
 export type AcademyProgram = { id: string; academy_id: string; academy_name: string; title: string; category: string; level: string; description: string; duration_weeks: number; session_count: number; price: number; capacity: number; cover_url: string; status: string; trainer_name: string; trainer_rating: number; next_schedule: string };
 export type PetEvent = { id: string; title: string; slug: string; category: string; description: string; banner_url: string; venue: string; address: string; city: string; latitude?: number; longitude?: number; starts_at: string; ends_at: string; capacity: number; registered_count: number; price: number; status: string; featured: boolean };
 export type PetSpot = { id: string; name: string; category: string; description: string; address: string; city: string; latitude: number; longitude: number; phone: string; website_url: string; cover_url: string; pet_facilities: string[]; opening_hours: Record<string,string>; rating: number; review_count: number; verified: boolean; distance_km?: number };
@@ -25,14 +26,16 @@ export type PetHubPost = { id: string; channel_id?:string; author_name: string; 
 export type Veterinarian = { id: string; full_name: string; strv_number: string; specialties: string[]; bio: string; photo_url: string; experience_years: number; rating: number; consultation_count: number; languages: string[]; availability_status: string; starting_price: number };
 export type ConsultationPlan = { id: string; veterinarian_id: string; doctor_name: string; name: string; mode: "chat"|"voice"|"video"|"bundle"; description: string; duration_minutes: number; followup_days: number; chat_quota: number; voice_minutes: number; video_minutes: number; price: number; discount_percent: number; features: string[] };
 export type Consultation = { id: string; order_number: string; room_key: string; amount: number; status: string; payment_status?: string; doctor_name?: string; plan_name?: string; mode?: string; pet_name?: string; scheduled_at?: string; payment?: { method?: string; status?: string; mode?: string; qr_string?: string; actions?: Array<{name?:string;method?:string;url?:string}> } };
-export type AdoptionListing = { id: string; name: string; species: string; breed: string; sex: string; age_months: number; size: string; city: string; description: string; personality: string[]; health_status: string; vaccinated: boolean; sterilized: boolean; photo_urls: string[]; adoption_fee: number; featured: boolean };
+export type AdoptionListing = { id: string; name: string; species: string; breed: string; sex: string; age_months: number; size: string; city: string; description: string; personality: string[]; health_status: string; vaccinated: boolean; sterilized: boolean; photo_urls: string[]; adoption_fee: number; featured: boolean; source_type:string; submitted_by_name:string };
+export type CareReminder = { id:string;pet_id:string;pet_name:string;reminder_type:string;title:string;notes:string;due_at:string;timezone:string;recurrence:string;recurrence_days?:number;lead_minutes:number[];channels:string[];status:string;last_completed_at?:string };
 export type DocumentProduct = { id: string; code: string; name: string; category: string; description: string; requirements: string[]; processing_days: number; service_fee: number; government_fee: number; total_fee: number };
 export type PetHubComment = { id: string; user_id: string; author_name: string; content: string; created_at: string };
 export type PetHubStory = { id: string; user_id: string; author_name: string; photo_url: string; caption: string; view_count: number; expires_at: string; created_at: string };
 export type PawDatingProfile = { id: string; pet_id?: string; name: string; species: string; breed: string; sex: "male"|"female"; birth_date: string; age_months: number; weight_kg: number; color: string; city: string; distance_km?: number; profile_level: number; level_name: string; pedigree_status: string; description: string; temperament: string[]; traits: string[]; preferred_breeds?: string[]; photo_urls: string[]; health_score: number; breeding_history_count: number; health_verification: string; eligibility_status: string; risk_level: string; health_valid_until: string; owner_display: string; status?: string; visibility?: string; health_report?: PawDatingHealthReport };
 export type PawDatingHealthReport = { id: string; examination_at: string; valid_until: string; clinic_name: string; veterinarian_name: string; veterinarian_license: string; verification_level: number; verification_status: string; eligibility_status: string; risk_level: string; physical_exam?: Record<string,string>; vaccination_checks?: Record<string,string>; parasite_checks?: Record<string,string>; infectious_disease_tests?: Record<string,string>; reproductive_tests?: Record<string,string>; genetic_tests?: Array<{test:string;result:string}>; orthopedic_checks?: Record<string,string>; cardiac_checks?: Record<string,string>; ophthalmic_checks?: Record<string,string>; laboratory_results?: Array<{panel:string;result:string}>; findings: string; recommendations: string; restrictions: string[] };
 export type PawDatingCompatibility = { score: number; grade: "excellent"|"good"|"manual_review"|"blocked"; breakdown: Record<string,number>; risk_flags: string[]; recommendations: string[] };
-export type PawDatingInterest = { id:string; status:string; interest_type:string; introduction_message:string; created_at:string; source_profile_id:string; source_name:string; target_profile_id:string; target_name:string; direction:"incoming"|"outgoing" };
+export type PawDatingInterest = { id:string; status:string; interest_type:string; introduction_message:string; created_at:string; source_profile_id:string; source_name:string; target_profile_id:string; target_name:string; direction:"incoming"|"outgoing";match_id?:string };
+export type PawDatingMessage = { id:string;sender_user_id:string;sender_name:string;message_type:string;body:string;attachment_url:string;read_at?:string;created_at:string };
 export type PawDatingStandards = { principles:string[]; levels:Array<{level:number;name:string;requirements:string[]}>; minimum_age_months:Record<string,number>; report_validity_days:number; blocked_conditions:string[] };
 
 function accessToken() {
@@ -59,7 +62,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if(method!=="GET"&&active){active.disabled=true;active.classList.add("api-button-loading");active.setAttribute("aria-busy","true")}
   const run=(async()=>{const response = await fetch(`${PLATFORM_API_URL}${path}`, { ...init, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers } });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.message ?? payload.error ?? "Platform API belum tersedia");
+    if (!response.ok) throw new Error(payload.message ?? payload.error ?? "Layanan sedang belum tersedia. Coba lagi sebentar.");
     if(method==="GET")responseCache.set(key,{expires:Date.now()+15_000,value:payload});else clearPlatformCache();
     return payload as T;})();
   if(method==="GET")inFlight.set(key,run);
@@ -84,6 +87,8 @@ export const simulateConsultationPaid = (id: string) => request<{consultation_id
 export const getMyConsultations = () => request<PlatformList<Consultation>>("/api/v1/consultations");
 export const getAdoptions = () => request<PlatformList<AdoptionListing>>("/api/v1/public/adoptions");
 export const applyAdoption = (listingId: string, input: Record<string, unknown>) => request<{id:string;status:string}>(`/api/v1/adoptions/${listingId}/applications`, { method: "POST", body: JSON.stringify(input) });
+export const getMyAdoptionListings = () => request<PlatformList<Record<string,unknown>>>("/api/v1/petowner/adoptions");
+export const createAdoptionListing = (input:Record<string,unknown>) => request<{id:string;status:string;message:string}>("/api/v1/petowner/adoptions",{method:"POST",body:JSON.stringify(input)});
 export const getDocumentProducts = () => request<PlatformList<DocumentProduct>>("/api/v1/public/pet-documents");
 export const createDocumentRequest = (input: Record<string, unknown>) => request<{id:string;request_number:string;amount:number;status:string}>("/api/v1/pet-document-requests", { method: "POST", body: JSON.stringify(input) });
 export const getPetHubComments = (postId: string) => request<PlatformList<PetHubComment>>(`/api/v1/pethub/posts/${postId}/comments`);
@@ -95,14 +100,19 @@ export const getPawDatingProfile = (profileId:string) => request<PawDatingProfil
 export const getPawDatingStandards = () => request<PawDatingStandards>("/api/v1/public/pawdating/standards");
 export const getMyPawDatingProfiles = () => request<PlatformList<PawDatingProfile>>("/api/v1/pawdating/profiles");
 export const createPawDatingProfile = (input:Record<string,unknown>) => request<{id:string;status:string;profile_level:number;message:string}>("/api/v1/pawdating/profiles", { method:"POST", body:JSON.stringify(input) });
+export const updatePawDatingProfile = (profileId:string,input:Record<string,unknown>) => request<{id:string;message:string}>(`/api/v1/pawdating/profiles/${profileId}`, { method:"PATCH", body:JSON.stringify(input) });
 export const createPawDatingHealthReport = (profileId:string,input:Record<string,unknown>) => request<{id:string;verification_status:string;message:string}>(`/api/v1/pawdating/profiles/${profileId}/health-reports`, { method:"POST", body:JSON.stringify(input) });
 export const submitPawDatingProfile = (profileId:string) => request<{id:string;status:string;message:string}>(`/api/v1/pawdating/profiles/${profileId}/submit`, { method:"POST" });
 export const getPawDatingCompatibility = (targetId:string,sourceId:string) => request<{compatibility:PawDatingCompatibility}>(`/api/v1/pawdating/profiles/${targetId}/compatibility?source_profile_id=${sourceId}`);
 export const sendPawDatingInterest = (targetId:string,input:{source_profile_id:string;interest_type:"interest"|"super_interest";introduction_message:string}) => request<{id:string;status:string;compatibility:PawDatingCompatibility;message:string}>(`/api/v1/pawdating/profiles/${targetId}/interests`, { method:"POST", body:JSON.stringify(input) });
 export const getPawDatingInterests = () => request<PlatformList<PawDatingInterest>>("/api/v1/pawdating/interests");
-export const respondPawDatingInterest = (interestId:string,action:"accept"|"decline") => request<{id:string;status:string;message?:string}>(`/api/v1/pawdating/interests/${interestId}`, { method:"PATCH", body:JSON.stringify({action}) });
+export const respondPawDatingInterest = (interestId:string,action:"accept"|"decline") => request<{id:string;status:string;match_id?:string;message?:string}>(`/api/v1/pawdating/interests/${interestId}`, { method:"PATCH", body:JSON.stringify({action}) });
+export const getPawDatingMessages = (matchId:string) => request<PlatformList<PawDatingMessage>>(`/api/v1/pawdating/matches/${matchId}/messages`);
+export const createPawDatingMessage = (matchId:string,body:string) => request<{id:string;created_at:string}>(`/api/v1/pawdating/matches/${matchId}/messages`, { method:"POST", body:JSON.stringify({message_type:"text",body}) });
+export const reportPawDatingProfile = (profileId:string,category:string,details:string) => request<{id:string;status:string;message:string}>("/api/v1/pawdating/reports", { method:"POST", body:JSON.stringify({profile_id:profileId,category,details,evidence_urls:[]}) });
 
 export const getPetOwnerBootstrap=()=>request<PetOwnerBootstrap>("/api/v1/petowner/bootstrap");
+export const updatePetOwnerProfile=(input:{full_name:string;phone:string})=>request<{full_name:string;phone:string;message:string}>("/api/v1/petowner/profile",{method:"PATCH",body:JSON.stringify(input)});
 export const createPetOwnerPet=(input:Record<string,unknown>)=>request<{id:string;message:string}>("/api/v1/petowner/pets",{method:"POST",body:JSON.stringify(input)});
 export const updatePetOwnerPet=(petId:string,input:Record<string,unknown>)=>request<{id:string;message:string}>(`/api/v1/petowner/pets/${petId}`,{method:"PATCH",body:JSON.stringify(input)});
 export const getPetFamily=(petId:string)=>request<PlatformList<FamilyAccess>>(`/api/v1/petowner/pets/${petId}/family`);
@@ -130,3 +140,9 @@ export const createCommunityComment=(postId:string,body:string)=>request<{id:str
 export const getCommunityGroups=(search="")=>request<PlatformList<CommunityGroup>>(`/api/v1/public/community/groups?search=${encodeURIComponent(search)}`);
 export const createCommunityGroup=(input:Record<string,unknown>)=>request<{id:string;slug:string;message:string}>("/api/v1/community/groups",{method:"POST",body:JSON.stringify(input)});
 export const joinCommunityGroup=(groupId:string)=>request<{joined:boolean;message:string}>(`/api/v1/community/groups/${groupId}/join`,{method:"POST"});
+export const getCommunityGroupMessages=(groupId:string)=>request<PlatformList<CommunityGroupMessage>>(`/api/v1/community/groups/${groupId}/messages`);
+export const createCommunityGroupMessage=(groupId:string,body:string)=>request<{id:string;created_at:string}>(`/api/v1/community/groups/${groupId}/messages`,{method:"POST",body:JSON.stringify({body})});
+export const getCareReminders=()=>request<PlatformList<CareReminder>>("/api/v1/petowner/reminders");
+export const createCareReminder=(input:Record<string,unknown>)=>request<{id:string;message:string}>("/api/v1/petowner/reminders",{method:"POST",body:JSON.stringify(input)});
+export const completeCareReminder=(id:string)=>request<{id:string;message:string}>(`/api/v1/petowner/reminders/${id}/complete`,{method:"POST"});
+export const snoozeCareReminder=(id:string,minutes:number)=>request<{id:string;message:string}>(`/api/v1/petowner/reminders/${id}/snooze`,{method:"POST",body:JSON.stringify({minutes})});

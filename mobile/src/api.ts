@@ -14,7 +14,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.answer ?? payload.message ?? payload.error ?? "Pet Owner API tidak tersedia");
+  if (!response.ok) throw new Error(payload.answer ?? payload.message ?? payload.error ?? "Layanan pet owner belum tersedia");
   return payload as T;
 }
 
@@ -37,7 +37,7 @@ async function platformRequest<T>(path: string, init?: RequestInit): Promise<T> 
       headers: { "Content-Type": "application/json", ...(platformAccessToken ? { Authorization: `Bearer ${platformAccessToken}` } : {}), ...init?.headers },
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.message ?? "Platform API tidak tersedia");
+    if (!response.ok) throw new Error(payload.message ?? "Layanan Slivadoc belum tersedia");
     if(method==="GET")mobileCache.set(key,{expires:Date.now()+15_000,value:payload});else mobileCache.clear();
     return payload as T;})();
   if(method==="GET")mobileInFlight.set(key,run);

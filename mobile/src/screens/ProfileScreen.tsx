@@ -18,7 +18,7 @@ export function ProfileScreen({ onAction, onOpenNotifications,owner,petCount,act
 
     <SectionTitle eyebrow="SLIVA POINT" title="Saldo dan aturan klaim" />
     <LinearGradient colors={["#158FD5", "#4AB5EA", "#776DE1"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.memberCard}>
-      <View style={styles.memberTop}><View style={styles.shield}><Text style={{color:colors.white}}>✦</Text></View><View style={styles.memberCopy}><Text style={styles.memberName}>{points.toLocaleString("id-ID")} Sliva Points</Text><Text style={styles.memberNote}>{points?"Tersedia untuk klaim sesuai syarat":"Belum ada transaksi lunas"}</Text></View><Pill tone="mint">API</Pill></View>
+      <View style={styles.memberTop}><View style={styles.shield}><Text style={{color:colors.white}}>✦</Text></View><View style={styles.memberCopy}><Text style={styles.memberName}>{points.toLocaleString("id-ID")} Sliva Points</Text><Text style={styles.memberNote}>{points?"Tersedia untuk klaim sesuai syarat":"Belum ada transaksi lunas"}</Text></View><Pill tone="mint">AKTIF</Pill></View>
       <View style={styles.benefits}><Benefit text="floor(nilai transaksi bersih ÷ Rp10.000)" /><Benefit text="Dikalikan multiplier membership" /><Benefit text="Refund membatalkan poin transaksi" /></View>
     </LinearGradient>
 

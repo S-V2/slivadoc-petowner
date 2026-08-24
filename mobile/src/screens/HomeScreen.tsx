@@ -77,7 +77,7 @@ export function HomeScreen({ onAction, onBook, onOpenChat, onOpenNotifications, 
         </View>
         <View style={styles.metricRow}>
           <View style={styles.metric}><Text style={styles.metricEmoji}>⚖️</Text><Text style={styles.metricLabel}>Berat</Text><Text style={styles.metricValue}>{petView.weight}</Text><Text style={styles.metricGood}>Data profil</Text></View>
-          <View style={styles.metric}><Text style={styles.metricEmoji}>📋</Text><Text style={styles.metricLabel}>Aktivitas</Text><Text style={styles.metricValue}>{activities.length}</Text><Text style={styles.metricWarn}>Dari API</Text></View>
+          <View style={styles.metric}><Text style={styles.metricEmoji}>📋</Text><Text style={styles.metricLabel}>Aktivitas</Text><Text style={styles.metricValue}>{activities.length}</Text><Text style={styles.metricWarn}>Terbaru</Text></View>
           <View style={styles.metric}><Text style={styles.metricEmoji}>🛡️</Text><Text style={styles.metricLabel}>Health score</Text><Text style={styles.metricValue}>{petView.score}/100</Text><Text style={styles.metricGood}>Tersinkron</Text></View>
         </View>
         <View style={styles.insight}><Text style={styles.insightIcon}>💡</Text><View style={styles.insightCopy}><Text style={styles.insightTitle}>Insight untuk {petView.name}</Text><Text style={styles.insightText}>{activities[0]?.description||"Belum ada aktivitas kesehatan terjadwal."}</Text></View><Pressable onPress={() => onNavigate("activity")}><Text style={styles.insightAction}>Lihat</Text></Pressable></View>

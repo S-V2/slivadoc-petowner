@@ -4,20 +4,24 @@ import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type 
 import type { Pet } from "../../data/mock";
 import {
   createPawDatingHealthReport,
+  createPawDatingMessage,
   createPawDatingProfile,
   getMyPawDatingProfiles,
   getPawDatingCompatibility,
   getPawDatingInterests,
+  getPawDatingMessages,
   getPawDatingProfile,
   getPawDatingProfiles,
   getPawDatingStandards,
   isPetOwnerAuthenticated,
   respondPawDatingInterest,
+  reportPawDatingProfile,
   sendPawDatingInterest,
   submitPawDatingProfile,
   type PawDatingCompatibility,
   type PawDatingHealthReport,
   type PawDatingInterest,
+  type PawDatingMessage,
   type PawDatingProfile,
   type PawDatingStandards,
 } from "../../lib/platform-api";
@@ -52,6 +56,8 @@ export default function PawDatingExperience({pet,notify}:{pet:Pet;notify:Notify}
   const [interestOpen,setInterestOpen] = useState(false);
   const [message,setMessage] = useState("Halo, kami tertarik berdiskusi setelah meninjau laporan kesehatan kedua pet.");
   const [createOpen,setCreateOpen] = useState(false);
+  const [chatInterest,setChatInterest] = useState<PawDatingInterest|null>(null);
+  const [reportProfile,setReportProfile] = useState<PawDatingProfile|null>(null);
   const [submitting,setSubmitting] = useState(false);
 
   useEffect(()=>{ void loadProfiles(); },[species,sex,level,health,city,distance]);
@@ -101,14 +107,14 @@ export default function PawDatingExperience({pet,notify}:{pet:Pet;notify:Notify}
   }
 
   async function sendInterest(event:FormEvent){
-    event.preventDefault(); if(!selected||!sourceProfileId) return; setSubmitting(true);
-    try { const result=await sendPawDatingInterest(selected.id,{source_profile_id:sourceProfileId,interest_type:"interest",introduction_message:message}); setCompatibility(result.compatibility); setInterestOpen(false); notify(result.message); }
+    event.preventDefault(); if(!selected) return; setSubmitting(true);let source=sourceProfileId;
+    try { if(!source){const mine=await getMyPawDatingProfiles();setMyProfiles(mine.data);source=mine.data[0]?.id??"";setSourceProfileId(source)}if(!source){notify("Buat profil PAW Dating pet Anda terlebih dahulu");setInterestOpen(false);setTab("mine");return}const result=await sendPawDatingInterest(selected.id,{source_profile_id:source,interest_type:"interest",introduction_message:message}); setCompatibility(result.compatibility); setInterestOpen(false); notify(result.message); }
     catch(error){ notify(error instanceof Error?error.message:"Permintaan belum dapat dikirim"); }
     finally { setSubmitting(false); }
   }
 
   async function respond(interest:PawDatingInterest,action:"accept"|"decline"){
-    try { const result=await respondPawDatingInterest(interest.id,action); setInterests((items)=>items.map((item)=>item.id===interest.id?{...item,status:result.status}:item)); notify(action==="accept"?"Match dibuat. Ruang diskusi sudah aman dibuka.":"Permintaan ditolak dengan aman."); }
+    try { const result=await respondPawDatingInterest(interest.id,action); setInterests((items)=>items.map((item)=>item.id===interest.id?{...item,status:result.status,match_id:result.match_id??item.match_id}:item)); notify(action==="accept"?"Match dibuat. Ruang diskusi sudah aman dibuka.":"Permintaan ditolak dengan aman."); }
     catch(error){ notify(error instanceof Error?error.message:"Respons belum dapat disimpan"); }
   }
 
@@ -153,19 +159,21 @@ export default function PawDatingExperience({pet,notify}:{pet:Pet;notify:Notify}
 
     {tab==="mine"&&<PrivateGate title="Kelola profil PAW Dating" text="Login diperlukan untuk membuat profil, mengunggah health report, dan mengatur visibilitas." requireLogin={requireLogin}>
       <div className="paw-section-head"><div><h3>Profil pet saya</h3><p>Setiap pet melewati verifikasi bertahap sebelum tampil ke publik.</p></div><button className="paw-primary" type="button" onClick={()=>setCreateOpen(true)}>+ Buat profil</button></div>
-      {myProfiles.length===0?<Empty title="Belum ada profil PAW Dating" text="Buat profil, lengkapi screening kesehatan, lalu kirim untuk review dokter." action="Mulai verifikasi" onAction={()=>setCreateOpen(true)}/>:<div className="paw-my-grid">{myProfiles.map((profile)=><article key={profile.id} className="paw-my-card"><div className={`paw-avatar ${profile.species}`}>{speciesEmoji(profile)}</div><div><span className={`paw-level ${levelTone[profile.profile_level]}`}>L{profile.profile_level} · {profile.level_name?.split("·")[1]}</span><h4>{profile.name}</h4><p>{profile.breed} · {profile.city}</p><div className="paw-progress"><i style={{width:`${profile.health_score}%`}}/></div><small>Health score {profile.health_score}/100 · Status {titleCase(profile.status??"draft")}</small></div><button type="button" onClick={()=>notify(`Editor profil ${profile.name} dibuka`)}>Kelola →</button></article>)}</div>}
+      {myProfiles.length===0?<Empty title="Belum ada profil PAW Dating" text="Buat profil, lengkapi screening kesehatan, lalu kirim untuk review dokter." action="Mulai verifikasi" onAction={()=>setCreateOpen(true)}/>:<div className="paw-my-grid">{myProfiles.map((profile)=><article key={profile.id} className="paw-my-card"><div className={`paw-avatar ${profile.species}`}>{speciesEmoji(profile)}</div><div><span className={`paw-level ${levelTone[profile.profile_level]}`}>L{profile.profile_level} · {profile.level_name?.split("·")[1]}</span><h4>{profile.name}</h4><p>{profile.breed} · {profile.city}</p><div className="paw-progress"><i style={{width:`${profile.health_score}%`}}/></div><small>Health score {profile.health_score}/100 · Status {titleCase(profile.status??"draft")}</small></div><button type="button" onClick={()=>void openProfile(profile)}>Buka profil →</button></article>)}</div>}
     </PrivateGate>}
 
     {tab==="requests"&&<PrivateGate title="Permintaan dan match" text="Identitas dan ruang percakapan hanya terbuka setelah kedua pet parent menyetujui." requireLogin={requireLogin}>
       <div className="paw-section-head"><div><h3>Permintaan pasangan</h3><p>Tinjau profil dan laporan kesehatan sebelum menerima.</p></div><span className="paw-safe-chip">🔒 Kontak tetap privat</span></div>
-      {interests.length===0?<Empty title="Belum ada permintaan" text="Ketertarikan yang Anda kirim atau terima akan muncul di sini." action="Mulai jelajahi" onAction={()=>setTab("discover")}/>:<div className="paw-request-list">{interests.map((interest)=><article key={interest.id}><div className="paw-request-icon">♡</div><div><span>{interest.direction==="incoming"?"Permintaan masuk":"Terkirim"}</span><h4>{interest.source_name} × {interest.target_name}</h4><p>{interest.introduction_message||"Ingin mendiskusikan kecocokan pet."}</p><small>{titleCase(interest.interest_type)} · {new Date(interest.created_at).toLocaleDateString("id-ID",{day:"numeric",month:"short",year:"numeric"})}</small></div><div className="paw-request-status"><b className={interest.status}>{titleCase(interest.status)}</b>{interest.direction==="incoming"&&interest.status==="pending"&&<><button type="button" onClick={()=>void respond(interest,"accept")}>Terima</button><button className="muted" type="button" onClick={()=>void respond(interest,"decline")}>Tolak</button></>}</div></article>)}</div>}
+      {interests.length===0?<Empty title="Belum ada permintaan" text="Ketertarikan yang Anda kirim atau terima akan muncul di sini." action="Mulai jelajahi" onAction={()=>setTab("discover")}/>:<div className="paw-request-list">{interests.map((interest)=><article key={interest.id}><div className="paw-request-icon">♡</div><div><span>{interest.direction==="incoming"?"Permintaan masuk":"Terkirim"}</span><h4>{interest.source_name} × {interest.target_name}</h4><p>{interest.introduction_message||"Ingin mendiskusikan kecocokan pet."}</p><small>{titleCase(interest.interest_type)} · {new Date(interest.created_at).toLocaleDateString("id-ID",{day:"numeric",month:"short",year:"numeric"})}</small></div><div className="paw-request-status"><b className={interest.status}>{titleCase(interest.status)}</b>{interest.direction==="incoming"&&interest.status==="pending"&&<><button type="button" onClick={()=>void respond(interest,"accept")}>Terima</button><button className="muted" type="button" onClick={()=>void respond(interest,"decline")}>Tolak</button></>}{interest.status==="matched"&&interest.match_id&&<button type="button" onClick={()=>setChatInterest(interest)}>Buka chat</button>}</div></article>)}</div>}
     </PrivateGate>}
 
-    {tab==="standards"&&<StandardsView standards={standards} notify={notify}/>} 
+    {tab==="standards"&&<StandardsView standards={standards} notify={notify}/>}
 
-    {selected&&<ProfileDetail profile={selected} health={selected.health_report} compatibility={compatibility} sourceProfiles={myProfiles} sourceProfileId={sourceProfileId} setSourceProfileId={setSourceProfileId} onClose={()=>{setSelected(null);setCompatibility(null)}} onCheck={()=>void checkCompatibility()} onInterest={()=>{if(requireLogin()){if(!compatibility){void checkCompatibility()}setInterestOpen(true)}}} submitting={submitting} notify={notify}/>} 
+    {selected&&<ProfileDetail profile={selected} health={selected.health_report} compatibility={compatibility} sourceProfiles={myProfiles} sourceProfileId={sourceProfileId} setSourceProfileId={setSourceProfileId} onClose={()=>{setSelected(null);setCompatibility(null)}} onCheck={()=>void checkCompatibility()} onInterest={()=>{if(requireLogin()){if(!compatibility){void checkCompatibility()}setInterestOpen(true)}}} onReport={()=>setReportProfile(selected)} submitting={submitting} notify={notify}/>}
     {interestOpen&&selected&&<div className="paw-modal-backdrop" onMouseDown={()=>setInterestOpen(false)}><form className="paw-small-modal" onSubmit={sendInterest} onMouseDown={(event)=>event.stopPropagation()}><button className="paw-modal-close" type="button" onClick={()=>setInterestOpen(false)}>×</button><span className="paw-modal-mark">♡</span><h3>Kirim ketertarikan ke {selected.name}</h3><p>Pesan akan diteruskan ke pet parent. Nomor telepon tetap tersembunyi hingga keduanya setuju.</p><label>Pesan perkenalan<textarea value={message} minLength={20} maxLength={1000} onChange={(event)=>setMessage(event.target.value)} required/></label><div className="paw-modal-actions"><button className="paw-secondary" type="button" onClick={()=>setInterestOpen(false)}>Batal</button><button className="paw-primary" type="submit" disabled={submitting}>{submitting?"Mengirim...":"Kirim dengan aman"}</button></div></form></div>}
-    {createOpen&&<CreateProfileModal pet={pet} onClose={()=>setCreateOpen(false)} onCreated={()=>{setCreateOpen(false);void loadPrivateData();setTab("mine")}} notify={notify}/>} 
+    {createOpen&&<CreateProfileModal pet={pet} onClose={()=>setCreateOpen(false)} onCreated={()=>{setCreateOpen(false);void loadPrivateData();setTab("mine")}} notify={notify}/>}
+    {chatInterest?.match_id&&<PawChatModal interest={chatInterest} close={()=>setChatInterest(null)} notify={notify}/>}
+    {reportProfile&&<PawReportModal profile={reportProfile} close={()=>setReportProfile(null)} notify={notify}/>}
   </section>;
 }
 
@@ -176,7 +184,7 @@ function ProfileCard({profile,onOpen}:{profile:PawDatingProfile;onOpen:()=>void}
   </article>;
 }
 
-function ProfileDetail({profile,health,compatibility,sourceProfiles,sourceProfileId,setSourceProfileId,onClose,onCheck,onInterest,submitting,notify}:{profile:PawDatingProfile;health?:PawDatingHealthReport;compatibility:PawDatingCompatibility|null;sourceProfiles:PawDatingProfile[];sourceProfileId:string;setSourceProfileId:(value:string)=>void;onClose:()=>void;onCheck:()=>void;onInterest:()=>void;submitting:boolean;notify:Notify}){
+function ProfileDetail({profile,health,compatibility,sourceProfiles,sourceProfileId,setSourceProfileId,onClose,onCheck,onInterest,onReport,submitting,notify}:{profile:PawDatingProfile;health?:PawDatingHealthReport;compatibility:PawDatingCompatibility|null;sourceProfiles:PawDatingProfile[];sourceProfileId:string;setSourceProfileId:(value:string)=>void;onClose:()=>void;onCheck:()=>void;onInterest:()=>void;onReport:()=>void;submitting:boolean;notify:Notify}){
   const sections=health ? [
     ["Pemeriksaan fisik",health.physical_exam],["Vaksinasi",health.vaccination_checks],["Parasit",health.parasite_checks],["Penyakit menular",health.infectious_disease_tests],["Reproduksi",health.reproductive_tests],["Ortopedi",health.orthopedic_checks],["Jantung",health.cardiac_checks],["Mata",health.ophthalmic_checks],
   ] as Array<[string,Record<string,string>|undefined]> : [];
@@ -191,12 +199,31 @@ function ProfileDetail({profile,health,compatibility,sourceProfiles,sourceProfil
     </section>:<section className="paw-report"><div className="paw-report-head"><div><span>🩺</span><div><h4>Laporan kesehatan belum tersedia</h4><p>Profil ini belum memiliki laporan dokter yang dapat ditampilkan.</p></div></div><b>PERLU REVIEW</b></div></section>}
     {compatibility&&<section className={`paw-compatibility ${compatibility.grade}`}><div className="paw-compat-head"><div className="paw-compat-ring" style={{"--score":`${compatibility.score*3.6}deg`} as CSSProperties}><strong>{compatibility.score}</strong><span>/100</span></div><div><span>Compatibility report</span><h4>{titleCase(compatibility.grade)}</h4><p>Skor membantu screening awal, bukan pengganti dokter.</p></div></div><div className="paw-breakdown">{Object.entries(compatibility.breakdown).map(([key,value])=><div key={key}><span>{titleCase(key)}</span><i><b style={{width:`${Math.min(100,value*5)}%`}}/></i><strong>{value}</strong></div>)}</div>{compatibility.risk_flags.length>0&&<div className="paw-risk-flags">{compatibility.risk_flags.map((flag)=><span key={flag}>! {flag}</span>)}</div>}</section>}
     <div className="paw-detail-actions">{sourceProfiles.length>0&&<label>Bandingkan dengan<select value={sourceProfileId} onChange={(event)=>setSourceProfileId(event.target.value)}>{sourceProfiles.map((source)=><option key={source.id} value={source.id}>{source.name} · L{source.profile_level}</option>)}</select></label>}<button className="paw-secondary" type="button" disabled={submitting} onClick={onCheck}>{submitting?"Menghitung...":"Hitung kecocokan"}</button><button className="paw-primary" type="button" onClick={onInterest}>♡ Kirim ketertarikan</button></div>
-    <div className="paw-safety-actions"><button type="button" onClick={()=>notify(`${profile.name} disimpan ke favorit`)}>♡ Simpan</button><button type="button" onClick={()=>notify("Form laporan dibuka untuk tim welfare")}>⚑ Laporkan profil</button></div>
+    <div className="paw-safety-actions"><button type="button" onClick={()=>notify(`${profile.name} disimpan ke favorit`)}>♡ Simpan</button><button type="button" onClick={onReport}>⚑ Laporkan profil</button></div>
   </aside></div>;
 }
 
+function PawChatModal({interest,close,notify}:{interest:PawDatingInterest;close:()=>void;notify:Notify}){
+  const [messages,setMessages]=useState<PawDatingMessage[]>([]);const [body,setBody]=useState("");const [busy,setBusy]=useState(true);
+  async function load(){if(!interest.match_id)return;try{const result=await getPawDatingMessages(interest.match_id);setMessages(result.data)}catch(error){notify(error instanceof Error?error.message:"Percakapan belum dapat dimuat")}finally{setBusy(false)}}
+  useEffect(()=>{void load()},[interest.match_id]);
+  async function send(event:FormEvent){event.preventDefault();if(!interest.match_id||!body.trim())return;setBusy(true);try{await createPawDatingMessage(interest.match_id,body.trim());setBody("");await load()}catch(error){notify(error instanceof Error?error.message:"Pesan belum dapat dikirim");setBusy(false)}}
+  return <div className="paw-modal-backdrop" onMouseDown={close}><section className="paw-small-modal paw-chat-modal" onMouseDown={(event)=>event.stopPropagation()}><button className="paw-modal-close" type="button" onClick={close}>×</button><span className="pawdating-kicker">MATCHED · PRIVATE ROOM</span><h3>{interest.source_name} × {interest.target_name}</h3><p>Ruang ini hanya terbuka setelah persetujuan kedua pet parent. Kontak dan tautan pribadi tetap dilindungi.</p><div className="paw-chat-list">{busy&&!messages.length?<small>Memuat percakapan…</small>:messages.length?messages.map((item)=><article key={item.id}><b>{item.sender_name}</b><p>{item.body}</p><time>{new Date(item.created_at).toLocaleString("id-ID")}</time></article>):<small>Belum ada pesan. Mulai diskusi seputar kesehatan dan kecocokan pet.</small>}</div><form className="paw-chat-compose" onSubmit={send}><textarea value={body} onChange={(event)=>setBody(event.target.value)} minLength={1} maxLength={1000} placeholder="Tulis pesan tanpa nomor telepon, akun sosial, atau tautan…" required/><button className="paw-primary" disabled={busy||!body.trim()}>Kirim</button></form></section></div>;
+}
+
+function PawReportModal({profile,close,notify}:{profile:PawDatingProfile;close:()=>void;notify:Notify}){
+  const [busy,setBusy]=useState(false);
+  async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);const values=Object.fromEntries(new FormData(event.currentTarget));try{const result=await reportPawDatingProfile(profile.id,String(values.category),String(values.details));notify(result.message);close()}catch(error){notify(error instanceof Error?error.message:"Laporan belum dapat dikirim")}finally{setBusy(false)}}
+  return <div className="paw-modal-backdrop" onMouseDown={close}><form className="paw-small-modal" onSubmit={submit} onMouseDown={(event)=>event.stopPropagation()}><button className="paw-modal-close" type="button" onClick={close}>×</button><span className="paw-modal-mark">⚑</span><h3>Laporkan profil {profile.name}</h3><p>Tim welfare akan meninjau laporan secara privat. Gunakan untuk keselamatan, data tidak sesuai, atau perilaku mencurigakan.</p><label>Kategori<select name="category" required defaultValue=""><option value="">Pilih kategori</option><option value="misleading_health">Data kesehatan tidak sesuai</option><option value="animal_welfare">Keselamatan pet</option><option value="fraud">Aktivitas mencurigakan</option><option value="other">Lainnya</option></select></label><label>Detail<textarea name="details" minLength={10} maxLength={1200} required placeholder="Jelaskan alasan laporan…"/></label><div className="paw-modal-actions"><button className="paw-secondary" type="button" onClick={close}>Batal</button><button className="paw-primary" type="submit" disabled={busy}>{busy?"Mengirim…":"Kirim laporan"}</button></div></form></div>;
+}
+
+function downloadStandardsChecklist(standards:PawDatingStandards){
+  const lines=["SLIVADOC PAW DATING — HEALTH SCREENING CHECKLIST","",...standards.levels.flatMap((level)=>[`LEVEL ${level.level} — ${level.name}`,...level.requirements.map((item)=>`[ ] ${item}`),""]),"KONDISI YANG MEMBLOKIR PAIRING",...standards.blocked_conditions.map((item)=>`- ${item}`),"",`Laporan berlaku ${standards.report_validity_days} hari.`];
+  const url=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/plain;charset=utf-8"}));const anchor=document.createElement("a");anchor.href=url;anchor.download="slivadoc-paw-dating-health-checklist.txt";anchor.click();URL.revokeObjectURL(url);
+}
+
 function StandardsView({standards,notify}:{standards:PawDatingStandards;notify:Notify}){
-  return <div className="paw-standards"><div className="paw-standards-intro"><span>SLIVADOC WELFARE STANDARD</span><h3>Empat level verifikasi,<br/>satu tujuan: pet yang sehat.</h3><p>Semakin tinggi level, semakin lengkap data kesehatan dan silsilah yang diverifikasi oleh dokter serta tim welfare Slivadoc.</p><button className="paw-secondary" type="button" onClick={()=>notify("Panduan health screening disiapkan untuk diunduh")}>↓ Unduh checklist</button></div><div className="paw-level-list">{standards.levels.map((item)=><article key={item.level} className={levelTone[item.level]}><div><strong>0{item.level}</strong><span>LEVEL</span></div><section><h4>{item.name}</h4>{item.requirements.map((requirement)=><p key={requirement}>✓ {requirement}</p>)}</section>{item.level===2&&<em>Minimum publish</em>}</article>)}</div><div className="paw-blocked"><div><span>⛔</span><div><h4>Kondisi yang otomatis memblokir pairing</h4><p>Sistem tidak akan mengirim interest bila salah satu kondisi berikut terdeteksi.</p></div></div><ul>{standards.blocked_conditions.map((condition)=><li key={condition}>{condition}</li>)}</ul></div><div className="paw-principles">{standards.principles.map((principle,index)=><article key={principle}><span>0{index+1}</span><p>{principle}</p></article>)}</div></div>;
+  return <div className="paw-standards"><div className="paw-standards-intro"><span>SLIVADOC WELFARE STANDARD</span><h3>Empat level verifikasi,<br/>satu tujuan: pet yang sehat.</h3><p>Semakin tinggi level, semakin lengkap data kesehatan dan silsilah yang diverifikasi oleh dokter serta tim welfare Slivadoc.</p><button className="paw-secondary" type="button" onClick={()=>{downloadStandardsChecklist(standards);notify("Checklist health screening berhasil diunduh")}}>↓ Unduh checklist</button></div><div className="paw-level-list">{standards.levels.map((item)=><article key={item.level} className={levelTone[item.level]}><div><strong>0{item.level}</strong><span>LEVEL</span></div><section><h4>{item.name}</h4>{item.requirements.map((requirement)=><p key={requirement}>✓ {requirement}</p>)}</section>{item.level===2&&<em>Minimum publish</em>}</article>)}</div><div className="paw-blocked"><div><span>⛔</span><div><h4>Kondisi yang otomatis memblokir pairing</h4><p>Sistem tidak akan mengirim interest bila salah satu kondisi berikut terdeteksi.</p></div></div><ul>{standards.blocked_conditions.map((condition)=><li key={condition}>{condition}</li>)}</ul></div><div className="paw-principles">{standards.principles.map((principle,index)=><article key={principle}><span>0{index+1}</span><p>{principle}</p></article>)}</div></div>;
 }
 
 function PrivateGate({title,text,requireLogin,children}:{title:string;text:string;requireLogin:()=>boolean;children:ReactNode}){

@@ -87,7 +87,7 @@ export default function SlivaCareDrawer({ pet, owner, onClose, notify }: Props) 
       <aside className="drawer chat-drawer connected-chat" onMouseDown={(event) => event.stopPropagation()}>
         <header className="chat-header">
           <div className="doctor-avatar">{mode === "assistant" ? "✦" : "👩🏻‍⚕️"}<i /></div>
-          <div><h3>{mode === "assistant" ? "SlivaCare Assistant" : "SlivaCare Team"}</h3><p>{mode === "assistant" ? "AI khusus kebutuhan hewan" : connected ? "Realtime • terhubung" : "Menghubungkan Socket.IO..."}</p></div>
+          <div><h3>{mode === "assistant" ? "SlivaCare Assistant" : "SlivaCare Team"}</h3><p>{mode === "assistant" ? "AI khusus kebutuhan hewan" : connected ? "Realtime • terhubung" : "Menghubungkan percakapan..."}</p></div>
           <button className="video-call" type="button" onClick={() => {onClose();window.dispatchEvent(new CustomEvent("slivadoc:navigate",{detail:"consult"}))}} aria-label="Buka konsultasi video"><Icon name="video" size={18} /></button>
           <button type="button" onClick={onClose}><Icon name="close" /></button>
         </header>

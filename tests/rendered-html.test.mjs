@@ -29,7 +29,7 @@ test("renders Slivadoc Pet Owner metadata", async () => {
   const html = await response.text();
   assert.match(html, /<title>Slivadoc Pet Owner<\/title>/i);
   assert.match(html, /Satu aplikasi untuk kesehatan, perawatan, kebutuhan/i);
-  assert.match(html, /src="\/slivadoc-pet-hero\.png"/i);
+  assert.match(html, /property="og:image"[^>]+slivadoc-pet-hero\.png/i);
   assert.doesNotMatch(html, /\/_vinext\/image/i);
   assert.doesNotMatch(html, /codex-preview/i);
 });

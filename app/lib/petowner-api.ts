@@ -56,7 +56,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(payload.message ?? payload.answer ?? payload.error ?? "Pet Owner API tidak tersedia") as Error & { code?: string; status?: number };
+    const error = new Error(payload.message ?? payload.answer ?? payload.error ?? "Layanan pet owner sedang belum tersedia") as Error & { code?: string; status?: number };
     error.code = payload.error;
     error.status = response.status;
     throw error;

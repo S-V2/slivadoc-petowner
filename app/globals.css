@@ -352,3 +352,40 @@ button:disabled,.primary-button:disabled,.secondary-button:disabled { cursor:not
 .group-row{border-radius:10px}.group-row.openable{cursor:pointer}.group-row.openable:hover{background:#f6fbfe}.group-row b em{display:inline-block;margin-left:5px;padding:3px 5px;border-radius:5px;color:#148fd8;background:#e8f7ff;font-size:7px;font-style:normal}.group-row button{display:flex;align-items:center;gap:4px}.group-chat-sheet{width:min(680px,calc(100vw - 24px));height:min(720px,90vh);display:flex;flex-direction:column;overflow:hidden;padding:0}.group-chat-sheet>header{display:flex;align-items:center;gap:12px;padding:20px 58px 15px 20px;border-bottom:1px solid var(--line);background:linear-gradient(120deg,#effaff,#f7fffc)}.group-chat-sheet>header>span{width:48px;height:48px;display:grid;place-items:center;border-radius:14px;background:#fff;font-size:25px}.group-chat-sheet>header small{color:var(--sky-600);font-size:7px;font-weight:900;letter-spacing:.08em}.group-chat-sheet>header h2{margin:3px 0;color:var(--navy);font-size:18px}.group-chat-sheet>header p{margin:0;color:var(--muted);font-size:8px}.group-chat-notice{display:flex;align-items:center;gap:7px;padding:9px 17px;color:#547286;background:#f8fbfd;font-size:8px;line-height:1.4}.group-chat-messages{flex:1;display:flex;flex-direction:column;gap:9px;overflow:auto;padding:17px;background:#f5f8fa}.group-chat-messages>article{align-self:flex-start;max-width:78%;padding:10px 12px;border:1px solid #e2eaf0;border-radius:4px 14px 14px;background:#fff}.group-chat-messages>article.mine{align-self:flex-end;border-color:#bee6fa;border-radius:14px 4px 14px 14px;background:#ddf4ff}.group-chat-messages b{font-size:8px}.group-chat-messages p{margin:4px 0;font-size:10px;line-height:1.5}.group-chat-messages time{color:var(--muted);font-size:7px}.group-chat-sheet>footer{display:flex;gap:8px;padding:12px 15px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:#fff}.group-chat-sheet>footer input{min-width:0;flex:1;height:42px;padding:0 12px;border:1px solid var(--line);border-radius:11px;outline:0}.group-chat-sheet>footer button{width:42px;display:grid;place-items:center;border:0;border-radius:11px;color:#fff;background:var(--sky-500)}
 .care-reminder-panel{padding:18px;margin:13px 0}.care-reminder-list{display:grid;gap:8px}.care-reminder-list article{display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:13px;background:#fbfdfe}.care-reminder-list article>span{width:39px;height:39px;display:grid;place-items:center;flex:none;border-radius:11px;background:#eaf7ff;font-size:20px}.care-reminder-list article>div:nth-child(2){min-width:0;flex:1;display:grid;gap:3px}.care-reminder-list b{font-size:10px}.care-reminder-list small,.care-reminder-list p{margin:0;color:var(--muted);font-size:8px;line-height:1.5}.care-reminder-list article>div:last-child{display:flex;gap:5px}.care-reminder-list button{padding:7px 8px;border:1px solid var(--line);border-radius:8px;color:var(--muted);background:#fff;font-size:8px;font-weight:800}.care-reminder-list button.complete{border-color:#bdebd8;color:#128666;background:#ecfbf5}
 @media(max-width:580px){:root{--body-size:13px;--label-size:11px}.modal-overlay{align-items:end}.petowner-login,.reminder-modal,.group-composer-modal{width:calc(100vw - 14px);max-height:94vh;border-radius:22px 22px 0 0;animation:sheet-up .22s ease-out}.group-chat-sheet{width:100vw;height:92vh;max-height:92vh;border-radius:22px 22px 0 0}.comments-sheet>header{top:-20px}.care-reminder-list article{flex-wrap:wrap}.care-reminder-list article>div:last-child{width:100%;justify-content:flex-end;padding-left:49px}.profile-person>button{margin:0}.rating-box{width:64px}.rating-box small{font-size:7px}}
+
+/* Readable responsive type scale and a shared five-item bottom navigation. */
+@media(max-width:860px){
+  :root{--body-size:15px;--label-size:13px}
+  body{font-size:15px;line-height:1.6}
+  .page-content{font-size:15px}
+  .page-content p,.page-content li,.page-content dd{font-size:14px!important;line-height:1.6}
+  .page-content small,.page-content time,.page-content dt,.page-content label,.page-content .section-eyebrow,.page-content .heading-kicker{font-size:12px!important;line-height:1.45}
+  .page-content button,.primary-button,.secondary-button,.ghost-button{font-size:13px}
+  .page-content input,.page-content select,.page-content textarea{font-size:14px;line-height:1.5}
+  .page-heading h1{font-size:30px}
+  .page-heading p{font-size:14px!important}
+  .mobile-nav{height:76px;padding:5px 4px calc(5px + env(safe-area-inset-bottom))}
+  .mobile-nav button{min-width:0;gap:4px}
+  .mobile-nav small{font-size:11px!important;line-height:1.15;white-space:nowrap}
+  .floating-chat{bottom:88px}
+  .toast{bottom:92px}
+  .mobile-more-sheet header span{font-size:11px}
+  .mobile-more-sheet header h2{font-size:25px}
+  .mobile-more-sheet>div>button{min-height:104px}
+  .mobile-more-sheet b{font-size:12px;line-height:1.3}
+}
+@media(max-width:580px){
+  :root{--body-size:16px;--label-size:14px}
+  body,.page-content{font-size:16px}
+  .page-content p,.page-content li,.page-content dd{font-size:15px!important}
+  .page-content small,.page-content time,.page-content dt,.page-content label,.page-content .section-eyebrow,.page-content .heading-kicker{font-size:13px!important}
+  .page-content button,.primary-button,.secondary-button,.ghost-button{font-size:14px}
+  .page-content input,.page-content select,.page-content textarea{font-size:16px!important}
+  .page-content h2{font-size:24px}
+  .page-content h3{font-size:19px}
+  .page-heading h1{font-size:28px}
+  .mobile-nav{height:78px}
+  .mobile-nav small{font-size:11px!important}
+  .floating-chat{bottom:91px}
+  .toast{bottom:95px}
+}

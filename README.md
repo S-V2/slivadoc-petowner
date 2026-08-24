@@ -74,12 +74,15 @@ Tekan `a` untuk Android Emulator atau `i` untuk iOS Simulator. Default koneksi A
 
 - Android Emulator: `http://10.0.2.2:8090`
 - iOS Simulator: `http://localhost:8090`
-- HP fisik: salin `mobile/.env.example` menjadi `mobile/.env`, lalu ganti dengan IP LAN komputer, misalnya `http://192.168.1.10:8090`
+- HP fisik dengan Expo Go: aplikasi otomatis mencoba IP LAN yang dipakai Metro untuk port `8080` dan `8090`
+- Jika deteksi otomatis tidak cocok, salin `mobile/.env.example` menjadi `mobile/.env`, lalu isi IP LAN komputer, misalnya `http://192.168.1.10:8090`
 
 Isi juga `EXPO_PUBLIC_PLATFORM_API_URL` dengan host backend utama pada port
 `8080` agar Sliva World memakai data produksi yang sama dengan dashboard.
 
-HP dan komputer harus berada di Wi-Fi yang sama. Pastikan port `8090` tidak diblokir firewall.
+HP dan komputer harus berada di Wi-Fi yang sama. Jalankan backend pada host `0.0.0.0`, bukan hanya `127.0.0.1`, dan pastikan port `8080` serta `8090` tidak diblokir firewall. Setelah mengubah `.env`, jalankan ulang Metro dengan `npx expo start -c`.
+
+Untuk menguji login di Expo Go, scan QR dari `npm start`, buka menu **Lainnya → Masuk ke akun**, lalu gunakan akun Pet Owner yang tersedia pada backend yang sedang dijalankan. Tarik layar dari atas untuk memuat ulang data tanpa berpindah tab. Tombol Back Android menutup popup terlebih dahulu, kembali ke halaman sebelumnya bila ada, dan mengikuti perilaku sistem saat sudah berada di Beranda.
 
 ## Setup Cloudinary
 

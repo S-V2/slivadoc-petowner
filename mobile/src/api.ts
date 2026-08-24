@@ -1,10 +1,19 @@
-import { Platform } from "react-native";
+import { NativeModules, Platform } from "react-native";
 import { io } from "socket.io-client";
 
+function resolveDevelopmentHost(){
+  const scriptUrl=String(NativeModules.SourceCode?.scriptURL??"");
+  const match=scriptUrl.match(/^[a-z]+:\/\/\[?([^\]/:]+)]?/i);
+  return match?.[1]||undefined;
+}
+
+const developmentHost=resolveDevelopmentHost()
+  ?? (Platform.OS === "android" ? "10.0.2.2" : "localhost");
+
 export const PETOWNER_API_URL = process.env.EXPO_PUBLIC_PETOWNER_API_URL
-  ?? (Platform.OS === "android" ? "http://10.0.2.2:8090" : "http://localhost:8090");
+  ?? `http://${developmentHost}:8090`;
 export const PLATFORM_API_URL = process.env.EXPO_PUBLIC_PLATFORM_API_URL
-  ?? (Platform.OS === "android" ? "http://10.0.2.2:8080" : "http://localhost:8080");
+  ?? `http://${developmentHost}:8080`;
 
 export type AssistantMessage = { role: "user" | "assistant"; content: string };
 
@@ -24,6 +33,7 @@ export function hasPlatformSession(){return Boolean(platformAccessToken)}
 
 const mobileCache=new Map<string,{expires:number;value:unknown}>();
 const mobileInFlight=new Map<string,Promise<unknown>>();
+export function clearMobileCache(){mobileCache.clear()}
 
 async function platformRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const method=String(init?.method??"GET").toUpperCase();

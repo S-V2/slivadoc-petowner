@@ -1,6 +1,7 @@
-import type { PropsWithChildren, ReactNode } from "react";
+import { createContext, useContext, type PropsWithChildren, type ReactNode } from "react";
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,12 +13,35 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { colors, shadow } from "../theme";
 
+type AppSurfaceContextValue = {
+  bottomInset: number;
+  refreshing: boolean;
+  onRefresh: () => void;
+};
+
+const AppSurfaceContext = createContext<AppSurfaceContextValue>({
+  bottomInset: 0,
+  refreshing: false,
+  onRefresh: () => undefined,
+});
+
+export function AppSurfaceProvider({ children, bottomInset, refreshing, onRefresh }: PropsWithChildren<AppSurfaceContextValue>) {
+  return <AppSurfaceContext.Provider value={{ bottomInset, refreshing, onRefresh }}>{children}</AppSurfaceContext.Provider>;
+}
+
+export function useAppSurface() {
+  return useContext(AppSurfaceContext);
+}
+
 export function Screen({ children, contentStyle }: PropsWithChildren<{ contentStyle?: StyleProp<ViewStyle> }>) {
+  const { bottomInset, refreshing, onRefresh } = useAppSurface();
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={[styles.screenContent, contentStyle]}
+      contentContainerStyle={[styles.screenContent, { paddingBottom: bottomInset + 100 }, contentStyle]}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.sky500]} tintColor={colors.sky500} progressBackgroundColor={colors.white} />}
     >
       {children}
     </ScrollView>
@@ -89,28 +113,28 @@ export function EmptyState({ icon, title, note, action, onAction }: { icon: stri
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
-  screenContent: { paddingHorizontal: 16, paddingBottom: 118 },
-  topHeader: { height: 66, flexDirection: "row", alignItems: "center", gap: 10 },
-  locationIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: colors.sky50, alignItems: "center", justifyContent: "center" },
+  screenContent: { paddingHorizontal: 18 },
+  topHeader: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 8 },
+  locationIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.sky50, alignItems: "center", justifyContent: "center" },
   topHeaderCopy: { flex: 1, gap: 2 },
   topKicker: { color: colors.muted, fontSize: 13, fontWeight: "600" },
   topTitle: { color: colors.navy, fontSize: 17, fontWeight: "800" },
-  iconButton: { position: "relative", width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
+  iconButton: { position: "relative", width: 44, height: 44, borderRadius: 14, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
   notificationDot: { position: "absolute", right: 8, top: 7, width: 7, height: 7, borderRadius: 4, borderWidth: 1.5, borderColor: colors.white, backgroundColor: colors.red },
-  sectionTitle: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 22, marginBottom: 11 },
+  sectionTitle: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 14, marginTop: 26, marginBottom: 13 },
   eyebrow: { color: colors.muted, fontSize: 12, fontWeight: "800", letterSpacing: 1.1, marginBottom: 3 },
   sectionHeading: { color: colors.navy, fontSize: 22, fontWeight: "800", letterSpacing: -0.35 },
   sectionAction: { color: colors.sky600, fontSize: 14, fontWeight: "700", paddingBottom: 2 },
-  card: { borderRadius: 18, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, ...shadow },
-  primaryButton: { minHeight: 43, paddingHorizontal: 16, borderRadius: 13, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: colors.sky500, ...shadow },
-  compactButton: { minHeight: 35, borderRadius: 10, paddingHorizontal: 13 },
+  card: { borderRadius: 20, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, ...shadow },
+  primaryButton: { minHeight: 48, paddingHorizontal: 17, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.sky500, ...shadow },
+  compactButton: { minHeight: 44, borderRadius: 12, paddingHorizontal: 14 },
   primaryButtonText: { color: colors.white, fontSize: 15, fontWeight: "800" },
   lightButton: { backgroundColor: colors.white, shadowOpacity: 0 },
   lightButtonText: { color: colors.sky600 },
-  softButton: { minHeight: 37, paddingHorizontal: 13, borderRadius: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.sky50 },
+  softButton: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: colors.sky50 },
   softButtonText: { color: colors.sky600, fontSize: 14, fontWeight: "800" },
   pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
-  pill: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8 },
+  pill: { alignSelf: "flex-start", paddingHorizontal: 9, paddingVertical: 6, borderRadius: 9 },
   pillText: { fontSize: 12, fontWeight: "800" },
   bluePill: { backgroundColor: colors.sky50 }, bluePillText: { color: colors.sky600 },
   mintPill: { backgroundColor: colors.mint50 }, mintPillText: { color: "#14836E" },

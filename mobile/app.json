@@ -7,6 +7,16 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "scheme": "slivadoc",
+    "androidStatusBar": {
+      "backgroundColor": "#F5FBFE",
+      "barStyle": "dark-content",
+      "translucent": false
+    },
+    "androidNavigationBar": {
+      "backgroundColor": "#FFFFFF",
+      "barStyle": "dark-content",
+      "enforceContrast": false
+    },
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash.png",
@@ -29,6 +39,7 @@
         "backgroundColor": "#EAF8FF"
       },
       "predictiveBackGestureEnabled": true,
+      "softwareKeyboardLayoutMode": "pan",
       "permissions": ["CAMERA", "ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
     },
     "plugins": [

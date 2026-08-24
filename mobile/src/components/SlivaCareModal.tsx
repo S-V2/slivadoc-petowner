@@ -2,25 +2,25 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { askSlivaCare, realtime, type AssistantMessage } from "../api";
+import type { MobileOwner } from "../api";
+import type { PetView } from "../data";
 import { colors } from "../theme";
 
-type Props = { visible: boolean; onClose: () => void; onAction: (message: string) => void };
+type Props = { visible: boolean; onClose: () => void; onAction: (message: string) => void;owner?:MobileOwner;pet?:PetView;onLogin:()=>void };
 type TeamMessage = { id: string; senderId: string; senderName: string; body: string; createdAt: string };
 
-const welcome: AssistantMessage = { role: "assistant", content: "Halo Evans! Saya SlivaCare Assistant. Saya hanya dapat membantu topik kesehatan, nutrisi, perilaku, dan perawatan hewan." };
-
-export function SlivaCareModal({ visible, onClose, onAction }: Props) {
+export function SlivaCareModal({ visible, onClose, onAction,owner,pet,onLogin }: Props) {
   const [mode, setMode] = useState<"assistant" | "team">("assistant");
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<AssistantMessage[]>([welcome]);
+  const [messages, setMessages] = useState<AssistantMessage[]>([{role:"assistant",content:`Halo${owner?.full_name?` ${owner.full_name.split(" ")[0]}`:""}! Saya SlivaCare Assistant. Saya hanya dapat membantu topik kesehatan, nutrisi, perilaku, dan perawatan hewan.`}]);
   const [teamMessages, setTeamMessages] = useState<TeamMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
-    if (!visible) return;
-    const join = () => { setConnected(true); realtime.emit("chat:join", { conversationId: "care-pet-milo" }); };
+    if (!visible||!owner||!pet) return;
+    const join = () => { setConnected(true); realtime.emit("chat:join", { conversationId: `care-${pet.id}` }); };
     const disconnect = () => setConnected(false);
     const history = (items: TeamMessage[]) => setTeamMessages(items);
     const incoming = (item: TeamMessage) => setTeamMessages((current) => current.some((existing) => existing.id === item.id) ? current : [...current, item]);
@@ -36,14 +36,15 @@ export function SlivaCareModal({ visible, onClose, onAction }: Props) {
       realtime.off("chat:history", history);
       realtime.off("chat:message", incoming);
     };
-  }, [visible]);
+  }, [visible,owner,pet]);
 
   const send = async () => {
     const body = message.trim();
     if (!body || loading) return;
     setMessage("");
     if (mode === "team") {
-      realtime.emit("chat:send", { conversationId: "care-pet-milo", senderId: "petowner-evans-mobile", senderName: "Evans Moris", body }, (result: { ok: boolean; error?: string }) => {
+      if(!owner||!pet){onLogin();onAction("Login diperlukan untuk menghubungi care team");return}
+      realtime.emit("chat:send", { conversationId: `care-${pet.id}`, senderId: owner.id, senderName: owner.full_name, body }, (result: { ok: boolean; error?: string }) => {
         if (!result?.ok) onAction(result?.error ?? "Pesan belum terkirim");
       });
       return;
@@ -52,7 +53,7 @@ export function SlivaCareModal({ visible, onClose, onAction }: Props) {
     setMessages(history);
     setLoading(true);
     try {
-      const result = await askSlivaCare(body, messages);
+      const result = await askSlivaCare(body, messages,{userId:owner?.id,pet:pet?{name:pet.name,species:"pet",breed:pet.breed,age:pet.age,weight:pet.weight}:undefined});
       setMessages((current) => [...current, { role: "assistant", content: result.answer }]);
       if (result.mode === "offline_dataset") onAction(result.notice || "Jawaban memakai dataset pet lokal Slivadoc");
     } catch (cause) {
@@ -61,7 +62,7 @@ export function SlivaCareModal({ visible, onClose, onAction }: Props) {
   };
 
   const activeMessages = mode === "assistant" ? messages : teamMessages;
-  return <Modal visible={visible} animationType="slide" onRequestClose={onClose}><SafeAreaView style={styles.page}><KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboard}><View style={styles.header}><View style={styles.avatar}><Text>{mode === "assistant" ? "✦" : "👩🏻‍⚕️"}</Text><View style={[styles.dot, connected && styles.dotOnline]} /></View><View style={styles.headerCopy}><Text style={styles.name}>{mode === "assistant" ? "SlivaCare Assistant" : "SlivaCare Team"}</Text><Text style={styles.status}>{mode === "assistant" ? "AI khusus topik hewan" : connected ? "Realtime • terhubung" : "Menghubungkan..."}</Text></View><Pressable onPress={onClose} style={styles.iconButton}><Ionicons name="close" size={20} color={colors.text} /></Pressable></View><View style={styles.tabs}><Pressable onPress={() => setMode("assistant")} style={[styles.tab, mode === "assistant" && styles.activeTab]}><Text style={[styles.tabText, mode === "assistant" && styles.activeTabText]}>✦ AI Assistant</Text></Pressable><Pressable onPress={() => setMode("team")} style={[styles.tab, mode === "team" && styles.activeTab]}><Text style={[styles.tabText, mode === "team" && styles.activeTabText]}>💬 Care Team</Text></Pressable></View><View style={styles.context}><Text style={styles.pet}>🐕</Text><View style={styles.contextCopy}><Text style={styles.contextLabel}>KONSULTASI UNTUK</Text><Text style={styles.contextName}>Milo • Golden Retriever</Text></View><View style={styles.petOnly}><Text style={styles.petOnlyText}>PET ONLY</Text></View></View><ScrollView ref={scrollRef} onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })} contentContainerStyle={styles.messages}>{mode === "assistant" ? <View style={styles.scope}><Ionicons name="shield-checkmark" size={14} color={colors.sky600} /><Text style={styles.scopeText}>Pertanyaan di luar topik hewan otomatis ditolak. Jawaban bukan pengganti diagnosis dokter.</Text></View> : null}{activeMessages.map((item, index) => { const assistant = "role" in item ? item.role === "assistant" : item.senderId !== "petowner-evans-mobile"; const content = "content" in item ? item.content : item.body; return <View key={("id" in item && item.id) || `${content}-${index}`} style={[styles.messageRow, !assistant && styles.messageRowMe]}>{assistant ? <Text style={styles.messageAvatar}>{mode === "assistant" ? "✦" : "👩🏻‍⚕️"}</Text> : null}<View style={[styles.bubble, !assistant && styles.bubbleMe]}><Text style={[styles.messageText, !assistant && styles.messageTextMe]}>{content}</Text></View></View>;})}{loading ? <ActivityIndicator color={colors.sky600} style={styles.loader} /> : null}{mode === "assistant" ? <View style={styles.quick}><Pressable onPress={() => setMessage("Anjing saya muntah, apa yang harus diperhatikan?")}><Text>🩺 Konsultasi gejala</Text></Pressable><Pressable onPress={() => setMessage("Hewan saya sesak dan sangat lemas")}><Text>🚑 Darurat</Text></Pressable></View> : null}</ScrollView><View style={styles.composer}><Pressable onPress={() => onAction("Lampiran foto akan disimpan ke Cloudinary")} style={styles.attach}><Ionicons name="add" size={21} color={colors.muted} /></Pressable><TextInput value={message} onChangeText={setMessage} placeholder={mode === "assistant" ? "Tanya seputar hewan..." : "Pesan ke care team..."} placeholderTextColor="#9AA7B6" style={styles.input} onSubmitEditing={send} /><Pressable onPress={send} style={styles.send}><Ionicons name="arrow-up" size={18} color={colors.white} /></Pressable></View></KeyboardAvoidingView></SafeAreaView></Modal>;
+  return <Modal visible={visible} animationType="slide" onRequestClose={onClose}><SafeAreaView style={styles.page}><KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboard}><View style={styles.header}><View style={styles.avatar}><Text>{mode === "assistant" ? "✦" : "👩🏻‍⚕️"}</Text><View style={[styles.dot, connected && styles.dotOnline]} /></View><View style={styles.headerCopy}><Text style={styles.name}>{mode === "assistant" ? "SlivaCare Assistant" : "SlivaCare Team"}</Text><Text style={styles.status}>{mode === "assistant" ? "AI khusus topik hewan" : connected ? "Realtime • terhubung" : "Menghubungkan..."}</Text></View><Pressable onPress={onClose} style={styles.iconButton}><Ionicons name="close" size={20} color={colors.text} /></Pressable></View><View style={styles.tabs}><Pressable onPress={() => setMode("assistant")} style={[styles.tab, mode === "assistant" && styles.activeTab]}><Text style={[styles.tabText, mode === "assistant" && styles.activeTabText]}>✦ AI Assistant</Text></Pressable><Pressable onPress={() => {if(!owner){onLogin();return}setMode("team")}} style={[styles.tab, mode === "team" && styles.activeTab]}><Text style={[styles.tabText, mode === "team" && styles.activeTabText]}>💬 Care Team</Text></Pressable></View><View style={styles.context}><Text style={styles.pet}>{pet?.icon||"🐾"}</Text><View style={styles.contextCopy}><Text style={styles.contextLabel}>KONSULTASI UNTUK</Text><Text style={styles.contextName}>{pet?.name||"Pet kamu"} • {pet?.breed||"Login untuk pilih pet"}</Text></View><View style={styles.petOnly}><Text style={styles.petOnlyText}>PET ONLY</Text></View></View><ScrollView ref={scrollRef} onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })} contentContainerStyle={styles.messages}>{mode === "assistant" ? <View style={styles.scope}><Ionicons name="shield-checkmark" size={14} color={colors.sky600} /><Text style={styles.scopeText}>Pertanyaan di luar topik hewan otomatis ditolak. Jawaban bukan pengganti diagnosis dokter.</Text></View> : null}{activeMessages.map((item, index) => { const assistant = "role" in item ? item.role === "assistant" : item.senderId !== owner?.id; const content = "content" in item ? item.content : item.body; return <View key={("id" in item && item.id) || `${content}-${index}`} style={[styles.messageRow, !assistant && styles.messageRowMe]}>{assistant ? <Text style={styles.messageAvatar}>{mode === "assistant" ? "✦" : "👩🏻‍⚕️"}</Text> : null}<View style={[styles.bubble, !assistant && styles.bubbleMe]}><Text style={[styles.messageText, !assistant && styles.messageTextMe]}>{content}</Text></View></View>;})}{loading ? <ActivityIndicator color={colors.sky600} style={styles.loader} /> : null}{mode === "assistant" ? <View style={styles.quick}><Pressable onPress={() => setMessage("Pet saya muntah, apa yang harus diperhatikan?")}><Text>🩺 Konsultasi gejala</Text></Pressable><Pressable onPress={() => setMessage("Hewan saya sesak dan sangat lemas")}><Text>🚑 Darurat</Text></Pressable></View> : null}</ScrollView><View style={styles.composer}><Pressable onPress={() => onAction("Pilih foto pendukung dari perangkat")} style={styles.attach}><Ionicons name="add" size={21} color={colors.muted} /></Pressable><TextInput value={message} onChangeText={setMessage} placeholder={mode === "assistant" ? "Tanya seputar hewan..." : "Pesan ke care team..."} placeholderTextColor="#9AA7B6" style={styles.input} onSubmitEditing={send} /><Pressable disabled={loading} onPress={send} style={[styles.send,loading&&{opacity:.55}]}><Ionicons name="arrow-up" size={18} color={colors.white} /></Pressable></View></KeyboardAvoidingView></SafeAreaView></Modal>;
 }
 
 const styles = StyleSheet.create({

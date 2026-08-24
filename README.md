@@ -41,6 +41,8 @@ curl http://localhost:8090/health
 curl http://localhost:8090/api/config/status
 ```
 
+`CORS_ORIGINS` pada `services/petowner-api/.env` harus memuat origin web yang benar (tanpa trailing slash). Konfigurasi contoh sudah mencakup port development Slivadoc dan deployment Pet Owner. Pola subdomain seperti `https://*.slivadoc.id` juga didukung.
+
 Tanpa `OPENAI_API_KEY`, SlivaCare tetap berjalan dalam mode dataset lokal. Upload foto baru aktif setelah credential Cloudinary diisi.
 
 ## 2. Menjalankan web

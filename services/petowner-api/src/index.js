@@ -12,17 +12,19 @@ import { Server as SocketServer } from "socket.io";
 import { z } from "zod";
 import { JsonStore } from "./store.js";
 import { answerPetQuestion } from "./pet-agent.js";
+import { createCorsOriginValidator, isOriginAllowed, parseAllowedOrigins } from "./cors.js";
 
 const port = Number(process.env.PORT || 8090);
-const origins = (process.env.CORS_ORIGINS || "http://localhost:5173,http://localhost:8081")
-  .split(",").map((item) => item.trim()).filter(Boolean);
+const origins = parseAllowedOrigins(process.env.CORS_ORIGINS || "http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:8081,https://slivadoc-pet-owner.evans-moris21.chatgpt.site");
+const validateOrigin = createCorsOriginValidator(origins);
+const corsOptions = { origin: validateOrigin, credentials: true, methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] };
 const dataDir = resolve(process.env.DATA_DIR || new URL("../data", import.meta.url).pathname);
 const store = new JsonStore(resolve(dataDir, "petowner.json"));
 await store.load();
 
 const app = express();
 const server = createServer(app);
-const io = new SocketServer(server, { cors: { origin: origins, credentials: true } });
+const io = new SocketServer(server, { cors: corsOptions });
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 },
@@ -38,7 +40,17 @@ cloudinary.config({
 });
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(cors({ origin: origins, credentials: true }));
+app.use((request, response, next) => {
+  const originAllowed = isOriginAllowed(request.headers.origin, origins);
+  if (request.method === "OPTIONS" && request.headers.origin && !originAllowed) {
+    return response.status(403).json({ error: "cors_origin_denied", message: "Origin tidak diizinkan" });
+  }
+  if (request.headers["access-control-request-private-network"] === "true" && originAllowed) {
+    response.setHeader("Access-Control-Allow-Private-Network", "true");
+  }
+  next();
+});
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "1mb" }));
 app.use(rateLimit({ windowMs: 60_000, limit: 180, standardHeaders: "draft-8", legacyHeaders: false }));
 

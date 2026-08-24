@@ -1,20 +1,19 @@
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { services, type Service } from "../data";
+import type { Service } from "../data";
 import { colors, shadow } from "../theme";
 import { Pill, PrimaryButton, Screen, TopHeader } from "../components/ui";
 import { useMemo, useState } from "react";
 
-export function DiscoverScreen({ onBook, onAction, onOpenNotifications }: { onBook: (service: Service) => void; onAction: (message: string) => void; onOpenNotifications: () => void }) {
+export function DiscoverScreen({ onBook, onAction, onOpenNotifications,services,favorites,onToggleFavorite,locationTitle }: { onBook: (service: Service) => void; onAction: (message: string) => void; onOpenNotifications: () => void;services:Service[];favorites:string[];onToggleFavorite:(id:string)=>void;locationTitle:string }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Semua");
-  const [favorites, setFavorites] = useState<string[]>(["clinic"]);
-  const categories = ["Semua", "Klinik", "Grooming", "Pet Hotel", "Home Care"];
-  const results = useMemo(() => services.filter((service) => (category === "Semua" || service.category === category) && service.name.toLowerCase().includes(query.toLowerCase())), [category, query]);
+  const categories = ["Semua",...Array.from(new Set(services.map(item=>item.category)))];
+  const results = useMemo(() => services.filter((service) => (category === "Semua" || service.category === category) && service.name.toLowerCase().includes(query.toLowerCase())), [category, query,services]);
 
   return (
     <Screen>
-      <TopHeader title="Jelajahi Layanan" subtitle="Jakarta Selatan" onNotification={onOpenNotifications} />
+      <TopHeader title="Jelajahi Layanan" subtitle={locationTitle} onNotification={onOpenNotifications} />
       <Text style={styles.title}>Apa yang dibutuhkan{`\n`}hewanmu hari ini?</Text>
       <Text style={styles.subtitle}>Semua partner telah diverifikasi oleh Slivadoc.</Text>
       <View style={styles.searchBox}><Ionicons name="search" size={18} color={colors.muted} /><TextInput placeholder="Cari klinik atau layanan" placeholderTextColor="#9AA7B6" value={query} onChangeText={setQuery} style={styles.searchInput} /><Pressable onPress={() => onAction(`Mencari “${query || "semua layanan"}”`)} style={styles.filterButton}><Ionicons name="options" size={17} color={colors.white} /></Pressable></View>
@@ -31,10 +30,10 @@ export function DiscoverScreen({ onBook, onAction, onOpenNotifications }: { onBo
             <Pressable key={service.id} onPress={() => onBook(service)} style={({ pressed }) => [styles.serviceCard, pressed && styles.pressed]}>
               <View style={[styles.serviceVisual, service.tone === "mint" ? styles.mint : service.tone === "violet" ? styles.violet : service.tone === "peach" ? styles.peach : styles.blue]}>
                 <Text style={styles.serviceEmoji}>{service.icon}</Text><Pill>{service.category}</Pill>
-                <Pressable hitSlop={10} onPress={(event) => { event.stopPropagation(); setFavorites((current) => favorite ? current.filter((id) => id !== service.id) : [...current, service.id]); }} style={styles.favorite}><Ionicons name={favorite ? "heart" : "heart-outline"} size={18} color={favorite ? colors.red : colors.text} /></Pressable>
+                <Pressable hitSlop={10} onPress={(event) => { event.stopPropagation();onToggleFavorite(service.id) }} style={styles.favorite}><Ionicons name={favorite ? "heart" : "heart-outline"} size={18} color={favorite ? colors.red : colors.text} /></Pressable>
               </View>
               <View style={styles.serviceBody}>
-                <View style={styles.serviceTitleRow}><View style={styles.serviceTitleCopy}><Text style={styles.serviceName}>{service.name}</Text><Text style={styles.serviceLocation}><Ionicons name="location-outline" size={10} /> {service.distance} • Jakarta Selatan</Text></View><View style={styles.rating}><Ionicons name="star" size={11} color={colors.yellow} /><Text style={styles.ratingText}>{service.rating}</Text></View></View>
+                <View style={styles.serviceTitleRow}><View style={styles.serviceTitleCopy}><Text style={styles.serviceName}>{service.name}</Text><Text style={styles.serviceLocation}><Ionicons name="location-outline" size={10} /> {service.distance} • {service.address}</Text></View><View style={styles.rating}><Ionicons name="star" size={11} color={colors.yellow} /><Text style={styles.ratingText}>{service.rating}</Text></View></View>
                 <View style={styles.tags}><Text>Terpercaya</Text><Text>Pet friendly</Text><Text>Digital record</Text></View>
                 <View style={styles.status}><View style={styles.liveDot} /><Text style={styles.statusText}>{service.status}</Text></View>
                 <View style={styles.serviceFooter}><View><Text style={styles.priceLabel}>Estimasi harga</Text><Text style={styles.price}>{service.price}</Text></View><PrimaryButton compact label="Booking" onPress={() => onBook(service)} /></View>

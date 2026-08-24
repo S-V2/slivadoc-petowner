@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import {
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StatusBar as NativeStatusBar,
   StyleSheet,
   Text,
@@ -22,10 +22,10 @@ import { HealthScreen } from "./src/screens/HealthScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { CommunityScreen } from "./src/screens/CommunityScreen";
 import { WorldScreen } from "./src/screens/WorldScreen";
-import { pets, services, type Service } from "./src/data";
+import { type PetView, type Service } from "./src/data";
 import { colors, shadow } from "./src/theme";
 import { Pill, PrimaryButton, SoftButton } from "./src/components/ui";
-import { reverseGeocode } from "./src/api";
+import { createMobileBooking, getMobileBootstrap, getMobileMedicalRecords, getMobileServices, hasPlatformSession, loginMobile, logoutMobile, readAllMobileNotifications, readMobileNotification, reverseGeocode, toggleMobileFavorite, type MobileBootstrap, type MobileMedicalRecord, type MobileNotification, type MobileService } from "./src/api";
 import { SlivaCareModal } from "./src/components/SlivaCareModal";
 
 type Tab = "home" | "discover" | "world" | "activity" | "health" | "community" | "profile";
@@ -46,8 +46,19 @@ export default function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
-  const [selectedService, setSelectedService] = useState<Service>(services[0]);
+  const [selectedService, setSelectedService] = useState<Service>();
   const [locationTitle, setLocationTitle] = useState("Pilih lokasi spesifik");
+  const [bootstrap,setBootstrap]=useState<MobileBootstrap>();
+  const [services,setServices]=useState<Service[]>([]);
+  const [favorites,setFavorites]=useState<string[]>([]);
+  const [records,setRecords]=useState<MobileMedicalRecord[]>([]);
+  const [recordsLoading,setRecordsLoading]=useState(false);
+  const [loginOpen,setLoginOpen]=useState(false);
+  const [submitting,setSubmitting]=useState(false);
+
+  const mapService=(item:MobileService,index:number):Service=>({id:item.id,branchId:item.branch_id,name:item.name,category:item.category,rating:"Baru",distance:item.distance_km!==undefined?`${item.distance_km.toFixed(1)} km`:item.city,price:new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(item.price),status:"Tersedia dari API",icon:item.category.toLowerCase().includes("groom")?"🛁":item.category.toLowerCase().includes("hotel")?"🏡":item.category.toLowerCase().includes("home")?"🩺":"🏥",tone:(["mint","blue","violet","peach"] as const)[index%4]??"blue",priceValue:item.price,address:`${item.branch_name} · ${item.address}`});
+  const pets:PetView[]=(bootstrap?.pets??[]).map(item=>({id:item.id,name:item.name,breed:item.breed,age:item.age_months>=12?`${Math.floor(item.age_months/12)} tahun ${item.age_months%12} bulan`:`${item.age_months} bulan`,weight:`${item.weight_kg||0} kg`,icon:item.species.toLowerCase()==="cat"?"🐈":item.species.toLowerCase()==="rabbit"?"🐇":"🐕",score:item.health_score,allergies:item.allergies,lastUpdated:item.last_medical_record_at}));
+  const pet=pets[0];
 
   const notify = (message: string) => setToast(message);
   useEffect(() => {
@@ -56,7 +67,13 @@ export default function App() {
     return () => clearTimeout(timeout);
   }, [toast]);
 
-  const openBooking = (service: Service = services[0]) => { setSelectedService(service); setBookingOpen(true); };
+  useEffect(()=>{void getMobileServices().then(result=>setServices(result.data.map(mapService))).catch(cause=>notify(cause instanceof Error?cause.message:"Layanan belum tersedia"))},[]);
+  useEffect(()=>{if(!pet?.id)return;queueMicrotask(()=>{setRecordsLoading(true);void getMobileMedicalRecords(pet.id).then(result=>setRecords(result.data)).catch(cause=>notify(cause instanceof Error?cause.message:"Rekam medis belum tersedia")).finally(()=>setRecordsLoading(false))})},[pet?.id]);
+
+  const refreshAccount=async()=>{const data=await getMobileBootstrap();setBootstrap(data);setFavorites(data.favorites.map(item=>item.entity_id))};
+
+  const requireLogin=()=>{if(hasPlatformSession())return true;setLoginOpen(true);notify("Login diperlukan untuk fitur akun");return false};
+  const openBooking = (service?: Service) => {if(!requireLogin())return;const selected=service??services[0];if(!selected)return notify("Belum ada layanan tersedia dari API");setSelectedService(selected); setBookingOpen(true); };
   const updateLocation = async () => {
     try {
       const permission = await ExpoLocation.requestForegroundPermissionsAsync();
@@ -65,6 +82,8 @@ export default function App() {
       const position = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.High });
       const result = await reverseGeocode(position.coords.latitude, position.coords.longitude);
       setLocationTitle(result.label.split(",").slice(0, 3).join(", "));
+      const nearby=await getMobileServices({latitude:position.coords.latitude,longitude:position.coords.longitude});
+      setServices(nearby.data.map(mapService));
       notify("Lokasi layanan berhasil diperbarui");
     } catch (cause) { notify(cause instanceof Error ? cause.message : "Lokasi belum dapat ditemukan"); }
   };
@@ -74,26 +93,27 @@ export default function App() {
       <StatusBar style="dark" />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.app}>
-          {tab === "home" ? <HomeScreen onAction={notify} onBook={openBooking} onOpenChat={() => setChatOpen(true)} onOpenNotifications={() => setNotificationsOpen(true)} locationTitle={locationTitle} onLocation={updateLocation} onNavigate={(next) => setTab(next)} /> : null}
-          {tab === "discover" ? <DiscoverScreen onBook={openBooking} onAction={notify} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
-          {tab === "world" ? <WorldScreen onAction={notify} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
-          {tab === "activity" ? <ActivityScreen onAction={notify} onBook={() => openBooking()} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
-          {tab === "health" ? <HealthScreen onAction={notify} onBook={() => openBooking()} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
-          {tab === "community" ? <CommunityScreen onAction={notify} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
-          {tab === "profile" ? <ProfileScreen onAction={notify} onOpenNotifications={() => setNotificationsOpen(true)} /> : null}
+          {tab === "home" ? <HomeScreen onAction={notify} onBook={openBooking} onOpenChat={() => setChatOpen(true)} onOpenNotifications={() => setNotificationsOpen(true)} locationTitle={locationTitle} onLocation={updateLocation} onNavigate={(next) => setTab(next)} ownerName={bootstrap?.user.full_name} pet={pet} services={services} activities={bootstrap?.activities??[]} /> : null}
+          {tab === "discover" ? <DiscoverScreen onBook={openBooking} onAction={notify} onOpenNotifications={() => setNotificationsOpen(true)} services={services} favorites={favorites} locationTitle={locationTitle} onToggleFavorite={async(id)=>{if(!requireLogin())return;try{const result=await toggleMobileFavorite(id);setFavorites(current=>result.favorite?[...new Set([...current,id])]:current.filter(item=>item!==id))}catch(cause){notify(cause instanceof Error?cause.message:"Favorit belum dapat diperbarui")}}} /> : null}
+          {tab === "world" ? <WorldScreen onAction={notify} onOpenNotifications={() => setNotificationsOpen(true)} owner={bootstrap?.user} petName={pet?.name} onLogin={()=>setLoginOpen(true)} /> : null}
+          {tab === "activity" ? <ActivityScreen onAction={notify} onBook={() => openBooking()} onOpenNotifications={() => setNotificationsOpen(true)} activities={bootstrap?.activities??[]} petNames={Object.fromEntries(pets.map(item=>[item.id,item.name]))} /> : null}
+          {tab === "health" ? <HealthScreen onAction={notify} onBook={() => openBooking()} onOpenNotifications={() => setNotificationsOpen(true)} pet={pet} records={records} loading={recordsLoading} /> : null}
+          {tab === "community" ? <CommunityScreen onAction={notify} onOpenNotifications={() => setNotificationsOpen(true)} owner={bootstrap?.user} pet={pet} onLogin={()=>setLoginOpen(true)} /> : null}
+          {tab === "profile" ? <ProfileScreen onAction={notify} onOpenNotifications={() => setNotificationsOpen(true)} owner={bootstrap?.user} petCount={pets.length} activityCount={bootstrap?.activities.length??0} points={bootstrap?.points.balance??0} onLogin={()=>setLoginOpen(true)} onLogout={()=>{logoutMobile();setBootstrap(undefined);setRecords([]);setTab("home");notify("Sesi berhasil diakhiri")}} /> : null}
 
           <View style={styles.tabBar}>
             {tabs.map((item) => {
               const active = item.id === tab;
-              return <Pressable key={item.id} accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={() => setTab(item.id)} style={({ pressed }) => [styles.tabItem, pressed && styles.pressed]}><View style={[styles.tabIcon, active && styles.activeTabIcon]}><Ionicons name={active ? item.activeIcon : item.icon} size={20} color={active ? colors.sky600 : "#8C9BAB"} />{item.id === "activity" ? <View style={styles.activityDot} /> : null}</View><Text style={[styles.tabLabel, active && styles.activeTabLabel]}>{item.label}</Text></Pressable>;
+              return <Pressable key={item.id} accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={() => setTab(item.id)} style={({ pressed }) => [styles.tabItem, pressed && styles.pressed]}><View style={[styles.tabIcon, active && styles.activeTabIcon]}><Ionicons name={active ? item.activeIcon : item.icon} size={20} color={active ? colors.sky600 : "#8C9BAB"} />{item.id === "activity"&&Boolean(bootstrap?.activities.length) ? <View style={styles.activityDot} /> : null}</View><Text style={[styles.tabLabel, active && styles.activeTabLabel]}>{item.id==="profile"&&!bootstrap?"Masuk":item.label}</Text></Pressable>;
             })}
           </View>
         </View>
       </SafeAreaView>
 
-      <NotificationModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} onAction={notify} />
-      <SlivaCareModal visible={chatOpen} onClose={() => setChatOpen(false)} onAction={notify} />
-      <BookingModal visible={bookingOpen} service={selectedService} onClose={() => setBookingOpen(false)} onDone={() => { setBookingOpen(false); setTab("activity"); notify("Booking berhasil dibuat"); }} />
+      <NotificationModal visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} onAction={notify} items={bootstrap?.notifications??[]} onRead={async(item)=>{if(!bootstrap)return;try{await readMobileNotification(item.id);setBootstrap(current=>current?{...current,notifications:current.notifications.map(value=>value.id===item.id?{...value,read_at:new Date().toISOString()}:value)}:current)}catch(cause){notify(cause instanceof Error?cause.message:"Notifikasi belum dapat dibuka")}}} onReadAll={async()=>{if(!bootstrap)return;await readAllMobileNotifications();setBootstrap(current=>current?{...current,notifications:current.notifications.map(item=>({...item,read_at:item.read_at||new Date().toISOString()}))}:current)}} />
+      <SlivaCareModal visible={chatOpen} onClose={() => setChatOpen(false)} onAction={notify} owner={bootstrap?.user} pet={pet} onLogin={()=>setLoginOpen(true)} />
+      {selectedService?<BookingModal visible={bookingOpen} service={selectedService} pet={pet} busy={submitting} onClose={() => setBookingOpen(false)} onDone={async(input) => {if(!pet)return;setSubmitting(true);try{const result=await createMobileBooking({pet_id:pet.id,service_id:selectedService.id,branch_id:selectedService.branchId,...input});await refreshAccount();setBookingOpen(false);setTab("activity");notify(result.message)}catch(cause){notify(cause instanceof Error?cause.message:"Booking belum dapat dibuat")}finally{setSubmitting(false)}}} />:null}
+      <LoginModal visible={loginOpen} busy={submitting} onClose={()=>setLoginOpen(false)} onSubmit={async(email,password)=>{setSubmitting(true);try{await loginMobile(email,password);await refreshAccount();setLoginOpen(false);notify("Login berhasil")}catch(cause){notify(cause instanceof Error?cause.message:"Login gagal")}finally{setSubmitting(false)}}}/>
       {toast ? <View style={styles.toast}><View style={styles.toastCheck}><Ionicons name="checkmark" size={13} color={colors.white} /></View><Text style={styles.toastText}>{toast}</Text></View> : null}
     </SafeAreaProvider>
   );
@@ -103,35 +123,28 @@ function SheetHeader({ eyebrow, title, onClose }: { eyebrow: string; title: stri
   return <View style={styles.sheetHeader}><View><Text style={styles.sheetEyebrow}>{eyebrow}</Text><Text style={styles.sheetTitle}>{title}</Text></View><Pressable onPress={onClose} style={styles.closeButton}><Ionicons name="close" size={20} color={colors.text} /></Pressable></View>;
 }
 
-function NotificationModal({ visible, onClose, onAction }: { visible: boolean; onClose: () => void; onAction: (message: string) => void }) {
-  const items = [
-    { icon: "💊", title: "Waktunya obat Milo", note: "Omega Skin & Coat • 1 tablet", time: "5 menit", color: colors.sky50 },
-    { icon: "📦", title: "Pesanan sedang diantar", note: "Kurir tiba dalam 20–30 menit", time: "12 menit", color: colors.violet50 },
-    { icon: "💉", title: "Vaksin segera jatuh tempo", note: "Atur jadwal sebelum 4 September", time: "2 jam", color: colors.mint50 },
-    { icon: "✦", title: "Kamu mendapat 250 Points", note: "Dari Pawsitive Vet Kemang", time: "Kemarin", color: colors.yellow50 },
-  ];
-  return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><Pressable style={styles.modalBackdrop} onPress={onClose}><SafeAreaView style={styles.sheetWrap}><Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}><View style={styles.sheetHandle} /><SheetHeader eyebrow="UPDATE TERBARU" title="Notifikasi" onClose={onClose} /><Pressable onPress={() => onAction("Semua notifikasi ditandai dibaca")}><Text style={styles.markRead}>Tandai semua sudah dibaca</Text></Pressable><View>{items.map((item,index) => <Pressable key={item.title} onPress={() => onAction(item.title)} style={styles.notification}><View style={[styles.notificationIcon,{ backgroundColor: item.color }]}><Text>{item.icon}</Text></View><View style={styles.notificationCopy}><Text style={styles.notificationTitle}>{item.title}</Text><Text style={styles.notificationNote}>{item.note}</Text><Text style={styles.notificationTime}>{item.time} lalu</Text></View>{index < 3 ? <View style={styles.unreadDot} /> : null}</Pressable>)}</View><SoftButton label="Lihat semua notifikasi" onPress={() => onAction("Riwayat notifikasi dibuka")} /></Pressable></SafeAreaView></Pressable></Modal>;
+function NotificationModal({ visible, onClose, onAction,items,onRead,onReadAll }: { visible: boolean; onClose: () => void; onAction: (message: string) => void;items:MobileNotification[];onRead:(item:MobileNotification)=>void|Promise<void>;onReadAll:()=>void|Promise<void> }) {
+  const [category,setCategory]=useState("");const categories=[...new Set(items.map(item=>item.category))];const visibleItems=category?items.filter(item=>item.category===category):items;
+  return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><Pressable style={styles.modalBackdrop} onPress={onClose}><SafeAreaView style={styles.sheetWrap}><Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}><View style={styles.sheetHandle} /><SheetHeader eyebrow="UPDATE TERBARU" title="Notifikasi" onClose={onClose} /><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:6,paddingVertical:8}}><Pressable onPress={()=>setCategory("")}><Pill tone={!category?"mint":undefined}>Semua</Pill></Pressable>{categories.map(value=><Pressable key={value} onPress={()=>setCategory(value)}><Pill tone={category===value?"mint":undefined}>{value}</Pill></Pressable>)}</ScrollView><Pressable disabled={!items.some(item=>!item.read_at)} onPress={()=>void onReadAll()}><Text style={styles.markRead}>Tandai semua sudah dibaca</Text></Pressable><ScrollView>{visibleItems.length?visibleItems.map((item) => <Pressable key={item.id} onPress={()=>{void onRead(item);onAction(item.title)}} style={styles.notification}><View style={[styles.notificationIcon,{ backgroundColor:item.category==="health"?colors.mint50:item.category==="points"?colors.yellow50:colors.sky50 }]}><Text>{item.category==="health"?"🩺":item.category==="booking"?"📅":item.category==="points"?"✦":"🔔"}</Text></View><View style={styles.notificationCopy}><Text style={styles.notificationTitle}>{item.title}</Text><Text style={styles.notificationNote}>{item.body}</Text><Text style={styles.notificationTime}>{new Date(item.created_at).toLocaleString("id-ID")}</Text></View>{!item.read_at ? <View style={styles.unreadDot} /> : null}</Pressable>):<Text style={styles.notificationNote}>Belum ada notifikasi pada kategori ini.</Text>}</ScrollView></Pressable></SafeAreaView></Pressable></Modal>;
 }
 
-function ChatModal({ visible, onClose, onAction }: { visible: boolean; onClose: () => void; onAction: (message: string) => void }) {
-  const [message, setMessage] = useState("");
-  const [sent, setSent] = useState<string[]>([]);
-  const send = () => { if (!message.trim()) return; setSent((current) => [...current, message.trim()]); setMessage(""); };
-  return <Modal visible={visible} animationType="slide" onRequestClose={onClose}><SafeAreaView style={styles.chatPage}><KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.chatKeyboard} keyboardVerticalOffset={0}><View style={styles.chatHeader}><View style={styles.doctorAvatar}><Text>👩🏻‍⚕️</Text><View style={styles.onlineDot} /></View><View style={styles.chatHeaderCopy}><Text style={styles.chatName}>SlivaCare Assistant</Text><Text style={styles.chatStatus}>Dokter tersedia • Balas ±2 menit</Text></View><Pressable onPress={() => onAction("Video call sedang disiapkan")} style={styles.videoButton}><Ionicons name="videocam" size={18} color={colors.sky600} /></Pressable><Pressable onPress={onClose} style={styles.closeButton}><Ionicons name="close" size={20} color={colors.text} /></Pressable></View><View style={styles.petContext}><Text style={styles.petContextEmoji}>🐕</Text><View style={styles.petContextCopy}><Text style={styles.petContextLabel}>KONSULTASI UNTUK</Text><Text style={styles.petContextName}>Milo • Golden Retriever</Text></View><Pressable onPress={() => onAction("Ganti profil hewan")}><Text style={styles.changePet}>Ganti</Text></Pressable></View><View style={styles.messages}><Text style={styles.today}>Hari ini</Text><View style={styles.doctorMessageRow}><Text style={styles.messageAvatar}>👩🏻‍⚕️</Text><View style={styles.doctorMessage}><Text style={styles.messageText}>Halo Evans! Ada yang bisa kami bantu untuk Milo hari ini?</Text><Text style={styles.messageTime}>12.04</Text></View></View><View style={styles.quickReplies}>{["🩺 Konsultasi gejala","💊 Tanya obat","🚑 Darurat"].map((reply) => <Pressable key={reply} onPress={() => setMessage(reply.replace(/^..\s/, ""))} style={styles.quickReply}><Text style={styles.quickReplyText}>{reply}</Text></Pressable>)}</View>{sent.map((text,index) => <View key={`${text}-${index}`} style={styles.sentMessage}><Text style={styles.sentText}>{text}</Text><Text style={styles.sentTime}>12.{10 + index} ✓✓</Text></View>)}</View><View style={styles.composer}><Pressable onPress={() => onAction("Lampiran foto atau dokumen")} style={styles.attach}><Ionicons name="add" size={21} color={colors.muted} /></Pressable><TextInput value={message} onChangeText={setMessage} placeholder="Tulis pesan..." placeholderTextColor="#9AA7B6" style={styles.composerInput} onSubmitEditing={send} /><Pressable onPress={send} style={styles.send}><Ionicons name="arrow-up" size={18} color={colors.white} /></Pressable></View></KeyboardAvoidingView></SafeAreaView></Modal>;
-}
+function LoginModal({visible,busy,onClose,onSubmit}:{visible:boolean;busy:boolean;onClose:()=>void;onSubmit:(email:string,password:string)=>void|Promise<void>}){const[email,setEmail]=useState("petowner.demo@slivadoc.local");const[password,setPassword]=useState("");const[show,setShow]=useState(false);return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><Pressable style={styles.modalBackdrop} onPress={onClose}><SafeAreaView style={styles.sheetWrap}><Pressable style={styles.sheet} onPress={event=>event.stopPropagation()}><View style={styles.sheetHandle}/><SheetHeader eyebrow="SLIVADOC PET OWNER" title="Masuk ke akunmu" onClose={onClose}/><Text style={styles.fieldLabel}>Email</Text><TextInput autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} style={styles.notes} placeholder="email@contoh.com"/><Text style={styles.fieldLabel}>Password</Text><View style={styles.composer}><TextInput secureTextEntry={!show} value={password} onChangeText={setPassword} style={styles.composerInput} placeholder="Masukkan password"/><Pressable onPress={()=>setShow(value=>!value)} style={styles.attach}><Ionicons name={show?"eye-off-outline":"eye-outline"} size={19} color={colors.sky600}/></Pressable></View><Text style={styles.notificationNote}>Password Slivadoc menggunakan kombinasi huruf, angka, dan simbol.</Text><PrimaryButton label={busy?"Memproses…":"Masuk"} icon="log-in-outline" onPress={()=>{if(!busy&&email&&password)void onSubmit(email.trim(),password)}} style={{marginTop:14,opacity:busy||!email||!password ? .7 : 1}}/></Pressable></SafeAreaView></Pressable></Modal>}
 
-function BookingModal({ visible, service, onClose, onDone }: { visible: boolean; service: Service; onClose: () => void; onDone: () => void }) {
+function BookingModal({ visible, service,pet,busy,onClose, onDone }: { visible: boolean; service: Service;pet?:PetView;busy:boolean;onClose: () => void; onDone: (input:{scheduled_at:string;notes:string}) => void|Promise<void> }) {
   const [step, setStep] = useState(1);
-  const [date, setDate] = useState("27 Agu");
+  const toDate=(value:Date)=>`${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,"0")}-${String(value.getDate()).padStart(2,"0")}`;
+  const dates=Array.from({length:5},(_,index)=>{const value=new Date();value.setDate(value.getDate()+index+1);return value});
+  const [date, setDate] = useState(()=>toDate(dates[0]??new Date()));
   const [time, setTime] = useState("16.00");
+  const [notes,setNotes]=useState("");
   // Resetting the transient wizard state when its native modal closes.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (!visible) setStep(1); }, [visible]);
   return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><View style={styles.modalBackdrop}><SafeAreaView style={styles.bookingWrap}><View style={styles.bookingSheet}><View style={styles.sheetHandle} /><SheetHeader eyebrow="BOOKING LAYANAN" title={service.name} onClose={onClose} /><View style={styles.stepper}>{[1,2,3].map((item) => <View key={item} style={styles.stepItem}><View style={[styles.stepCircle,step >= item && styles.activeStep]}>{step > item ? <Ionicons name="checkmark" size={13} color={colors.white} /> : <Text style={[styles.stepNumber,step >= item && styles.activeStepNumber]}>{item}</Text>}</View><Text style={[styles.stepLabel,step >= item && styles.activeStepLabel]}>{item === 1 ? "Layanan" : item === 2 ? "Jadwal" : "Konfirmasi"}</Text></View>)}</View>
-        {step === 1 ? <View><Text style={styles.fieldLabel}>Pilih hewan</Text><View style={styles.selectedPet}><Text style={styles.selectedPetEmoji}>{pets[0].icon}</Text><View style={styles.selectedPetCopy}><Text style={styles.selectedPetName}>Milo</Text><Text style={styles.selectedPetMeta}>Golden Retriever • 28.4 kg</Text></View><View style={styles.selectedCheck}><Ionicons name="checkmark" size={12} color={colors.white} /></View></View><Text style={styles.fieldLabel}>Pilih layanan</Text><View style={styles.selectedService}><Text style={styles.serviceOptionEmoji}>🩺</Text><View style={styles.serviceOptionCopy}><Text style={styles.serviceOptionName}>General Consultation</Text><Text style={styles.serviceOptionNote}>Pemeriksaan umum & konsultasi</Text></View><Text style={styles.serviceOptionPrice}>Rp85.000</Text></View><View style={styles.serviceOption}><Text style={styles.serviceOptionEmoji}>💉</Text><View style={styles.serviceOptionCopy}><Text style={styles.serviceOptionName}>Vaccination Package</Text><Text style={styles.serviceOptionNote}>Konsultasi, vaksin & sertifikat</Text></View><Text style={styles.serviceOptionPrice}>Rp240.000</Text></View></View> : null}
-        {step === 2 ? <View><Text style={styles.fieldLabel}>Pilih tanggal</Text><View style={styles.dateRow}>{["25 Agu","26 Agu","27 Agu","28 Agu","29 Agu"].map((item) => <Pressable key={item} onPress={() => setDate(item)} style={[styles.dateOption,date === item && styles.activeDate]}><Text style={[styles.dateDay,date === item && styles.activeDateText]}>{item === "27 Agu" ? "KAM" : "HARI"}</Text><Text style={[styles.dateNumber,date === item && styles.activeDateText]}>{item.split(" ")[0]}</Text><Text style={[styles.dateMonth,date === item && styles.activeDateText]}>{item.split(" ")[1]}</Text></Pressable>)}</View><Text style={styles.fieldLabel}>Pilih waktu</Text><View style={styles.timeGrid}>{["09.00","10.30","13.00","14.30","16.00","17.30"].map((item) => <Pressable key={item} onPress={() => setTime(item)} style={[styles.timeOption,time === item && styles.activeTime]}><Text style={[styles.timeText,time === item && styles.activeTimeText]}>{item}</Text></Pressable>)}</View><Text style={styles.fieldLabel}>Catatan untuk dokter</Text><TextInput multiline placeholder="Ceritakan keluhan atau hal penting..." placeholderTextColor="#9CA8B6" style={styles.notes} /></View> : null}
-        {step === 3 ? <View><View style={styles.bookingSummary}><View style={styles.summaryIcon}><Text>{service.icon}</Text></View><View style={styles.summaryCopy}><Pill tone="mint">SLOT TERSEDIA</Pill><Text style={styles.summaryName}>{service.name}</Text><Text style={styles.summaryAddress}>Jakarta Selatan</Text></View></View><View style={styles.summaryLines}><SummaryLine label="Hewan" value="🐕 Milo" /><SummaryLine label="Layanan" value="General Consultation" /><SummaryLine label="Jadwal" value={`${date} • ${time} WIB`} /><SummaryLine label="Biaya layanan" value="Rp85.000" /><SummaryLine label="Biaya platform" value="Rp2.500" /><SummaryLine label="Total pembayaran" value="Rp87.500" total /></View></View> : null}
-        <View style={styles.bookingFooter}><SoftButton label={step === 1 ? "Batal" : "Kembali"} onPress={() => step === 1 ? onClose() : setStep(step - 1)} style={styles.footerButton} /><PrimaryButton label={step < 3 ? "Lanjutkan" : "Konfirmasi & bayar"} icon="arrow-forward" onPress={() => step < 3 ? setStep(step + 1) : onDone()} style={styles.footerButton} /></View>
+        {step === 1 ? <View><Text style={styles.fieldLabel}>Pilih hewan</Text><View style={styles.selectedPet}><Text style={styles.selectedPetEmoji}>{pet?.icon||"🐾"}</Text><View style={styles.selectedPetCopy}><Text style={styles.selectedPetName}>{pet?.name||"Pet"}</Text><Text style={styles.selectedPetMeta}>{pet?.breed||"Profil pet"} • {pet?.weight||"—"}</Text></View><View style={styles.selectedCheck}><Ionicons name="checkmark" size={12} color={colors.white} /></View></View><Text style={styles.fieldLabel}>Layanan dari API</Text><View style={styles.selectedService}><Text style={styles.serviceOptionEmoji}>{service.icon}</Text><View style={styles.serviceOptionCopy}><Text style={styles.serviceOptionName}>{service.name}</Text><Text style={styles.serviceOptionNote}>{service.address}</Text></View><Text style={styles.serviceOptionPrice}>{service.price}</Text></View></View> : null}
+        {step === 2 ? <View><Text style={styles.fieldLabel}>Pilih tanggal</Text><View style={styles.dateRow}>{dates.map((item) => {const value=toDate(item);return <Pressable key={value} onPress={() => setDate(value)} style={[styles.dateOption,date === value && styles.activeDate]}><Text style={[styles.dateDay,date === value && styles.activeDateText]}>{item.toLocaleDateString("id-ID",{weekday:"short"}).toUpperCase()}</Text><Text style={[styles.dateNumber,date === value && styles.activeDateText]}>{item.getDate()}</Text><Text style={[styles.dateMonth,date === value && styles.activeDateText]}>{item.toLocaleDateString("id-ID",{month:"short"})}</Text></Pressable>})}</View><Text style={styles.fieldLabel}>Pilih waktu</Text><View style={styles.timeGrid}>{["09.00","10.30","13.00","14.30","16.00","17.30"].map((item) => <Pressable key={item} onPress={() => setTime(item)} style={[styles.timeOption,time === item && styles.activeTime]}><Text style={[styles.timeText,time === item && styles.activeTimeText]}>{item}</Text></Pressable>)}</View><Text style={styles.fieldLabel}>Catatan khusus</Text><TextInput multiline value={notes} onChangeText={setNotes} maxLength={1000} placeholder="Ceritakan keluhan atau hal penting..." placeholderTextColor="#9CA8B6" style={styles.notes} /></View> : null}
+        {step === 3 ? <View><View style={styles.bookingSummary}><View style={styles.summaryIcon}><Text>{service.icon}</Text></View><View style={styles.summaryCopy}><Pill tone="mint">TERSEDIA DARI API</Pill><Text style={styles.summaryName}>{service.name}</Text><Text style={styles.summaryAddress}>{service.address}</Text></View></View><View style={styles.summaryLines}><SummaryLine label="Hewan" value={`${pet?.icon||"🐾"} ${pet?.name||"Pet"}`} /><SummaryLine label="Layanan" value={service.name} /><SummaryLine label="Jadwal" value={`${new Date(`${date}T12:00:00`).toLocaleDateString("id-ID")} • ${time} WIB`} /><SummaryLine label="Total pembayaran" value={service.price} total /></View></View> : null}
+        <View style={styles.bookingFooter}><SoftButton label={step === 1 ? "Batal" : "Kembali"} onPress={() => busy?undefined:step === 1 ? onClose() : setStep(step - 1)} style={styles.footerButton} /><PrimaryButton label={busy?"Menyimpan…":step < 3 ? "Lanjutkan" : "Konfirmasi booking"} icon="arrow-forward" onPress={() => {if(busy)return;if(step<3){setStep(step+1);return}const [hour,minute]=time.split(".");void onDone({scheduled_at:new Date(`${date}T${hour}:${minute}:00`).toISOString(),notes})}} style={[styles.footerButton,{opacity:busy ? .65 : 1}]} /></View>
       </View></SafeAreaView></View></Modal>;
 }
 

@@ -1,133 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { communityPosts as fallbackPosts } from "../../data/mock";
-import { addCommunityComment, createCommunityPost, getCommunityPosts, realtimeSocket, toggleCommunityLike, uploadImage, type CommunityPost } from "../../lib/petowner-api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createCommunityComment, createCommunityGroup, createCommunityPost, getCommunityComments, getCommunityGroups, getCommunityPosts, isPetOwnerAuthenticated, joinCommunityGroup, reactCommunityPost, type CommunityComment, type CommunityGroup, type CommunityPost } from "../../lib/platform-api";
+import { uploadImage } from "../../lib/petowner-api";
 import { Icon } from "../Icon";
 
 type Props = { notify: (message: string) => void; onOpenLocation: () => void };
-
-const fallback: CommunityPost[] = fallbackPosts.map((post, index) => ({
-  id: post.id,
-  author: post.author,
-  petName: post.pet,
-  body: post.body,
-  tag: post.tag,
-  likes: post.likes,
-  likedBy: [],
-  comments: Array.from({ length: Math.min(post.comments, 2) }, (_, commentIndex) => ({ id: `fallback-${index}-${commentIndex}`, author: "Pet Parent", body: "Terima kasih sudah berbagi!", createdAt: new Date().toISOString() })),
-  createdAt: new Date(Date.now() - index * 3_600_000).toISOString(),
-}));
+const tabs = ["Untuk Kamu", "Mengikuti", "Grup Saya", "Adopsi", "Lost & Found"];
+const categoryMap:Record<string,string> = { "Cerita":"story", "Tanya Komunitas":"question", "Tips":"tips", "Adopsi":"adoption", "Lost & Found":"lost_found" };
+function requireLogin(){if(isPetOwnerAuthenticated())return true;window.dispatchEvent(new CustomEvent("slivadoc:login-required"));return false}
 
 export default function CommunityExperience({ notify, onOpenLocation }: Props) {
-  const [tab, setTab] = useState("Untuk Kamu");
-  const [posts, setPosts] = useState<CommunityPost[]>(fallback);
-  const [composerOpen, setComposerOpen] = useState(false);
-  const [activePost, setActivePost] = useState<CommunityPost | null>(null);
-  const [online, setOnline] = useState(false);
-
-  useEffect(() => {
-    getCommunityPosts().then((items) => { if (items.length) setPosts(items); }).catch(() => undefined);
-    const socket = realtimeSocket();
-    const join = () => { setOnline(true); socket.emit("community:join"); };
-    const disconnect = () => setOnline(false);
-    const addPost = (post: CommunityPost) => setPosts((current) => current.some((item) => item.id === post.id) ? current : [post, ...current]);
-    const updatePost = (post: CommunityPost) => setPosts((current) => current.map((item) => item.id === post.id ? post : item));
-    socket.on("connect", join);
-    socket.on("disconnect", disconnect);
-    socket.on("community:new-post", addPost);
-    socket.on("community:update", updatePost);
-    socket.connect();
-    if (socket.connected) join();
-    return () => {
-      socket.off("connect", join);
-      socket.off("disconnect", disconnect);
-      socket.off("community:new-post", addPost);
-      socket.off("community:update", updatePost);
-    };
-  }, []);
-
-  const like = async (post: CommunityPost) => {
-    const isLiked = post.likedBy?.includes("petowner-evans");
-    setPosts((current) => current.map((item) => item.id === post.id ? { ...item, likes: Math.max(0, item.likes + (isLiked ? -1 : 1)), likedBy: isLiked ? item.likedBy?.filter((id) => id !== "petowner-evans") : [...(item.likedBy ?? []), "petowner-evans"] } : item));
-    try {
-      const updated = await toggleCommunityLike(post.id, "petowner-evans");
-      setPosts((current) => current.map((item) => item.id === updated.id ? updated : item));
-    } catch {
-      notify("Like tersimpan lokal; jalankan Pet Owner API untuk sinkronisasi realtime");
-    }
-  };
-
-  return (
-    <div className="community-layout">
-      <section>
-        <div className="community-tabs">{["Untuk Kamu", "Mengikuti", "Grup Saya", "Adopsi", "Lost & Found"].map((item) => <button type="button" className={tab === item ? "active" : ""} key={item} onClick={() => setTab(item)}>{item}{item === "Lost & Found" && <i />}</button>)}</div>
-        <div className="community-live-status"><span className={online ? "online" : ""} />{online ? "Komunitas realtime aktif" : "Mode lokal — jalankan Pet Owner API untuk realtime"}</div>
-        <div className="create-post"><span className="avatar avatar-blue">EM</span><button type="button" onClick={() => setComposerOpen(true)}>Bagikan cerita tentang Milo dan Luna...</button><button type="button" aria-label="Tambah foto" onClick={() => setComposerOpen(true)}><Icon name="camera" size={19} /></button></div>
-        {posts.map((post) => <article className="community-post" key={post.id}><header><span className="post-avatar">{post.author.slice(0, 1)}</span><div><b>{post.author}</b><small>{post.petName || "Slivadoc Community"} • {relativeTime(post.createdAt)}</small></div><span className="post-tag">{post.tag}</span><button type="button" onClick={() => notify("Laporkan, simpan, atau sembunyikan posting") }><Icon name="more" /></button></header><p>{post.body}</p>{post.imageUrl ? <div className="community-photo"><img src={post.imageUrl} alt={`Posting oleh ${post.author}`} /></div> : <div className="post-visual"><span>{post.petName ? "🐾" : "🐕"}</span><i>SLIVADOC COMMUNITY</i></div>} {post.location && <div className="post-location"><Icon name="map" size={14} /> {post.location}</div>}<footer><button type="button" className={post.likedBy?.includes("petowner-evans") ? "liked" : ""} onClick={() => like(post)}><Icon name="heart" size={18} /> {post.likes}</button><button type="button" onClick={() => setActivePost(post)}><Icon name="chat" size={18} /> {post.comments?.length ?? 0} komentar</button><button type="button" onClick={() => navigator.share ? navigator.share({ title: "Slivadoc Community", text: post.body }) : navigator.clipboard.writeText(post.body).then(() => notify("Teks posting disalin"))}><Icon name="arrow" size={18} /> Bagikan</button></footer></article>)}
-      </section>
-      <aside className="right-stack community-side"><section className="panel compact-panel"><div className="panel-heading"><h3>Grup untukmu</h3><button className="link-button" type="button" onClick={() => setTab("Grup Saya")}>Lihat semua</button></div><CommunityGroup emoji="🐕" name="Golden Retriever Jakarta" members="12,8rb anggota" notify={notify} /><CommunityGroup emoji="🍲" name="Healthy Homemade Pet Food" members="8,4rb anggota" notify={notify} /><CommunityGroup emoji="🏥" name="Tanya Dokter Hewan" members="21,2rb anggota" notify={notify} /></section><section className="adoption-card"><span>🐾</span><h3>Buka rumah, ubah satu kehidupan.</h3><p>Temukan hewan terverifikasi yang siap menjadi bagian keluargamu.</p><button type="button" onClick={() => setTab("Adopsi")}>Jelajahi adopsi</button></section><section className="panel compact-panel"><div className="panel-heading"><h3>Pet parent terdekat</h3><span className="live-dot" /></div><div className="nearby-avatars"><span>👩🏻</span><span>👨🏻</span><span>👩🏽</span><span>👨🏼</span><span>+42</span></div><p className="muted-copy">42 pet parent aktif dalam radius 3 km.</p><button className="full-soft-button" type="button" onClick={onOpenLocation}><Icon name="map" size={16} /> Lihat di peta</button></section></aside>
-      {composerOpen && <CommunityComposer onClose={() => setComposerOpen(false)} onCreated={(post) => { setPosts((current) => [post, ...current.filter((item) => item.id !== post.id)]); setComposerOpen(false); }} notify={notify} />}
-      {activePost && <CommentModal post={posts.find((item) => item.id === activePost.id) ?? activePost} onClose={() => setActivePost(null)} onUpdated={(post) => setPosts((current) => current.map((item) => item.id === post.id ? post : item))} notify={notify} />}
-    </div>
-  );
+  const [tab,setTab]=useState("Untuk Kamu");const[posts,setPosts]=useState<CommunityPost[]>([]);const[groups,setGroups]=useState<CommunityGroup[]>([]);const[loading,setLoading]=useState(true);const[composer,setComposer]=useState(false);const[comments,setComments]=useState<CommunityPost|null>(null);const[groupComposer,setGroupComposer]=useState(false);const[query,setQuery]=useState("");
+  const load=useCallback(async()=>{setLoading(true);try{const [postResponse,groupResponse]=await Promise.all([getCommunityPosts({tab,search:query}),getCommunityGroups(query)]);setPosts(postResponse.data);setGroups(groupResponse.data)}catch(error){notify(error instanceof Error?error.message:"Komunitas belum dapat dimuat")}finally{setLoading(false)}},[notify,query,tab]);
+  useEffect(()=>{const timer=window.setTimeout(()=>{void load()},query?280:0);return()=>window.clearTimeout(timer)},[load,query]);
+  async function like(post:CommunityPost){if(!requireLogin())return;try{const result=await reactCommunityPost(post.id);setPosts(current=>current.map(item=>item.id===post.id?{...item,liked:result.liked,like_count:result.like_count}:item))}catch(error){notify(error instanceof Error?error.message:"Reaksi belum dapat disimpan")}}
+  async function join(group:CommunityGroup){if(!requireLogin())return;try{await joinCommunityGroup(group.id);setGroups(current=>current.map(item=>item.id===group.id?{...item,joined:true,member_count:item.member_count+1}:item));notify(`Berhasil bergabung ke ${group.name}`)}catch(error){notify(error instanceof Error?error.message:"Grup belum dapat diikuti")}}
+  return <div className="community-layout"><section><div className="community-tabs">{tabs.map(item=><button type="button" className={tab===item?"active":""} key={item} onClick={()=>setTab(item)}>{item}{item==="Lost & Found"&&<i/>}</button>)}</div><div className="community-tools-live"><label><Icon name="search" size={17}/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Cari posting atau pet parent…"/></label><span><i/> Data komunitas langsung dari API</span></div><div className="create-post"><span className="avatar avatar-blue">YOU</span><button type="button" onClick={()=>requireLogin()&&setComposer(true)}>Bagikan cerita atau pertanyaan tentang pet-mu…</button><button type="button" aria-label="Tambah foto" onClick={()=>requireLogin()&&setComposer(true)}><Icon name="camera" size={19}/></button></div>{loading?<div className="empty-state"><span className="button-spinner"/><h3>Memuat komunitas…</h3></div>:posts.length?posts.map(post=><article className="community-post" key={post.id}><header><span className="post-avatar">{post.author_name.slice(0,1)}</span><div><b>{post.author_name}</b><small>{post.group_name||post.pet_name||"Slivadoc Community"} · {relativeTime(post.created_at)}</small></div><span className="post-tag">{post.category.replaceAll("_"," ")}</span><button type="button" onClick={()=>notify("Pilihan moderasi posting dibuka")}><Icon name="more"/></button></header><p>{post.body}</p>{post.image_url?<div className="community-photo"><img src={post.image_url} alt={`Posting oleh ${post.author_name}`}/></div>:null}{post.location&&<div className="post-location"><Icon name="map" size={14}/>{post.location}</div>}<footer><button type="button" className={post.liked?"liked":""} onClick={()=>void like(post)}><Icon name="heart" size={18}/>{post.like_count}</button><button type="button" onClick={()=>requireLogin()&&setComments(post)}><Icon name="chat" size={18}/>{post.comment_count} komentar</button><button type="button" onClick={()=>navigator.share?navigator.share({title:"Slivadoc Community",text:post.body}):navigator.clipboard.writeText(post.body).then(()=>notify("Posting disalin"))}><Icon name="arrow" size={18}/>Bagikan</button></footer></article>):<div className="empty-state"><span>🐾</span><h3>Belum ada posting pada filter ini</h3><p>Coba kategori atau pencarian lain.</p></div>}</section><aside className="right-stack community-side"><section className="panel compact-panel"><div className="panel-heading"><h3>Grup komunitas</h3><button className="round-button" onClick={()=>requireLogin()&&setGroupComposer(true)}><Icon name="plus" size={16}/></button></div>{groups.map(group=><div className="group-row" key={group.id}><span>{group.category==="nutrition"?"🍲":"🐕"}</span><p><b>{group.name}</b><small>{group.member_count.toLocaleString("id-ID")} anggota · {group.city}</small></p><button type="button" disabled={group.joined} onClick={()=>void join(group)}>{group.joined?"Tergabung":"Gabung"}</button></div>)}</section><section className="adoption-card"><span>🐾</span><h3>Buka rumah, ubah satu kehidupan.</h3><p>Gunakan tab Adopsi untuk melihat posting relevan.</p><button type="button" onClick={()=>setTab("Adopsi")}>Lihat posting adopsi</button></section><section className="panel compact-panel"><h3>Komunitas di sekitar</h3><p className="muted-copy">Aktifkan lokasi untuk menemukan aktivitas yang relevan dengan area kamu.</p><button className="full-soft-button" type="button" onClick={onOpenLocation}><Icon name="map" size={16}/>Atur lokasi</button></section></aside>{composer&&<PostComposer close={()=>setComposer(false)} notify={notify} created={()=>void load()}/>} {comments&&<CommentsSheet post={comments} close={()=>setComments(null)} notify={notify} updated={()=>void load()}/>} {groupComposer&&<GroupComposer close={()=>setGroupComposer(false)} notify={notify} created={()=>void load()}/>}</div>;
 }
 
-function CommunityComposer({ onClose, onCreated, notify }: { onClose: () => void; onCreated: (post: CommunityPost) => void; notify: (message: string) => void }) {
-  const [body, setBody] = useState("");
-  const [tag, setTag] = useState("Cerita");
-  const [location, setLocation] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState("");
-  const [loading, setLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+function PostComposer({close,notify,created}:{close:()=>void;notify:(message:string)=>void;created:()=>void}){const[body,setBody]=useState("");const[tag,setTag]=useState("Cerita");const[location,setLocation]=useState("");const[file,setFile]=useState<File|null>(null);const[preview,setPreview]=useState("");const[busy,setBusy]=useState(false);const inputRef=useRef<HTMLInputElement>(null);function selectFile(value?:File){if(!value)return;if(value.size>8*1024*1024)return notify("Foto maksimal 8 MB");setFile(value);setPreview(URL.createObjectURL(value))}async function submit(){if(body.trim().length<3)return;setBusy(true);try{let image="";if(file)image=(await uploadImage(file,"community")).url;await createCommunityPost({body:body.trim(),category:categoryMap[tag],image_url:image,location:location.trim()});notify("Posting berhasil diterbitkan");created();close()}catch(error){notify(error instanceof Error?error.message:"Posting belum dapat diterbitkan")}finally{setBusy(false)}}return <div className="modal-overlay" onMouseDown={close}><section className="modal community-composer" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><span className="section-eyebrow">SLIVADOC COMMUNITY</span><h2>Buat posting baru</h2><select value={tag} onChange={event=>setTag(event.target.value)}>{Object.keys(categoryMap).map(item=><option key={item}>{item}</option>)}</select><textarea value={body} onChange={event=>setBody(event.target.value)} maxLength={3000} placeholder="Bagikan pengalaman, tips, atau pertanyaan…" autoFocus/><div className="composer-counter">{body.length}/3000</div>{preview&&<div className="composer-preview"><img src={preview} alt="Preview"/><button onClick={()=>{setFile(null);setPreview("")}}><Icon name="close"/></button></div>}<input ref={inputRef} hidden type="file" accept="image/*" onChange={event=>selectFile(event.target.files?.[0])}/><label className="composer-location"><Icon name="map"/><input value={location} onChange={event=>setLocation(event.target.value)} placeholder="Lokasi (opsional)"/></label><div className="composer-tools"><button onClick={()=>inputRef.current?.click()}><Icon name="camera"/>Tambah foto</button></div><footer><button className="secondary-button" onClick={close}>Batal</button><button className="primary-button" disabled={busy||body.trim().length<3} onClick={()=>void submit()}>{busy?"Menerbitkan…":"Terbitkan posting"}</button></footer></section></div>}
 
-  const selectFile = (selected?: File) => {
-    if (!selected) return;
-    if (selected.size > 8 * 1024 * 1024) return notify("Ukuran foto maksimal 8 MB");
-    setFile(selected);
-    setPreview(URL.createObjectURL(selected));
-  };
+function CommentsSheet({post,close,notify,updated}:{post:CommunityPost;close:()=>void;notify:(message:string)=>void;updated:()=>void}){const[items,setItems]=useState<CommunityComment[]>([]);const[text,setText]=useState("");const[busy,setBusy]=useState(true);useEffect(()=>{void getCommunityComments(post.id).then(response=>setItems(response.data)).catch(error=>notify(error instanceof Error?error.message:"Komentar belum dapat dimuat")).finally(()=>setBusy(false))},[notify,post.id]);async function send(){if(!text.trim())return;setBusy(true);try{const result=await createCommunityComment(post.id,text.trim());setItems(current=>[...current,{id:result.id,user_id:"me",author_name:"Kamu",body:text.trim(),created_at:result.created_at}]);setText("");updated()}catch(error){notify(error instanceof Error?error.message:"Komentar belum dapat dikirim")}finally{setBusy(false)}}return <div className="modal-overlay comment-sheet-backdrop" onMouseDown={close}><section className="modal comments-modal comments-sheet" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><header><span className="section-eyebrow">DISKUSI KOMUNITAS</span><h2>{items.length} komentar</h2><p>{post.body}</p></header><div className="comments-list">{busy&&!items.length?<p>Memuat komentar…</p>:items.length?items.map(item=><div key={item.id}><span>{item.author_name.slice(0,1)}</span><p><b>{item.author_name}</b><small>{item.body}</small><em>{relativeTime(item.created_at)}</em></p></div>):<div className="empty-state compact">Belum ada komentar.</div>}</div><footer className="comment-input"><input value={text} onChange={event=>setText(event.target.value)} placeholder="Tulis komentar yang suportif…" onKeyDown={event=>event.key==="Enter"&&void send()}/><button disabled={busy||!text.trim()} onClick={()=>void send()}><Icon name="arrow"/></button></footer></section></div>}
 
-  const submit = async () => {
-    if (body.trim().length < 3) return;
-    setLoading(true);
-    try {
-      let imageUrl: string | undefined;
-      if (file) imageUrl = (await uploadImage(file, "community")).url;
-      const post = await createCommunityPost({ author: "Evans Moris", petName: "Milo & Luna", body: body.trim(), tag, imageUrl, location: location.trim() || undefined });
-      onCreated(post);
-      notify("Posting berhasil diterbitkan ke komunitas");
-    } catch (cause) {
-      notify(cause instanceof Error ? cause.message : "Posting belum dapat disimpan");
-    } finally { setLoading(false); }
-  };
+function GroupComposer({close,notify,created}:{close:()=>void;notify:(message:string)=>void;created:()=>void}){const[busy,setBusy]=useState(false);async function submit(event:React.FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);const values=Object.fromEntries(new FormData(event.currentTarget));try{await createCommunityGroup({name:values.name,description:values.description,category:values.category,city:values.city,visibility:values.visibility});notify("Grup berhasil dibuat");created();close()}catch(error){notify(error instanceof Error?error.message:"Grup belum dapat dibuat")}finally{setBusy(false)}}return <div className="modal-overlay" onMouseDown={close}><section className="modal form-modal" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><span className="section-eyebrow">GRUP PET OWNER</span><h2>Buat komunitasmu</h2><form className="world-form" onSubmit={submit}><label><span>Nama grup</span><input name="name" minLength={3} required/></label><label><span>Deskripsi</span><textarea name="description" minLength={10} required/></label><label><span>Kategori</span><input name="category" placeholder="breed, health, nutrition…" required/></label><label><span>Kota</span><input name="city"/></label><label><span>Visibilitas</span><select name="visibility"><option value="public">Publik</option><option value="private">Privat</option></select></label><button className="primary-button full" disabled={busy}>{busy?"Membuat…":"Buat grup"}</button></form></section></div>}
 
-  return <div className="modal-overlay" onMouseDown={onClose}><div className="modal community-composer" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="section-eyebrow">SLIVADOC COMMUNITY</span><h2>Buat posting baru</h2><p>Berbagi pengalaman, bertanya, atau membantu pet parent lain.</p></div><button className="modal-close" type="button" onClick={onClose}><Icon name="close" /></button></header><div className="composer-author"><span className="avatar avatar-blue">EM</span><div><b>Evans Moris</b><small>Posting sebagai pet parent</small></div><select value={tag} onChange={(event) => setTag(event.target.value)}><option>Cerita</option><option>Tanya Komunitas</option><option>Tips</option><option>Adopsi</option><option>Lost & Found</option></select></div><textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="Apa yang ingin kamu bagikan tentang hewanmu?" maxLength={3000} autoFocus /><div className="composer-counter">{body.length}/3000</div>{preview && <div className="composer-preview"><img src={preview} alt="Preview posting" /><button type="button" onClick={() => { setFile(null); setPreview(""); }}><Icon name="close" size={15} /></button></div>}<input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => selectFile(event.target.files?.[0])} /><label className="composer-location"><Icon name="map" size={17} /><input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Tambahkan lokasi (opsional)" /></label><div className="composer-tools"><button type="button" onClick={() => inputRef.current?.click()}><Icon name="camera" size={17} /> Foto Cloudinary</button><button type="button" onClick={() => setTag("Tanya Komunitas")}>💬 Tanya</button><button type="button" onClick={() => setTag("Lost & Found")}>📍 Lost Pet</button></div><footer><button className="secondary-button" type="button" onClick={onClose}>Batal</button><button className="primary-button" type="button" disabled={loading || body.trim().length < 3} onClick={submit}>{loading ? "Menerbitkan..." : "Terbitkan posting"}</button></footer></div></div>;
-}
-
-function CommentModal({ post, onClose, onUpdated, notify }: { post: CommunityPost; onClose: () => void; onUpdated: (post: CommunityPost) => void; notify: (message: string) => void }) {
-  const [body, setBody] = useState("");
-  const [loading, setLoading] = useState(false);
-  const submit = async () => {
-    if (!body.trim()) return;
-    setLoading(true);
-    try { const updated = await addCommunityComment(post.id, "Evans Moris", body.trim()); onUpdated(updated); setBody(""); }
-    catch (cause) { notify(cause instanceof Error ? cause.message : "Komentar gagal dikirim"); }
-    finally { setLoading(false); }
-  };
-  return <div className="modal-overlay" onMouseDown={onClose}><div className="modal comments-modal" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="section-eyebrow">DISKUSI KOMUNITAS</span><h2>{post.comments?.length ?? 0} komentar</h2></div><button className="modal-close" type="button" onClick={onClose}><Icon name="close" /></button></header><div className="comment-source"><b>{post.author}</b><p>{post.body}</p></div><div className="comments-list">{(post.comments ?? []).map((comment) => <div key={comment.id}><span>{comment.author.slice(0, 1)}</span><p><b>{comment.author}</b><small>{comment.body}</small><em>{relativeTime(comment.createdAt)}</em></p></div>)}{!post.comments?.length && <div className="empty-state compact"><span>💬</span><h3>Belum ada komentar</h3><p>Jadilah yang pertama merespons.</p></div>}</div><div className="comment-input"><input value={body} onChange={(event) => setBody(event.target.value)} onKeyDown={(event) => event.key === "Enter" && submit()} placeholder="Tulis komentar yang suportif..." /><button type="button" onClick={submit} disabled={loading || !body.trim()}><Icon name="arrow" size={17} /></button></div></div></div>;
-}
-
-function CommunityGroup({ emoji, name, members, notify }: { emoji: string; name: string; members: string; notify: (message: string) => void }) {
-  const [joined, setJoined] = useState(false);
-  return <div className="group-row"><span>{emoji}</span><p><b>{name}</b><small>{members}</small></p><button type="button" className={joined ? "joined" : ""} onClick={() => { setJoined((value) => !value); notify(joined ? `Keluar dari ${name}` : `Berhasil bergabung ke ${name}`); }}>{joined ? "Tergabung" : "Gabung"}</button></div>;
-}
-
-function relativeTime(value: string) {
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60_000));
-  if (minutes < 1) return "baru saja";
-  if (minutes < 60) return `${minutes} menit`;
-  if (minutes < 1440) return `${Math.floor(minutes / 60)} jam`;
-  return `${Math.floor(minutes / 1440)} hari`;
-}
+function relativeTime(value:string){const minutes=Math.max(0,Math.round((Date.now()-new Date(value).getTime())/60000));if(minutes<1)return"baru saja";if(minutes<60)return`${minutes} menit`;if(minutes<1440)return`${Math.floor(minutes/60)} jam`;return`${Math.floor(minutes/1440)} hari`}

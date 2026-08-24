@@ -3,23 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import type { Pet } from "../../data/mock";
 import { askSlivaCare, realtimeSocket, type AssistantMessage, type RealtimeMessage } from "../../lib/petowner-api";
+import type { PetOwnerUser } from "../../lib/platform-api";
 import { Icon } from "../Icon";
 
 type Props = {
   pet: Pet;
+  owner?: PetOwnerUser;
   onClose: () => void;
   notify: (message: string) => void;
 };
 
-const welcome: AssistantMessage = {
-  role: "assistant",
-  content: "Halo Evans! Saya SlivaCare Assistant. Tanyakan kesehatan, nutrisi, perilaku, grooming, atau kebutuhan hewanmu. Untuk keadaan darurat, segera hubungi klinik hewan 24 jam.",
-};
-
-export default function SlivaCareDrawer({ pet, onClose, notify }: Props) {
+export default function SlivaCareDrawer({ pet, owner, onClose, notify }: Props) {
   const [mode, setMode] = useState<"assistant" | "care-team">("assistant");
   const [message, setMessage] = useState("");
-  const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([welcome]);
+  const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([{role:"assistant",content:`Halo${owner?.full_name?` ${owner.full_name.split(" ")[0]}`:""}! Saya SlivaCare Assistant. Tanyakan kesehatan, nutrisi, perilaku, grooming, atau kebutuhan hewanmu. Untuk keadaan darurat, segera hubungi klinik hewan 24 jam.`}]);
   const [teamMessages, setTeamMessages] = useState<RealtimeMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -27,6 +24,7 @@ export default function SlivaCareDrawer({ pet, onClose, notify }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if(!owner) return;
     const socket = realtimeSocket();
     const onConnect = () => { setConnected(true); socket.emit("chat:join", { conversationId }); };
     const onDisconnect = () => setConnected(false);
@@ -44,7 +42,7 @@ export default function SlivaCareDrawer({ pet, onClose, notify }: Props) {
       socket.off("chat:history", onHistory);
       socket.off("chat:message", onMessage);
     };
-  }, [conversationId]);
+  }, [conversationId,owner]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -55,7 +53,8 @@ export default function SlivaCareDrawer({ pet, onClose, notify }: Props) {
     if (!body || loading) return;
     setMessage("");
     if (mode === "care-team") {
-      realtimeSocket().emit("chat:send", { conversationId, senderId: "petowner-evans", senderName: "Evans Moris", body }, (result: { ok: boolean; error?: string }) => {
+      if(!owner){window.dispatchEvent(new Event("slivadoc:login-required"));notify("Login diperlukan untuk menghubungi care team");return}
+      realtimeSocket().emit("chat:send", { conversationId, senderId: owner.id, senderName: owner.full_name, body }, (result: { ok: boolean; error?: string }) => {
         if (!result?.ok) notify(result?.error ?? "Pesan realtime belum terkirim");
       });
       return;
@@ -67,7 +66,7 @@ export default function SlivaCareDrawer({ pet, onClose, notify }: Props) {
     try {
       const result = await askSlivaCare({
         message: body,
-        userId: "petowner-evans",
+        userId: owner?.id??"guest",
         pet: { name: pet.name, species: pet.type, breed: pet.breed, age: pet.age, weight: pet.weight },
         history: assistantMessages.slice(-8),
       });
@@ -89,12 +88,12 @@ export default function SlivaCareDrawer({ pet, onClose, notify }: Props) {
         <header className="chat-header">
           <div className="doctor-avatar">{mode === "assistant" ? "✦" : "👩🏻‍⚕️"}<i /></div>
           <div><h3>{mode === "assistant" ? "SlivaCare Assistant" : "SlivaCare Team"}</h3><p>{mode === "assistant" ? "AI khusus kebutuhan hewan" : connected ? "Realtime • terhubung" : "Menghubungkan Socket.IO..."}</p></div>
-          <button className="video-call" type="button" onClick={() => notify("Permintaan video call dikirim ke care team")}><Icon name="video" size={18} /></button>
+          <button className="video-call" type="button" onClick={() => {onClose();window.dispatchEvent(new CustomEvent("slivadoc:navigate",{detail:"consult"}))}} aria-label="Buka konsultasi video"><Icon name="video" size={18} /></button>
           <button type="button" onClick={onClose}><Icon name="close" /></button>
         </header>
         <div className="chat-mode-tabs">
           <button type="button" className={mode === "assistant" ? "active" : ""} onClick={() => setMode("assistant")}>✦ AI Assistant</button>
-          <button type="button" className={mode === "care-team" ? "active" : ""} onClick={() => setMode("care-team")}>💬 Care Team <i className={connected ? "online" : ""} /></button>
+          <button type="button" className={mode === "care-team" ? "active" : ""} onClick={() => {if(!owner){window.dispatchEvent(new Event("slivadoc:login-required"));return}setMode("care-team")}}>💬 Care Team <i className={connected ? "online" : ""} /></button>
         </div>
         <div className="chat-context"><span>{pet.avatar}</span><p><small>KONSULTASI UNTUK</small><b>{pet.name} • {pet.breed}</b></p><span className="pet-only-badge">PET ONLY</span></div>
         <div className="chat-messages" ref={scrollRef}>
@@ -102,7 +101,7 @@ export default function SlivaCareDrawer({ pet, onClose, notify }: Props) {
           {mode === "assistant" && <div className="assistant-scope"><Icon name="shield" size={15} /> SlivaCare menolak pertanyaan di luar topik hewan dan tidak menggantikan diagnosis dokter.</div>}
           {messages.length === 0 && mode === "care-team" && <div className="chat-empty"><span>💬</span><b>Mulai percakapan realtime</b><p>Pesan akan tersimpan di gateway lokal dan langsung muncul pada perangkat lain.</p></div>}
           {messages.map((item, index) => {
-            const isAssistant = "role" in item ? item.role === "assistant" : item.senderId !== "petowner-evans";
+            const isAssistant = "role" in item ? item.role === "assistant" : item.senderId !== owner?.id;
             const content = "content" in item ? item.content : item.body;
             return <div className={`message ${isAssistant ? "doctor" : "me"}`} key={("id" in item && item.id) || `${content}-${index}`}>
               {isAssistant && <span>{mode === "assistant" ? "✦" : "👩🏻‍⚕️"}</span>}
@@ -112,7 +111,7 @@ export default function SlivaCareDrawer({ pet, onClose, notify }: Props) {
           {loading && <div className="message doctor"><span>✦</span><p className="typing"><i /><i /><i /></p></div>}
           {mode === "assistant" && <div className="quick-replies"><button type="button" onClick={() => setMessage("Anjing saya muntah, apa yang perlu saya perhatikan?")}>🩺 Konsultasi gejala</button><button type="button" onClick={() => setMessage("Apa jadwal vaksin yang perlu saya tanyakan ke dokter?")}>💉 Tanya vaksin</button><button type="button" onClick={() => setMessage("Hewan saya sesak napas dan lemas")}>🚑 Darurat</button></div>}
         </div>
-        <div className="chat-input"><button type="button" onClick={() => notify("Upload lampiran akan menggunakan Cloudinary")}>＋</button><input value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => event.key === "Enter" && send()} placeholder={mode === "assistant" ? "Tanya seputar hewan..." : "Tulis pesan ke care team..."} /><button type="button" onClick={send} disabled={loading}><Icon name="arrow" size={18} /></button></div>
+        <div className="chat-input"><button type="button" onClick={() => notify("Pilih foto atau dokumen pendukung")}>＋</button><input value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => event.key === "Enter" && send()} placeholder={mode === "assistant" ? "Tanya seputar hewan..." : "Tulis pesan ke care team..."} /><button type="button" onClick={send} disabled={loading}><Icon name="arrow" size={18} /></button></div>
       </aside>
     </div>
   );

@@ -56,6 +56,7 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
   { id: "bookings", label: "Aktivitas", icon: "calendar" },
   { id: "health", label: "Kesehatan", icon: "heart" },
   { id: "shop", label: "Pet Shop", icon: "bag" },
+  { id: "favorites", label: "Favorit Saya", icon: "heart" },
   { id: "community", label: "Komunitas", icon: "users" },
   { id: "academy", label: "Pet Academy", icon: "sparkle" },
   { id: "events", label: "Pet Event", icon: "calendar" },

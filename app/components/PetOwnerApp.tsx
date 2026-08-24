@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Icon, type IconName } from "./Icon";
 import AddPetExperience from "./integrations/AddPetExperience";
 import CommunityExperience from "./integrations/CommunityExperience";
@@ -11,17 +11,39 @@ import PlatformDiscovery from "./platform/PlatformDiscovery";
 import CareMarketplace from "./platform/CareMarketplace";
 import PawDatingExperience from "./pawdating/PawDatingExperience";
 import type { LocationResult } from "../lib/petowner-api";
-import { PLATFORM_API_URL } from "../lib/platform-api";
 import {
-  careTimeline,
-  communityPosts,
+  PLATFORM_API_URL,
+  activateLostPetMode,
+  clearPlatformCache,
+  closeLostPetMode,
+  createPetOwnerBooking,
+  getDiscoveryProducts,
+  getDiscoveryServices,
+  getMedicalRecords,
+  globalSearch,
+  getPetFamily,
+  getLostPetMode,
+  getPetOwnerBootstrap,
+  invitePetFamily,
+  revokePetFamily,
+  isPetOwnerAuthenticated,
+  readAllNotifications,
+  readNotification,
+  togglePetOwnerFavorite,
+  updatePetOwnerPet,
+  type ActivityItem,
+  type DiscoveryProduct,
+  type FamilyAccess,
+  type MedicalRecord,
+  type NotificationItem,
+  type GlobalSearchResult,
+  type PetOwnerBootstrap,
+} from "../lib/platform-api";
+import {
   formatRupiah,
-  medicalRecords,
-  pets,
-  products,
-  services,
   type AppView,
   type Pet,
+  type Product,
   type Service,
 } from "../data/mock";
 
@@ -47,11 +69,11 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
 ];
 
 const titles: Record<AppView, { title: string; subtitle: string }> = {
-  home: { title: "Selamat siang, Evans!", subtitle: "Milo dan Luna dalam kondisi baik hari ini." },
+  home: { title: "Selamat datang di Slivadoc", subtitle: "Semua kebutuhan pet tersinkron dalam satu tempat." },
   pets: { title: "Hewan Saya", subtitle: "Satu tempat untuk semua profil dan kebutuhan mereka." },
   discover: { title: "Jelajahi Layanan", subtitle: "Temukan perawatan terbaik di sekitar kamu." },
   bookings: { title: "Aktivitas", subtitle: "Pantau booking, konsultasi, dan pesanan Slivadoc." },
-  health: { title: "Pusat Kesehatan", subtitle: "Riwayat lengkap dan jadwal perawatan Milo." },
+  health: { title: "Pusat Kesehatan", subtitle: "Riwayat lengkap dan jadwal perawatan pet pilihanmu." },
   shop: { title: "Sliva Pet Shop", subtitle: "Kebutuhan pilihan yang dikurasi dokter hewan." },
   community: { title: "Komunitas", subtitle: "Berbagi, belajar, dan membantu sesama pet parent." },
   academy: { title: "Pet Academy", subtitle: "Program training terverifikasi untuk pet dan pet parent." },
@@ -62,13 +84,35 @@ const titles: Record<AppView, { title: string; subtitle: string }> = {
   adoption: { title: "Adopsi Bertanggung Jawab", subtitle: "Temukan teman baru dengan screening dan pendampingan Slivadoc." },
   documents: { title: "Pet Documents", subtitle: "Akte pet dan dokumen perjalanan pesawat atau kapal dalam satu alur." },
   pawdating: { title: "PAW Dating", subtitle: "Temukan pasangan sehat dengan screening, silsilah, dan persetujuan yang aman." },
+  favorites: { title: "Favorit Saya", subtitle: "Semua layanan dan tempat yang kamu simpan." },
+  notifications: { title: "Notifikasi", subtitle: "Update kesehatan, booking, pesanan, komunitas, dan keamanan." },
   profile: { title: "Akun & Keluarga", subtitle: "Kelola profil, pembayaran, keamanan, dan benefit." },
 };
 
+const featureSearchItems: GlobalSearchResult[] = navItems.map((item) => ({
+  category: "feature",
+  id: item.id,
+  title: item.label,
+  subtitle: titles[item.id].subtitle,
+  route: item.id,
+}));
+
+const protectedViews:AppView[]=["pets","bookings","health","consult","documents","pawdating","favorites","notifications","profile"];
+
+function apiPetToView(pet:PetOwnerBootstrap["pets"][number]):Pet {const months=Number(pet.age_months||0);const years=Math.floor(months/12);const remaining=months%12;return {id:pet.id,name:pet.name,type:(pet.species?.toLowerCase()==="cat"?"Cat":pet.species?.toLowerCase()==="rabbit"?"Rabbit":pet.species?.toLowerCase()==="bird"?"Bird":pet.species?.toLowerCase()==="dog"?"Dog":"Other"),breed:pet.breed,age:[years?`${years} tahun`:"",remaining?`${remaining} bulan`:""].filter(Boolean).join(" ")||"Belum diisi",weight:`${pet.weight_kg||0} kg`,gender:pet.sex==="female"?"Betina":"Jantan",color:pet.color||"#8aa5b7",avatar:pet.species?.toLowerCase()==="cat"?"🐈":pet.species?.toLowerCase()==="rabbit"?"🐇":"🐕",photoUrl:pet.photo_url,birthDate:pet.birth_date,healthScore:Number(pet.health_score||0),nextCare:pet.last_medical_record_at?`Update medis ${new Date(pet.last_medical_record_at).toLocaleDateString("id-ID")}`:"Belum ada jadwal",microchip:pet.microchip_number||"Belum terdaftar",notes:pet.medical_notes,allergies:pet.allergies};}
+
 export default function PetOwnerApp() {
   const [activeView, setActiveView] = useState<AppView>("home");
-  const [petProfiles, setPetProfiles] = useState<Pet[]>(pets);
-  const [selectedPetId, setSelectedPetId] = useState(pets[0].id);
+  const [petProfiles, setPetProfiles] = useState<Pet[]>([]);
+  const [selectedPetId, setSelectedPetId] = useState("");
+  const [account, setAccount] = useState<PetOwnerBootstrap["user"]|null>(null);
+  const [authenticated,setAuthenticated]=useState(false);
+  const [bootstrapLoading,setBootstrapLoading]=useState(true);
+  const [notifications,setNotifications]=useState<NotificationItem[]>([]);
+  const [activities,setActivities]=useState<ActivityItem[]>([]);
+  const [points,setPoints]=useState(0);
+  const [remoteProducts,setRemoteProducts]=useState<DiscoveryProduct[]>([]);
+  const [remoteServices,setRemoteServices]=useState<Service[]>([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
@@ -78,53 +122,54 @@ export default function PetOwnerApp() {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
-  const [favoriteIds, setFavoriteIds] = useState<string[]>(["svc-pawsitive"]);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [toast, setToast] = useState("");
   const [loginOpen, setLoginOpen] = useState(false);
 
-  const selectedPet = petProfiles.find((pet) => pet.id === selectedPetId) ?? petProfiles[0] ?? pets[0];
+  const selectedPet = petProfiles.find((pet) => pet.id === selectedPetId) ?? petProfiles[0] ?? {id:"",name:"pet kamu",type:"Other",breed:"Profil belum ditambahkan",age:"—",weight:"—",gender:"—",color:"#8aa5b7",avatar:"🐾",healthScore:0,nextCare:"Login untuk melihat data",microchip:"Belum terdaftar"};
   const cartCount = Object.values(cart).reduce((total, quantity) => total + quantity, 0);
+  const serviceCatalog=remoteServices;
+  const productCatalog:Product[]=remoteProducts.map((item)=>({id:item.id,name:item.name,brand:item.category,price:item.price,rating:0,sold:`Stok ${item.stock}`,emoji:item.category.toLowerCase().includes("food")?"🥣":"🛍️",category:item.category,badge:item.available?undefined:"Stok habis"}));
 
   useEffect(() => {
-    const savedPets = window.localStorage.getItem("slivadoc.petProfiles");
     const savedLocation = window.localStorage.getItem("slivadoc.location");
-    const savedFavorites = window.localStorage.getItem("slivadoc.favorites");
     const savedCart = window.localStorage.getItem("slivadoc.cart");
     try {
       queueMicrotask(() => {
-        if (savedPets) setPetProfiles(JSON.parse(savedPets));
         if (savedLocation) setCurrentLocation(JSON.parse(savedLocation));
-        if (savedFavorites) setFavoriteIds(JSON.parse(savedFavorites));
         if (savedCart) setCart(JSON.parse(savedCart));
       });
-    } catch {
-      window.localStorage.removeItem("slivadoc.petProfiles");
-    }
+    } catch { window.localStorage.removeItem("slivadoc.location"); }
   }, []);
 
-  useEffect(() => { window.localStorage.setItem("slivadoc.petProfiles", JSON.stringify(petProfiles)); }, [petProfiles]);
-  useEffect(() => { window.localStorage.setItem("slivadoc.favorites", JSON.stringify(favoriteIds)); }, [favoriteIds]);
   useEffect(() => { window.localStorage.setItem("slivadoc.cart", JSON.stringify(cart)); }, [cart]);
   useEffect(() => { const listener = (event: Event) => { setToast(`Detail ${(event as CustomEvent<string>).detail} dibuka`); window.setTimeout(() => setToast(""), 2600); }; window.addEventListener("slivadoc:notice", listener); return () => window.removeEventListener("slivadoc:notice", listener); }, []);
   useEffect(() => { const listener = () => setLoginOpen(true); window.addEventListener("slivadoc:login-required", listener); return () => window.removeEventListener("slivadoc:login-required", listener); }, []);
+  useEffect(() => { const listener = (event:Event) => {const view=(event as CustomEvent<AppView>).detail;if(!view)return;if(protectedViews.includes(view)&&!authenticated)setLoginOpen(true);else setActiveView(view)};window.addEventListener("slivadoc:navigate",listener);return()=>window.removeEventListener("slivadoc:navigate",listener)}, [authenticated]);
 
-  const notify: Notify = (message) => {
+  const notify: Notify = useCallback((message) => {
     setToast(message);
     window.setTimeout(() => setToast(""), 2600);
-  };
+  }, []);
 
-  const openBooking = (service: Service = services[0]) => {
+  async function loadBootstrap(){setBootstrapLoading(true);const loggedIn=isPetOwnerAuthenticated();setAuthenticated(loggedIn);if(!loggedIn){setAccount(null);setPetProfiles([]);setNotifications([]);setActivities([]);setFavoriteIds([]);setPoints(0);setBootstrapLoading(false);return}try{clearPlatformCache();const data=await getPetOwnerBootstrap();const mapped=data.pets.map(apiPetToView);setAccount(data.user);setPetProfiles(mapped);setSelectedPetId(current=>mapped.some(item=>item.id===current)?current:mapped[0]?.id??"");setNotifications(data.notifications);setActivities(data.activities);setFavoriteIds(data.favorites.map(item=>item.entity_id));setPoints(data.points.balance);setAuthenticated(true)}catch(error){localStorage.removeItem("slivadoc.access_token");localStorage.removeItem("slivadoc.refresh_token");setAuthenticated(false);notify(error instanceof Error?error.message:"Session pet owner berakhir")}finally{setBootstrapLoading(false)}}
+  useEffect(()=>{queueMicrotask(()=>{void loadBootstrap()})},[]);// eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(()=>{void Promise.all([getDiscoveryServices(currentLocation?{latitude:currentLocation.latitude,longitude:currentLocation.longitude}:undefined),getDiscoveryProducts()]).then(([serviceResponse,productResponse])=>{setRemoteServices(serviceResponse.data.map((item,index)=>({id:item.id,branchId:item.branch_id,priceValue:item.price,name:item.name,type:item.category.toLowerCase().includes("groom")?"Grooming":item.category.toLowerCase().includes("hotel")?"Pet Hotel":item.category.toLowerCase().includes("home")?"Home Care":"Clinic",distance:item.distance_km!==undefined?`${item.distance_km.toFixed(1)} km`:item.city,rating:0,reviews:0,price:`Mulai ${formatRupiah(item.price)}`,status:"Tersedia untuk booking",address:`${item.branch_name} · ${item.address}`,emoji:item.category.toLowerCase().includes("groom")?"🛁":"🏥",accent:["mint","blue","violet","peach"][index%4],tags:[item.business_name,`${item.duration_minutes} menit`,item.city]})));setRemoteProducts(productResponse.data)}).catch(()=>{setRemoteServices([]);setRemoteProducts([])})},[currentLocation]);
+
+  const navigate=(view:AppView)=>{if(protectedViews.includes(view)&&!authenticated){setLoginOpen(true);return}setActiveView(view)};
+
+  const openBooking = (service?: Service) => {
+    if(!authenticated){setLoginOpen(true);return}
+    if(!service){notify("Pilih layanan dari halaman Jelajahi terlebih dahulu");setActiveView("discover");return}
     setSelectedService(service);
     setBookingSuccess(false);
     setBookingOpen(true);
   };
 
-  const toggleFavorite = (id: string) => {
-    setFavoriteIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
-    );
-    notify(favoriteIds.includes(id) ? "Dihapus dari favorit" : "Ditambahkan ke favorit");
+  const toggleFavorite = async (entityType:string,id: string) => {
+    if(!authenticated){setLoginOpen(true);return}
+    try{const result=await togglePetOwnerFavorite(entityType,id);setFavoriteIds((current)=>result.favorite?[...new Set([...current,id])]:current.filter(item=>item!==id));notify(result.favorite?"Ditambahkan ke favorit":"Dihapus dari favorit")}catch(error){notify(error instanceof Error?error.message:"Favorit belum dapat diperbarui")}
   };
 
   const addToCart = (id: string) => {
@@ -132,9 +177,11 @@ export default function PetOwnerApp() {
     notify("Produk ditambahkan ke keranjang");
   };
 
+  if(bootstrapLoading)return <div className="petowner-loading"><Logo/><div className="petowner-loading-paw">🐾</div><h1>Menyiapkan rumah digital pet-mu</h1><p>Menyinkronkan profil, kesehatan, aktivitas, dan komunitas.</p><span><i/></span></div>;
+
   return (
     <div className="app-shell">
-      <Sidebar activeView={activeView} setActiveView={setActiveView} notify={notify} />
+      <Sidebar activeView={activeView} setActiveView={navigate} notify={notify} account={account} authenticated={authenticated} onLogin={()=>setLoginOpen(true)} />
 
       <main className="main-shell">
         <Topbar
@@ -148,17 +195,24 @@ export default function PetOwnerApp() {
           onOpenNotifications={() => setNotificationOpen(true)}
           onOpenCart={() => setCartOpen(true)}
           notify={notify}
+          account={account}
+          points={points}
+          authenticated={authenticated}
+          navigate={navigate}
+          onLogin={()=>setLoginOpen(true)}
         />
 
         <div className="page-content">
-          <PageHeading activeView={activeView} selectedPet={selectedPet} />
+          <PageHeading activeView={activeView} selectedPet={selectedPet} account={account} />
           {activeView === "home" && (
             <HomeView
               selectedPet={selectedPet}
-              setActiveView={setActiveView}
+              setActiveView={navigate}
               openBooking={openBooking}
               setChatOpen={setChatOpen}
               notify={notify}
+              services={serviceCatalog}
+              activities={activities}
             />
           )}
           {activeView === "pets" && (
@@ -167,38 +221,42 @@ export default function PetOwnerApp() {
               selectedPetId={selectedPetId}
               setSelectedPetId={setSelectedPetId}
               setAddPetOpen={setAddPetOpen}
-              setActiveView={setActiveView}
+              setActiveView={navigate}
               notify={notify}
+              onChanged={loadBootstrap}
             />
           )}
           {activeView === "discover" && (
             <DiscoverView
               favorites={favoriteIds}
-              toggleFavorite={toggleFavorite}
+              toggleFavorite={(id)=>void toggleFavorite("service",id)}
               openBooking={openBooking}
               notify={notify}
+              serviceCatalog={serviceCatalog}
             />
           )}
           {activeView === "bookings" && (
-            <BookingsView openBooking={openBooking} setActiveView={setActiveView} notify={notify} />
+            <BookingsView openBooking={openBooking} setActiveView={navigate} notify={notify} activities={activities} points={points} />
           )}
           {activeView === "health" && <HealthView pet={selectedPet} notify={notify} />}
           {activeView === "shop" && (
-            <ShopView addToCart={addToCart} setCartOpen={setCartOpen} notify={notify} />
+            <ShopView addToCart={addToCart} setCartOpen={setCartOpen} notify={notify} productCatalog={productCatalog} petName={selectedPet.name} favorites={favoriteIds} toggleFavorite={(id)=>void toggleFavorite("product",id)} />
           )}
           {activeView === "community" && <CommunityExperience notify={notify} onOpenLocation={() => setLocationOpen(true)} />}
           {(["academy", "events", "petspot", "pethub"] as AppView[]).includes(activeView) && (
-            <PlatformDiscovery mode={activeView as "academy" | "events" | "petspot" | "pethub"} petName={selectedPet.name} notify={notify} navigate={setActiveView} />
+            <PlatformDiscovery mode={activeView as "academy" | "events" | "petspot" | "pethub"} petName={selectedPet.name} ownerName={account?.full_name} ownerEmail={account?.email} notify={notify} navigate={navigate} />
           )}
           {(["consult", "adoption", "documents"] as AppView[]).includes(activeView) && (
             <CareMarketplace mode={activeView as "consult" | "adoption" | "documents"} pet={selectedPet} notify={notify} />
           )}
           {activeView === "pawdating" && <PawDatingExperience pet={selectedPet} notify={notify} />}
-          {activeView === "profile" && <ProfileView notify={notify} />}
+          {activeView === "favorites" && <FavoritesView services={serviceCatalog.filter(item=>favoriteIds.includes(item.id))} products={productCatalog.filter(item=>favoriteIds.includes(item.id))} openBooking={openBooking} addToCart={addToCart} remove={(type,id)=>toggleFavorite(type,id)}/>} 
+          {activeView === "notifications" && <NotificationCenter items={notifications} setItems={setNotifications} notify={notify}/>} 
+          {activeView === "profile" && account && <ProfileView notify={notify} account={account} petCount={petProfiles.length} points={points} onLogout={()=>{localStorage.removeItem("slivadoc.access_token");localStorage.removeItem("slivadoc.refresh_token");void loadBootstrap();setActiveView("home")}} />}
         </div>
       </main>
 
-      <MobileNav activeView={activeView} setActiveView={setActiveView} cartCount={cartCount} />
+      <MobileNav activeView={activeView} setActiveView={navigate} cartCount={cartCount} authenticated={authenticated} />
 
       <button className="floating-chat" type="button" onClick={() => setChatOpen(true)} aria-label="Buka chat SlivaCare">
         <Icon name="chat" size={22} />
@@ -206,9 +264,9 @@ export default function PetOwnerApp() {
         <i />
       </button>
 
-      {notificationOpen && <NotificationDrawer onClose={() => setNotificationOpen(false)} notify={notify} />}
-      {chatOpen && <SlivaCareDrawer pet={selectedPet} onClose={() => setChatOpen(false)} notify={notify} />}
-      {cartOpen && <CartDrawer cart={cart} setCart={setCart} onClose={() => setCartOpen(false)} notify={notify} />}
+      {notificationOpen && <NotificationDrawer onClose={() => setNotificationOpen(false)} notify={notify} items={notifications} setItems={setNotifications} seeAll={()=>{setNotificationOpen(false);navigate("notifications")}} />}
+      {chatOpen && <SlivaCareDrawer pet={selectedPet} owner={account??undefined} onClose={() => setChatOpen(false)} notify={notify} />}
+      {cartOpen && <CartDrawer cart={cart} setCart={setCart} onClose={() => setCartOpen(false)} notify={notify} productCatalog={productCatalog} />}
       {addPetOpen && <AddPetExperience onClose={() => setAddPetOpen(false)} notify={notify} onSaved={(pet) => { setPetProfiles((current) => [...current, pet]); setSelectedPetId(pet.id); }} />}
       {locationOpen && <LocationModal current={currentLocation} onClose={() => setLocationOpen(false)} onSelect={(location) => { setCurrentLocation(location); window.localStorage.setItem("slivadoc.location", JSON.stringify(location)); setLocationOpen(false); notify("Lokasi layanan berhasil diperbarui"); }} />}
       {bookingOpen && selectedService && (
@@ -218,9 +276,10 @@ export default function PetOwnerApp() {
           success={bookingSuccess}
           setSuccess={setBookingSuccess}
           onClose={() => setBookingOpen(false)}
+          onBooked={async()=>{await loadBootstrap();setBookingSuccess(true)}}
         />
       )}
-      {loginOpen && <PetOwnerLogin close={() => setLoginOpen(false)} notify={notify} />}
+      {loginOpen && <PetOwnerLogin close={() => setLoginOpen(false)} notify={notify} onSuccess={loadBootstrap} />}
 
       {toast && (
         <div className="toast" role="status">
@@ -232,7 +291,11 @@ export default function PetOwnerApp() {
   );
 }
 
-function PetOwnerLogin({close,notify}:{close:()=>void;notify:Notify}){const[mode,setMode]=useState<"login"|"register">("login");const[busy,setBusy]=useState(false);const[message,setMessage]=useState("");async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);setMessage("");const values=Object.fromEntries(new FormData(event.currentTarget));try{const endpoint=mode==="login"?"/api/v1/auth/login":"/api/v1/auth/petowner/register";const response=await fetch(`${PLATFORM_API_URL}${endpoint}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(values)});const data=await response.json();if(!response.ok)throw new Error(data.message||"Login belum dapat diproses");if(mode==="register"){setMessage(`OTP sudah dikirim ke ${values.email}. Verifikasi melalui halaman akun.`);return}localStorage.setItem("slivadoc.access_token",data.access_token);localStorage.setItem("slivadoc.refresh_token",data.refresh_token);notify("Login berhasil. Kamu sekarang bisa posting, komentar, dan konsultasi.");close()}catch(error){setMessage(error instanceof Error?error.message:"Login gagal")}finally{setBusy(false)}}return <div className="modal-overlay" onMouseDown={close}><section className="modal petowner-login" onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={close}>×</button><span className="world-kicker">SLIVADOC PET OWNER</span><h2>{mode==="login"?"Login untuk melanjutkan":"Buat akun pet parent"}</h2><p>Posting, komentar, konsultasi, adopsi, dan dokumen pet memerlukan akun terverifikasi.</p><form className="world-form" onSubmit={submit}>{mode==="register"&&<><label><span>Nama lengkap</span><input name="full_name" required/></label><label><span>WhatsApp</span><input name="phone" required/></label></>}<label><span>Email</span><input name="email" type="email" required/></label><label><span>Password</span><input name="password" type="password" minLength={8} required/></label>{message&&<div className="form-message">{message}</div>}<button className="primary-button full" disabled={busy}>{busy?"Memproses…":mode==="login"?"Login":"Daftar & kirim OTP"}</button></form><button className="text-button" onClick={()=>setMode(mode==="login"?"register":"login")}>{mode==="login"?"Belum punya akun? Daftar":"Sudah punya akun? Login"}</button></section></div>}
+function PetOwnerLogin({close,notify,onSuccess}:{close:()=>void;notify:Notify;onSuccess:()=>Promise<void>}){
+  const[mode,setMode]=useState<"login"|"register">("login");const[busy,setBusy]=useState(false);const[message,setMessage]=useState("");const[visible,setVisible]=useState(false);const[password,setPassword]=useState("");const passwordValid=/(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}/.test(password);
+  async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);setMessage("");const values=Object.fromEntries(new FormData(event.currentTarget));try{const endpoint=mode==="login"?"/api/v1/auth/login":"/api/v1/auth/petowner/register";const response=await fetch(`${PLATFORM_API_URL}${endpoint}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(values)});const data=await response.json();if(!response.ok)throw new Error(data.message||"Login belum dapat diproses");if(mode==="register"){setMessage(`OTP sudah dikirim ke ${values.email}. Verifikasi melalui halaman akun.`);return}localStorage.setItem("slivadoc.access_token",data.access_token);localStorage.setItem("slivadoc.refresh_token",data.refresh_token);clearPlatformCache();await onSuccess();notify("Login berhasil. Selamat datang di Slivadoc.");close()}catch(error){setMessage(error instanceof Error?error.message:"Login gagal")}finally{setBusy(false)}}
+  return <div className="modal-overlay" onMouseDown={close}><section className="modal petowner-login" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close} aria-label="Tutup"><Icon name="close"/></button><div className="login-brand"><Logo/><span>Pet Owner</span></div><span className="world-kicker">AKUN PET FAMILY</span><h2>{mode==="login"?"Senang melihatmu kembali":"Mulai perjalanan pet parent"}</h2><p>Profil pet, rekam medis, booking, komunitas, dan benefit tersinkron aman dalam satu akun.</p><form className="world-form login-form" onSubmit={submit}>{mode==="register"&&<><label><span>Nama lengkap</span><input name="full_name" placeholder="Nama sesuai identitas" required/></label><label><span>WhatsApp</span><input name="phone" inputMode="tel" placeholder="08xxxxxxxxxx" required/></label></>}<label><span>Email</span><input name="email" type="email" autoComplete="email" placeholder="petparent@email.com" required/></label><label><span>Password</span><span className="password-input"><input name="password" value={password} onChange={event=>setPassword(event.target.value)} type={visible?"text":"password"} autoComplete={mode==="login"?"current-password":"new-password"} placeholder="Minimal 8 karakter" minLength={8} pattern="(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}" title="Wajib berisi huruf, angka, dan simbol" required/><button type="button" onClick={()=>setVisible(value=>!value)} aria-label={visible?"Sembunyikan password":"Tampilkan password"}>{visible?"◉":"◎"}</button></span><small>Gunakan kombinasi huruf, angka, dan simbol.</small></label>{message&&<div className="form-message">{message}</div>}<button className="primary-button full" disabled={busy||!passwordValid}>{busy?<><span className="button-spinner"/> Memproses…</>:mode==="login"?"Masuk ke Slivadoc":"Daftar & kirim OTP"}</button></form><button className="text-button login-switch" onClick={()=>{setMode(mode==="login"?"register":"login");setMessage("");setPassword("")}}>{mode==="login"?"Belum punya akun? Daftar gratis":"Sudah punya akun? Login"}</button><div className="demo-login"><small>Akun testing pet owner</small><b>petowner.demo@slivadoc.local</b><code>SlivadocLocal123!</code></div></section></div>
+}
 
 function Logo() {
   return (
@@ -243,13 +306,13 @@ function Logo() {
   );
 }
 
-function Sidebar({ activeView, setActiveView, notify }: { activeView: AppView; setActiveView: (view: AppView) => void; notify: Notify }) {
+function Sidebar({ activeView, setActiveView, notify, account, authenticated, onLogin }: { activeView: AppView; setActiveView: (view: AppView) => void; notify: Notify;account:PetOwnerBootstrap["user"]|null;authenticated:boolean;onLogin:()=>void }) {
   return (
     <aside className="sidebar">
       <Logo />
       <p className="nav-eyebrow">MENU UTAMA</p>
       <nav className="side-nav" aria-label="Navigasi utama">
-        {navItems.map((item) => (
+        {navItems.filter(item=>authenticated||item.id!=="profile").map((item) => (
           <button
             type="button"
             key={item.id}
@@ -271,11 +334,7 @@ function Sidebar({ activeView, setActiveView, notify }: { activeView: AppView; s
       <button className="side-help" type="button" onClick={() => notify("Pusat bantuan dibuka") }>
         <span>?</span> Pusat Bantuan
       </button>
-      <div className="side-profile">
-        <div className="avatar avatar-blue">EM</div>
-        <span><b>Evans Moris</b><small>Pet Parent • Gold</small></span>
-        <button type="button" aria-label="Menu akun" onClick={() => notify("Menu akun dibuka") }><Icon name="more" /></button>
-      </div>
+      {authenticated&&account?<button className="side-profile" type="button" onClick={()=>setActiveView("profile")}><div className="avatar avatar-blue">{account.full_name.split(" ").map(value=>value[0]).slice(0,2).join("")}</div><span><b>{account.full_name}</b><small>Pet Parent • Akun aktif</small></span><Icon name="chevron"/></button>:<button className="side-login-button" type="button" onClick={onLogin}><Icon name="user"/> Masuk ke akun</button>}
     </aside>
   );
 }
@@ -291,6 +350,11 @@ function Topbar({
   onOpenNotifications,
   onOpenCart,
   notify,
+  account,
+  points,
+  authenticated,
+  navigate,
+  onLogin,
 }: {
   selectedPet: Pet;
   petProfiles: Pet[];
@@ -302,7 +366,15 @@ function Topbar({
   onOpenNotifications: () => void;
   onOpenCart: () => void;
   notify: Notify;
+  account:PetOwnerBootstrap["user"]|null;
+  points:number;
+  authenticated:boolean;
+  navigate:(view:AppView)=>void;
+  onLogin:()=>void;
 }) {
+  const[searchOpen,setSearchOpen]=useState(false);const[query,setQuery]=useState("");const[category,setCategory]=useState("");const[results,setResults]=useState<GlobalSearchResult[]>([]);const[busy,setBusy]=useState(false);
+  useEffect(()=>{if(query.trim().length<2)return;const timer=window.setTimeout(()=>{const normalized=query.trim().toLowerCase();const featureResults=(category===""||category==="feature")?featureSearchItems.filter(item=>`${item.title} ${item.subtitle}`.toLowerCase().includes(normalized)):[];setBusy(true);void globalSearch(query.trim(),category==="feature"?"":category).then(response=>{const combined=[...featureResults,...response.data];setResults(combined.filter((item,index)=>combined.findIndex(value=>value.category===item.category&&value.id===item.id)===index))}).catch(()=>setResults(featureResults)).finally(()=>setBusy(false))},280);return()=>window.clearTimeout(timer)},[query,category]);
+  function choose(result:GlobalSearchResult){const route=result.route as AppView;if(titles[route])navigate(route);else notify(`${result.title} · ${result.subtitle}`);setSearchOpen(false);setQuery("")}
   return (
     <header className="topbar">
       <div className="mobile-brand"><Logo /></div>
@@ -311,41 +383,44 @@ function Topbar({
         <span><small>Lokasi kamu</small><b>{locationLabel}</b></span>
         <Icon name="chevron" size={15} />
       </button>
-      <label className="global-search">
+      <label className={`global-search ${searchOpen?"open":""}`}>
         <Icon name="search" size={18} />
-        <input placeholder="Cari dokter, layanan, produk..." onKeyDown={(event) => event.key === "Enter" && notify(`Mencari “${event.currentTarget.value}”`)} />
+        <select value={category} onChange={event=>setCategory(event.target.value)} aria-label="Kategori pencarian"><option value="">Semua</option><option value="feature">Fitur & halaman</option><option value="service">Layanan</option><option value="product">Produk</option><option value="petspot">PetSpot</option><option value="event">Event</option><option value="academy">Academy</option><option value="veterinarian">Dokter</option></select>
+        <input value={query} placeholder="Cari dokter, layanan, produk..." onFocus={()=>setSearchOpen(true)} onChange={event=>{setQuery(event.target.value);setSearchOpen(true);if(event.target.value.trim().length<2)setResults([])}} />
         <kbd>⌘ K</kbd>
+        {searchOpen&&<div className="owner-search-results"><header><b>Cari di seluruh Slivadoc</b><button type="button" onClick={()=>setSearchOpen(false)}>Tutup</button></header>{busy?<p>Memuat hasil…</p>:query.trim().length<2?<p>Ketik minimal 2 karakter dan pilih kategori.</p>:results.length?results.map(item=><button type="button" key={`${item.category}-${item.id}`} onClick={()=>choose(item)}><span>{item.category.slice(0,1).toUpperCase()}</span><div><b>{item.title}</b><small>{item.category} · {item.subtitle}</small></div><Icon name="chevron"/></button>):<p>Tidak ada hasil yang cocok.</p>}</div>}
       </label>
       <div className="top-actions">
-        <button className="point-pill" type="button" onClick={() => notify("Kamu memiliki 2.450 Sliva Points") }>
-          <span>✦</span><b>2.450</b><small>pts</small>
+        <button className="point-pill" type="button" onClick={() => authenticated?navigate("bookings"):onLogin()}>
+          <span>✦</span><b>{points.toLocaleString("id-ID")}</b><small>pts</small>
         </button>
-        <label className="pet-switcher compact-select">
+        {authenticated&&petProfiles.length>0&&<label className="pet-switcher compact-select">
           <span className="pet-mini">{selectedPet.avatar}</span>
           <select aria-label="Pilih hewan" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>
             {petProfiles.map((pet) => <option key={pet.id} value={pet.id}>{pet.name}</option>)}
           </select>
-        </label>
+        </label>}
         <button className="icon-button" type="button" onClick={onOpenCart} aria-label="Keranjang">
           <Icon name="cart" />
           {cartCount > 0 && <span className="counter">{cartCount}</span>}
         </button>
-        <button className="icon-button" type="button" onClick={onOpenNotifications} aria-label="Notifikasi">
+        <button className="icon-button" type="button" onClick={authenticated?onOpenNotifications:onLogin} aria-label="Notifikasi">
           <Icon name="bell" />
           <span className="notif-dot" />
-        </button>
+        </button>{!authenticated&&<button className="top-login" type="button" onClick={onLogin}>Masuk</button>}{authenticated&&account&&<button className="top-account" type="button" onClick={()=>navigate("profile")}>{account.full_name.split(" ").map(value=>value[0]).slice(0,2).join("")}</button>}
       </div>
     </header>
   );
 }
 
-function PageHeading({ activeView, selectedPet }: { activeView: AppView; selectedPet: Pet }) {
+function PageHeading({ activeView, selectedPet,account }: { activeView: AppView; selectedPet: Pet;account:PetOwnerBootstrap["user"]|null }) {
   const item = titles[activeView];
+  const date=new Intl.DateTimeFormat("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"Asia/Jakarta"}).format(new Date());
   return (
     <div className="page-heading">
       <div>
-        <div className="heading-kicker"><span className="live-dot" />Minggu, 23 Agustus 2026</div>
-        <h1>{item.title}</h1>
+        <div className="heading-kicker"><span className="live-dot" />{date}</div>
+        <h1>{activeView==="home"&&account?`Selamat datang, ${account.full_name.split(" ")[0]}!`:item.title}</h1>
         <p>{activeView === "health" ? `Riwayat lengkap dan jadwal perawatan ${selectedPet.name}.` : item.subtitle}</p>
       </div>
       {activeView !== "home" && (
@@ -355,14 +430,14 @@ function PageHeading({ activeView, selectedPet }: { activeView: AppView; selecte
   );
 }
 
-function HomeView({ selectedPet, setActiveView, openBooking, setChatOpen, notify }: { selectedPet: Pet; setActiveView: (view: AppView) => void; openBooking: (service?: Service) => void; setChatOpen: (value: boolean) => void; notify: Notify }) {
+function HomeView({ selectedPet, setActiveView, openBooking, setChatOpen, notify,services,activities }: { selectedPet: Pet; setActiveView: (view: AppView) => void; openBooking: (service?: Service) => void; setChatOpen: (value: boolean) => void; notify: Notify;services:Service[];activities:ActivityItem[] }) {
   const quickActions: { label: string; note: string; icon: string; color: string; action: () => void }[] = [
     { label: "Buat Booking", note: "Klinik & grooming", icon: "📅", color: "blue", action: () => openBooking() },
     { label: "Tanya Dokter", note: "Chat atau video", icon: "👩🏻‍⚕️", color: "mint", action: () => setChatOpen(true) },
-    { label: "Home Service", note: "Dokter ke rumah", icon: "🏠", color: "peach", action: () => openBooking(services[3]) },
+    { label: "Home Service", note: "Dokter ke rumah", icon: "🏠", color: "peach", action: () => {const service=services.find(item=>item.type==="Home Care");if(service)openBooking(service);else setActiveView("discover")} },
     { label: "Darurat 24/7", note: "Bantuan cepat", icon: "🚑", color: "red", action: () => notify("Menghubungkan ke hotline darurat 24/7") },
     { label: "Beli Produk", note: "Same day delivery", icon: "🛍️", color: "violet", action: () => setActiveView("shop") },
-    { label: "Pet Hotel", note: "Titip dengan aman", icon: "🏡", color: "yellow", action: () => openBooking(services[2]) },
+    { label: "Pet Hotel", note: "Titip dengan aman", icon: "🏡", color: "yellow", action: () => {const service=services.find(item=>item.type==="Pet Hotel");if(service)openBooking(service);else setActiveView("discover")} },
     { label: "Pet Academy", note: "Training & kelas", icon: "🎓", color: "mint", action: () => setActiveView("academy") },
     { label: "Pet Event", note: "Event di kotamu", icon: "🎟️", color: "peach", action: () => setActiveView("events") },
     { label: "PetSpot", note: "Tempat pet friendly", icon: "📍", color: "blue", action: () => setActiveView("petspot") },
@@ -411,17 +486,17 @@ function HomeView({ selectedPet, setActiveView, openBooking, setChatOpen, notify
           </div>
           <div className="pet-health-main">
             <div className="pet-large-avatar">{selectedPet.avatar}<i className="online-mark"><Icon name="check" size={11} /></i></div>
-            <div className="pet-health-copy"><b>{selectedPet.name}</b><span>{selectedPet.breed} • {selectedPet.age}</span><small>Data diperbarui 12 Agu 2026</small></div>
+            <div className="pet-health-copy"><b>{selectedPet.name}</b><span>{selectedPet.breed} • {selectedPet.age}</span><small>{selectedPet.nextCare}</small></div>
             <div className="health-score" style={{ "--score": `${selectedPet.healthScore * 3.6}deg` } as React.CSSProperties}>
               <div><b>{selectedPet.healthScore}</b><small>/100</small></div>
             </div>
           </div>
           <div className="metric-row">
-            <div><span>⚖️</span><small>Berat badan</small><b>{selectedPet.weight}</b><em className="good">Stabil</em></div>
-            <div><span>💉</span><small>Vaksin</small><b>4 dari 5</b><em className="warn">1 akan datang</em></div>
-            <div><span>🛡️</span><small>Proteksi</small><b>Aktif</b><em className="good">s.d. Agu 2027</em></div>
+            <div><span>⚖️</span><small>Berat badan</small><b>{selectedPet.weight}</b><em className="good">Profil pet</em></div>
+            <div><span>🪪</span><small>Microchip</small><b>{selectedPet.microchip}</b><em>Identitas API</em></div>
+            <div><span>🩺</span><small>Catatan medis</small><b>{selectedPet.nextCare}</b><em className="good">Tersinkron</em></div>
           </div>
-          <div className="health-alert"><span>💡</span><p><b>Insight untuk {selectedPet.name}</b><small>Waktunya menyiapkan vaksin DHPPi. Booking sebelum 4 September agar proteksi tetap optimal.</small></p><button type="button" onClick={() => openBooking()}>Atur jadwal</button></div>
+          <div className="health-alert"><span>💡</span><p><b>Data kesehatan {selectedPet.name}</b><small>Nilai, profil, dan riwayat di halaman ini berasal dari akun pet yang sedang dipilih.</small></p><button type="button" onClick={() => setActiveView("health")}>Buka kesehatan</button></div>
         </section>
 
         <section className="panel care-panel">
@@ -430,14 +505,15 @@ function HomeView({ selectedPet, setActiveView, openBooking, setChatOpen, notify
             <button className="round-button" type="button" onClick={() => notify("Pengingat baru ditambahkan") }><Icon name="plus" size={18} /></button>
           </div>
           <div className="timeline-list">
-            {careTimeline.map((care, index) => (
+            {activities.slice(0,4).map((care, index) => (
               <div className="timeline-item" key={care.id}>
-                <div className={`timeline-date ${index === 0 ? "today" : ""}`}><b>{care.date.split(" ")[0]}</b><small>{care.date.split(" ").slice(1).join(" ") || ""}</small></div>
-                <div className={`timeline-icon ${care.tone}`}>{care.icon}</div>
-                <div className="timeline-copy"><b>{care.title}</b><span>{care.note}</span><small><Icon name="clock" size={13} /> {care.time}</small></div>
-                <button type="button" className="more-button" onClick={() => notify(`Opsi ${care.title}`)}><Icon name="more" /></button>
+                <div className={`timeline-date ${index === 0 ? "today" : ""}`}><b>{new Date(care.starts_at||care.occurred_at).toLocaleDateString("id-ID",{day:"2-digit"})}</b><small>{new Date(care.starts_at||care.occurred_at).toLocaleDateString("id-ID",{month:"short"})}</small></div>
+                <div className="timeline-icon blue">{care.category==="booking"?"📅":care.category==="consultation"?"💬":care.category==="order"?"📦":"🐾"}</div>
+                <div className="timeline-copy"><b>{care.title}</b><span>{care.description}</span><small><Icon name="clock" size={13} /> {new Date(care.starts_at||care.occurred_at).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})}</small></div>
+                <button type="button" className="more-button" onClick={() => setActiveView("bookings")}><Icon name="chevron" /></button>
               </div>
             ))}
+            {activities.length===0&&<div className="empty-state compact">Belum ada perawatan atau transaksi pada akun ini.</div>}
           </div>
           <button className="full-soft-button" type="button" onClick={() => setActiveView("bookings")}>Lihat semua aktivitas <Icon name="arrow" size={16} /></button>
         </section>
@@ -455,14 +531,17 @@ function HomeView({ selectedPet, setActiveView, openBooking, setChatOpen, notify
               <div className="service-card-body"><div className="service-title"><b>{service.name}</b><span><Icon name="star" size={13} /> {service.rating}</span></div><p><Icon name="map" size={13} /> {service.distance} • {service.status}</p><div><strong>{service.price}</strong><button type="button" onClick={() => openBooking(service)}>Pilih</button></div></div>
             </article>
           ))}
+          {services.length===0&&<div className="empty-state compact">Layanan belum tersedia dari API.</div>}
         </div>
       </section>
     </div>
   );
 }
 
-function PetsView({ petProfiles, selectedPetId, setSelectedPetId, setAddPetOpen, setActiveView, notify }: { petProfiles: Pet[]; selectedPetId: string; setSelectedPetId: (id: string) => void; setAddPetOpen: (value: boolean) => void; setActiveView: (view: AppView) => void; notify: Notify }) {
-  const pet = petProfiles.find((item) => item.id === selectedPetId) ?? petProfiles[0] ?? pets[0];
+function PetsView({ petProfiles, selectedPetId, setSelectedPetId, setAddPetOpen, setActiveView, notify,onChanged }: { petProfiles: Pet[]; selectedPetId: string; setSelectedPetId: (id: string) => void; setAddPetOpen: (value: boolean) => void; setActiveView: (view: AppView) => void; notify: Notify;onChanged:()=>Promise<void> }) {
+  const[modal,setModal]=useState<"id"|"edit"|"notes"|"family"|"lost"|null>(null);
+  const pet = petProfiles.find((item) => item.id === selectedPetId) ?? petProfiles[0];
+  if(!pet)return <div className="empty-state"><span>🐾</span><h3>Belum ada pet di akunmu</h3><p>Tambahkan profil pertama untuk mulai menyimpan identitas dan kesehatan.</p><button className="primary-button" onClick={()=>setAddPetOpen(true)}>Tambah pet</button></div>;
   return (
     <div className="two-column-page">
       <section>
@@ -478,11 +557,11 @@ function PetsView({ petProfiles, selectedPetId, setSelectedPetId, setAddPetOpen,
         </div>
 
         <section className="panel pet-detail-panel">
-          <div className="panel-heading"><div><span className="section-eyebrow">PET IDENTITY</span><h3>Profil {pet.name}</h3></div><button className="secondary-button small" type="button" onClick={() => notify("Mode edit profil diaktifkan") }><Icon name="edit" size={15} /> Edit profil</button></div>
+          <div className="panel-heading"><div><span className="section-eyebrow">PET IDENTITY</span><h3>Profil {pet.name}</h3></div><button className="secondary-button small" type="button" onClick={() => setModal("edit")}><Icon name="edit" size={15} /> Edit profil</button></div>
           <div className="pet-identity-banner">
             <div className="pet-id-avatar">{pet.avatar}</div>
             <div><span className="verified-badge"><Icon name="shield" size={13} /> Identitas terverifikasi</span><h2>{pet.name}</h2><p>{pet.breed} • {pet.gender}</p><small>Microchip: {pet.microchip}</small></div>
-            <button type="button" onClick={() => notify("Pet ID siap dibagikan") }><span>▦</span><small>Tampilkan Pet ID</small></button>
+            <button type="button" onClick={() => setModal("id")}><span>▦</span><small>Tampilkan Pet ID</small></button>
           </div>
           <div className="info-grid">
             <Info label="Tanggal lahir" value="21 Juni 2023" />
@@ -492,24 +571,37 @@ function PetsView({ petProfiles, selectedPetId, setSelectedPetId, setAddPetOpen,
             <Info label="Sterilisasi" value="Sudah" />
             <Info label="Golongan darah" value={pet.type === "Dog" ? "DEA 1.1+" : "A"} />
           </div>
-          <div className="pet-notes"><span>📝</span><div><b>Catatan khusus</b><p>Alergi ringan terhadap protein ayam. Lebih nyaman diperiksa sambil ditemani owner.</p></div><button type="button" onClick={() => notify("Catatan siap diedit") }><Icon name="edit" size={16} /></button></div>
+          <div className="pet-notes"><span>📝</span><div><b>Catatan khusus</b><p>{pet.notes||"Belum ada catatan khusus."}{pet.allergies?` · Alergi: ${pet.allergies}`:""}</p></div><button type="button" onClick={() => setModal("notes")}><Icon name="edit" size={16} /></button></div>
         </section>
       </section>
 
       <aside className="right-stack">
         <section className="panel compact-panel"><div className="panel-heading"><h3>Ringkasan perawatan</h3><span className="score-chip">{pet.healthScore}/100</span></div><Progress label="Profil kesehatan" value={100} /><Progress label="Vaksin wajib" value={80} /><Progress label="Preventive care" value={75} /><button className="full-soft-button" type="button" onClick={() => setActiveView("health")}>Buka pusat kesehatan <Icon name="arrow" size={15} /></button></section>
-        <section className="panel compact-panel"><div className="panel-heading"><h3>Akses keluarga</h3><button className="round-button" type="button" onClick={() => notify("Undangan keluarga siap dikirim") }><Icon name="plus" size={16} /></button></div><Family name="Evans Moris" role="Pemilik utama" initials="EM" /><Family name="Michelle Cheahn" role="Co-parent" initials="MC" /><Family name="drh. Amanda" role="Dokter utama" initials="AP" green /></section>
-        <section className="lost-mode-card"><span>📍</span><div><b>Lost Pet Mode</b><p>Aktifkan peringatan dan bagikan profil {pet.name} ke komunitas sekitar.</p><button type="button" onClick={() => notify("Lost Pet Mode memerlukan konfirmasi lokasi")}>Pelajari fitur</button></div></section>
+        <section className="panel compact-panel"><div className="panel-heading"><h3>Akses keluarga</h3><button className="round-button" type="button" onClick={() => setModal("family")}><Icon name="plus" size={16} /></button></div><p className="muted-copy">Undang co-parent, caregiver, dokter, atau viewer dengan izin terperinci.</p><button className="full-soft-button" type="button" onClick={()=>setModal("family")}>Kelola akses keluarga</button></section>
+        <section className="lost-mode-card"><span>📍</span><div><b>Lost Pet Mode</b><p>Aktifkan peringatan dan bagikan profil {pet.name} ke komunitas sekitar.</p><button type="button" onClick={() => setModal("lost")}>Kelola Lost Pet Mode</button></div></section>
       </aside>
+      {modal==="id"&&<PetIDModal pet={pet} close={()=>setModal(null)}/>} {modal==="edit"&&<PetEditModal pet={pet} close={()=>setModal(null)} changed={onChanged} notify={notify}/>} {modal==="notes"&&<PetNotesModal pet={pet} close={()=>setModal(null)} changed={onChanged} notify={notify}/>} {modal==="family"&&<FamilyModal pet={pet} close={()=>setModal(null)} notify={notify}/>} {modal==="lost"&&<LostModeModal pet={pet} close={()=>setModal(null)} notify={notify}/>} 
     </div>
   );
 }
 
-function DiscoverView({ favorites, toggleFavorite, openBooking, notify }: { favorites: string[]; toggleFavorite: (id: string) => void; openBooking: (service: Service) => void; notify: Notify }) {
+function PetIDModal({pet,close}:{pet:Pet;close:()=>void}){return <div className="modal-overlay" onMouseDown={close}><section className="modal pet-id-modal" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><div className="pet-id-card"><span className="pet-id-logo"><Logo/></span><div className="pet-id-photo">{pet.photoUrl?<img src={pet.photoUrl} alt={pet.name}/>:pet.avatar}</div><span className="verified-badge"><Icon name="shield" size={13}/> Slivadoc Pet ID</span><h2>{pet.name}</h2><p>{pet.breed} · {pet.gender}</p><div className="pet-id-qr" aria-label={`Kode Pet ID ${pet.id}`}><i/><i/><i/><i/><i/><i/><i/><i/><i/></div><code>{pet.id}</code><dl><div><dt>Microchip</dt><dd>{pet.microchip}</dd></div><div><dt>Health score</dt><dd>{pet.healthScore}/100</dd></div></dl><small>Pindai untuk membuka identitas darurat terverifikasi Slivadoc.</small></div></section></div>}
+
+function PetEditModal({pet,close,changed,notify}:{pet:Pet;close:()=>void;changed:()=>Promise<void>;notify:Notify}){const[busy,setBusy]=useState(false);async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);const values=Object.fromEntries(new FormData(event.currentTarget));try{await updatePetOwnerPet(pet.id,{name:values.name,breed:values.breed,sex:values.sex,birth_date:values.birth_date,color:values.color,weight_kg:Number(values.weight_kg),microchip_number:values.microchip_number,allergies:pet.allergies||"",medical_notes:pet.notes||"",vaccination_status:"complete",photo_url:pet.photoUrl||""});await changed();notify("Profil pet berhasil diperbarui");close()}catch(error){notify(error instanceof Error?error.message:"Profil belum dapat diperbarui")}finally{setBusy(false)}}return <div className="modal-overlay" onMouseDown={close}><section className="modal form-modal" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><span className="section-eyebrow">PET IDENTITY</span><h2>Edit profil {pet.name}</h2><form className="world-form" onSubmit={submit}><label><span>Nama</span><input name="name" defaultValue={pet.name} minLength={2} required/></label><label><span>Ras</span><input name="breed" defaultValue={pet.breed}/></label><div className="form-row"><label><span>Jenis kelamin</span><select name="sex" defaultValue={pet.gender==="Betina"?"female":"male"}><option value="male">Jantan</option><option value="female">Betina</option></select></label><label><span>Tanggal lahir</span><input name="birth_date" type="date" defaultValue={pet.birthDate?.slice(0,10)}/></label></div><div className="form-row"><label><span>Berat (kg)</span><input name="weight_kg" type="number" step="0.1" defaultValue={parseFloat(pet.weight)}/></label><label><span>Warna</span><input name="color" defaultValue={pet.color}/></label></div><label><span>Nomor microchip</span><input name="microchip_number" defaultValue={pet.microchip==="Belum terdaftar"?"":pet.microchip}/></label><button className="primary-button full" disabled={busy}>{busy?"Menyimpan…":"Simpan perubahan"}</button></form></section></div>}
+
+function PetNotesModal({pet,close,changed,notify}:{pet:Pet;close:()=>void;changed:()=>Promise<void>;notify:Notify}){const[busy,setBusy]=useState(false);async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);const values=Object.fromEntries(new FormData(event.currentTarget));try{await updatePetOwnerPet(pet.id,{name:pet.name,breed:pet.breed,sex:pet.gender==="Betina"?"female":"male",birth_date:pet.birthDate?.slice(0,10)||"",color:pet.color,weight_kg:parseFloat(pet.weight),microchip_number:pet.microchip==="Belum terdaftar"?"":pet.microchip,allergies:values.allergies,medical_notes:values.medical_notes,vaccination_status:"complete",photo_url:pet.photoUrl||""});await changed();notify("Catatan khusus tersimpan");close()}catch(error){notify(error instanceof Error?error.message:"Catatan belum dapat disimpan")}finally{setBusy(false)}}return <div className="modal-overlay" onMouseDown={close}><section className="modal form-modal" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><span className="section-eyebrow">CATATAN KHUSUS</span><h2>Kebutuhan penting {pet.name}</h2><form className="world-form" onSubmit={submit}><label><span>Alergi</span><textarea name="allergies" defaultValue={pet.allergies} placeholder="Contoh: protein ayam"/></label><label><span>Perilaku, preferensi, dan catatan medis</span><textarea name="medical_notes" defaultValue={pet.notes} placeholder="Tuliskan hal yang perlu diketahui dokter, groomer, atau caregiver" rows={5}/></label><button className="primary-button full" disabled={busy}>{busy?"Menyimpan…":"Simpan catatan"}</button></form></section></div>}
+
+function FamilyModal({pet,close,notify}:{pet:Pet;close:()=>void;notify:Notify}){const[items,setItems]=useState<FamilyAccess[]>([]);const[busy,setBusy]=useState(false);const[loading,setLoading]=useState(true);async function reload(){await Promise.resolve();setLoading(true);try{setItems((await getPetFamily(pet.id)).data)}catch(error){notify(error instanceof Error?error.message:"Akses keluarga belum dapat dimuat")}finally{setLoading(false)}}useEffect(()=>{let cancelled=false;void getPetFamily(pet.id).then(response=>{if(!cancelled)setItems(response.data)}).catch(error=>notify(error instanceof Error?error.message:"Akses keluarga belum dapat dimuat")).finally(()=>{if(!cancelled)setLoading(false)});return()=>{cancelled=true}},[pet.id,notify]);
+async function invite(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);const values=Object.fromEntries(new FormData(event.currentTarget));try{await invitePetFamily(pet.id,{email:values.email,full_name:values.full_name,role:values.role,permissions:["profile","health","booking"]});event.currentTarget.reset();await reload();notify("Undangan keluarga berhasil dibuat")}catch(error){notify(error instanceof Error?error.message:"Undangan belum dapat dibuat")}finally{setBusy(false)}}async function revoke(id:string){try{await revokePetFamily(id);await reload();notify("Akses berhasil dicabut")}catch(error){notify(error instanceof Error?error.message:"Akses belum dapat dicabut")}}return <div className="modal-overlay" onMouseDown={close}><section className="modal family-modal" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><span className="section-eyebrow">AKSES KELUARGA · {pet.name.toUpperCase()}</span><h2>Orang yang dipercaya</h2><div className="family-access-list">{loading?<p>Memuat akses…</p>:items.map(item=><div key={item.id}><span>{item.full_name.split(" ").map(value=>value[0]).slice(0,2).join("")}</span><p><b>{item.full_name}</b><small>{item.email} · {item.role} · {item.status}</small></p>{item.role!=="owner"&&<button onClick={()=>void revoke(item.id)}>Cabut</button>}</div>)}</div><form className="world-form family-invite" onSubmit={invite}><h3>Undang anggota</h3><label><span>Nama lengkap</span><input name="full_name" required/></label><label><span>Email</span><input name="email" type="email" required/></label><label><span>Role akses</span><select name="role"><option value="co_parent">Co-parent</option><option value="caregiver">Caregiver</option><option value="veterinarian">Dokter</option><option value="viewer">Viewer</option></select></label><button className="primary-button full" disabled={busy}>{busy?"Mengirim…":"Kirim undangan"}</button></form></section></div>}
+
+function LostModeModal({pet,close,notify}:{pet:Pet;close:()=>void;notify:Notify}){const[mode,setMode]=useState<Awaited<ReturnType<typeof getLostPetMode>>|null>(null);const[busy,setBusy]=useState(false);useEffect(()=>{void getLostPetMode(pet.id).then(setMode).catch(()=>setMode({active:false}))},[pet.id]);async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);const values=Object.fromEntries(new FormData(event.currentTarget));try{const result=await activateLostPetMode(pet.id,{last_seen_at:new Date(String(values.last_seen_at)).toISOString(),last_seen_location:values.last_seen_location,latitude:values.latitude?Number(values.latitude):null,longitude:values.longitude?Number(values.longitude):null,radius_km:Number(values.radius_km),description:values.description,contact_phone:values.contact_phone,reward_amount:Number(values.reward_amount||0)});setMode(result);notify(result.message)}catch(error){notify(error instanceof Error?error.message:"Lost Pet Mode belum dapat diaktifkan")}finally{setBusy(false)}}async function found(){setBusy(true);try{await closeLostPetMode(pet.id,"found");setMode({active:false,status:"found"});notify(`${pet.name} ditandai sudah ditemukan`)}catch(error){notify(error instanceof Error?error.message:"Laporan belum dapat ditutup")}finally{setBusy(false)}}return <div className="modal-overlay" onMouseDown={close}><section className="modal lost-modal" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><span className="section-eyebrow">LOST PET EMERGENCY</span><h2>{mode?.active?`Pencarian ${pet.name} sedang aktif`:`Aktifkan Lost Pet Mode`}</h2>{mode?.active?<div className="lost-active"><span>📡</span><p>Komunitas radius {mode.radius_km} km sudah menerima laporan dari {mode.last_seen_location}.</p><code>{mode.public_token}</code><button className="primary-button full" disabled={busy} onClick={()=>void found()}>{busy?"Memproses…":`${pet.name} sudah ditemukan`}</button></div>:<form className="world-form" onSubmit={submit}><label><span>Terakhir terlihat</span><input name="last_seen_at" type="datetime-local" required/></label><label><span>Lokasi terakhir</span><input name="last_seen_location" placeholder="Nama tempat / alamat lengkap" required/></label><div className="form-row"><label><span>Latitude</span><input name="latitude" type="number" step="any"/></label><label><span>Longitude</span><input name="longitude" type="number" step="any"/></label></div><label><span>Radius notifikasi</span><select name="radius_km" defaultValue="10"><option value="3">3 km</option><option value="5">5 km</option><option value="10">10 km</option><option value="25">25 km</option></select></label><label><span>Kronologi & ciri khusus</span><textarea name="description" required/></label><label><span>Nomor kontak</span><input name="contact_phone" required/></label><label><span>Imbalan (opsional)</span><input name="reward_amount" type="number" min="0"/></label><button className="primary-button full" disabled={busy}>{busy?"Mengaktifkan jaringan…":"Aktifkan peringatan komunitas"}</button></form>}</section></div>}
+
+function DiscoverView({ favorites, toggleFavorite, openBooking, notify,serviceCatalog }: { favorites: string[]; toggleFavorite: (id: string) => void|Promise<void>; openBooking: (service: Service) => void; notify: Notify;serviceCatalog:Service[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("Semua");
+  const [detail,setDetail]=useState<Service|null>(null);
   const filters = ["Semua", "Clinic", "Grooming", "Pet Shop", "Pet Hotel", "Home Care"];
-  const result = services.filter((service) => (filter === "Semua" || service.type === filter) && service.name.toLowerCase().includes(query.toLowerCase()));
+  const result = serviceCatalog.filter((service) => (filter === "Semua" || service.type === filter) && `${service.name} ${service.address} ${service.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase()));
   return (
     <div>
       <section className="discover-search-card">
@@ -525,156 +617,126 @@ function DiscoverView({ favorites, toggleFavorite, openBooking, notify }: { favo
         {result.map((service) => (
           <article className="service-result-card" key={service.id}>
             <div className={`service-result-cover ${service.accent}`}><span>{service.emoji}</span><em>{service.type}</em><button type="button" aria-label="Favorit" className={favorites.includes(service.id) ? "favorite" : ""} onClick={() => toggleFavorite(service.id)}><Icon name="heart" size={18} /></button></div>
-            <div className="service-result-body"><div className="service-name-row"><div><h3>{service.name}</h3><p><Icon name="map" size={14} /> {service.distance} • {service.address}</p></div><span className="rating-box"><b>{service.rating}</b><Icon name="star" size={12} /><small>{service.reviews}</small></span></div><div className="tag-row">{service.tags.map((tag) => <span key={tag}>{tag}</span>)}</div><div className="availability"><span className="live-dot" /><b>{service.status}</b></div><div className="service-result-footer"><div><small>Estimasi harga</small><b>{service.price}</b></div><button className="secondary-button small" type="button" onClick={() => notify(`Detail ${service.name} dibuka`) }>Lihat detail</button><button className="primary-button small" type="button" onClick={() => openBooking(service)}>Booking</button></div></div>
+            <div className="service-result-body"><div className="service-name-row"><div><h3>{service.name}</h3><p><Icon name="map" size={14} /> {service.distance} • {service.address}</p></div><span className="rating-box"><b>{service.rating||"Baru"}</b>{service.rating>0&&<Icon name="star" size={12} />}<small>{service.reviews||"API"}</small></span></div><div className="tag-row">{service.tags.map((tag) => <span key={tag}>{tag}</span>)}</div><div className="availability"><span className="live-dot" /><b>{service.status}</b></div><div className="service-result-footer"><div><small>Estimasi harga</small><b>{service.price}</b></div><button className="secondary-button small" type="button" onClick={() => setDetail(service)}>Lihat detail</button><button className="primary-button small" type="button" onClick={() => openBooking(service)}>Booking</button></div></div>
           </article>
         ))}
       </div>
-      {result.length === 0 && <div className="empty-state"><span>🔎</span><h3>Layanan belum ditemukan</h3><p>Coba kata kunci atau kategori lain.</p><button className="primary-button small" type="button" onClick={() => { setQuery(""); setFilter("Semua"); }}>Reset pencarian</button></div>}
+      {result.length === 0 && <div className="empty-state"><span>🔎</span><h3>Layanan belum ditemukan</h3><p>Coba kata kunci atau kategori lain.</p><button className="primary-button small" type="button" onClick={() => { setQuery(""); setFilter("Semua"); }}>Reset pencarian</button></div>}{detail&&<ServiceDetail service={detail} close={()=>setDetail(null)} book={()=>{setDetail(null);openBooking(detail)}}/>}
     </div>
   );
 }
 
-function BookingsView({ openBooking, setActiveView, notify }: { openBooking: (service?: Service) => void; setActiveView: (view: AppView) => void; notify: Notify }) {
-  const [tab, setTab] = useState("Mendatang");
-  return (
-    <div>
-      <div className="activity-summary-grid"><SummaryCard icon="📅" value="2" label="Booking mendatang" tone="blue" /><SummaryCard icon="📦" value="1" label="Pesanan dalam proses" tone="violet" /><SummaryCard icon="💬" value="3" label="Konsultasi aktif" tone="mint" /><SummaryCard icon="✦" value="2.450" label="Sliva Points" tone="yellow" /></div>
-      <div className="tabs"><button className={tab === "Mendatang" ? "active" : ""} type="button" onClick={() => setTab("Mendatang")}>Mendatang <span>2</span></button><button className={tab === "Berlangsung" ? "active" : ""} type="button" onClick={() => setTab("Berlangsung")}>Berlangsung <span>1</span></button><button className={tab === "Riwayat" ? "active" : ""} type="button" onClick={() => setTab("Riwayat")}>Riwayat</button></div>
-      {tab === "Mendatang" && <div className="booking-list">
-        <article className="booking-card featured"><div className="booking-date"><span>SEP</span><b>04</b><small>16.00</small></div><div className="booking-icon mint">💉</div><div className="booking-copy"><div><span className="status-badge confirmed">Terkonfirmasi</span><small>Booking #SLV-260904-128</small></div><h3>Vaksin DHPPi tahunan</h3><p>Pawsitive Vet Kemang • drh. Amanda Putri</p><span className="pet-inline">🐕 Milo</span></div><div className="booking-actions"><button type="button" className="secondary-button small" onClick={() => notify("Rute menuju klinik dibuka") }><Icon name="map" size={15} /> Petunjuk arah</button><button type="button" className="primary-button small" onClick={() => notify("Detail booking dibuka")}>Detail booking</button></div></article>
-        <article className="booking-card"><div className="booking-date"><span>SEP</span><b>12</b><small>09.30</small></div><div className="booking-icon violet">🛁</div><div className="booking-copy"><div><span className="status-badge waiting">Menunggu konfirmasi</span><small>Booking #SLV-260912-203</small></div><h3>Complete Grooming Package</h3><p>Fluffy House Grooming • Antar jemput</p><span className="pet-inline">🐈 Luna</span></div><div className="booking-actions"><button type="button" className="secondary-button small" onClick={() => notify("Jadwal dapat diubah hingga H-1")}>Ubah jadwal</button><button type="button" className="primary-button small" onClick={() => notify("Detail booking dibuka")}>Lihat detail</button></div></article>
-      </div>}
-      {tab === "Berlangsung" && <article className="booking-card order-live"><div className="booking-icon blue">📦</div><div className="booking-copy"><div><span className="status-badge onway">Dalam perjalanan</span><small>Order #ORD-0823-921</small></div><h3>Pesanan Pet Shop Same Day</h3><p>Kurir menuju alamatmu • Estimasi tiba 14.35–14.50</p><div className="delivery-progress"><i /><i /><i className="active" /><i /></div></div><div className="booking-actions"><button className="secondary-button small" type="button" onClick={() => notify("Chat kurir dibuka")}>Chat kurir</button><button className="primary-button small" type="button" onClick={() => notify("Pelacakan live dibuka")}>Lacak pesanan</button></div></article>}
-      {tab === "Riwayat" && <div className="panel history-table"><div className="history-row head"><span>Aktivitas</span><span>Hewan</span><span>Tanggal</span><span>Total</span><span>Status</span><span /></div>{medicalRecords.map((record, index) => <div className="history-row" key={record.id}><span><i>{record.icon}</i><b>{record.title}</b><small>{record.clinic}</small></span><span>{index === 1 ? "Luna" : "Milo"}</span><span>{record.date}</span><span>{index === 0 ? "Rp185.000" : "Rp240.000"}</span><span><em>Selesai</em></span><span><button type="button" onClick={() => notify("Invoice berhasil diunduh") }><Icon name="download" size={17} /></button></span></div>)}</div>}
-      <div className="activity-bottom-banner"><div><span>⚡</span><p><b>Butuh layanan lain?</b><small>Booking dokter, grooming, home care, atau hotel dalam beberapa langkah.</small></p></div><button className="primary-button" type="button" onClick={() => openBooking()}>Buat booking baru</button><button className="ghost-text" type="button" onClick={() => setActiveView("discover")}>Jelajahi layanan</button></div>
-    </div>
-  );
+function BookingsView({ openBooking, setActiveView, notify,activities,points }: { openBooking: (service?: Service) => void; setActiveView: (view: AppView) => void; notify: Notify;activities:ActivityItem[];points:number }) {
+  const [tab,setTab]=useState("Mendatang");const[detail,setDetail]=useState<ActivityItem|null>(null);
+  const upcoming=activities.filter(item=>item.starts_at&&new Date(item.starts_at)>new Date());const live=activities.filter(item=>["in_progress","active","on_the_way"].includes(item.status));const history=activities.filter(item=>!upcoming.includes(item)&&!live.includes(item));const visible=tab==="Mendatang"?upcoming:tab==="Berlangsung"?live:history;
+  return <div><div className="activity-summary-grid"><SummaryCard icon="📅" value={String(upcoming.length)} label="Booking mendatang" tone="blue" onClick={()=>setTab("Mendatang")}/><SummaryCard icon="📦" value={String(live.filter(item=>item.category==="order").length)} label="Pesanan dalam proses" tone="violet" onClick={()=>setTab("Berlangsung")}/><SummaryCard icon="💬" value={String(live.filter(item=>item.category==="consultation").length)} label="Konsultasi aktif" tone="mint" onClick={()=>setTab("Berlangsung")}/><SummaryCard icon="✦" value={points.toLocaleString("id-ID")} label="Sliva Points" tone="yellow" onClick={()=>notify(points?`Saldo ${points.toLocaleString("id-ID")} poin. Rumus: floor(transaksi bersih / Rp10.000) × multiplier membership.`:"Belum ada transaksi terbayar, jadi Sliva Point masih 0.")}/></div><div className="tabs"><button className={tab==="Mendatang"?"active":""} onClick={()=>setTab("Mendatang")}>Mendatang <span>{upcoming.length}</span></button><button className={tab==="Berlangsung"?"active":""} onClick={()=>setTab("Berlangsung")}>Berlangsung <span>{live.length}</span></button><button className={tab==="Riwayat"?"active":""} onClick={()=>setTab("Riwayat")}>Riwayat <span>{history.length}</span></button></div><div className="booking-list">{visible.length?visible.map(item=><article className="booking-card" key={item.id}><div className="booking-icon blue">{item.category==="booking"?"📅":item.category==="consultation"?"💬":item.category==="order"?"📦":"🐾"}</div><div className="booking-copy"><div><span className="status-badge confirmed">{item.status}</span><small>{item.category.toUpperCase()}</small></div><h3>{item.title}</h3><p>{item.description}</p><span className="pet-inline">{item.starts_at?new Date(item.starts_at).toLocaleString("id-ID") : new Date(item.occurred_at).toLocaleString("id-ID")}</span></div><div className="booking-actions">{item.metadata?.latitude&&<a className="secondary-button small" href={`https://www.google.com/maps/dir/?api=1&destination=${item.metadata.latitude},${item.metadata.longitude}`} target="_blank" rel="noreferrer"><Icon name="map" size={15}/> Petunjuk arah</a>}<button className="primary-button small" onClick={()=>setDetail(item)}>{item.action_label||"Lihat detail"}</button></div></article>):<div className="empty-state"><span>🗓️</span><h3>Belum ada aktivitas</h3><p>Data akan muncul setelah booking, konsultasi, atau transaksi dibuat.</p></div>}</div><div className="activity-bottom-banner"><div><span>⚡</span><p><b>Butuh layanan lain?</b><small>Booking dokter, grooming, home care, atau hotel dalam beberapa langkah.</small></p></div><button className="primary-button" onClick={()=>openBooking()}>Buat booking baru</button><button className="ghost-text" onClick={()=>setActiveView("discover")}>Jelajahi layanan</button></div>{detail&&<ActivityDetail item={detail} close={()=>setDetail(null)}/>}</div>;
 }
 
 function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
-  const [tab, setTab] = useState("Ringkasan");
-  return (
-    <div className="health-page">
-      <section className="health-hero-panel">
-        <div className="health-pet"><span>{pet.avatar}</span><div><small>PROFIL KESEHATAN</small><h2>{pet.name}</h2><p>{pet.breed} • {pet.weight}</p></div></div>
-        <div className="health-hero-score"><div style={{ "--score": `${pet.healthScore * 3.6}deg` } as React.CSSProperties}><span><b>{pet.healthScore}</b><small>Excellent</small></span></div><p>Naik <b>+3 poin</b> dari bulan lalu</p></div>
-        <div className="health-hero-meta"><span><small>Alergi</small><b>Protein ayam</b></span><span><small>Dokter utama</small><b>drh. Amanda Putri</b></span><span><small>Update terakhir</small><b>12 Agu 2026</b></span></div>
-        <button type="button" className="secondary-button small" onClick={() => notify("Health report diunduh") }><Icon name="download" size={16} /> Health report</button>
-      </section>
-      <div className="tabs wide">{["Ringkasan", "Rekam Medis", "Vaksin", "Obat & Pengingat", "Dokumen"].map((item) => <button type="button" className={tab === item ? "active" : ""} key={item} onClick={() => setTab(item)}>{item}{item === "Obat & Pengingat" && <span>1</span>}</button>)}</div>
-      {tab === "Ringkasan" && <div className="health-content-grid">
-        <section className="panel"><div className="panel-heading"><h3>Preventive care</h3><button className="link-button" type="button" onClick={() => setTab("Vaksin")}>Lihat detail <Icon name="arrow" size={14} /></button></div><div className="care-ring-row"><div className="large-progress-ring"><span><b>4/5</b><small>Lengkap</small></span></div><div className="care-checklist"><CheckItem done title="Vaksin rabies" note="Berlaku sampai Sep 2026" /><CheckItem done title="Obat cacing" note="Diberikan 18 Jul 2026" /><CheckItem done title="Flea & tick" note="Perlindungan aktif" /><CheckItem title="Vaksin DHPPi" note="Jatuh tempo 4 Sep 2026" /></div></div></section>
-        <section className="panel"><div className="panel-heading"><h3>Tren berat badan</h3><span className="good-chip">Ideal</span></div><div className="weight-chart"><div className="chart-labels"><span>30</span><span>29</span><span>28</span><span>27</span></div><svg viewBox="0 0 500 150" preserveAspectRatio="none" aria-label="Grafik berat Milo"><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#43a9f4" stopOpacity=".25"/><stop offset="1" stopColor="#43a9f4" stopOpacity="0"/></linearGradient></defs><path d="M0,110 C70,100 90,70 150,82 S250,45 310,70 S420,42 500,47 L500,150 L0,150Z" fill="url(#area)"/><path d="M0,110 C70,100 90,70 150,82 S250,45 310,70 S420,42 500,47" fill="none" stroke="#43a9f4" strokeWidth="4"/><circle cx="500" cy="47" r="6" fill="#fff" stroke="#43a9f4" strokeWidth="4"/></svg><div className="chart-months"><span>Mar</span><span>Apr</span><span>Mei</span><span>Jun</span><span>Jul</span><span>Agu</span></div></div><div className="weight-footer"><span><small>Sekarang</small><b>28.4 kg</b></span><span><small>Ideal breed</small><b>27–32 kg</b></span><span><small>Perubahan</small><b className="good">+0.2 kg</b></span></div></section>
-        <section className="panel medical-summary"><div className="panel-heading"><h3>Rekam medis terbaru</h3><button className="link-button" type="button" onClick={() => setTab("Rekam Medis")}>Lihat semua <Icon name="arrow" size={14} /></button></div>{medicalRecords.slice(0, 2).map((record) => <div className="medical-row" key={record.id}><span>{record.icon}</span><div><small>{record.type} • {record.date}</small><b>{record.title}</b><p>{record.diagnosis}</p><em>{record.doctor} • {record.clinic}</em></div><button type="button" onClick={() => notify("Detail rekam medis dibuka") }><Icon name="chevron" size={17} /></button></div>)}</section>
-        <section className="panel"><div className="panel-heading"><h3>Obat aktif</h3><button className="round-button" type="button" onClick={() => notify("Tambah obat baru") }><Icon name="plus" size={16} /></button></div><div className="medicine-card"><span>💊</span><div><small>SETIAP HARI • 19.00</small><b>Omega Skin & Coat</b><p>1 tablet setelah makan • Sisa 18 tablet</p><div><i style={{ width: "70%" }} /></div></div><button type="button" onClick={() => notify("Obat ditandai sudah diberikan") }><Icon name="check" size={16} /> Tandai</button></div><div className="refill-note"><span>🔔</span><p>Ingatkan beli lagi dalam <b>14 hari</b></p><button type="button" onClick={() => notify("Auto-repeat diaktifkan")}>Aktifkan auto-repeat</button></div></section>
-      </div>}
-      {tab === "Rekam Medis" && <RecordList notify={notify} />}
-      {tab === "Vaksin" && <VaccineList notify={notify} />}
-      {tab === "Obat & Pengingat" && <MedicationList notify={notify} />}
-      {tab === "Dokumen" && <DocumentGrid notify={notify} />}
-    </div>
-  );
+  const [tab,setTab]=useState("all");
+  const [records,setRecords]=useState<MedicalRecord[]>([]);
+  const [loading,setLoading]=useState(true);
+  const [detail,setDetail]=useState<MedicalRecord|null>(null);
+  useEffect(()=>{void getMedicalRecords(pet.id).then(response=>setRecords(response.data)).catch(error=>{setRecords([]);notify(error instanceof Error?error.message:"Rekam medis belum dapat dimuat")}).finally(()=>setLoading(false))},[pet.id,notify]);
+  const latest=records[0];
+  const categories=[{id:"all",label:"Semua"},{id:"consultation",label:"Konsultasi"},{id:"vaccination",label:"Vaksin"},{id:"medication",label:"Obat"},{id:"laboratory",label:"Laboratorium"}];
+  const visible=tab==="all"?records:records.filter(record=>record.record_type.toLowerCase().includes(tab));
+  function download(){
+    const payload={pet:{id:pet.id,name:pet.name,breed:pet.breed,weight:pet.weight,microchip:pet.microchip,allergies:pet.allergies||null,notes:pet.notes||null,health_score:pet.healthScore},records};
+    const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}));
+    const anchor=document.createElement("a");anchor.href=url;anchor.download=`slivadoc-medical-record-${pet.name.toLowerCase().replace(/[^a-z0-9]+/g,"-")}.json`;anchor.click();URL.revokeObjectURL(url);
+  }
+  return <div className="health-page">
+    <section className="health-hero-panel">
+      <div className="health-pet"><span>{pet.avatar}</span><div><small>PROFIL KESEHATAN TERSINKRON</small><h2>{pet.name}</h2><p>{pet.breed} • {pet.weight}</p></div></div>
+      <div className="health-hero-score"><div style={{"--score":`${pet.healthScore*3.6}deg`} as React.CSSProperties}><span><b>{pet.healthScore}</b><small>skor API</small></span></div></div>
+      <div className="health-hero-meta"><span><small>Alergi</small><b>{pet.allergies||"Tidak tercatat"}</b></span><span><small>Dokter terakhir</small><b>{latest?.doctor_name||"Belum ada"}</b></span><span><small>Update terakhir</small><b>{latest?new Date(latest.occurred_at).toLocaleDateString("id-ID"):"Belum ada record"}</b></span></div>
+      <button type="button" className="secondary-button small" disabled={!records.length} onClick={download}><Icon name="download" size={16}/> Unduh data</button>
+    </section>
+    <section className="health-account-facts">
+      <article><span>🪪</span><small>Microchip</small><b>{pet.microchip}</b></article>
+      <article><span>🩺</span><small>Total rekam medis</small><b>{records.length}</b></article>
+      <article><span>⚖️</span><small>Berat terbaru</small><b>{latest?.weight_kg?`${latest.weight_kg} kg`:pet.weight}</b></article>
+      <article><span>🌡️</span><small>Suhu terakhir</small><b>{latest?.temperature_c?`${latest.temperature_c} °C`:"Belum ada"}</b></article>
+    </section>
+    {(pet.notes||pet.allergies)&&<section className="panel health-special-note"><span>⚠️</span><div><small>CATATAN KHUSUS</small><b>{pet.allergies&&`Alergi: ${pet.allergies}`}</b><p>{pet.notes||"Tidak ada catatan medis tambahan."}</p></div></section>}
+    <div className="tabs wide">{categories.map(item=><button type="button" className={tab===item.id?"active":""} key={item.id} onClick={()=>setTab(item.id)}>{item.label}<span>{item.id==="all"?records.length:records.filter(record=>record.record_type.toLowerCase().includes(item.id)).length}</span></button>)}</div>
+    <section className="panel health-record-api"><div className="panel-heading"><div><span className="section-eyebrow">PET MEDICAL RECORD</span><h3>Riwayat {pet.name}</h3></div><small>Data akun pet terpilih</small></div>
+      {loading?<div className="empty-state compact">Memuat rekam medis {pet.name}…</div>:visible.length?<div className="record-list">{visible.map(record=><article key={record.id}><span className="record-icon">🩺</span><div><small>{record.record_type.toUpperCase()} • {new Date(record.occurred_at).toLocaleString("id-ID")}</small><b>{record.title}</b><p>{record.diagnosis||record.clinical_notes||record.complaint||"Tidak ada keterangan tambahan"}</p><em>{record.doctor_name||"Dokter belum dicatat"}</em></div><button type="button" onClick={()=>setDetail(record)}>Lihat detail</button></article>)}</div>:<div className="empty-state"><span>🩺</span><h3>Belum ada rekam medis</h3><p>Record akan muncul setelah pemeriksaan atau konsultasi untuk {pet.name}.</p></div>}
+    </section>
+    {detail&&<div className="modal-overlay" onMouseDown={()=>setDetail(null)}><section className="modal medical-record-detail" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={()=>setDetail(null)}><Icon name="close"/></button><span className="section-eyebrow">{detail.record_type.toUpperCase()}</span><h2>{detail.title}</h2><p>{new Date(detail.occurred_at).toLocaleString("id-ID")} · {detail.doctor_name||"Dokter belum dicatat"}</p><dl>{[["Keluhan",detail.complaint],["Diagnosis",detail.diagnosis],["Perawatan",detail.treatment],["Catatan klinis",detail.clinical_notes],["Kontrol berikutnya",detail.next_control_at?new Date(detail.next_control_at).toLocaleString("id-ID"):""]].filter(([,value])=>value).map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><button className="primary-button full" onClick={()=>setDetail(null)}>Selesai</button></section></div>}
+  </div>;
 }
-
-function ShopView({ addToCart, setCartOpen, notify }: { addToCart: (id: string) => void; setCartOpen: (value: boolean) => void; notify: Notify }) {
+function ShopView({ addToCart, setCartOpen, notify,productCatalog,petName,favorites,toggleFavorite }: { addToCart: (id: string) => void; setCartOpen: (value: boolean) => void; notify: Notify;productCatalog:Product[];petName:string;favorites:string[];toggleFavorite:(id:string)=>void }) {
   const [category, setCategory] = useState("Semua");
   const [query, setQuery] = useState("");
-  const categories = ["Semua", "Makanan", "Kesehatan", "Vitamin", "Kebutuhan", "Mainan", "Aksesori"];
-  const filtered = products.filter((product) => (category === "Semua" || product.category === category) && product.name.toLowerCase().includes(query.toLowerCase()));
+  const categories = ["Semua",...Array.from(new Set(productCatalog.map(item=>item.category)))];
+  const filtered = productCatalog.filter((product) => (category === "Semua" || product.category === category) && product.name.toLowerCase().includes(query.toLowerCase()));
   return (
     <div>
-      <section className="shop-banner"><div><span className="soft-badge white">DIKURASI OLEH DOKTER HEWAN</span><h2>Belanja lebih tepat untuk kebutuhan mereka.</h2><p>Rekomendasi personal, produk asli, dan pengiriman same day.</p><button className="primary-button white-button" type="button" onClick={() => notify("Rekomendasi Milo ditampilkan")}>Lihat rekomendasi Milo</button></div><span className="shop-illustration">🛍️<i>🐕</i></span></section>
+      <section className="shop-banner"><div><span className="soft-badge white">DIKURASI OLEH DOKTER HEWAN</span><h2>Belanja lebih tepat untuk kebutuhan mereka.</h2><p>Rekomendasi personal, produk asli, dan pengiriman same day.</p><button className="primary-button white-button" type="button" onClick={() => {setCategory("Semua");notify(`Katalog rekomendasi untuk ${petName} dimuat dari API`)}}>Lihat rekomendasi {petName}</button></div><span className="shop-illustration">🛍️<i>🐕</i></span></section>
       <div className="shop-tools"><label><Icon name="search" size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari makanan, obat, mainan..." /></label><button className="secondary-button" type="button" onClick={() => setCartOpen(true)}><Icon name="cart" size={17} /> Keranjang</button></div>
       <div className="category-scroll">{categories.map((item) => <button type="button" className={category === item ? "active" : ""} onClick={() => setCategory(item)} key={item}><span>{item === "Semua" ? "✨" : item === "Makanan" ? "🥣" : item === "Kesehatan" ? "🩺" : item === "Vitamin" ? "💊" : item === "Kebutuhan" ? "🧴" : item === "Mainan" ? "🧸" : "🎀"}</span>{item}</button>)}</div>
-      <div className="shop-section-head"><div><span className="section-eyebrow">PILIHAN UNTUK MILO</span><h3>Rekomendasi dokter</h3></div><select aria-label="Urutkan produk"><option>Paling relevan</option><option>Terlaris</option><option>Harga terendah</option></select></div>
-      <div className="product-grid">{filtered.map((product) => <article className="product-card" key={product.id}><div className="product-visual"><span>{product.emoji}</span>{product.badge && <em>{product.badge}</em>}<button type="button" aria-label="Simpan produk" onClick={() => notify("Produk disimpan ke wishlist") }><Icon name="heart" size={17} /></button></div><div className="product-body"><small>{product.brand} <i>✓</i></small><h3>{product.name}</h3><p><Icon name="star" size={13} /> <b>{product.rating}</b> • Terjual {product.sold}</p><div className="product-price"><span><b>{formatRupiah(product.price)}</b>{product.originalPrice && <del>{formatRupiah(product.originalPrice)}</del>}</span><button type="button" onClick={() => addToCart(product.id)} aria-label={`Tambah ${product.name} ke keranjang`}><Icon name="plus" size={18} /></button></div></div></article>)}</div>
-      <section className="repeat-banner"><span>🔁</span><div><b>Jangan sampai stok makanan Milo habis</b><p>Atur langganan otomatis, ubah kapan saja, dan hemat hingga 10% setiap pengiriman.</p></div><button className="secondary-button small" type="button" onClick={() => notify("Pengaturan auto-repeat dibuka")}>Atur auto-repeat</button></section>
+      <div className="shop-section-head"><div><span className="section-eyebrow">PILIHAN UNTUK {petName.toUpperCase()}</span><h3>Rekomendasi dokter</h3></div><select aria-label="Urutkan produk"><option>Paling relevan</option><option>Terlaris</option><option>Harga terendah</option></select></div>
+      <div className="product-grid">{filtered.map((product) => <article className="product-card" key={product.id}><div className="product-visual"><span>{product.emoji}</span>{product.badge && <em>{product.badge}</em>}<button className={favorites.includes(product.id)?"favorite":""} type="button" aria-label="Simpan produk" onClick={() => toggleFavorite(product.id)}><Icon name="heart" size={17} /></button></div><div className="product-body"><small>{product.brand} <i>✓</i></small><h3>{product.name}</h3><p>{product.rating>0&&<><Icon name="star" size={13} /> <b>{product.rating}</b> • </>}{product.sold}</p><div className="product-price"><span><b>{formatRupiah(product.price)}</b>{product.originalPrice && <del>{formatRupiah(product.originalPrice)}</del>}</span><button type="button" disabled={product.badge==="Stok habis"} onClick={() => addToCart(product.id)} aria-label={`Tambah ${product.name} ke keranjang`}><Icon name="plus" size={18} /></button></div></div></article>)}</div>
     </div>
   );
 }
 
-function CommunityView({ notify }: { notify: Notify }) {
-  const [tab, setTab] = useState("Untuk Kamu");
-  const [liked, setLiked] = useState<string[]>([]);
-  return (
-    <div className="community-layout">
-      <section>
-        <div className="community-tabs">{["Untuk Kamu", "Mengikuti", "Grup Saya", "Adopsi", "Lost & Found"].map((item) => <button type="button" className={tab === item ? "active" : ""} key={item} onClick={() => setTab(item)}>{item}{item === "Lost & Found" && <i />}</button>)}</div>
-        <div className="create-post"><span className="avatar avatar-blue">EM</span><button type="button" onClick={() => notify("Composer posting dibuka")}>Bagikan cerita tentang Milo dan Luna...</button><button type="button" aria-label="Tambah foto" onClick={() => notify("Pilih foto untuk posting") }><Icon name="camera" size={19} /></button></div>
-        {communityPosts.map((post) => <article className="community-post" key={post.id}><header><span className="post-avatar">{post.avatar}</span><div><b>{post.author}</b><small>{post.group} • {post.time}</small></div><span className="post-tag">{post.tag}</span><button type="button" onClick={() => notify("Menu posting dibuka") }><Icon name="more" /></button></header><p>{post.body}</p><div className="post-visual"><span>{post.pet}</span><i>SLIVADOC COMMUNITY</i></div><footer><button type="button" className={liked.includes(post.id) ? "liked" : ""} onClick={() => setLiked((current) => current.includes(post.id) ? current.filter((id) => id !== post.id) : [...current, post.id])}><Icon name="heart" size={18} /> {post.likes + (liked.includes(post.id) ? 1 : 0)}</button><button type="button" onClick={() => notify("Kolom komentar dibuka") }><Icon name="chat" size={18} /> {post.comments} komentar</button><button type="button" onClick={() => notify("Pilihan berbagi dibuka") }><Icon name="arrow" size={18} /> Bagikan</button></footer></article>)}
-      </section>
-      <aside className="right-stack community-side"><section className="panel compact-panel"><div className="panel-heading"><h3>Grup untukmu</h3><button className="link-button" type="button" onClick={() => notify("Semua grup ditampilkan")}>Lihat semua</button></div><Group emoji="🐕" name="Golden Retriever Jakarta" members="12,8rb anggota" notify={notify} /><Group emoji="🍲" name="Healthy Homemade Pet Food" members="8,4rb anggota" notify={notify} /><Group emoji="🏥" name="Tanya Dokter Hewan" members="21,2rb anggota" notify={notify} /></section><section className="adoption-card"><span>🐾</span><h3>Buka rumah, ubah satu kehidupan.</h3><p>Temukan hewan terverifikasi yang siap menjadi bagian keluargamu.</p><button type="button" onClick={() => { setTab("Adopsi"); notify("Menampilkan adopsi terverifikasi"); }}>Jelajahi adopsi</button></section><section className="panel compact-panel"><div className="panel-heading"><h3>Pet parent terdekat</h3><span className="live-dot" /></div><div className="nearby-avatars"><span>👩🏻</span><span>👨🏻</span><span>👩🏽</span><span>👨🏼</span><span>+42</span></div><p className="muted-copy">42 pet parent aktif dalam radius 3 km.</p><button className="full-soft-button" type="button" onClick={() => notify("Peta komunitas dibuka") }><Icon name="map" size={16} /> Lihat di peta</button></section></aside>
+function ProfileView({ notify,account,petCount,points,onLogout }: { notify: Notify;account:PetOwnerBootstrap["user"];petCount:number;points:number;onLogout:()=>void }) {
+  const initials=account.full_name.split(" ").map(value=>value[0]).slice(0,2).join("");
+  return <div className="profile-layout">
+    <section className="profile-main-card"><div className="profile-cover"><span>SLIVADOC PET FAMILY</span></div><div className="profile-person"><div className="profile-photo">{initials}</div><div><h2>{account.full_name}</h2><p>{account.email} · {account.phone||"Nomor telepon belum diisi"}</p><span className="gold-member">✓ AKUN PET OWNER AKTIF</span></div></div><div className="profile-stats"><span><b>{petCount}</b><small>Hewan</small></span><span><b>{points.toLocaleString("id-ID")}</b><small>Sliva Points</small></span><span><b>{points>0?"Member":"Regular"}</b><small>Status</small></span><span><b>API</b><small>Tersinkron</small></span></div></section>
+    <div className="profile-grid">
+      <section className="panel profile-section"><div className="panel-heading"><div><span className="section-eyebrow">DATA AKUN</span><h3>Identitas pet parent</h3></div><span className="active-chip">Aktif</span></div><dl className="account-detail-list"><div><dt>Nama lengkap</dt><dd>{account.full_name}</dd></div><div><dt>Email login</dt><dd>{account.email}</dd></div><div><dt>Nomor telepon</dt><dd>{account.phone||"Belum diisi"}</dd></div><div><dt>Jumlah pet</dt><dd>{petCount}</dd></div></dl></section>
+      <section className="panel profile-section"><div className="panel-heading"><div><span className="section-eyebrow">SLIVA POINT</span><h3>Saldo dan aturan klaim</h3></div><span className="point-profile-badge">{points.toLocaleString("id-ID")}</span></div><div className="point-rule-card"><span>✦</span><div><b>{points?points.toLocaleString("id-ID")+" poin tersedia":"Belum ada poin"}</b><p>Poin hanya dihitung dari transaksi berstatus lunas. Rumus dasar: floor(nilai transaksi bersih ÷ Rp10.000) × multiplier membership. Refund membatalkan poin transaksi terkait.</p></div></div>{points===0&&<div className="zero-transaction">Belum ada transaksi lunas pada akun ini, sehingga saldo poin adalah 0.</div>}</section>
+      <section className="panel profile-section span-2"><div className="panel-heading"><div><span className="section-eyebrow">PRIVASI & SESI</span><h3>Keamanan akun</h3></div></div><p className="muted-copy">Data profil ditampilkan langsung dari akun yang sedang login. Keluar akan menghapus token sesi pada perangkat ini.</p><div className="profile-danger"><span><b>Keluar dari perangkat ini</b><small>Kamu dapat login kembali menggunakan email dan password.</small></span><button className="secondary-button" type="button" onClick={()=>{notify("Sesi perangkat diakhiri");onLogout()}}>Keluar akun</button></div></section>
     </div>
-  );
+  </div>;
+}
+function ServiceDetail({service,close,book}:{service:Service;close:()=>void;book:()=>void}){return <div className="modal-overlay" onMouseDown={close}><section className="modal service-detail-modal" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><div className={`service-detail-visual ${service.accent}`}><span>{service.emoji}</span><em>{service.type}</em></div><span className="section-eyebrow">LAYANAN TERVERIFIKASI</span><h2>{service.name}</h2><p><Icon name="map" size={14}/> {service.distance} · {service.address}</p><div className="tag-row">{service.tags.map(tag=><span key={tag}>{tag}</span>)}</div><dl className="service-detail-facts"><div><dt>Status</dt><dd>{service.status}</dd></div><div><dt>Harga</dt><dd>{service.price}</dd></div><div><dt>Rating</dt><dd>{service.rating?`${service.rating} (${service.reviews})`:"Partner baru"}</dd></div></dl><button className="primary-button full" onClick={book}>Booking layanan</button></section></div>}
+
+function ActivityDetail({item,close}:{item:ActivityItem;close:()=>void}){return <div className="modal-overlay" onMouseDown={close}><section className="modal activity-detail-modal" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><span className="section-eyebrow">{item.category.toUpperCase()} · {item.status.toUpperCase()}</span><h2>{item.title}</h2><p>{item.description}</p><dl><div><dt>Waktu</dt><dd>{new Date(item.starts_at||item.occurred_at).toLocaleString("id-ID")}</dd></div>{Object.entries(item.metadata||{}).filter(([,value])=>typeof value==="string"||typeof value==="number").map(([key,value])=><div key={key}><dt>{key.replaceAll("_"," ")}</dt><dd>{String(value)}</dd></div>)}</dl>{item.metadata?.latitude&&<a className="primary-button full" href={`https://www.google.com/maps/dir/?api=1&destination=${item.metadata.latitude},${item.metadata.longitude}`} target="_blank" rel="noreferrer">Petunjuk arah</a>}</section></div>}
+
+function FavoritesView({services,products,openBooking,addToCart,remove}:{services:Service[];products:Product[];openBooking:(service:Service)=>void;addToCart:(id:string)=>void;remove:(type:string,id:string)=>void|Promise<void>}){const empty=!services.length&&!products.length;return <div><div className="favorites-intro"><span>♡</span><div><h2>Koleksi favoritmu</h2><p>Layanan dan produk favorit tersimpan pada akun di semua perangkat.</p></div></div>{services.length>0&&<><div className="panel-heading"><div><span className="section-eyebrow">LAYANAN</span><h3>Favorit layanan</h3></div></div><div className="service-list-grid">{services.map(service=><article className="service-result-card" key={service.id}><div className={`service-result-cover ${service.accent}`}><span>{service.emoji}</span><em>{service.type}</em><button className="favorite" onClick={()=>void remove("service",service.id)} aria-label={`Hapus ${service.name} dari favorit`}><Icon name="heart"/></button></div><div className="service-result-body"><h3>{service.name}</h3><p>{service.address}</p><div className="service-result-footer"><b>{service.price}</b><button className="primary-button small" onClick={()=>openBooking(service)}>Booking</button></div></div></article>)}</div></>}{products.length>0&&<><div className="panel-heading favorite-product-heading"><div><span className="section-eyebrow">PRODUK</span><h3>Favorit produk</h3></div></div><div className="product-grid">{products.map(product=><article className="product-card" key={product.id}><div className="product-visual"><span>{product.emoji}</span><button className="favorite" onClick={()=>void remove("product",product.id)} aria-label={`Hapus ${product.name} dari favorit`}><Icon name="heart"/></button></div><div className="product-body"><small>{product.brand}</small><h3>{product.name}</h3><div className="product-price"><b>{formatRupiah(product.price)}</b><button onClick={()=>addToCart(product.id)}><Icon name="plus"/></button></div></div></article>)}</div></>}{empty&&<div className="empty-state"><span>♡</span><h3>Belum ada favorit</h3><p>Tekan ikon hati di Jelajahi atau Pet Shop untuk menyimpan pilihan.</p></div>}</div>}
+
+function NotificationCenter({items,setItems,notify}:{items:NotificationItem[];setItems:React.Dispatch<React.SetStateAction<NotificationItem[]>>;notify:Notify}){const[category,setCategory]=useState("");const categories=[...new Set(items.map(item=>item.category))];const visible=category?items.filter(item=>item.category===category):items;async function open(item:NotificationItem){try{if(!item.read_at){await readNotification(item.id);setItems(current=>current.map(value=>value.id===item.id?{...value,read_at:new Date().toISOString()}:value))}notify(item.title)}catch(error){notify(error instanceof Error?error.message:"Notifikasi belum dapat dibuka")}}return <div><div className="notification-center-head"><div><b>{items.filter(item=>!item.read_at).length}</b><span>belum dibaca</span></div><button disabled={!items.some(item=>!item.read_at)} onClick={async()=>{await readAllNotifications(category);setItems(current=>current.map(item=>!category||item.category===category?{...item,read_at:item.read_at||new Date().toISOString()}:item))}}>Tandai semua dibaca</button></div><div className="notification-filter-tabs"><button className={!category?"active":""} onClick={()=>setCategory("")}>Semua</button>{categories.map(value=><button key={value} className={category===value?"active":""} onClick={()=>setCategory(value)}>{value}</button>)}</div><section className="panel notification-center-list">{visible.length?visible.map(item=><button className={!item.read_at?"unread":""} key={item.id} onClick={()=>void open(item)}><span>{item.category==="health"?"🩺":item.category==="booking"?"📅":item.category==="points"?"✦":"🔔"}</span><div><small>{item.category.toUpperCase()}</small><b>{item.title}</b><p>{item.body}</p><time>{new Date(item.created_at).toLocaleString("id-ID")}</time></div>{!item.read_at&&<i/>}</button>):<div className="empty-state compact">Tidak ada notifikasi pada kategori ini.</div>}</section></div>}
+
+function MobileNav({activeView,setActiveView,cartCount,authenticated}:{activeView:AppView;setActiveView:(view:AppView)=>void;cartCount:number;authenticated:boolean}){const[more,setMore]=useState(false);const items=navItems.filter(item=>["home","discover","community","pethub"].includes(item.id));return <><nav className="mobile-nav">{items.map(item=><button type="button" key={item.id} className={activeView===item.id?"active":""} onClick={()=>setActiveView(item.id)}><span><Icon name={item.icon} size={20}/></span><small>{item.label}</small></button>)}<button type="button" className={more?"active":""} onClick={()=>setMore(true)}><span><Icon name="more" size={20}/>{cartCount>0&&<i>{cartCount}</i>}</span><small>Fitur lainnya</small></button></nav>{more&&<div className="mobile-more-backdrop" onMouseDown={()=>setMore(false)}><section className="mobile-more-sheet" onMouseDown={event=>event.stopPropagation()}><header><div><span>SEMUA FITUR SLIVADOC</span><h2>Mau ke mana?</h2></div><button onClick={()=>setMore(false)} aria-label="Tutup"><Icon name="close"/></button></header><div>{navItems.filter(item=>!["home","discover","community","pethub"].includes(item.id)&&(authenticated||item.id!=="profile")).map(item=><button key={item.id} onClick={()=>{setMore(false);setActiveView(item.id)}}><span><Icon name={item.icon}/></span><b>{item.label}</b>{item.id==="shop"&&cartCount>0&&<em>{cartCount}</em>}</button>)}</div></section></div>}</>}
+
+function NotificationDrawer({ onClose, notify,items,setItems,seeAll }: { onClose: () => void; notify: Notify;items:NotificationItem[];setItems:React.Dispatch<React.SetStateAction<NotificationItem[]>>;seeAll:()=>void }) {
+  async function markAll(){try{await readAllNotifications();setItems(current=>current.map(item=>({...item,read_at:item.read_at||new Date().toISOString()})));notify("Semua notifikasi ditandai dibaca")}catch(error){notify(error instanceof Error?error.message:"Notifikasi belum dapat diperbarui")}}
+  async function open(item:NotificationItem){if(!item.read_at){await readNotification(item.id);setItems(current=>current.map(value=>value.id===item.id?{...value,read_at:new Date().toISOString()}:value))}notify(item.title)}
+  return <div className="overlay" onMouseDown={onClose}><aside className="drawer notification-drawer" onMouseDown={(event)=>event.stopPropagation()}><header><div><span className="section-eyebrow">UPDATE TERBARU</span><h2>Notifikasi</h2></div><button type="button" onClick={onClose}><Icon name="close"/></button></header><div className="notification-category-chips">{[...new Set(items.map(item=>item.category))].map(value=><span key={value}>{value}</span>)}</div><button className="mark-read" type="button" disabled={!items.some(item=>!item.read_at)} onClick={()=>void markAll()}>Tandai semua sudah dibaca</button><div className="notification-list">{items.length?items.map(item=><Notification key={item.id} icon={item.category==="health"?"💊":item.category==="order"?"📦":item.category==="points"?"✦":"🔔"} tone={item.category==="health"?"mint":item.category==="points"?"yellow":"blue"} title={item.title} note={item.body} time={new Date(item.created_at).toLocaleString("id-ID")} unread={!item.read_at} onClick={()=>void open(item)}/>):<div className="empty-state compact">Belum ada notifikasi.</div>}</div><button className="full-soft-button" type="button" onClick={seeAll}>Lihat semua berdasarkan kategori</button></aside></div>;
 }
 
-function ProfileView({ notify }: { notify: Notify }) {
-  return (
-    <div className="profile-layout">
-      <section className="profile-main-card"><div className="profile-cover"><span>SLIVADOC PET FAMILY</span></div><div className="profile-person"><div className="profile-photo">EM<button type="button" onClick={() => notify("Ubah foto profil") }><Icon name="camera" size={14} /></button></div><div><h2>Evans Moris Cheahn</h2><p>Pet Parent sejak April 2026 • Jakarta Barat</p><span className="gold-member">✦ GOLD MEMBER</span></div><button className="secondary-button small" type="button" onClick={() => notify("Mode edit profil diaktifkan") }><Icon name="edit" size={15} /> Edit profil</button></div><div className="profile-stats"><span><b>2</b><small>Hewan</small></span><span><b>12</b><small>Booking</small></span><span><b>2.450</b><small>Sliva Points</small></span><span><b>Gold</b><small>Membership</small></span></div></section>
-      <div className="profile-grid">
-        <section className="panel profile-section"><div className="panel-heading"><div><span className="section-eyebrow">KEANGGOTAAN</span><h3>SlivaCare+ Family</h3></div><span className="active-chip">Aktif</span></div><div className="membership-card"><div><span><Icon name="shield" /></span><p><b>Family Protection</b><small>Melindungi Milo & Luna</small></p></div><h3>Rp149.000<small>/bulan</small></h3><ul><li><Icon name="check" size={14} /> Konsultasi chat tanpa batas</li><li><Icon name="check" size={14} /> Cashback perawatan hingga 20%</li><li><Icon name="check" size={14} /> Emergency assistance 24/7</li></ul><button className="full-soft-button" type="button" onClick={() => notify("Detail benefit ditampilkan")}>Kelola langganan <Icon name="chevron" size={16} /></button></div></section>
-        <section className="panel profile-section"><div className="panel-heading"><div><span className="section-eyebrow">PEMBAYARAN</span><h3>Dompet & metode bayar</h3></div><button className="round-button" type="button" onClick={() => notify("Tambah metode pembayaran") }><Icon name="plus" size={16} /></button></div><button className="wallet-card" type="button" onClick={() => notify("Riwayat SlivaPay dibuka") }><span><Icon name="wallet" /></span><p><small>Saldo SlivaPay</small><b>Rp425.000</b></p><Icon name="chevron" size={17} /></button><Payment logo="VISA" name="•••• 8421" note="Kartu utama" notify={notify} /><Payment logo="GPay" name="GoPay" note="Terhubung" notify={notify} /></section>
-        <section className="panel profile-section span-2"><div className="panel-heading"><div><span className="section-eyebrow">PENGATURAN AKUN</span><h3>Preferensi & keamanan</h3></div></div><div className="settings-grid"><Setting icon="bell" label="Notifikasi" note="Pengingat perawatan, promo, komunitas" notify={notify} /><Setting icon="users" label="Keluarga & akses" note="2 anggota memiliki akses" notify={notify} /><Setting icon="shield" label="Privasi & keamanan" note="PIN, biometrik, dan sesi aktif" notify={notify} /><Setting icon="map" label="Alamat tersimpan" note="Rumah, kantor, dan 1 alamat lain" notify={notify} /><Setting icon="settings" label="Bahasa & tampilan" note="Bahasa Indonesia • Sistem" notify={notify} /><Setting icon="download" label="Data & dokumen" note="Unduh arsip data Slivadoc" notify={notify} /></div></section>
-      </div>
-      <section className="profile-danger"><button type="button" onClick={() => notify("Pusat bantuan dibuka")}>Pusat Bantuan</button><button type="button" onClick={() => notify("Syarat & privasi dibuka")}>Syarat & Privasi</button><button type="button" onClick={() => notify("Konfirmasi keluar diperlukan")}>Keluar dari akun</button><span>Slivadoc Pet Owner v0.1.0 • UI Prototype</span></section>
-    </div>
-  );
-}
-
-function MobileNav({ activeView, setActiveView, cartCount }: { activeView: AppView; setActiveView: (view: AppView) => void; cartCount: number }) {
-  const items = navItems.filter((item) => ["home", "discover", "academy", "pethub", "profile"].includes(item.id));
-  return <nav className="mobile-nav">{items.map((item) => <button type="button" key={item.id} className={activeView === item.id ? "active" : ""} onClick={() => setActiveView(item.id)}><span><Icon name={item.icon} size={20} />{item.id === "shop" && cartCount > 0 && <i>{cartCount}</i>}</span><small>{item.label}</small></button>)}</nav>;
-}
-
-function NotificationDrawer({ onClose, notify }: { onClose: () => void; notify: Notify }) {
-  return <div className="overlay" onMouseDown={onClose}><aside className="drawer" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="section-eyebrow">UPDATE TERBARU</span><h2>Notifikasi</h2></div><button type="button" onClick={onClose}><Icon name="close" /></button></header><button className="mark-read" type="button" onClick={() => notify("Semua notifikasi ditandai dibaca")}>Tandai semua sudah dibaca</button><div className="notification-list"><Notification icon="💊" tone="blue" title="Waktunya obat Milo" note="Omega Skin & Coat • 1 tablet setelah makan" time="5 menit" unread /><Notification icon="📦" tone="violet" title="Pesanan sedang diantar" note="Kurir Arif akan tiba dalam 20–30 menit." time="12 menit" unread /><Notification icon="💉" tone="mint" title="Vaksin DHPPi segera jatuh tempo" note="Atur jadwal sebelum 4 September 2026." time="2 jam" unread /><Notification icon="✦" tone="yellow" title="Kamu mendapat 250 Sliva Points" note="Dari transaksi di Pawsitive Vet Kemang." time="Kemarin" /></div><button className="full-soft-button" type="button" onClick={() => notify("Semua riwayat notifikasi ditampilkan")}>Lihat semua notifikasi</button></aside></div>;
-}
-
-function ChatDrawer({ onClose, notify }: { onClose: () => void; notify: Notify }) {
-  const [message, setMessage] = useState("");
-  const [sent, setSent] = useState<string[]>([]);
-  const send = () => { if (!message.trim()) return; setSent((current) => [...current, message]); setMessage(""); };
-  return <div className="overlay" onMouseDown={onClose}><aside className="drawer chat-drawer" onMouseDown={(event) => event.stopPropagation()}><header className="chat-header"><div className="doctor-avatar">👩🏻‍⚕️<i /></div><div><h3>SlivaCare Assistant</h3><p>Dokter tersedia • Balas ±2 menit</p></div><button className="video-call" type="button" onClick={() => notify("Menyiapkan video call dengan dokter") }><Icon name="video" size={18} /></button><button type="button" onClick={onClose}><Icon name="close" /></button></header><div className="chat-context"><span>🐕</span><p><small>KONSULTASI UNTUK</small><b>Milo • Golden Retriever</b></p><button type="button" onClick={() => notify("Ganti profil hewan")}>Ganti</button></div><div className="chat-messages"><span className="chat-date">Hari ini</span><div className="message doctor"><span>👩🏻‍⚕️</span><p>Halo Evans! Saya SlivaCare Assistant. Ada yang bisa kami bantu untuk Milo hari ini?<small>12.04</small></p></div><div className="quick-replies"><button type="button" onClick={() => setMessage("Konsultasi gejala")}>🩺 Konsultasi gejala</button><button type="button" onClick={() => setMessage("Tanya obat dan dosis")}>💊 Tanya obat</button><button type="button" onClick={() => setMessage("Bantuan darurat")}>🚑 Darurat</button></div>{sent.map((text, index) => <div className="message me" key={`${text}-${index}`}><p>{text}<small>12.{10 + index} ✓✓</small></p></div>)}</div><div className="chat-input"><button type="button" onClick={() => notify("Lampirkan foto atau dokumen")}>＋</button><input value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => event.key === "Enter" && send()} placeholder="Tulis pesan..." /><button type="button" onClick={send}><Icon name="arrow" size={18} /></button></div></aside></div>;
-}
-
-function BookingModal({ service, pet, success, setSuccess, onClose }: { service: Service; pet: Pet; success: boolean; setSuccess: (value: boolean) => void; onClose: () => void }) {
+function BookingModal({ service, pet, success, setSuccess, onClose,onBooked }: { service: Service; pet: Pet; success: boolean; setSuccess: (value: boolean) => void; onClose: () => void;onBooked:()=>Promise<void> }) {
   const [step, setStep] = useState(1);
-  const [date, setDate] = useState("27 Agu");
+  const toLocalDate=(value:Date)=>`${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,"0")}-${String(value.getDate()).padStart(2,"0")}`;
+  const availableDates=Array.from({length:5},(_,index)=>{const value=new Date();value.setDate(value.getDate()+index+1);return value});
+  const [date, setDate] = useState(()=>toLocalDate(availableDates[0]));
   const [time, setTime] = useState("16.00");
-  if (success) return <div className="modal-overlay"><div className="modal success-modal"><button className="modal-close" type="button" onClick={onClose}><Icon name="close" /></button><span className="success-animation"><Icon name="check" size={34} /></span><small>BOOKING BERHASIL</small><h2>Jadwal {pet.name} sudah aman!</h2><p>{service.name} telah menerima permintaan booking kamu.</p><div className="success-ticket"><span>{service.emoji}</span><div><small>{date} • {time} WIB</small><b>{service.name}</b><p>{pet.avatar} {pet.name} • General Consultation</p></div></div><button className="primary-button full" type="button" onClick={onClose}>Lihat aktivitas</button><button className="ghost-text" type="button" onClick={onClose}>Kembali ke beranda</button></div></div>;
-  return <div className="modal-overlay" onMouseDown={onClose}><div className="modal booking-modal" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="section-eyebrow">BOOKING LAYANAN</span><h2>{service.name}</h2></div><button className="modal-close" type="button" onClick={onClose}><Icon name="close" /></button></header><div className="stepper">{[1,2,3].map((item) => <div key={item} className={step >= item ? "active" : ""}><span>{step > item ? <Icon name="check" size={13} /> : item}</span><small>{item === 1 ? "Layanan" : item === 2 ? "Jadwal" : "Konfirmasi"}</small></div>)}</div>{step === 1 && <div className="booking-step"><label className="field-label">Pilih hewan</label><button className="selected-pet-box" type="button"><span>{pet.avatar}</span><div><b>{pet.name}</b><small>{pet.breed} • {pet.weight}</small></div><i><Icon name="check" size={15} /></i></button><label className="field-label">Pilih layanan</label><div className="service-option selected"><span>🩺</span><div><b>General Consultation</b><small>Pemeriksaan umum dan konsultasi dokter</small></div><strong>Rp85.000</strong><i><Icon name="check" size={13} /></i></div><div className="service-option"><span>💉</span><div><b>Vaccination Package</b><small>Konsultasi, vaksin, dan buku vaksin digital</small></div><strong>Rp240.000</strong></div></div>}{step === 2 && <div className="booking-step"><label className="field-label">Pilih tanggal</label><div className="date-options">{["25 Agu","26 Agu","27 Agu","28 Agu","29 Agu"].map((item) => <button className={date === item ? "selected" : ""} type="button" key={item} onClick={() => setDate(item)}><small>{item === "27 Agu" ? "KAM" : item === "25 Agu" ? "SEL" : item === "26 Agu" ? "RAB" : item === "28 Agu" ? "JUM" : "SAB"}</small><b>{item.split(" ")[0]}</b><span>{item.split(" ")[1]}</span></button>)}</div><label className="field-label">Pilih waktu</label><div className="time-options">{["09.00","10.30","13.00","14.30","16.00","17.30"].map((item) => <button type="button" key={item} className={time === item ? "selected" : ""} onClick={() => setTime(item)}>{item}</button>)}</div><label className="field-label">Catatan untuk dokter <small>(opsional)</small></label><textarea placeholder="Ceritakan keluhan atau hal yang perlu diketahui dokter..." /></div>}{step === 3 && <div className="booking-step"><div className="booking-summary"><div className={`summary-service ${service.accent}`}>{service.emoji}</div><div><span className="status-badge confirmed">Slot tersedia</span><h3>{service.name}</h3><p>{service.address}</p></div></div><div className="summary-lines"><span><small>Hewan</small><b>{pet.avatar} {pet.name}</b></span><span><small>Layanan</small><b>General Consultation</b></span><span><small>Jadwal</small><b>{date} 2026 • {time} WIB</b></span><span><small>Biaya layanan</small><b>Rp85.000</b></span><span><small>Biaya platform</small><b>Rp2.500</b></span><span className="total"><small>Total pembayaran</small><b>Rp87.500</b></span></div><label className="consent"><input type="checkbox" defaultChecked /> Saya menyetujui kebijakan pembatalan dan data kesehatan Slivadoc.</label></div>}<footer><button className="secondary-button" type="button" onClick={() => step === 1 ? onClose() : setStep(step - 1)}>{step === 1 ? "Batal" : "Kembali"}</button><button className="primary-button" type="button" onClick={() => step < 3 ? setStep(step + 1) : setSuccess(true)}>{step < 3 ? "Lanjutkan" : "Konfirmasi & bayar"} <Icon name="arrow" size={16} /></button></footer></div></div>;
+  const[notes,setNotes]=useState("");const[busy,setBusy]=useState(false);const[message,setMessage]=useState("");
+  const formattedDate=new Date(`${date}T12:00:00`).toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  async function confirm(){if(!service.branchId){setMessage("Cabang layanan belum tersedia dari API.");return}setBusy(true);setMessage("");try{const [hour,minute]=time.split(".").map(Number);const scheduled=new Date(`${date}T${String(hour).padStart(2,"0")}:${String(minute).padStart(2,"0")}:00`);await createPetOwnerBooking({pet_id:pet.id,service_id:service.id,branch_id:service.branchId,scheduled_at:scheduled.toISOString(),notes});await onBooked();setSuccess(true)}catch(error){setMessage(error instanceof Error?error.message:"Booking belum dapat dibuat")}finally{setBusy(false)}}
+  if (success) return <div className="modal-overlay"><div className="modal success-modal"><button className="modal-close" type="button" onClick={onClose}><Icon name="close" /></button><span className="success-animation"><Icon name="check" size={34} /></span><small>BOOKING BERHASIL</small><h2>Jadwal {pet.name} sudah aman!</h2><p>{service.name} telah menerima permintaan booking kamu.</p><div className="success-ticket"><span>{service.emoji}</span><div><small>{formattedDate} • {time} WIB</small><b>{service.name}</b><p>{pet.avatar} {pet.name} • {service.name}</p></div></div><button className="primary-button full" type="button" onClick={onClose}>Lihat aktivitas</button><button className="ghost-text" type="button" onClick={onClose}>Kembali ke beranda</button></div></div>;
+  return <div className="modal-overlay" onMouseDown={onClose}><div className="modal booking-modal" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="section-eyebrow">BOOKING LAYANAN</span><h2>{service.name}</h2></div><button className="modal-close" type="button" onClick={onClose}><Icon name="close" /></button></header><div className="stepper">{[1,2,3].map((item) => <div key={item} className={step >= item ? "active" : ""}><span>{step > item ? <Icon name="check" size={13} /> : item}</span><small>{item === 1 ? "Layanan" : item === 2 ? "Jadwal" : "Konfirmasi"}</small></div>)}</div>{step === 1 && <div className="booking-step"><label className="field-label">Pilih hewan</label><button className="selected-pet-box" type="button"><span>{pet.avatar}</span><div><b>{pet.name}</b><small>{pet.breed} • {pet.weight}</small></div><i><Icon name="check" size={15} /></i></button><label className="field-label">Layanan dari API</label><div className="service-option selected"><span>{service.emoji}</span><div><b>{service.name}</b><small>{service.tags.join(" · ")}</small></div><strong>{service.price}</strong><i><Icon name="check" size={13} /></i></div></div>}{step === 2 && <div className="booking-step"><label className="field-label">Pilih tanggal</label><div className="date-options">{availableDates.map((item) => {const value=toLocalDate(item);return <button className={date === value ? "selected" : ""} type="button" key={value} onClick={() => setDate(value)}><small>{item.toLocaleDateString("id-ID",{weekday:"short"}).toUpperCase()}</small><b>{item.getDate()}</b><span>{item.toLocaleDateString("id-ID",{month:"short"})}</span></button>})}</div><label className="field-label">Pilih waktu</label><div className="time-options">{["09.00","10.30","13.00","14.30","16.00","17.30"].map((item) => <button type="button" key={item} className={time === item ? "selected" : ""} onClick={() => setTime(item)}>{item}</button>)}</div><label className="field-label">Catatan khusus <small>(opsional)</small></label><textarea value={notes} onChange={event=>setNotes(event.target.value)} maxLength={1000} placeholder="Ceritakan keluhan atau kebutuhan khusus pet..." /></div>}{step === 3 && <div className="booking-step"><div className="booking-summary"><div className={`summary-service ${service.accent}`}>{service.emoji}</div><div><span className="status-badge confirmed">Tersedia dari API</span><h3>{service.name}</h3><p>{service.address}</p></div></div><div className="summary-lines"><span><small>Hewan</small><b>{pet.avatar} {pet.name}</b></span><span><small>Layanan</small><b>{service.name}</b></span><span><small>Jadwal</small><b>{formattedDate} • {time} WIB</b></span><span className="total"><small>Total pembayaran</small><b>{formatRupiah(service.priceValue||0)}</b></span></div>{notes&&<p className="booking-note">Catatan: {notes}</p>}<label className="consent"><input type="checkbox" defaultChecked /> Saya menyetujui kebijakan pembatalan dan penggunaan data kesehatan.</label></div>}{message&&<div className="form-message">{message}</div>}<footer><button className="secondary-button" type="button" disabled={busy} onClick={() => step === 1 ? onClose() : setStep(step - 1)}>{step === 1 ? "Batal" : "Kembali"}</button><button className="primary-button" type="button" disabled={busy} onClick={() => step < 3 ? setStep(step + 1) : void confirm()}>{busy?"Menyimpan booking…":step < 3 ? "Lanjutkan" : "Konfirmasi booking"} <Icon name="arrow" size={16} /></button></footer></div></div>;
 }
 
-function CartDrawer({ cart, setCart, onClose, notify }: { cart: Record<string, number>; setCart: React.Dispatch<React.SetStateAction<Record<string, number>>>; onClose: () => void; notify: Notify }) {
-  const items = products.filter((product) => cart[product.id]);
+function CartDrawer({ cart, setCart, onClose, notify,productCatalog }: { cart: Record<string, number>; setCart: React.Dispatch<React.SetStateAction<Record<string, number>>>; onClose: () => void; notify: Notify;productCatalog:Product[] }) {
+  const[voucher,setVoucher]=useState("");const items = productCatalog.filter((product) => cart[product.id]);
   const subtotal = items.reduce((sum, item) => sum + item.price * cart[item.id], 0);
   const update = (id: string, amount: number) => setCart((current) => { const next = { ...current, [id]: Math.max(0, (current[id] ?? 0) + amount) }; if (!next[id]) delete next[id]; return next; });
-  return <div className="overlay" onMouseDown={onClose}><aside className="drawer cart-drawer" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="section-eyebrow">SLIVA PET SHOP</span><h2>Keranjangmu</h2></div><button type="button" onClick={onClose}><Icon name="close" /></button></header>{items.length === 0 ? <div className="empty-state compact"><span>🛒</span><h3>Keranjang masih kosong</h3><p>Yuk, pilih kebutuhan terbaik untuk mereka.</p><button className="primary-button small" type="button" onClick={onClose}>Mulai belanja</button></div> : <><div className="cart-items">{items.map((item) => <div className="cart-item" key={item.id}><span>{item.emoji}</span><div><small>{item.brand}</small><b>{item.name}</b><strong>{formatRupiah(item.price)}</strong></div><div className="quantity"><button type="button" onClick={() => update(item.id, -1)}>−</button><b>{cart[item.id]}</b><button type="button" onClick={() => update(item.id, 1)}>+</button></div></div>)}</div><label className="voucher"><span>🎟️</span><input placeholder="Masukkan kode voucher" /><button type="button" onClick={() => notify("Voucher SLIVAPET10 berhasil digunakan")}>Pakai</button></label><div className="cart-summary"><span><small>Subtotal</small><b>{formatRupiah(subtotal)}</b></span><span><small>Pengiriman</small><b className="good">Gratis</b></span><span><small>Biaya layanan</small><b>Rp2.500</b></span><span className="total"><small>Total</small><b>{formatRupiah(subtotal + 2500)}</b></span></div><button className="primary-button full" type="button" onClick={() => notify("Checkout dummy berhasil dibuka")}>Lanjut ke pembayaran <Icon name="arrow" size={16} /></button></>}</aside></div>;
-}
-
-function AddPetModal({ onClose, notify }: { onClose: () => void; notify: Notify }) {
-  const [type, setType] = useState("Anjing");
-  return <div className="modal-overlay" onMouseDown={onClose}><div className="modal add-pet-modal" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="section-eyebrow">ANGGOTA KELUARGA BARU</span><h2>Tambah profil hewan</h2><p>Data dasar dapat dilengkapi nanti.</p></div><button className="modal-close" type="button" onClick={onClose}><Icon name="close" /></button></header><div className="pet-photo-upload"><span>🐾</span><button type="button" onClick={() => notify("Pilih foto hewan") }><Icon name="camera" size={15} /> Tambah foto</button></div><label className="field-label">Jenis hewan</label><div className="pet-type-grid">{["Anjing","Kucing","Kelinci","Burung","Lainnya"].map((item) => <button type="button" className={type === item ? "selected" : ""} onClick={() => setType(item)} key={item}><span>{item === "Anjing" ? "🐕" : item === "Kucing" ? "🐈" : item === "Kelinci" ? "🐇" : item === "Burung" ? "🦜" : "🐾"}</span>{item}</button>)}</div><div className="form-grid"><label><span>Nama hewan</span><input placeholder="Contoh: Milo" /></label><label><span>Ras</span><select><option>Pilih ras</option><option>Golden Retriever</option><option>Pomeranian</option><option>Mixed breed</option></select></label><label><span>Jenis kelamin</span><select><option>Jantan</option><option>Betina</option></select></label><label><span>Tanggal lahir</span><input type="date" /></label></div><footer><button className="secondary-button" type="button" onClick={onClose}>Batal</button><button className="primary-button" type="button" onClick={() => { notify("Profil hewan baru disimpan sebagai draft"); onClose(); }}>Simpan profil <Icon name="arrow" size={16} /></button></footer></div></div>;
+  return <div className="overlay" onMouseDown={onClose}><aside className="drawer cart-drawer" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="section-eyebrow">SLIVA PET SHOP</span><h2>Keranjangmu</h2></div><button type="button" onClick={onClose}><Icon name="close" /></button></header>{items.length === 0 ? <div className="empty-state compact"><span>🛒</span><h3>Keranjang masih kosong</h3><p>Yuk, pilih kebutuhan terbaik untuk mereka.</p><button className="primary-button small" type="button" onClick={onClose}>Mulai belanja</button></div> : <><div className="cart-items">{items.map((item) => <div className="cart-item" key={item.id}><span>{item.emoji}</span><div><small>{item.brand}</small><b>{item.name}</b><strong>{formatRupiah(item.price)}</strong></div><div className="quantity"><button type="button" onClick={() => update(item.id, -1)}>−</button><b>{cart[item.id]}</b><button type="button" onClick={() => update(item.id, 1)}>+</button></div></div>)}</div><label className="voucher"><span>🎟️</span><input value={voucher} onChange={event=>setVoucher(event.target.value.replace(/[^A-Za-z0-9]/g,""))} minLength={6} placeholder="Minimal 6 huruf/angka" /><button type="button" disabled={voucher.length<6} onClick={() => notify(`Voucher ${voucher.toUpperCase()} sedang diverifikasi`)}>Pakai</button></label><div className="cart-summary"><span><small>Subtotal</small><b>{formatRupiah(subtotal)}</b></span><span><small>Pengiriman</small><b className="good">Gratis</b></span><span><small>Biaya layanan</small><b>Rp2.500</b></span><span className="total"><small>Total</small><b>{formatRupiah(subtotal + 2500)}</b></span></div><button className="primary-button full" type="button" onClick={() => notify("Pembayaran akan dibuat setelah checkout API tersedia")}>Lanjut ke pembayaran <Icon name="arrow" size={16} /></button></>}</aside></div>;
 }
 
 function Info({ label, value }: { label: string; value: string }) { return <div><small>{label}</small><b>{value}</b></div>; }
 function Progress({ label, value }: { label: string; value: number }) { return <div className="progress-row"><span><small>{label}</small><b>{value}%</b></span><div><i style={{ width: `${value}%` }} /></div></div>; }
-function Family({ name, role, initials, green }: { name: string; role: string; initials: string; green?: boolean }) { return <div className="family-row"><span className={`avatar ${green ? "avatar-green" : "avatar-blue"}`}>{initials}</span><p><b>{name}</b><small>{role}</small></p><Icon name="chevron" size={15} /></div>; }
-function SummaryCard({ icon, value, label, tone }: { icon: string; value: string; label: string; tone: string }) { return <div className="activity-summary-card"><span className={tone}>{icon}</span><p><b>{value}</b><small>{label}</small></p><Icon name="chevron" size={16} /></div>; }
-function CheckItem({ done, title, note }: { done?: boolean; title: string; note: string }) { return <div className="check-item"><span className={done ? "done" : ""}>{done ? <Icon name="check" size={13} /> : "!"}</span><p><b>{title}</b><small>{note}</small></p></div>; }
-function Notification({ icon, tone, title, note, time, unread }: { icon: string; tone: string; title: string; note: string; time: string; unread?: boolean }) { return <button type="button" className={`notification ${unread ? "unread" : ""}`} onClick={() => window.dispatchEvent(new CustomEvent("slivadoc:notice", { detail: title }))}><span className={tone}>{icon}</span><p><b>{title}</b><small>{note}</small><em>{time} lalu</em></p>{unread && <i />}</button>; }
+function SummaryCard({ icon, value, label, tone,onClick }: { icon: string; value: string; label: string; tone: string;onClick?:()=>void }) { return <button className="activity-summary-card" type="button" onClick={onClick}><span className={tone}>{icon}</span><p><b>{value}</b><small>{label}</small></p><Icon name="chevron" size={16} /></button>; }
+function Notification({ icon, tone, title, note, time, unread,onClick }: { icon: string; tone: string; title: string; note: string; time: string; unread?: boolean;onClick?:()=>void }) { return <button type="button" className={`notification ${unread ? "unread" : ""}`} onClick={onClick??(() => window.dispatchEvent(new CustomEvent("slivadoc:notice", { detail: title })))}><span className={tone}>{icon}</span><p><b>{title}</b><small>{note}</small><em>{time}</em></p>{unread && <i />}</button>; }
 
 function downloadViewSummary(view: AppView) {
   const content = [`Slivadoc Pet Owner · ${titles[view].title}`, titles[view].subtitle, `Dibuat: ${new Date().toLocaleString("id-ID")}`, "", "Ringkasan ini dibuat dari tampilan aktif dan siap dilengkapi oleh data API Slivadoc."].join("\n");
   const url = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
   const anchor = document.createElement("a"); anchor.href = url; anchor.download = `slivadoc-${view}-summary.txt`; anchor.click(); URL.revokeObjectURL(url);
 }
-function Group({ emoji, name, members, notify }: { emoji: string; name: string; members: string; notify: Notify }) { return <div className="group-row"><span>{emoji}</span><p><b>{name}</b><small>{members}</small></p><button type="button" onClick={() => notify(`Bergabung ke ${name}`)}>Gabung</button></div>; }
-function Payment({ logo, name, note, notify }: { logo: string; name: string; note: string; notify: Notify }) { return <button className="payment-row" type="button" onClick={() => notify(`Kelola ${name}`)}><span>{logo}</span><p><b>{name}</b><small>{note}</small></p><Icon name="chevron" size={15} /></button>; }
-function Setting({ icon, label, note, notify }: { icon: IconName; label: string; note: string; notify: Notify }) { return <button className="setting-row" type="button" onClick={() => notify(`${label} dibuka`)}><span><Icon name={icon} size={19} /></span><p><b>{label}</b><small>{note}</small></p><Icon name="chevron" size={16} /></button>; }
-
-function RecordList({ notify }: { notify: Notify }) { return <section className="panel record-list"><div className="record-toolbar"><label><Icon name="search" size={17} /><input placeholder="Cari rekam medis" /></label><button className="secondary-button small" type="button" onClick={() => notify("Filter rekam medis dibuka") }><Icon name="filter" size={15} /> Filter</button><button className="primary-button small" type="button" onClick={() => notify("Form unggah rekam medis dibuka") }><Icon name="plus" size={15} /> Tambah data</button></div>{medicalRecords.map((record) => <article key={record.id}><span>{record.icon}</span><div><small>{record.type} • {record.date}</small><h3>{record.title}</h3><p>{record.diagnosis}</p><em>{record.doctor} • {record.clinic}</em></div><button className="secondary-button small" type="button" onClick={() => notify("Dokumen rekam medis diunduh") }><Icon name="download" size={15} /> Unduh</button></article>)}</section>; }
-function VaccineList({ notify }: { notify: Notify }) { return <div className="vaccine-grid">{["Rabies","DHPPi","Bordetella","Leptospirosis","Canine Influenza"].map((item,index) => <article className={`panel vaccine-card ${index === 1 ? "due" : ""}`} key={item}><span>{index === 1 ? "⏳" : "💉"}</span><div><small>{index === 1 ? "JATUH TEMPO 4 SEP" : "TERLINDUNGI"}</small><h3>{item}</h3><p>{index === 1 ? "Vaksin tahunan perlu diperbarui" : "Dosis terakhir 4 September 2025"}</p></div><button type="button" onClick={() => notify(index === 1 ? "Booking vaksin dibuka" : "Sertifikat vaksin dibuka")}>{index === 1 ? "Booking" : "Sertifikat"}</button></article>)}</div>; }
-function MedicationList({ notify }: { notify: Notify }) { return <div className="medication-page"><section className="panel"><div className="panel-heading"><h3>Jadwal hari ini</h3><button className="primary-button small" type="button" onClick={() => notify("Tambah jadwal obat") }><Icon name="plus" size={15} /> Tambah obat</button></div><div className="medicine-schedule"><span>19.00</span><i>💊</i><div><b>Omega Skin & Coat</b><small>1 tablet • Setelah makan malam</small></div><button type="button" onClick={() => notify("Pemberian obat dicatat") }><Icon name="check" size={15} /> Sudah diberikan</button></div></section><section className="panel medication-history"><h3>Riwayat 7 hari</h3><div>{["S","S","R","K","J","S","M"].map((day,index) => <span key={`${day}-${index}`} className={index < 6 ? "done" : ""}><small>{day}</small><i>{index < 6 ? <Icon name="check" size={13} /> : "•"}</i></span>)}</div><p>Kepatuhan minggu ini <b>100%</b> — luar biasa!</p></section></div>; }
-function DocumentGrid({ notify }: { notify: Notify }) { return <div className="document-grid">{["Sertifikat vaksin 2025","Hasil lab CBC","Resep Omega Tabs","Invoice Pawsitive Vet","Pet insurance policy","Microchip certificate"].map((item,index) => <button className="document-card" type="button" key={item} onClick={() => notify(`${item} dibuka`)}><span>{index < 2 ? "📄" : index === 2 ? "💊" : index === 4 ? "🛡️" : "🏷️"}</span><p><b>{item}</b><small>PDF • {index + 1}.2 MB</small></p><Icon name="download" size={17} /></button>)}</div>; }

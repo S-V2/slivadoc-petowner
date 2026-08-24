@@ -2,7 +2,8 @@
 import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { careItems, pets, services, type Service } from "../data";
+import type { PetView, Service } from "../data";
+import type { MobileActivity } from "../api";
 import { colors, shadow } from "../theme";
 import { Card, Pill, PrimaryButton, Screen, SectionTitle, SoftButton, TopHeader } from "../components/ui";
 
@@ -14,16 +15,22 @@ type Props = {
   locationTitle: string;
   onLocation: () => void;
   onNavigate: (tab: "discover" | "world" | "activity" | "health") => void;
+  ownerName?:string;
+  pet?:PetView;
+  services:Service[];
+  activities:MobileActivity[];
 };
 
-export function HomeScreen({ onAction, onBook, onOpenChat, onOpenNotifications, locationTitle, onLocation, onNavigate }: Props) {
-  const pet = pets[0];
+export function HomeScreen({ onAction, onBook, onOpenChat, onOpenNotifications, locationTitle, onLocation, onNavigate,ownerName,pet,services,activities }: Props) {
+  const petView=pet??{id:"",name:"pet kamu",breed:"Login untuk melihat profil",age:"—",weight:"—",icon:"🐾",score:0,allergies:""};
+  const homeCare=services.find(item=>item.category.toLowerCase().includes("home"));
+  const hotel=services.find(item=>item.category.toLowerCase().includes("hotel"));
   const quickActions = [
     { label: "Booking", note: "Klinik", icon: "calendar", emoji: "📅", color: colors.sky50, onPress: () => onBook() },
     { label: "Tanya Dokter", note: "Online", icon: "chatbubble", emoji: "👩🏻‍⚕️", color: colors.mint50, onPress: onOpenChat },
-    { label: "Home Care", note: "Ke rumah", icon: "home", emoji: "🏠", color: "#FFF1E8", onPress: () => onBook(services[3]) },
+    { label: "Home Care", note: "Ke rumah", icon: "home", emoji: "🏠", color: "#FFF1E8", onPress: () => homeCare?onBook(homeCare):onNavigate("discover") },
     { label: "Darurat", note: "24 jam", icon: "medkit", emoji: "🚑", color: colors.red50, onPress: () => onAction("Menghubungkan hotline darurat 24/7") },
-    { label: "Pet Hotel", note: "Terpercaya", icon: "bed", emoji: "🏡", color: colors.violet50, onPress: () => onBook(services[2]) },
+    { label: "Pet Hotel", note: "Terpercaya", icon: "bed", emoji: "🏡", color: colors.violet50, onPress: () => hotel?onBook(hotel):onNavigate("discover") },
     { label: "Sliva World", note: "Academy & Hub", icon: "planet", emoji: "🌐", color: colors.sky50, onPress: () => onNavigate("world") },
   ];
 
@@ -32,19 +39,19 @@ export function HomeScreen({ onAction, onBook, onOpenChat, onOpenNotifications, 
       <Pressable onPress={onLocation}><TopHeader title={locationTitle} subtitle="Lokasi kamu • ketuk untuk perbarui" onNotification={onOpenNotifications} /></Pressable>
       <View style={styles.greetingRow}>
         <View>
-          <Text style={styles.greeting}>Selamat siang, Evans! 👋</Text>
-          <Text style={styles.greetingNote}>Milo dan Luna baik hari ini.</Text>
+          <Text style={styles.greeting}>{ownerName?`Halo, ${ownerName.split(" ")[0]}! 👋`:"Selamat datang! 👋"}</Text>
+          <Text style={styles.greetingNote}>{ownerName?"Data pet dan aktivitasmu sudah tersinkron.":"Masuk untuk melihat akun dan kesehatan pet."}</Text>
         </View>
         <Pressable onPress={() => onAction("Pilih profil hewan")} style={styles.petPicker}>
-          <Text style={styles.petPickerEmoji}>{pet.icon}</Text><Text style={styles.petPickerName}>{pet.name}</Text><Ionicons name="chevron-down" size={13} color={colors.muted} />
+          <Text style={styles.petPickerEmoji}>{petView.icon}</Text><Text style={styles.petPickerName}>{petView.name}</Text><Ionicons name="chevron-down" size={13} color={colors.muted} />
         </Pressable>
       </View>
 
       <ImageBackground source={require("../../assets/hero.png")} style={styles.hero} imageStyle={styles.heroImage}>
         <LinearGradient colors={["rgba(7,87,139,.92)", "rgba(14,126,186,.57)", "rgba(32,153,210,.04)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.heroGradient}>
-          <Pill tone="mint">SLIVACARE+ AKTIF</Pill>
+          <Pill tone="mint">DATA TERSINKRON</Pill>
           <Text style={styles.heroTitle}>Seluruh kebahagiaan mereka, dalam satu aplikasi.</Text>
-          <Text style={styles.heroNote}>Rawat dan dapatkan bantuan profesional kapan pun Milo membutuhkannya.</Text>
+          <Text style={styles.heroNote}>Rawat dan dapatkan bantuan profesional kapan pun {petView.name} membutuhkannya.</Text>
           <View style={styles.heroButtons}>
             <PrimaryButton compact label="Buat booking" icon="calendar-outline" onPress={() => onBook()} />
             <Pressable style={styles.heroGhost} onPress={onOpenChat}><Ionicons name="chatbubble-outline" size={15} color={colors.white} /><Text style={styles.heroGhostText}>Tanya dokter</Text></Pressable>
@@ -61,34 +68,35 @@ export function HomeScreen({ onAction, onBook, onOpenChat, onOpenNotifications, 
         ))}
       </ScrollView>
 
-      <SectionTitle eyebrow="HEALTH SNAPSHOT" title={`Kondisi ${pet.name}`} action="Detail" onAction={() => onNavigate("health")} />
+      <SectionTitle eyebrow="HEALTH SNAPSHOT" title={`Kondisi ${petView.name}`} action="Detail" onAction={() => onNavigate("health")} />
       <Card style={styles.healthCard}>
         <View style={styles.healthTop}>
-          <View style={styles.petAvatar}><Text style={styles.petAvatarEmoji}>{pet.icon}</Text><View style={styles.checkDot}><Ionicons name="checkmark" size={10} color={colors.white} /></View></View>
-          <View style={styles.healthCopy}><Text style={styles.petName}>{pet.name}</Text><Text style={styles.petMeta}>{pet.breed} • {pet.age}</Text><Text style={styles.updated}>Diperbarui 12 Agu 2026</Text></View>
-          <View style={styles.scoreCircle}><Text style={styles.scoreValue}>{pet.score}</Text><Text style={styles.scoreLabel}>Excellent</Text></View>
+          <View style={styles.petAvatar}><Text style={styles.petAvatarEmoji}>{petView.icon}</Text><View style={styles.checkDot}><Ionicons name="checkmark" size={10} color={colors.white} /></View></View>
+          <View style={styles.healthCopy}><Text style={styles.petName}>{petView.name}</Text><Text style={styles.petMeta}>{petView.breed} • {petView.age}</Text><Text style={styles.updated}>{petView.lastUpdated?`Diperbarui ${new Date(petView.lastUpdated).toLocaleDateString("id-ID")}`:"Belum ada rekam medis"}</Text></View>
+          <View style={styles.scoreCircle}><Text style={styles.scoreValue}>{petView.score}</Text><Text style={styles.scoreLabel}>Health</Text></View>
         </View>
         <View style={styles.metricRow}>
-          <View style={styles.metric}><Text style={styles.metricEmoji}>⚖️</Text><Text style={styles.metricLabel}>Berat</Text><Text style={styles.metricValue}>{pet.weight}</Text><Text style={styles.metricGood}>Stabil</Text></View>
-          <View style={styles.metric}><Text style={styles.metricEmoji}>💉</Text><Text style={styles.metricLabel}>Vaksin</Text><Text style={styles.metricValue}>4 dari 5</Text><Text style={styles.metricWarn}>1 mendatang</Text></View>
-          <View style={styles.metric}><Text style={styles.metricEmoji}>🛡️</Text><Text style={styles.metricLabel}>Proteksi</Text><Text style={styles.metricValue}>Aktif</Text><Text style={styles.metricGood}>Care+</Text></View>
+          <View style={styles.metric}><Text style={styles.metricEmoji}>⚖️</Text><Text style={styles.metricLabel}>Berat</Text><Text style={styles.metricValue}>{petView.weight}</Text><Text style={styles.metricGood}>Data profil</Text></View>
+          <View style={styles.metric}><Text style={styles.metricEmoji}>📋</Text><Text style={styles.metricLabel}>Aktivitas</Text><Text style={styles.metricValue}>{activities.length}</Text><Text style={styles.metricWarn}>Dari API</Text></View>
+          <View style={styles.metric}><Text style={styles.metricEmoji}>🛡️</Text><Text style={styles.metricLabel}>Health score</Text><Text style={styles.metricValue}>{petView.score}/100</Text><Text style={styles.metricGood}>Tersinkron</Text></View>
         </View>
-        <View style={styles.insight}><Text style={styles.insightIcon}>💡</Text><View style={styles.insightCopy}><Text style={styles.insightTitle}>Insight untuk Milo</Text><Text style={styles.insightText}>Vaksin DHPPi jatuh tempo 4 September.</Text></View><Pressable onPress={() => onBook()}><Text style={styles.insightAction}>Atur</Text></Pressable></View>
+        <View style={styles.insight}><Text style={styles.insightIcon}>💡</Text><View style={styles.insightCopy}><Text style={styles.insightTitle}>Insight untuk {petView.name}</Text><Text style={styles.insightText}>{activities[0]?.description||"Belum ada aktivitas kesehatan terjadwal."}</Text></View><Pressable onPress={() => onNavigate("activity")}><Text style={styles.insightAction}>Lihat</Text></Pressable></View>
       </Card>
 
       <SectionTitle eyebrow="CARE PLAN" title="Perawatan terdekat" action="Lihat semua" onAction={() => onNavigate("activity")} />
       <Card style={styles.careCard}>
-        {careItems.map((item, index) => (
-          <Pressable key={item.id} onPress={() => onAction(`Detail ${item.title}`)} style={[styles.careRow, index < careItems.length - 1 && styles.careDivider]}>
-            <View style={[styles.careIcon, item.color === "mint" ? styles.mint : item.color === "violet" ? styles.violet : styles.blue]}><Text>{item.icon}</Text></View>
-            <View style={styles.careCopy}><Text style={styles.careTime}>{item.time}</Text><Text style={styles.careTitle}>{item.title}</Text><Text style={styles.careNote}>{item.note}</Text></View>
+        {activities.slice(0,3).map((item, index) => (
+          <Pressable key={item.id} onPress={() => onAction(`Detail ${item.title}`)} style={[styles.careRow, index < activities.slice(0,3).length - 1 && styles.careDivider]}>
+            <View style={[styles.careIcon, item.category==="health" ? styles.mint : item.category==="booking" ? styles.violet : styles.blue]}><Text>{item.category==="health"?"🩺":item.category==="booking"?"📅":"📋"}</Text></View>
+            <View style={styles.careCopy}><Text style={styles.careTime}>{new Date(item.starts_at||item.occurred_at).toLocaleString("id-ID",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</Text><Text style={styles.careTitle}>{item.title}</Text><Text style={styles.careNote}>{item.description}</Text></View>
             <Ionicons name="chevron-forward" size={17} color="#A3AFBC" />
           </Pressable>
         ))}
-        <SoftButton label="Tambah pengingat" icon="add" onPress={() => onAction("Pengingat baru siap dibuat")} style={styles.reminderButton} />
+        {activities.length===0?<Text style={styles.careNote}>Belum ada aktivitas pada akun ini.</Text>:null}
+        <SoftButton label="Lihat semua aktivitas" icon="arrow-forward" onPress={() => onNavigate("activity")} style={styles.reminderButton} />
       </Card>
 
-      <SectionTitle eyebrow="DI SEKITARMU" title="Pilihan untuk Milo" action="Jelajahi" onAction={() => onNavigate("discover")} />
+      <SectionTitle eyebrow="DI SEKITARMU" title={`Pilihan untuk ${petView.name}`} action="Jelajahi" onAction={() => onNavigate("discover")} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.serviceScroll}>
         {services.map((service) => (
           <Pressable key={service.id} onPress={() => onBook(service)} style={styles.serviceCard}>

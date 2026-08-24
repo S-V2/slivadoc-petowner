@@ -15,7 +15,8 @@ import { answerPetQuestion } from "./pet-agent.js";
 import { createCorsOriginValidator, isOriginAllowed, parseAllowedOrigins } from "./cors.js";
 
 const port = Number(process.env.PORT || 8090);
-const origins = parseAllowedOrigins(process.env.CORS_ORIGINS || "http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:8081,https://slivadoc-pet-owner.evans-moris21.chatgpt.site");
+const defaultOrigins = "http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:8081,https://slivadoc-pet-owner.evans-moris21.chatgpt.site";
+const origins = parseAllowedOrigins(`${defaultOrigins},${process.env.CORS_ORIGINS || ""}`);
 const validateOrigin = createCorsOriginValidator(origins);
 const corsOptions = { origin: validateOrigin, credentials: true, methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] };
 const dataDir = resolve(process.env.DATA_DIR || new URL("../data", import.meta.url).pathname);

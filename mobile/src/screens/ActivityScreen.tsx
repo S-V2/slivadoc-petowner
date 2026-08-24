@@ -1,48 +1,27 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { colors, shadow } from "../theme";
-import { Card, Pill, PrimaryButton, Screen, SectionTitle, SoftButton, TopHeader } from "../components/ui";
+import { Card, Pill, PrimaryButton, Screen, SoftButton, TopHeader } from "../components/ui";
+import type { MobileActivity } from "../api";
 
-export function ActivityScreen({ onAction, onBook, onOpenNotifications }: { onAction: (message: string) => void; onBook: () => void; onOpenNotifications: () => void }) {
+export function ActivityScreen({ onAction, onBook, onOpenNotifications,activities,petNames }: { onAction: (message: string) => void; onBook: () => void; onOpenNotifications: () => void;activities:MobileActivity[];petNames:Record<string,string> }) {
   const [tab, setTab] = useState("Mendatang");
+  const [now]=useState(()=>Date.now());
+  const matches=(item:MobileActivity)=>tab==="Mendatang"?Boolean(item.starts_at&&new Date(item.starts_at).getTime()>now):tab==="Berlangsung"?["active","confirmed","processing","paid"].includes(item.status):!item.starts_at||new Date(item.starts_at).getTime()<=now||["completed","cancelled"].includes(item.status);
+  const visible=activities.filter(matches);
+  const counts={booking:activities.filter(item=>item.category==="booking").length,order:activities.filter(item=>item.category==="order").length,consult:activities.filter(item=>item.category==="consultation").length};
   return (
     <Screen>
       <TopHeader title="Aktivitas" subtitle="Booking, konsultasi & pesanan" onNotification={onOpenNotifications} />
-      <Text style={styles.title}>Semua aktivitasmu</Text><Text style={styles.subtitle}>Pantau setiap kebutuhan Milo dan Luna.</Text>
-      <View style={styles.summaryRow}><Summary icon="📅" value="2" label="Booking" color={colors.sky50} /><Summary icon="📦" value="1" label="Pesanan" color={colors.violet50} /><Summary icon="💬" value="3" label="Chat aktif" color={colors.mint50} /></View>
-      <View style={styles.tabs}>{["Mendatang", "Berlangsung", "Riwayat"].map((item) => <Pressable key={item} onPress={() => setTab(item)} style={[styles.tab, tab === item && styles.activeTab]}><Text style={[styles.tabText, tab === item && styles.activeTabText]}>{item}</Text>{item !== "Riwayat" ? <View style={styles.tabCount}><Text>{item === "Mendatang" ? 2 : 1}</Text></View> : null}</Pressable>)}</View>
-
-      {tab === "Mendatang" ? <View style={styles.list}>
-        <BookingCard month="SEP" day="04" time="16.00" icon="💉" tone="mint" status="Terkonfirmasi" statusTone="mint" title="Vaksin DHPPi tahunan" place="Pawsitive Vet Kemang • drh. Amanda" pet="🐕 Milo" onAction={onAction} />
-        <BookingCard month="SEP" day="12" time="09.30" icon="🛁" tone="violet" status="Menunggu konfirmasi" statusTone="yellow" title="Complete Grooming Package" place="Fluffy House • Antar jemput" pet="🐈 Luna" onAction={onAction} />
-        <PrimaryButton label="Buat booking baru" icon="add" onPress={onBook} />
-      </View> : null}
-
-      {tab === "Berlangsung" ? <Card style={styles.deliveryCard}>
-        <View style={styles.deliveryTop}><View style={[styles.bookingIcon, styles.blue]}><Text style={styles.bookingEmoji}>📦</Text></View><View style={styles.deliveryCopy}><Pill>DALAM PERJALANAN</Pill><Text style={styles.cardTitle}>Pesanan Pet Shop Same Day</Text><Text style={styles.cardNote}>Estimasi tiba 14.35–14.50</Text></View></View>
-        <View style={styles.progress}><View style={styles.progressDone} /><View style={styles.progressDone} /><View style={styles.progressActive} /><View /></View>
-        <View style={styles.courier}><View style={styles.courierAvatar}><Text>🛵</Text></View><View style={styles.courierCopy}><Text style={styles.courierName}>Arif • Sliva Express</Text><Text style={styles.courierNote}>Menuju alamat rumahmu</Text></View><Pressable style={styles.phone} onPress={() => onAction("Menghubungi kurir")}><Ionicons name="call" size={17} color={colors.sky600} /></Pressable></View>
-        <View style={styles.rowButtons}><SoftButton label="Chat kurir" icon="chatbubble-outline" onPress={() => onAction("Chat kurir dibuka")} style={styles.flex} /><PrimaryButton compact label="Lacak pesanan" icon="navigate" onPress={() => onAction("Pelacakan langsung dibuka")} style={styles.flex} /></View>
-      </Card> : null}
-
-      {tab === "Riwayat" ? <View style={styles.historyList}>
-        <SectionTitle eyebrow="AGUSTUS 2026" title="Selesai" />
-        <History icon="🩺" title="General check-up" date="12 Agu • Pawsitive Vet" price="Rp185.000" onPress={() => onAction("Invoice diunduh")} />
-        <History icon="🛍️" title="Pet food & supplements" date="4 Agu • Sliva Pet Shop" price="Rp1.544.000" onPress={() => onAction("Pesan lagi ditambahkan")} />
-        <History icon="💬" title="Video consultation" date="29 Jul • drh. Amanda" price="Rp75.000" onPress={() => onAction("Ringkasan konsultasi dibuka")} />
-      </View> : null}
+      <Text style={styles.title}>Semua aktivitasmu</Text><Text style={styles.subtitle}>Booking, pesanan, konsultasi, dan perawatan dari API.</Text>
+      <View style={styles.summaryRow}><Summary icon="📅" value={String(counts.booking)} label="Booking" color={colors.sky50} /><Summary icon="📦" value={String(counts.order)} label="Pesanan" color={colors.violet50} /><Summary icon="💬" value={String(counts.consult)} label="Konsultasi" color={colors.mint50} /></View>
+      <View style={styles.tabs}>{["Mendatang", "Berlangsung", "Riwayat"].map((item) => <Pressable key={item} onPress={() => setTab(item)} style={[styles.tab, tab === item && styles.activeTab]}><Text style={[styles.tabText, tab === item && styles.activeTabText]}>{item}</Text></Pressable>)}</View>
+      <View style={styles.list}>{visible.map(item=>{const date=new Date(item.starts_at||item.occurred_at);return <Card key={item.id} style={styles.bookingCard}><View style={styles.bookingDate}><Text style={styles.month}>{date.toLocaleDateString("id-ID",{month:"short"}).toUpperCase()}</Text><Text style={styles.day}>{String(date.getDate()).padStart(2,"0")}</Text><Text style={styles.time}>{date.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})}</Text></View><View style={[styles.bookingIcon,item.category==="health"?styles.mint:item.category==="booking"?styles.violet:styles.blue]}><Text style={styles.bookingEmoji}>{item.category==="order"?"📦":item.category==="consultation"?"💬":item.category==="health"?"🩺":"📅"}</Text></View><View style={styles.bookingCopy}><Pill tone={item.status==="completed"?"mint":"yellow"}>{item.status.toUpperCase()}</Pill><Text style={styles.cardTitle}>{item.title}</Text><Text style={styles.cardNote}>{item.description}</Text>{item.pet_id&&<Text style={styles.petChip}>🐾 {petNames[item.pet_id]||"Pet"}</Text>}</View><View style={styles.bookingActions}><SoftButton label={item.action_label||"Detail"} onPress={()=>onAction(`${item.title}: ${item.description}`)} style={styles.flex}/>{item.metadata?.latitude&&item.metadata?.longitude?<PrimaryButton compact label="Arah" icon="navigate" onPress={()=>onAction(`Buka arah ke ${item.metadata.latitude}, ${item.metadata.longitude}`)} style={styles.flex}/>:null}</View></Card>})}{visible.length===0?<Card style={styles.deliveryCard}><Text style={styles.cardTitle}>Belum ada aktivitas</Text><Text style={styles.cardNote}>Data akan muncul setelah ada transaksi atau booking pada akun ini.</Text></Card>:null}<PrimaryButton label="Buat booking baru" icon="add" onPress={onBook}/></View>
     </Screen>
   );
 }
 
 function Summary({ icon, value, label, color }: { icon: string; value: string; label: string; color: string }) { return <View style={styles.summary}><View style={[styles.summaryIcon, { backgroundColor: color }]}><Text>{icon}</Text></View><Text style={styles.summaryValue}>{value}</Text><Text style={styles.summaryLabel}>{label}</Text></View>; }
-
-function BookingCard({ month, day, time, icon, tone, status, statusTone, title, place, pet, onAction }: { month: string; day: string; time: string; icon: string; tone: "mint" | "violet"; status: string; statusTone: "mint" | "yellow"; title: string; place: string; pet: string; onAction: (message: string) => void }) {
-  return <Card style={styles.bookingCard}><View style={styles.bookingDate}><Text style={styles.month}>{month}</Text><Text style={styles.day}>{day}</Text><Text style={styles.time}>{time}</Text></View><View style={[styles.bookingIcon, tone === "mint" ? styles.mint : styles.violet]}><Text style={styles.bookingEmoji}>{icon}</Text></View><View style={styles.bookingCopy}><Pill tone={statusTone}>{status}</Pill><Text style={styles.cardTitle}>{title}</Text><Text style={styles.cardNote}>{place}</Text><Text style={styles.petChip}>{pet}</Text></View><View style={styles.bookingActions}><SoftButton label="Ubah" onPress={() => onAction("Jadwal dapat diubah hingga H-1")} style={styles.flex} /><PrimaryButton compact label="Detail" onPress={() => onAction("Detail booking dibuka")} style={styles.flex} /></View></Card>;
-}
-
-function History({ icon, title, date, price, onPress }: { icon: string; title: string; date: string; price: string; onPress: () => void }) { return <Pressable onPress={onPress} style={({ pressed }) => [styles.history, pressed && { opacity: .7 }]}><View style={styles.historyIcon}><Text>{icon}</Text></View><View style={styles.historyCopy}><Text style={styles.historyTitle}>{title}</Text><Text style={styles.historyDate}>{date}</Text></View><View><Text style={styles.historyPrice}>{price}</Text><Text style={styles.historyStatus}>Selesai</Text></View><Ionicons name="chevron-forward" size={16} color="#A4AFBC" /></Pressable>; }
 
 const styles = StyleSheet.create({
   title: { marginTop: 10, color: colors.navy, fontSize: 25, fontWeight: "900", letterSpacing: -.6 }, subtitle: { marginTop: 5, color: colors.muted, fontSize: 10 },

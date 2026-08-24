@@ -10,6 +10,10 @@ export type AppView =
   | "events"
   | "petspot"
   | "pethub"
+  | "consult"
+  | "adoption"
+  | "documents"
+  | "pawdating"
   | "profile";
 
 export type Pet = {

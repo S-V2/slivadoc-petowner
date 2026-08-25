@@ -30,6 +30,10 @@ export type AdoptionListing = { id: string; name: string; species: string; breed
 export type CareReminder = { id:string;pet_id:string;pet_name:string;reminder_type:string;title:string;notes:string;due_at:string;timezone:string;recurrence:string;recurrence_days?:number;lead_minutes:number[];channels:string[];status:string;last_completed_at?:string };
 export type DocumentProduct = { id: string; code: string; name: string; category: string; description: string; requirements: string[]; processing_days: number; service_fee: number; government_fee: number; total_fee: number };
 export type PublicCampaign = { id:string;name:string;campaign_type:string;objective:string;banner_url:string;placement:string;audience:string;starts_on:string;ends_on:string };
+export type PetshipPlace = { id:string;name:string;category:string;address:string;city:string;latitude:number;longitude:number;geofence_radius_m:number;active_petowners:number;distance_km?:number|null };
+export type PetshipPresence = { id:string;pet_name:string;species:string;breed:string;photo_url:string;owner_first_name:string;message:string;checked_in_at:string;last_seen_at:string };
+export type Fundraiser = { id:string;title:string;slug:string;story:string;beneficiary_name:string;city:string;goal_amount:number;raised_amount:number;progress_percent:number;cover_url:string;ends_at?:string;published_at?:string;donor_count:number };
+export type MyFundraiser = { id:string;title:string;slug:string;status:string;goal_amount:number;raised_amount:number;moderation_notes:string;created_at:string };
 export type PetHubComment = { id: string; user_id: string; author_name: string; content: string; created_at: string };
 export type PetHubStory = { id: string; user_id: string; author_name: string; photo_url: string; caption: string; view_count: number; expires_at: string; created_at: string };
 export type PawDatingProfile = { id: string; pet_id?: string; name: string; species: string; breed: string; sex: "male"|"female"; birth_date: string; age_months: number; weight_kg: number; color: string; city: string; distance_km?: number; profile_level: number; level_name: string; pedigree_status: string; description: string; temperament: string[]; traits: string[]; preferred_breeds?: string[]; photo_urls: string[]; health_score: number; breeding_history_count: number; health_verification: string; eligibility_status: string; risk_level: string; health_valid_until: string; owner_display: string; status?: string; visibility?: string; health_report?: PawDatingHealthReport };
@@ -93,6 +97,16 @@ export const getMyAdoptionListings = () => request<PlatformList<Record<string,un
 export const createAdoptionListing = (input:Record<string,unknown>) => request<{id:string;status:string;message:string}>("/api/v1/petowner/adoptions",{method:"POST",body:JSON.stringify(input)});
 export const getDocumentProducts = () => request<PlatformList<DocumentProduct>>("/api/v1/public/pet-documents");
 export const getPublicCampaigns = () => request<PlatformList<PublicCampaign>>("/api/v1/public/campaigns");
+export const getPetshipPlaces=(options?:{latitude?:number;longitude?:number})=>{const q=new URLSearchParams();Object.entries(options??{}).forEach(([key,value])=>{if(value!==undefined)q.set(key,String(value))});return request<PlatformList<PetshipPlace>&{privacy:string}>(`/api/v1/public/petship/places${q.size?`?${q}`:""}`)};
+export const getPetshipPresences=(placeId:string)=>request<PlatformList<PetshipPresence>>(`/api/v1/public/petship/places/${placeId}/presences`);
+export const checkInPetship=(input:{pet_id:string;place_id:string;visibility:"nearby"|"friends";message:string})=>request<{id:string;expires_at:string;message:string}>("/api/v1/petowner/petship/presence",{method:"PUT",body:JSON.stringify(input)});
+export const heartbeatPetship=()=>request<{expires_at:string}>("/api/v1/petowner/petship/heartbeat",{method:"POST"});
+export const checkoutPetship=()=>request<{message:string}>("/api/v1/petowner/petship/presence",{method:"DELETE"});
+export const getFundraisers=()=>request<PlatformList<Fundraiser>>("/api/v1/public/fundraisers");
+export const getMyFundraisers=()=>request<PlatformList<MyFundraiser>>("/api/v1/petowner/fundraisers");
+export const createFundraiser=(input:Record<string,unknown>)=>request<{id:string;status:string;message:string}>("/api/v1/petowner/fundraisers",{method:"POST",body:JSON.stringify(input)});
+export const createFundraiserDonation=(fundraiserId:string,input:{amount:number;message:string;anonymous:boolean})=>request<{id:string;payment_reference:string;payment_status:string;amount:number;mode:string;message:string}>(`/api/v1/petowner/fundraisers/${fundraiserId}/donations`,{method:"POST",body:JSON.stringify(input)});
+export const simulateFundraiserDonationPaid=(donationId:string)=>request<{id:string;payment_status:string;message:string}>(`/api/v1/petowner/fundraiser-donations/${donationId}/simulate-paid`,{method:"POST"});
 export const createDocumentRequest = (input: Record<string, unknown>) => request<{id:string;request_number:string;amount:number;status:string}>("/api/v1/pet-document-requests", { method: "POST", body: JSON.stringify(input) });
 export const getPetHubComments = (postId: string) => request<PlatformList<PetHubComment>>(`/api/v1/pethub/posts/${postId}/comments`);
 export const createPetHubComment = (postId: string, content: string) => request<{id:string}>(`/api/v1/pethub/posts/${postId}/comments`, { method: "POST", body: JSON.stringify({ content }) });

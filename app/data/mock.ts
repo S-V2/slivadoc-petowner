@@ -14,6 +14,8 @@ export type AppView =
   | "adoption"
   | "documents"
   | "pawdating"
+  | "petship"
+  | "fundraising"
   | "favorites"
   | "notifications"
   | "profile";

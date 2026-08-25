@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Icon, type IconName } from "./Icon";
 import AddPetExperience from "./integrations/AddPetExperience";
 import CommunityExperience from "./integrations/CommunityExperience";
@@ -12,6 +12,7 @@ import CareMarketplace from "./platform/CareMarketplace";
 import PawDatingExperience from "./pawdating/PawDatingExperience";
 import type { LocationResult } from "../lib/petowner-api";
 import { downloadPetMedicalPDF } from "../lib/pet-pdf";
+import { finiteNumber } from "../lib/safe-number";
 import {
   PLATFORM_API_URL,
   activateLostPetMode,
@@ -34,6 +35,7 @@ import {
   updatePetOwnerPet,
   updatePetOwnerProfile,
   getCareReminders,
+  getPublicCampaigns,
   createCareReminder,
   completeCareReminder,
   snoozeCareReminder,
@@ -45,6 +47,7 @@ import {
   type GlobalSearchResult,
   type PetOwnerBootstrap,
   type CareReminder,
+  type PublicCampaign,
 } from "../lib/platform-api";
 import {
   formatRupiah,
@@ -167,7 +170,7 @@ export default function PetOwnerApp() {
 
   async function loadBootstrap(){setBootstrapLoading(true);const loggedIn=isPetOwnerAuthenticated();setAuthenticated(loggedIn);if(!loggedIn){setAccount(null);setPetProfiles([]);setNotifications([]);setActivities([]);setFavoriteIds([]);setPoints(0);setBootstrapLoading(false);return}try{clearPlatformCache();const data=await getPetOwnerBootstrap();const mapped=data.pets.map(apiPetToView);setAccount(data.user);setPetProfiles(mapped);setSelectedPetId(current=>mapped.some(item=>item.id===current)?current:mapped[0]?.id??"");setNotifications(data.notifications);setActivities(data.activities);setFavoriteIds(data.favorites.map(item=>item.entity_id));setPoints(data.points.balance);setAuthenticated(true)}catch(error){localStorage.removeItem("slivadoc.access_token");localStorage.removeItem("slivadoc.refresh_token");setAuthenticated(false);notify(error instanceof Error?error.message:"Session pet owner berakhir")}finally{setBootstrapLoading(false)}}
   useEffect(()=>{queueMicrotask(()=>{void loadBootstrap()})},[]);// eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(()=>{void Promise.all([getDiscoveryServices(currentLocation?{latitude:currentLocation.latitude,longitude:currentLocation.longitude}:undefined),getDiscoveryProducts()]).then(([serviceResponse,productResponse])=>{setRemoteServices(serviceResponse.data.map((item,index)=>({id:item.id,branchId:item.branch_id,priceValue:item.price,name:item.name,type:item.category.toLowerCase().includes("groom")?"Grooming":item.category.toLowerCase().includes("hotel")?"Pet Hotel":item.category.toLowerCase().includes("home")?"Home Care":"Clinic",distance:item.distance_km!==undefined?`${item.distance_km.toFixed(1)} km`:item.city,rating:0,reviews:0,price:`Mulai ${formatRupiah(item.price)}`,status:"Tersedia untuk booking",address:`${item.branch_name} · ${item.address}`,emoji:item.category.toLowerCase().includes("groom")?"🛁":"🏥",accent:["mint","blue","violet","peach"][index%4],tags:[item.business_name,`${item.duration_minutes} menit`,item.city]})));setRemoteProducts(productResponse.data)}).catch(()=>{setRemoteServices([]);setRemoteProducts([])})},[currentLocation]);
+  useEffect(()=>{void Promise.all([getDiscoveryServices(currentLocation?{latitude:currentLocation.latitude,longitude:currentLocation.longitude}:undefined),getDiscoveryProducts()]).then(([serviceResponse,productResponse])=>{setRemoteServices(serviceResponse.data.map((item,index)=>{const distance=finiteNumber(item.distance_km);return {id:item.id,branchId:item.branch_id,priceValue:item.price,name:item.name,type:item.category.toLowerCase().includes("groom")?"Grooming":item.category.toLowerCase().includes("hotel")?"Pet Hotel":item.category.toLowerCase().includes("home")?"Home Care":"Clinic",distance:distance!==null?`${distance.toFixed(1)} km`:item.city,rating:finiteNumber(item.rating)??0,reviews:finiteNumber(item.review_count)??0,price:`Mulai ${formatRupiah(item.price)}`,status:"Tersedia untuk booking",address:`${item.branch_name} · ${item.address}`,emoji:item.category.toLowerCase().includes("groom")?"🛁":"🏥",accent:["mint","blue","violet","peach"][index%4],tags:[item.business_name,`${item.duration_minutes} menit`,item.city]}}));setRemoteProducts(productResponse.data)}).catch(()=>{setRemoteServices([]);setRemoteProducts([])})},[currentLocation]);
 
   const navigate=(view:AppView)=>{if(protectedViews.includes(view)&&!authenticated){setLoginOpen(true);return}setActiveView(view);window.localStorage.setItem("slivadoc.active_view",view);const url=new URL(window.location.href);if(view==="home")url.searchParams.delete("view");else url.searchParams.set("view",view);window.history.pushState({view},"",`${url.pathname}${url.search}${url.hash}`)};
 
@@ -442,6 +445,8 @@ function PageHeading({ activeView, selectedPet,account }: { activeView: AppView;
 }
 
 function HomeView({ selectedPet, setActiveView, openBooking, setChatOpen, notify,services,activities }: { selectedPet: Pet; setActiveView: (view: AppView) => void; openBooking: (service?: Service) => void; setChatOpen: (value: boolean) => void; notify: Notify;services:Service[];activities:ActivityItem[] }) {
+  const[campaign,setCampaign]=useState<PublicCampaign|null>(null);
+  useEffect(()=>{void getPublicCampaigns().then(response=>setCampaign(response.data[0]??null)).catch(()=>setCampaign(null))},[]);
   const quickActions: { label: string; note: string; icon: string; color: string; action: () => void }[] = [
     { label: "Buat Booking", note: "Klinik & grooming", icon: "📅", color: "blue", action: () => openBooking() },
     { label: "Tanya Dokter", note: "Chat atau video", icon: "👩🏻‍⚕️", color: "mint", action: () => setChatOpen(true) },
@@ -478,6 +483,8 @@ function HomeView({ selectedPet, setActiveView, openBooking, setChatOpen, notify
           </div>
         </div>
       </section>
+
+      {campaign&&<section className="public-campaign-banner" style={{backgroundImage:`linear-gradient(90deg,rgba(5,32,52,.94),rgba(5,32,52,.35)),url(${campaign.banner_url})`}}><div><span>REKOMENDASI SLIVADOC</span><h2>{campaign.name}</h2><p>{campaign.objective}</p><button type="button" onClick={()=>setActiveView(({events:"events",pethub:"pethub",petspot:"petspot",community:"community",home:"discover"} as Partial<Record<string,AppView>>)[campaign.placement]??"discover")}>Lihat selengkapnya <Icon name="chevron" size={15}/></button></div></section>}
 
       <section className="quick-grid" aria-label="Akses cepat">
         {quickActions.map((item) => (
@@ -610,9 +617,17 @@ function LostModeModal({pet,close,notify}:{pet:Pet;close:()=>void;notify:Notify}
 function DiscoverView({ favorites, toggleFavorite, openBooking, notify,serviceCatalog }: { favorites: string[]; toggleFavorite: (id: string) => void|Promise<void>; openBooking: (service: Service) => void; notify: Notify;serviceCatalog:Service[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("Semua");
+  const [sort,setSort]=useState<"recommended"|"distance"|"rating"|"price">("recommended");
+  const [filterOpen,setFilterOpen]=useState(false);
   const [detail,setDetail]=useState<Service|null>(null);
   const filters = ["Semua", "Clinic", "Grooming", "Pet Shop", "Pet Hotel", "Home Care"];
-  const result = serviceCatalog.filter((service) => (filter === "Semua" || service.type === filter) && `${service.name} ${service.address} ${service.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase()));
+  const result = useMemo(()=>serviceCatalog.filter((service) => (filter === "Semua" || service.type === filter) && `${service.name} ${service.address} ${service.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase())).sort((a,b)=>{
+    if(sort==="distance")return (Number.parseFloat(a.distance)||Number.MAX_SAFE_INTEGER)-(Number.parseFloat(b.distance)||Number.MAX_SAFE_INTEGER);
+    if(sort==="rating")return b.rating-a.rating||b.reviews-a.reviews;
+    if(sort==="price")return (a.priceValue??Number.MAX_SAFE_INTEGER)-(b.priceValue??Number.MAX_SAFE_INTEGER);
+    return b.rating-a.rating||b.reviews-a.reviews||(Number.parseFloat(a.distance)||Number.MAX_SAFE_INTEGER)-(Number.parseFloat(b.distance)||Number.MAX_SAFE_INTEGER);
+  }),[serviceCatalog,filter,query,sort]);
+  const reset=()=>{setQuery("");setFilter("Semua");setSort("recommended")};
   return (
     <div>
       <section className="discover-search-card">
@@ -621,18 +636,20 @@ function DiscoverView({ favorites, toggleFavorite, openBooking, notify,serviceCa
       </section>
       <div className="filter-bar">
         <div className="filter-pills">{filters.map((item) => <button type="button" key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item}</button>)}</div>
-        <button className="secondary-button small" type="button" onClick={() => {setQuery("");setFilter("Semua");notify("Filter layanan direset")} }><Icon name="filter" size={16} /> Reset filter</button>
+        <button className="secondary-button small discover-filter-button" type="button" onClick={()=>setFilterOpen(true)}><Icon name="filter" size={16} /> Filter</button>
       </div>
-      <div className="discover-result-head"><p><b>{result.length} layanan</b> dari seluruh area layanan Slivadoc</p><select aria-label="Urutkan layanan"><option>Paling direkomendasikan</option><option>Jarak terdekat</option><option>Rating tertinggi</option><option>Harga terendah</option></select></div>
+      <div className="discover-result-head"><p><b>{result.length} layanan</b> dari seluruh area layanan Slivadoc</p><select aria-label="Urutkan layanan" value={sort} onChange={event=>setSort(event.target.value as typeof sort)}><option value="recommended">Paling direkomendasikan</option><option value="distance">Jarak terdekat</option><option value="rating">Rating tertinggi</option><option value="price">Harga terendah</option></select></div>
       <div className="service-list-grid">
         {result.map((service) => (
           <article className="service-result-card" key={service.id}>
             <div className={`service-result-cover ${service.accent}`}><span>{service.emoji}</span><em>{service.type}</em><button type="button" aria-label="Favorit" className={favorites.includes(service.id) ? "favorite" : ""} onClick={() => toggleFavorite(service.id)}><Icon name="heart" size={18} /></button></div>
-            <div className="service-result-body"><div className="service-name-row"><div><h3>{service.name}</h3><p><Icon name="map" size={14} /> {service.distance} • {service.address}</p></div><span className="rating-box"><b>{service.rating||"Mitra baru"}</b>{service.rating>0&&<Icon name="star" size={12} />}<small>{service.reviews?`${service.reviews} ulasan`:"Belum ada ulasan"}</small></span></div><div className="tag-row">{service.tags.map((tag) => <span key={tag}>{tag}</span>)}</div><div className="availability"><span className="live-dot" /><b>{service.status}</b></div><div className="service-result-footer"><div><small>Estimasi harga</small><b>{service.price}</b></div><button className="secondary-button small" type="button" onClick={() => setDetail(service)}>Lihat detail</button><button className="primary-button small" type="button" onClick={() => openBooking(service)}>Booking</button></div></div>
+            <div className="service-result-body"><div className="service-name-row"><div><h3>{service.name}</h3><p><Icon name="map" size={14} /> {service.distance} • {service.address}</p></div><span className="rating-box"><span><Icon name="star" size={12}/><b>{service.rating>0?service.rating.toFixed(1):"—"}</b></span><small>{service.reviews.toLocaleString("id-ID")} ulasan</small></span></div><div className="tag-row">{service.tags.map((tag) => <span key={tag}>{tag}</span>)}</div><div className="availability"><span className="live-dot" /><b>{service.status}</b></div><div className="service-result-footer"><div><small>Estimasi harga</small><b>{service.price}</b></div><button className="secondary-button small" type="button" onClick={() => setDetail(service)}>Lihat detail</button><button className="primary-button small" type="button" onClick={() => openBooking(service)}>Booking</button></div></div>
           </article>
         ))}
       </div>
-      {result.length === 0 && <div className="empty-state"><span>🔎</span><h3>Layanan belum ditemukan</h3><p>Coba kata kunci atau kategori lain.</p><button className="primary-button small" type="button" onClick={() => { setQuery(""); setFilter("Semua"); }}>Reset pencarian</button></div>}{detail&&<ServiceDetail service={detail} close={()=>setDetail(null)} book={()=>{setDetail(null);openBooking(detail)}}/>}
+      {result.length === 0 && <div className="empty-state"><span>🔎</span><h3>Layanan belum ditemukan</h3><p>Coba kata kunci atau kategori lain.</p><button className="primary-button small" type="button" onClick={reset}>Reset pencarian</button></div>}
+      {filterOpen&&<div className="filter-panel-backdrop" onMouseDown={()=>setFilterOpen(false)}><section className="discover-filter-panel" onMouseDown={event=>event.stopPropagation()}><header><div><span className="section-eyebrow">FILTER JELAJAHI</span><h2>Temukan layanan yang pas</h2></div><button className="modal-close" onClick={()=>setFilterOpen(false)} aria-label="Tutup"><Icon name="close"/></button></header><label><span>Jenis layanan</span><div className="filter-panel-pills">{filters.map(item=><button type="button" key={item} className={filter===item?"active":""} onClick={()=>setFilter(item)}>{item}</button>)}</div></label><label><span>Urutkan berdasarkan</span><select value={sort} onChange={event=>setSort(event.target.value as typeof sort)}><option value="recommended">Paling direkomendasikan</option><option value="distance">Jarak terdekat</option><option value="rating">Rating tertinggi</option><option value="price">Harga terendah</option></select></label><footer><button className="secondary-button" type="button" onClick={()=>{reset();notify("Filter layanan direset")}}>Reset</button><button className="primary-button" type="button" onClick={()=>setFilterOpen(false)}>Tampilkan {result.length} hasil</button></footer></section></div>}
+      {detail&&<ServiceDetail service={detail} close={()=>setDetail(null)} book={()=>{setDetail(null);openBooking(detail)}}/>}
     </div>
   );
 }
@@ -714,9 +731,9 @@ function ProfileView({ notify,account,petCount,points,onLogout,onChanged }: { no
   </div>;
 }
 function ProfileEditModal({account,close,notify,changed}:{account:PetOwnerBootstrap["user"];close:()=>void;notify:Notify;changed:()=>Promise<void>}){const[busy,setBusy]=useState(false);async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);const values=Object.fromEntries(new FormData(event.currentTarget));try{await updatePetOwnerProfile({full_name:String(values.full_name),phone:String(values.phone)});await changed();notify("Profil berhasil diperbarui");close()}catch(error){notify(error instanceof Error?error.message:"Profil belum dapat diperbarui")}finally{setBusy(false)}}return <div className="modal-overlay" onMouseDown={close}><section className="modal form-modal" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><span className="section-eyebrow">DATA AKUN</span><h2>Edit profil pet parent</h2><form className="world-form" onSubmit={submit}><label><span>Nama lengkap</span><input name="full_name" defaultValue={account.full_name} minLength={2} required/></label><label><span>Email login</span><input value={account.email} disabled/></label><label><span>Nomor telepon</span><input name="phone" defaultValue={account.phone}/></label><button className="primary-button full" disabled={busy}>{busy?"Menyimpan…":"Simpan perubahan"}</button></form></section></div>}
-function ServiceDetail({service,close,book}:{service:Service;close:()=>void;book:()=>void}){return <div className="modal-overlay" onMouseDown={close}><section className="modal service-detail-modal" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><div className={`service-detail-visual ${service.accent}`}><span>{service.emoji}</span><em>{service.type}</em></div><span className="section-eyebrow">LAYANAN TERVERIFIKASI</span><h2>{service.name}</h2><p><Icon name="map" size={14}/> {service.distance} · {service.address}</p><div className="tag-row">{service.tags.map(tag=><span key={tag}>{tag}</span>)}</div><dl className="service-detail-facts"><div><dt>Status</dt><dd>{service.status}</dd></div><div><dt>Harga</dt><dd>{service.price}</dd></div><div><dt>Rating</dt><dd>{service.rating?`${service.rating} (${service.reviews})`:"Partner baru"}</dd></div></dl><button className="primary-button full" onClick={book}>Booking layanan</button></section></div>}
+function ServiceDetail({service,close,book}:{service:Service;close:()=>void;book:()=>void}){return <div className="modal-overlay" onMouseDown={close}><section className="modal service-detail-modal" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><div className={`service-detail-visual ${service.accent}`}><span>{service.emoji}</span><em>{service.type}</em></div><span className="section-eyebrow">LAYANAN TERVERIFIKASI</span><h2>{service.name}</h2><p><Icon name="map" size={14}/> {service.distance} · {service.address}</p><div className="tag-row">{service.tags.map(tag=><span key={tag}>{tag}</span>)}</div><dl className="service-detail-facts"><div><dt>Status</dt><dd>{service.status}</dd></div><div><dt>Harga</dt><dd>{service.price}</dd></div><div><dt>Rating & ulasan</dt><dd>{service.rating>0?`★ ${service.rating.toFixed(1)} · ${service.reviews.toLocaleString("id-ID")} ulasan`:`— · ${service.reviews.toLocaleString("id-ID")} ulasan`}</dd></div></dl><button className="primary-button full" onClick={book}>Booking layanan</button></section></div>}
 
-function ActivityDetail({item,close}:{item:ActivityItem;close:()=>void}){return <div className="modal-overlay" onMouseDown={close}><section className="modal activity-detail-modal" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><span className="section-eyebrow">{item.category.toUpperCase()} · {item.status.toUpperCase()}</span><h2>{item.title}</h2><p>{item.description}</p><dl><div><dt>Waktu</dt><dd>{new Date(item.starts_at||item.occurred_at).toLocaleString("id-ID")}</dd></div>{Object.entries(item.metadata||{}).filter(([,value])=>typeof value==="string"||typeof value==="number").map(([key,value])=><div key={key}><dt>{key.replaceAll("_"," ")}</dt><dd>{String(value)}</dd></div>)}</dl>{item.metadata?.latitude&&<a className="primary-button full" href={`https://www.google.com/maps/dir/?api=1&destination=${item.metadata.latitude},${item.metadata.longitude}`} target="_blank" rel="noreferrer">Petunjuk arah</a>}</section></div>}
+function ActivityDetail({item,close}:{item:ActivityItem;close:()=>void}){const icon=item.category==="booking"?"📅":item.category==="consultation"?"💬":item.category==="order"?"📦":"🐾";const metadata=Object.entries(item.metadata||{}).filter(([key,value])=>!['latitude','longitude'].includes(key)&&(typeof value==="string"||typeof value==="number"));return <div className="modal-overlay" onMouseDown={close}><section className="modal activity-detail-modal" onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button><header className="activity-detail-hero"><span>{icon}</span><div><small>{item.category.toUpperCase()}</small><h2>{item.title}</h2><em>{item.status.replaceAll("_"," ")}</em></div></header><div className="activity-detail-copy"><span className="activity-detail-label">RINGKASAN AKTIVITAS</span><p>{item.description}</p></div><dl><div className="activity-detail-time"><dt>Waktu</dt><dd>{new Date(item.starts_at||item.occurred_at).toLocaleString("id-ID",{dateStyle:"full",timeStyle:"short"})}</dd></div>{metadata.map(([key,value])=><div key={key}><dt>{key.replaceAll("_"," ")}</dt><dd>{String(value)}</dd></div>)}</dl><footer>{item.metadata?.latitude&&<a className="secondary-button" href={`https://www.google.com/maps/dir/?api=1&destination=${item.metadata.latitude},${item.metadata.longitude}`} target="_blank" rel="noreferrer"><Icon name="map" size={16}/> Petunjuk arah</a>}<button className="primary-button" type="button" onClick={close}>Selesai</button></footer></section></div>}
 
 function FavoritesView({services,products,openBooking,addToCart,remove}:{services:Service[];products:Product[];openBooking:(service:Service)=>void;addToCart:(id:string)=>void;remove:(type:string,id:string)=>void|Promise<void>}){const empty=!services.length&&!products.length;return <div><div className="favorites-intro"><span>♡</span><div><h2>Koleksi favoritmu</h2><p>Layanan dan produk favorit tersimpan pada akun di semua perangkat.</p></div></div>{services.length>0&&<><div className="panel-heading"><div><span className="section-eyebrow">LAYANAN</span><h3>Favorit layanan</h3></div></div><div className="service-list-grid">{services.map(service=><article className="service-result-card" key={service.id}><div className={`service-result-cover ${service.accent}`}><span>{service.emoji}</span><em>{service.type}</em><button className="favorite" onClick={()=>void remove("service",service.id)} aria-label={`Hapus ${service.name} dari favorit`}><Icon name="heart"/></button></div><div className="service-result-body"><h3>{service.name}</h3><p>{service.address}</p><div className="service-result-footer"><b>{service.price}</b><button className="primary-button small" onClick={()=>openBooking(service)}>Booking</button></div></div></article>)}</div></>}{products.length>0&&<><div className="panel-heading favorite-product-heading"><div><span className="section-eyebrow">PRODUK</span><h3>Favorit produk</h3></div></div><div className="product-grid">{products.map(product=><article className="product-card" key={product.id}><div className="product-visual"><span>{product.emoji}</span><button className="favorite" onClick={()=>void remove("product",product.id)} aria-label={`Hapus ${product.name} dari favorit`}><Icon name="heart"/></button></div><div className="product-body"><small>{product.brand}</small><h3>{product.name}</h3><div className="product-price"><b>{formatRupiah(product.price)}</b><button onClick={()=>addToCart(product.id)}><Icon name="plus"/></button></div></div></article>)}</div></>}{empty&&<div className="empty-state"><span>♡</span><h3>Belum ada favorit</h3><p>Tekan ikon hati di Jelajahi atau Pet Shop untuk menyimpan pilihan.</p></div>}</div>}
 

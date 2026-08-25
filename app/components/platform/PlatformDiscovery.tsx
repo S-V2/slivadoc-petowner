@@ -9,6 +9,7 @@ import {
   createPetHubStory,
   enrollAcademy,
   getAcademyPrograms,
+  trackAcademyProgramClick,
   getPetEvents,
   getPetHubFeed,
   getPetHubComments,
@@ -50,6 +51,7 @@ export default function PlatformDiscovery({ mode, petName, ownerName="Pet Parent
     if(mode==="petspot"){void getPetSpots().then(value=>setSpots(value.data)).catch(failed("PetSpot")).finally(()=>setLoading(false));return}
     void Promise.all([getPetHubStreams(),getPetHubStories()]).then(([stream,story])=>{setStreams(stream.data);setStories(story.data)}).catch(failed("PetHub")).finally(()=>setLoading(false));
   },[mode,notify]);
+  useEffect(()=>{if(selectedProgram)void trackAcademyProgramClick(selectedProgram.id).catch(()=>undefined)},[selectedProgram]);
   useEffect(()=>{if(mode!=="pethub")return;const type=hubTab==="Video"?"video":hubTab==="Thread"?"thread":"";const tab=hubTab==="Mengikuti"?"following":"for_you";void Promise.resolve().then(()=>setLoading(true));void getPetHubFeed({tab,type}).then(response=>setPosts(response.data)).catch(error=>notify(error instanceof Error?error.message:"Feed PetHub belum dapat dimuat")).finally(()=>setLoading(false))},[hubTab,mode,notify]);
   const categorySpots=useMemo(()=>spots.filter(item=>(filter==="all"||item.category===filter)&&item.name.toLowerCase().includes(spotSearch.toLowerCase())&&(!Number.isFinite(item.distance_km)||Number(item.distance_km)<=maxDistance)),[spots,filter,spotSearch,maxDistance]);
   const relative=(value:string)=>{const minutes=Math.max(1,Math.floor((renderedAt-new Date(value).getTime())/60000));return minutes<60?`${minutes}m`:minutes<1440?`${Math.floor(minutes/60)}j`:`${Math.floor(minutes/1440)}h`;};

@@ -71,6 +71,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const getAcademyPrograms = () => request<PlatformList<AcademyProgram>>("/api/v1/public/academy/programs");
+export const trackAcademyProgramClick = (programId: string) => request<void>(`/api/v1/public/academy/programs/${programId}/click`, { method: "POST" });
 export const enrollAcademy = (input: { program_id: string; participant_name: string; pet_name: string }) => request<{ id: string; status: string; amount: number; message: string }>("/api/v1/academy/enrollments", { method: "POST", body: JSON.stringify(input) });
 export const getPetEvents = () => request<PlatformList<PetEvent>>("/api/v1/public/events");
 export const registerEvent = (eventId: string, input: { participant_name: string; participant_email: string; ticket_quantity: number }) => request<{ id: string; qr_token: string; status: string; amount: number }>(`/api/v1/events/${eventId}/registrations`, { method: "POST", body: JSON.stringify(input) });

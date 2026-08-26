@@ -14,7 +14,9 @@ test("Petship and Animal Fund are visible and integrated with platform APIs", ()
     assert.match(api, new RegExp(endpoint));
   }
   assert.match(features, /heartbeatPetship/);
-  assert.match(features, /simulateFundraiserDonationPaid/);
+  assert.match(features, /createPaymentIntent\("fundraiser_donation"/);
+  assert.match(features, /PaymentMethodPicker/);
+  assert.doesNotMatch(features, /simulateFundraiserDonationPaid/);
 });
 
 test("web and mobile registration require both legal consents and a leading-zero phone", () => {

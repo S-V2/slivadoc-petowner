@@ -6,16 +6,19 @@ import { colors, shadow } from "../theme";
 
 export function MobilePaymentMethods({value,onChange,disabled=false}:{value:string;onChange:(value:string)=>void;disabled?:boolean}){
   const[methods,setMethods]=useState<MobilePaymentMethod[]>([]);const[message,setMessage]=useState("");
-  useEffect(()=>{let active=true;void getMobilePaymentMethods().then(result=>{if(!active)return;setMethods(result.data);if(result.data.length&&!result.data.some(item=>item.code===value))onChange(result.data[0].code)}).catch(cause=>active&&setMessage(cause instanceof Error?cause.message:"Metode pembayaran belum tersedia"));return()=>{active=false}},[onChange,value]);
+  useEffect(()=>{let active=true;void getMobilePaymentMethods().then(result=>{if(!active)return;setMethods(result.data);const first=result.data[0];if(first&&!result.data.some(item=>item.code===value))onChange(first.code)}).catch(cause=>active&&setMessage(cause instanceof Error?cause.message:"Metode pembayaran belum tersedia"));return()=>{active=false}},[onChange,value]);
   return <View style={styles.methods}><Text style={styles.label}>Metode pembayaran</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.methodRow}>{methods.map(item=><Pressable disabled={disabled} onPress={()=>onChange(item.code)} key={item.code} style={[styles.method,item.code===value&&styles.methodActive]}><Text style={styles.methodIcon}>{item.method==="qris"?"▦":"🏦"}</Text><Text style={styles.methodLabel}>{item.label}</Text><Text numberOfLines={1} style={styles.methodNote}>{item.description}</Text>{item.code===value?<Text style={styles.check}>✓</Text>:null}</Pressable>)}</ScrollView>{!methods.length?<Text style={styles.message}>{message||"Memuat metode BatPay…"}</Text>:null}</View>
 }
 
 export function MobileBatpayModal({payment,onClose,onPaid}:{payment?:MobilePaymentIntent;onClose:()=>void;onPaid:()=>void}){
+  if(!payment)return null;
+  return <MobileBatpayModalState key={payment.id} payment={payment} onClose={onClose} onPaid={onPaid}/>;
+}
+
+function MobileBatpayModalState({payment,onClose,onPaid}:{payment:MobilePaymentIntent;onClose:()=>void;onPaid:()=>void}){
   const[current,setCurrent]=useState(payment);const notified=useRef(false);
-  useEffect(()=>{notified.current=false;setCurrent(payment)},[payment]);
   useEffect(()=>{if(current?.status==="paid"&&!notified.current){notified.current=true;onPaid()}},[current?.status,onPaid]);
   useEffect(()=>{if(!current||current.status!=="pending")return;let active=true;const poll=()=>void getMobilePaymentIntent(current.id).then(result=>active&&setCurrent(result)).catch(()=>undefined);const timer=setInterval(poll,5000);void poll();return()=>{active=false;clearInterval(timer)}},[current?.id,current?.status]);
-  if(!current)return null;
   return <Modal visible transparent animationType="slide" onRequestClose={onClose}><View style={styles.backdrop}><SafeAreaView style={styles.wrap}><View style={styles.sheet}><View style={styles.handle}/><Pressable onPress={onClose} style={styles.close}><Text>×</Text></Pressable>{current.status==="paid"?<View style={styles.center}><View style={styles.success}><Text style={styles.successText}>✓</Text></View><Text style={styles.title}>Pembayaran berhasil</Text><Text style={styles.note}>Transaksi sudah tercatat dan layanan sedang diproses.</Text><Pressable onPress={onClose} style={styles.primary}><Text style={styles.primaryText}>Selesai</Text></Pressable></View>:<View style={styles.center}><Text style={styles.kicker}>BATPAY · {current.method==="qris"?"QRIS":`${current.bank_code||"BANK"} VA`}</Text><Text style={styles.title}>{current.method==="qris"?"Scan QR untuk membayar":"Transfer ke Virtual Account"}</Text><Text style={styles.note}>{current.order_id} · berlaku 15 menit</Text>{current.method==="qris"&&current.qr_url?<Image source={{uri:current.qr_url}} style={styles.qr}/>:<View style={styles.va}><Text style={styles.vaLabel}>Nomor Virtual Account</Text><Text selectable style={styles.vaNumber}>{current.va_number||"—"}</Text>{current.va_name?<Text style={styles.note}>a.n. {current.va_name}</Text>:null}</View>}<Text style={styles.amount}>{new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(current.amount)}</Text><Text style={current.status==="failed"||current.status==="refunded"?styles.failed:styles.wait}>{current.status==="refunded"?"Pembayaran sudah direfund":current.status==="failed"?"Pembayaran gagal atau kedaluwarsa":"● Menunggu konfirmasi pembayaran…"}</Text></View>}</View></SafeAreaView></View></Modal>
 }
 

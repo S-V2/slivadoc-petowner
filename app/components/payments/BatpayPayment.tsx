@@ -6,15 +6,18 @@ import { getPaymentIntent, getPaymentMethods, type PaymentIntent, type PaymentMe
 export function PaymentMethodPicker({value,onChange,disabled=false}:{value:string;onChange:(value:string)=>void;disabled?:boolean}) {
   const [methods,setMethods]=useState<PaymentMethod[]>([]);
   const [message,setMessage]=useState("");
-  useEffect(()=>{let active=true;void getPaymentMethods().then(result=>{if(!active)return;setMethods(result.data);if(result.data.length&&!result.data.some(item=>item.code===value))onChange(result.data[0].code)}).catch(error=>{if(active)setMessage(error instanceof Error?error.message:"Metode pembayaran belum dapat dimuat")});return()=>{active=false}},[onChange,value]);
+  useEffect(()=>{let active=true;void getPaymentMethods().then(result=>{if(!active)return;setMethods(result.data);const first=result.data[0];if(first&&!result.data.some(item=>item.code===value))onChange(first.code)}).catch(error=>{if(active)setMessage(error instanceof Error?error.message:"Metode pembayaran belum dapat dimuat")});return()=>{active=false}},[onChange,value]);
   return <fieldset className="batpay-methods" disabled={disabled}><legend>Metode pembayaran</legend>{methods.length?<div>{methods.map(method=><button type="button" className={method.code===value?"active":""} onClick={()=>onChange(method.code)} key={method.code}><span>{method.method==="qris"?"▦":"🏦"}</span><p><b>{method.label}</b><small>{method.description}</small></p><i>{method.code===value?"✓":""}</i></button>)}</div>:<p className="batpay-method-message">{message||"Memuat metode BatPay…"}</p>}</fieldset>;
 }
 
-export function BatpayPaymentPanel({payment,onPaid,onClose}:{payment:PaymentIntent;onPaid?:()=>void;onClose?:()=>void}) {
+export function BatpayPaymentPanel(props:{payment:PaymentIntent;onPaid?:()=>void;onClose?:()=>void}) {
+  return <BatpayPaymentState key={props.payment.id} {...props}/>;
+}
+
+function BatpayPaymentState({payment,onPaid,onClose}:{payment:PaymentIntent;onPaid?:()=>void;onClose?:()=>void}) {
   const [current,setCurrent]=useState(payment);
   const [message,setMessage]=useState("");
   const paidNotified=useRef(false);
-  useEffect(()=>{paidNotified.current=false;setCurrent(payment)},[payment]);
   useEffect(()=>{if(current.status==="paid"&&!paidNotified.current){paidNotified.current=true;onPaid?.()}},[current.status,onPaid]);
   useEffect(()=>{if(current.status!=="pending")return;let active=true;const poll=()=>void getPaymentIntent(current.id).then(result=>{if(active)setCurrent(result)}).catch(()=>undefined);const timer=window.setInterval(poll,5000);void poll();return()=>{active=false;window.clearInterval(timer)}},[current.id,current.status]);
   async function copy(value:string,label:string){try{await navigator.clipboard.writeText(value);setMessage(`${label} berhasil disalin.`)}catch{setMessage("Browser tidak mengizinkan clipboard.")}}

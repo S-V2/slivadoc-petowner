@@ -1,0 +1,139 @@
+# Build the production images and push them to GHCR.
+#
+# This repo ships TWO images, because the Pet Owner API lives in a subdirectory
+# rather than in its own repository:
+#
+#   ghcr.io/s-v2/slivadoc-petowner      <- the vinext web app (repo root)
+#   ghcr.io/s-v2/slivadoc-petowner-api  <- services/petowner-api
+#
+# mobile/ is deliberately NOT built here. It is an Expo/React Native client
+# (expo ~54, react-native 0.81.5) built through EAS, not a server image; the
+# existing ci.yml already typechecks it.
+#
+# Images are built HERE, in CI, for linux/amd64 only — the deployment VM is
+# x86_64. Nothing is built on the VM itself; it only pulls.
+#
+# The GHCR namespace is lowercased from the org name: S-V2 -> s-v2.
+# Packages default to PRIVATE, so the VM needs `docker login ghcr.io` with a
+# PAT carrying read:packages before `docker compose pull` will work.
+#
+# This workflow is additive: it does not replace or modify ci.yml (lint/test).
+#
+# PR BUILDS: this workflow also runs on pull_request with `push: false`, so every PR
+# exercises the real image build. That matters because the repo has TWO build paths —
+# ci.yml goes through scripts/build-verified.sh (3-minute timeout, .sites-runtime
+# sandbox), while the Dockerfile calls `npx vinext build` directly. Without a PR image
+# build, a green ci.yml would not prove the image builds and the two paths could drift
+# silently until a deploy failed.
+#
+# On pull_request the GHCR login is skipped entirely: GITHUB_TOKEN on a fork PR has no
+# packages: write, and a build that does not push needs no registry credentials. The GHA
+# cache is also read-only on PRs (cache-from only, no cache-to), because fork PRs cannot
+# write the base repo's cache and a failed export would fail the build.
+#
+# REQUIRED REPOSITORY VARIABLES (Settings -> Secrets and variables -> Actions ->
+# Variables). These are *variables*, not secrets: they are public URLs baked
+# into the client bundle at build time, so keeping them visible makes them
+# reviewable and editable without a secret rotation.
+#
+#   NEXT_PUBLIC_PETOWNER_API_URL = https://petapi.slivadoc.xyz
+#   NEXT_PUBLIC_PLATFORM_API_URL = https://api.slivadoc.xyz
+#   NEXT_PUBLIC_REALTIME_URL     = https://rt.slivadoc.xyz
+#
+# These CANNOT be changed by editing compose or restarting a container — Vite
+# inlines them into the client bundle, so a change means a rebuild of the web
+# image. If a variable is unset the build still succeeds: the Dockerfile unsets
+# the empty value so each call site falls back to its own localhost default,
+# which is almost certainly wrong in production. Set all three.
+
+name: Publish Slivadoc Pet Owner images
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-slivadoc-petowner-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Build and push slivadoc-petowner (web)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ghcr.io/s-v2/slivadoc-petowner:latest
+            ghcr.io/s-v2/slivadoc-petowner:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_PETOWNER_API_URL=${{ vars.NEXT_PUBLIC_PETOWNER_API_URL }}
+            NEXT_PUBLIC_PLATFORM_API_URL=${{ vars.NEXT_PUBLIC_PLATFORM_API_URL }}
+            NEXT_PUBLIC_REALTIME_URL=${{ vars.NEXT_PUBLIC_REALTIME_URL }}
+          cache-from: type=gha,scope=petowner-web
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max,scope=petowner-web' || '' }}
+          # Single-platform image: skip provenance/SBOM attestations so the pushed
+          # tag is a plain image manifest rather than an index with an
+          # unknown/unknown entry, which keeps `docker pull` on the VM simple.
+          provenance: false
+
+  api:
+    name: Build and push slivadoc-petowner-api
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Context is the service directory, so services/petowner-api/.dockerignore
+      # applies and the repo-root ignore file does not.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services/petowner-api
+          file: ./services/petowner-api/Dockerfile
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ghcr.io/s-v2/slivadoc-petowner-api:latest
+            ghcr.io/s-v2/slivadoc-petowner-api:${{ github.sha }}
+          cache-from: type=gha,scope=petowner-api
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max,scope=petowner-api' || '' }}
+          provenance: false

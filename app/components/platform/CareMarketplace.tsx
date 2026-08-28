@@ -10,6 +10,11 @@ import {
   type FormEvent,
 } from "react";
 import { io, type Socket } from "socket.io-client";
+import type {
+  RemoteParticipant,
+  RemoteTrack,
+  Room,
+} from "twilio-video";
 import type { Pet } from "../../data/mock";
 import {
   applyAdoption,
@@ -810,51 +815,89 @@ function ConsultationRoom({
   notify: (m: string) => void;
 }) {
   const socketRef = useRef<Socket | null>(null);
-  const peerRef = useRef<RTCPeerConnection | null>(null);
-  const localVideo = useRef<HTMLVideoElement | null>(null);
-  const remoteVideo = useRef<HTMLVideoElement | null>(null);
+  const roomRef = useRef<Room | null>(null);
+  const localMedia = useRef<HTMLDivElement | null>(null);
+  const remoteMedia = useRef<HTMLDivElement | null>(null);
   const [messages, setMessages] = useState<
     Array<{ id: string; body: string; mine: boolean }>
   >([]);
   const [text, setText] = useState("");
   const [state, setState] = useState("Menghubungkan room…");
   const [call, setCall] = useState<"idle" | "ringing" | "active">("idle");
+  const [incomingMode, setIncomingMode] = useState<"voice" | "video">("voice");
   const realtime =
     process.env.NEXT_PUBLIC_REALTIME_URL || "http://localhost:8091";
   const endCall = useCallback(() => {
-    peerRef.current?.getSenders().forEach((sender) => sender.track?.stop());
-    peerRef.current?.close();
-    peerRef.current = null;
+    roomRef.current?.localParticipant.tracks.forEach((publication) => {
+      if (publication.track.kind !== "data") publication.track.stop();
+    });
+    roomRef.current?.disconnect();
+    roomRef.current = null;
+    localMedia.current?.replaceChildren();
+    remoteMedia.current?.replaceChildren();
     setCall("idle");
   }, []);
-  const preparePeer = useCallback(
-    async (socket: Socket, video: boolean) => {
-      const config = await fetch(`${realtime}/rtc-config`)
-        .then((response) => response.json())
-        .catch(() => ({
-          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-        }));
-      const peer = new RTCPeerConnection(config);
-      peerRef.current = peer;
-      const stream = await navigator.mediaDevices.getUserMedia({
+  const connectMedia = useCallback(
+    async (video: boolean) => {
+      const accessToken =
+        localStorage.getItem("slivadoc.access_token") ||
+        localStorage.getItem("access_token");
+      if (!accessToken) throw new Error("Login diperlukan untuk membuka media.");
+      const response = await fetch(
+        `${realtime}/api/v1/consultations/${encodeURIComponent(consultation.id)}/twilio-token`,
+        { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        token?: string;
+        roomName?: string;
+        error?: string;
+      };
+      if (!response.ok || !payload.token || !payload.roomName) {
+        throw new Error(
+          payload.error === "twilio_video_not_configured"
+            ? "Twilio Video belum dikonfigurasi."
+            : "Akses media konsultasi ditolak.",
+        );
+      }
+      endCall();
+      const { connect } = await import("twilio-video");
+      const room = await connect(payload.token, {
+        name: payload.roomName,
         audio: true,
         video,
+        networkQuality: { local: 1, remote: 1 },
       });
-      if (localVideo.current) localVideo.current.srcObject = stream;
-      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
-      peer.ontrack = (event) => {
-        if (remoteVideo.current)
-          remoteVideo.current.srcObject = event.streams[0];
+      roomRef.current = room;
+      const attachTrack = (track: RemoteTrack) => {
+        if (track.kind === "data") return;
+        const element = track.attach();
+        if (track.kind === "video") Object.assign(element.style, { width: "100%", height: "100%", objectFit: "cover" });
+        remoteMedia.current?.append(element);
       };
-      peer.onicecandidate = (event) =>
-        event.candidate &&
-        socket.emit("call:ice-candidate", {
-          consultationId: consultation.id,
-          candidate: event.candidate,
+      const attachParticipant = (participant: RemoteParticipant) => {
+        participant.tracks.forEach((publication) => {
+          if (publication.track) attachTrack(publication.track);
         });
-      return peer;
+        participant.on("trackSubscribed", attachTrack);
+      };
+      room.participants.forEach(attachParticipant);
+      room.on("participantConnected", attachParticipant);
+      room.on("disconnected", () => {
+        localMedia.current?.replaceChildren();
+        remoteMedia.current?.replaceChildren();
+        roomRef.current = null;
+        setCall("idle");
+      });
+      room.localParticipant.tracks.forEach((publication) => {
+        if (publication.track.kind === "video") {
+          const element = publication.track.attach();
+          Object.assign(element.style, { width: "100%", height: "100%", objectFit: "cover" });
+          localMedia.current?.append(element);
+        }
+      });
+      setCall("active");
     },
-    [consultation.id, realtime],
+    [consultation.id, endCall, realtime],
   );
   useEffect(() => {
     const token =
@@ -899,48 +942,43 @@ function ConsultationRoom({
             ];
       }),
     );
-    socket.on("call:offer", async (p) => {
+    socket.on("call:ring", (p: { mode?: string }) => {
+      setIncomingMode(p.mode === "video" ? "video" : "voice");
       setCall("ringing");
-      await preparePeer(socket, p.mode === "video");
-      await peerRef.current?.setRemoteDescription(p.offer);
     });
-    socket.on("call:answer", (p) =>
-      peerRef.current?.setRemoteDescription(p.answer),
-    );
-    socket.on("call:ice-candidate", (p) =>
-      peerRef.current?.addIceCandidate(p.candidate),
-    );
+    socket.on("call:accept", () => setCall("active"));
+    socket.on("call:reject", () => {
+      endCall();
+      notify("Panggilan ditolak oleh penerima");
+    });
     socket.on("call:end", endCall);
     return () => {
       socket.disconnect();
-      peerRef.current?.close();
+      endCall();
     };
-  }, [consultation.id, endCall, preparePeer, realtime]);
+  }, [consultation.id, endCall, notify, realtime]);
   async function startCall(video: boolean) {
     const socket = socketRef.current;
     if (!socket) return;
     try {
-      const peer = await preparePeer(socket, video);
-      const offer = await peer.createOffer();
-      await peer.setLocalDescription(offer);
-      socket.emit("call:offer", {
+      await connectMedia(video);
+      socket.emit("call:ring", {
         consultationId: consultation.id,
         mode: video ? "video" : "voice",
-        offer,
       });
-      setCall("active");
-    } catch {
-      notify("Izinkan kamera dan mikrofon untuk memulai panggilan");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Izinkan kamera dan mikrofon untuk memulai panggilan");
     }
   }
   async function accept() {
-    const socket = socketRef.current,
-      peer = peerRef.current;
-    if (!socket || !peer) return;
-    const answer = await peer.createAnswer();
-    await peer.setLocalDescription(answer);
-    socket.emit("call:answer", { consultationId: consultation.id, answer });
-    setCall("active");
+    const socket = socketRef.current;
+    if (!socket) return;
+    try {
+      await connectMedia(incomingMode === "video");
+      socket.emit("call:accept", { consultationId: consultation.id, mode: incomingMode });
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Panggilan belum dapat diterima");
+    }
   }
   function send() {
     if (!text.trim() || !socketRef.current) return;
@@ -992,8 +1030,12 @@ function ConsultationRoom({
         </header>
         {call !== "idle" && (
           <div className="webrtc-stage">
-            <video ref={remoteVideo} autoPlay playsInline />
-            <video ref={localVideo} autoPlay muted playsInline />
+            <div ref={remoteMedia} className="twilio-remote-media" style={{ width: "100%", height: "100%" }} />
+            <div
+              ref={localMedia}
+              className="twilio-local-media"
+              style={{ position: "absolute", right: 12, bottom: 12, width: 150, height: 100, overflow: "hidden", border: "2px solid white", borderRadius: 12, background: "#102f45" }}
+            />
             {call === "ringing" && (
               <button className="primary-button" onClick={() => void accept()}>
                 Terima panggilan

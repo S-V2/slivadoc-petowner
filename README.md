@@ -16,6 +16,7 @@ Aplikasi end-user Slivadoc dalam satu monorepo: web responsive dan mobile Androi
 - Pet Event: featured banner, detail acara, kapasitas, tiket, dan registrasi
 - PetSpot: discovery cafe, mall, taman, dan lokasi pet-friendly berbasis jarak
 - PetHub: live streaming, channel, feed, pet thread, reaction, komentar, share, dan composer
+- SEO publik: landing page layanan, panduan, hub kota, direktori mitra, schema JSON-LD, sitemap dinamis, robots, RSS, dan IndexNow
 
 ## Persyaratan
 
@@ -123,14 +124,15 @@ Development memakai geolocation browser/native serta OpenStreetMap/Nominatim mel
 | Upload foto | `POST /api/uploads/images` multipart |
 | Lokasi | `GET /api/location/search`, `GET /api/location/reverse` |
 | SlivaCare | `POST /api/assistant/chat` |
-| Komunitas | `/api/v1/community/*` pada `slivadoc-backend` dengan bearer session |
+| Komunitas | `GET/POST /api/community/posts`, like, comments |
+| Realtime komunitas | `community:join`, `community:new-post`, `community:update` |
 | Realtime chat | `chat:join`, `chat:history`, `chat:send`, `chat:message` |
 | Sliva Academy | `GET /api/v1/public/academy/programs`, `POST /api/v1/academy/enrollments` |
 | Pet Event | `GET /api/v1/public/events`, `POST /api/v1/events/{eventID}/registrations` |
 | PetSpot | `GET /api/v1/public/petspots` dengan koordinat opsional |
 | PetHub | public feed/streams, create thread, dan reaction di `/api/v1/pethub/*` |
 
-Gateway bersifat stateless. Komunitas dan chat disimpan oleh `slivadoc-backend` di PostgreSQL, wajib memakai bearer session Slivadoc, dan tidak lagi memiliki fallback data lokal yang dapat berbeda antar-replika.
+Gateway menyimpan posting komunitas lama dan chat ke file JSON lokal untuk development. Modul Sliva World sudah terhubung ke `slivadoc-backend`, PostgreSQL, dan bearer session Slivadoc; UI menyediakan fallback lokal agar tetap dapat dipreview ketika backend belum dinyalakan.
 
 ## Validasi
 
@@ -141,6 +143,8 @@ npm run build
 npm test
 cd mobile && npm run typecheck
 ```
+
+Setup verifikasi mesin pencari, environment produksi, standar profil cabang, dan KPI dijelaskan di [`docs/SEO-OPERATIONS.md`](docs/SEO-OPERATIONS.md).
 
 ## Struktur
 

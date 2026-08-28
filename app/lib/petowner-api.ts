@@ -47,18 +47,30 @@ export type RealtimeMessage = {
 };
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = typeof window === "undefined" ? "" : window.localStorage.getItem("slivadoc.access_token") ?? window.localStorage.getItem("access_token") ?? "";
+  const token =
+    typeof window === "undefined"
+      ? ""
+      : (window.localStorage.getItem("slivadoc.access_token") ??
+        window.localStorage.getItem("access_token") ??
+        "");
   const response = await fetch(`${PETOWNER_API_URL}${path}`, {
     ...init,
     headers: {
-      ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...(init?.body instanceof FormData
+        ? {}
+        : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(payload.message ?? payload.answer ?? payload.error ?? "Layanan pet owner sedang belum tersedia") as Error & { code?: string; status?: number };
+    const error = new Error(
+      payload.message ??
+        payload.answer ??
+        payload.error ??
+        "Layanan pet owner sedang belum tersedia",
+    ) as Error & { code?: string; status?: number };
     error.code = payload.error;
     error.status = response.status;
     throw error;
@@ -66,53 +78,105 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-export async function uploadImage(file: File, folder: "pets" | "community" | "documents" = "pets") {
+export async function uploadImage(
+  file: File,
+  folder: "pets" | "community" | "documents" = "pets",
+) {
   const body = new FormData();
   body.append("file", file);
   body.append("folder", folder);
-  return apiFetch<{ url: string; publicId: string; width: number; height: number }>("/api/uploads/images", { method: "POST", body });
+  return apiFetch<{
+    url: string;
+    publicId: string;
+    width: number;
+    height: number;
+  }>("/api/uploads/images", { method: "POST", body });
 }
 
 export function reverseGeocode(latitude: number, longitude: number) {
-  return apiFetch<LocationResult>(`/api/location/reverse?lat=${encodeURIComponent(latitude)}&lng=${encodeURIComponent(longitude)}`);
+  return apiFetch<LocationResult>(
+    `/api/location/reverse?lat=${encodeURIComponent(latitude)}&lng=${encodeURIComponent(longitude)}`,
+  );
 }
 
 export function searchLocation(query: string) {
-  return apiFetch<Array<LocationResult & { id: string; type: string }>>(`/api/location/search?q=${encodeURIComponent(query)}`);
+  return apiFetch<Array<LocationResult & { id: string; type: string }>>(
+    `/api/location/search?q=${encodeURIComponent(query)}`,
+  );
 }
 
 export function askSlivaCare(input: {
   message: string;
   userId: string;
-  pet?: { name?: string; species?: string; breed?: string; age?: string; weight?: string };
+  pet?: {
+    name?: string;
+    species?: string;
+    breed?: string;
+    age?: string;
+    weight?: string;
+  };
   history: AssistantMessage[];
 }) {
-  return apiFetch<{ answer: string; mode: "openai" | "offline_dataset"; sources?: string[]; degraded?: boolean; fallbackReason?: string; notice?: string }>("/api/assistant/chat", { method: "POST", body: JSON.stringify(input) });
+  return apiFetch<{
+    answer: string;
+    mode: "openai" | "offline_dataset";
+    sources?: string[];
+    degraded?: boolean;
+    fallbackReason?: string;
+    notice?: string;
+  }>("/api/assistant/chat", { method: "POST", body: JSON.stringify(input) });
 }
 
 export function getCommunityPosts() {
   return apiFetch<CommunityPost[]>("/api/community/posts");
 }
 
-export function createCommunityPost(input: Pick<CommunityPost, "author" | "body" | "tag"> & Partial<Pick<CommunityPost, "petName" | "imageUrl" | "location">>) {
-  return apiFetch<CommunityPost>("/api/community/posts", { method: "POST", body: JSON.stringify(input) });
+export function createCommunityPost(
+  input: Pick<CommunityPost, "author" | "body" | "tag"> &
+    Partial<Pick<CommunityPost, "petName" | "imageUrl" | "location">>,
+) {
+  return apiFetch<CommunityPost>("/api/community/posts", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export function toggleCommunityLike(postId: string, userId: string) {
-  return apiFetch<CommunityPost>(`/api/community/posts/${postId}/like`, { method: "POST", body: JSON.stringify({ userId }) });
+  return apiFetch<CommunityPost>(`/api/community/posts/${postId}/like`, {
+    method: "POST",
+    body: JSON.stringify({ userId }),
+  });
 }
 
-export function addCommunityComment(postId: string, author: string, body: string) {
-  return apiFetch<CommunityPost>(`/api/community/posts/${postId}/comments`, { method: "POST", body: JSON.stringify({ author, body }) });
+export function addCommunityComment(
+  postId: string,
+  author: string,
+  body: string,
+) {
+  return apiFetch<CommunityPost>(`/api/community/posts/${postId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ author, body }),
+  });
 }
 
 let socket: Socket | null = null;
+let socketToken = "";
 
 export function realtimeSocket() {
-  const token = typeof window === "undefined" ? "" : window.localStorage.getItem("slivadoc.access_token") ?? window.localStorage.getItem("access_token") ?? "";
-  if (!socket || socket.auth?.token !== token) {
+  const token =
+    typeof window === "undefined"
+      ? ""
+      : (window.localStorage.getItem("slivadoc.access_token") ??
+        window.localStorage.getItem("access_token") ??
+        "");
+  if (!socket || socketToken !== token) {
     socket?.disconnect();
-    socket = io(PETOWNER_API_URL, { autoConnect: false, auth: { token }, transports: ["websocket", "polling"] });
+    socket = io(PETOWNER_API_URL, {
+      autoConnect: false,
+      auth: { token },
+      transports: ["websocket", "polling"],
+    });
+    socketToken = token;
   }
   return socket;
 }

@@ -17,8 +17,9 @@ export const metadata: Metadata = {
     images: ["/slivadoc-pet-hero.png"],
   },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/brand/slivadoc-favicon.png",
+    shortcut: "/brand/slivadoc-favicon.png",
+    apple: "/brand/slivadoc-logo.png",
   },
 };
 

@@ -13,6 +13,11 @@ test("consultation chat remains Socket.IO and media is room-scoped Twilio Video"
   assert.match(careRoom, /twilio-token/);
   assert.match(careRoom, /import\("twilio-video"\)/);
   assert.match(careRoom, /call:ring/);
+  assert.match(careRoom, /call:accept/);
+  assert.match(careRoom, /call:reject/);
+  assert.match(careRoom, /call:end/);
+  assert.match(careRoom, /getConsultationMessages/);
+  assert.match(careRoom, /sendConsultationMessage/);
   assert.doesNotMatch(careRoom, /new RTCPeerConnection/);
   assert.doesNotMatch(careRoom, /call:ice-candidate/);
 });

@@ -11,7 +11,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, shadow } from "../theme";
+import { colors, shadow, typography } from "../theme";
 
 type AppSurfaceContextValue = {
   bottomInset: number;
@@ -117,25 +117,25 @@ const styles = StyleSheet.create({
   topHeader: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 8 },
   locationIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.sky50, alignItems: "center", justifyContent: "center" },
   topHeaderCopy: { flex: 1, gap: 2 },
-  topKicker: { color: colors.muted, fontSize: 13, fontWeight: "600" },
-  topTitle: { color: colors.navy, fontSize: 17, fontWeight: "800" },
+  topKicker: { color: colors.muted, fontSize: typography.label, fontWeight: "600" },
+  topTitle: { color: colors.navy, fontSize: typography.cardTitle, lineHeight: 23, fontWeight: "800" },
   iconButton: { position: "relative", width: 44, height: 44, borderRadius: 14, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
   notificationDot: { position: "absolute", right: 8, top: 7, width: 7, height: 7, borderRadius: 4, borderWidth: 1.5, borderColor: colors.white, backgroundColor: colors.red },
   sectionTitle: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 14, marginTop: 26, marginBottom: 13 },
-  eyebrow: { color: colors.muted, fontSize: 12, fontWeight: "800", letterSpacing: 1.1, marginBottom: 3 },
-  sectionHeading: { color: colors.navy, fontSize: 22, fontWeight: "800", letterSpacing: -0.35 },
-  sectionAction: { color: colors.sky600, fontSize: 14, fontWeight: "700", paddingBottom: 2 },
+  eyebrow: { color: colors.muted, fontSize: typography.caption, fontWeight: "800", letterSpacing: 1.1, marginBottom: 3 },
+  sectionHeading: { color: colors.navy, fontSize: typography.sectionTitle, lineHeight: 28, fontWeight: "800", letterSpacing: -0.35 },
+  sectionAction: { color: colors.sky600, fontSize: typography.label, fontWeight: "700", paddingBottom: 2 },
   card: { borderRadius: 20, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, ...shadow },
   primaryButton: { minHeight: 48, paddingHorizontal: 17, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.sky500, ...shadow },
   compactButton: { minHeight: 44, borderRadius: 12, paddingHorizontal: 14 },
-  primaryButtonText: { color: colors.white, fontSize: 15, fontWeight: "800" },
+  primaryButtonText: { color: colors.white, fontSize: typography.control, fontWeight: "800" },
   lightButton: { backgroundColor: colors.white, shadowOpacity: 0 },
   lightButtonText: { color: colors.sky600 },
   softButton: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: colors.sky50 },
-  softButtonText: { color: colors.sky600, fontSize: 14, fontWeight: "800" },
+  softButtonText: { color: colors.sky600, fontSize: typography.control, fontWeight: "800" },
   pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
   pill: { alignSelf: "flex-start", paddingHorizontal: 9, paddingVertical: 6, borderRadius: 9 },
-  pillText: { fontSize: 12, fontWeight: "800" },
+  pillText: { fontSize: typography.caption, fontWeight: "800" },
   bluePill: { backgroundColor: colors.sky50 }, bluePillText: { color: colors.sky600 },
   mintPill: { backgroundColor: colors.mint50 }, mintPillText: { color: "#14836E" },
   yellowPill: { backgroundColor: colors.yellow50 }, yellowPillText: { color: "#A57315" },
@@ -143,6 +143,6 @@ const styles = StyleSheet.create({
   redPill: { backgroundColor: colors.red50 }, redPillText: { color: colors.red },
   empty: { minHeight: 360, alignItems: "center", justifyContent: "center", padding: 28 },
   emptyIcon: { fontSize: 55 },
-  emptyTitle: { marginTop: 12, color: colors.navy, fontSize: 21, fontWeight: "800" },
-  emptyNote: { maxWidth: 280, marginTop: 5, marginBottom: 16, color: colors.muted, fontSize: 15, lineHeight: 23, textAlign: "center" },
+  emptyTitle: { marginTop: 12, color: colors.navy, fontSize: typography.sectionTitle, lineHeight: 28, fontWeight: "800" },
+  emptyNote: { maxWidth: 280, marginTop: 5, marginBottom: 16, color: colors.muted, fontSize: typography.body, lineHeight: 23, textAlign: "center" },
 });

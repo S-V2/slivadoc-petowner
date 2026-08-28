@@ -9,6 +9,7 @@ import {
   type FormEvent,
 } from "react";
 import { Icon, type IconName } from "./Icon";
+import { BrandLogo as Logo } from "./BrandLogo";
 import AddPetExperience from "./integrations/AddPetExperience";
 import CommunityExperience from "./integrations/CommunityExperience";
 import LocationModal from "./integrations/LocationModal";
@@ -554,8 +555,7 @@ export default function PetOwnerApp() {
   if (bootstrapLoading)
     return (
       <div className="petowner-loading">
-        <Logo />
-        <div className="petowner-loading-paw">🐾</div>
+        <Logo markOnly priority />
         <h1>Menyiapkan rumah digital pet-mu</h1>
         <p>Menyinkronkan profil, kesehatan, aktivitas, dan komunitas.</p>
         <span>
@@ -875,7 +875,7 @@ function PetOwnerLogin({
   notify: Notify;
   onSuccess: () => Promise<void>;
 }) {
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register" | "verify">("login");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [visible, setVisible] = useState(false);
@@ -884,12 +884,14 @@ function PetOwnerLogin({
   const [terms, setTerms] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   const [formValid, setFormValid] = useState(false);
+  const [registrationEmail, setRegistrationEmail] = useState("");
+  const [otp, setOtp] = useState("");
   const [policy, setPolicy] = useState<keyof typeof legalCopy | null>(null);
   const passwordValid = /(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}/.test(
     password,
   );
   const registrationConsent =
-    mode === "login" || (terms && privacy && /^0[0-9]{8,15}$/.test(phone));
+    mode !== "register" || (terms && privacy && /^0[0-9]{8,15}$/.test(phone));
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!registrationConsent) return;
@@ -897,6 +899,26 @@ function PetOwnerLogin({
     setMessage("");
     const values = Object.fromEntries(new FormData(event.currentTarget));
     try {
+      if (mode === "verify") {
+        const response = await fetch(
+          `${PLATFORM_API_URL}/api/v1/auth/register/verify-otp`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: registrationEmail, otp }),
+          },
+        );
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(data.message || "OTP belum dapat diverifikasi");
+        setMode("login");
+        setOtp("");
+        setPassword("");
+        setFormValid(false);
+        setMessage("Email berhasil diverifikasi. Silakan login.");
+        notify("Registrasi berhasil. Akun Pet Owner sudah aktif.");
+        return;
+      }
       const endpoint =
         mode === "login"
           ? "/api/v1/auth/login"
@@ -910,9 +932,11 @@ function PetOwnerLogin({
       if (!response.ok)
         throw new Error(data.message || "Login belum dapat diproses");
       if (mode === "register") {
-        setMessage(
-          `OTP sudah dikirim ke ${values.email}. Verifikasi melalui halaman akun.`,
-        );
+        setRegistrationEmail(String(values.email));
+        setOtp(String(data.development_otp ?? ""));
+        setMode("verify");
+        setFormValid(false);
+        setMessage(`OTP sudah dikirim ke ${values.email}.`);
         return;
       }
       localStorage.setItem("slivadoc.access_token", data.access_token);
@@ -923,6 +947,31 @@ function PetOwnerLogin({
       close();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Login gagal");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function resendOTP() {
+    if (!registrationEmail || busy) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch(`${PLATFORM_API_URL}/api/v1/auth/otp/resend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: registrationEmail,
+          purpose: "registration",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.message || "OTP belum dapat dikirim ulang");
+      setMessage("OTP baru sudah dikirim. Periksa inbox dan folder spam.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "OTP belum dapat dikirim ulang",
+      );
     } finally {
       setBusy(false);
     }
@@ -945,7 +994,9 @@ function PetOwnerLogin({
           <h2>
             {mode === "login"
               ? "Senang melihatmu kembali"
-              : "Mulai perjalanan pet parent"}
+              : mode === "register"
+                ? "Mulai perjalanan pet parent"
+                : "Verifikasi email kamu"}
           </h2>
           <p>
             Profil pet, rekam medis, booking, komunitas, dan benefit tersinkron
@@ -958,7 +1009,31 @@ function PetOwnerLogin({
               setFormValid(event.currentTarget.checkValidity())
             }
           >
-            {mode === "register" && (
+            {mode === "verify" ? (
+              <>
+                <div className="access-warning">
+                  Masukkan 6 digit OTP yang dikirim ke <b>{registrationEmail}</b>.
+                </div>
+                <label>
+                  <span>Kode OTP</span>
+                  <input
+                    name="otp"
+                    value={otp}
+                    onChange={(event) =>
+                      setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="[0-9]{6}"
+                    minLength={6}
+                    maxLength={6}
+                    placeholder="000000"
+                    required
+                    autoFocus
+                  />
+                </label>
+              </>
+            ) : mode === "register" && (
               <>
                 <label>
                   <span>Nama lengkap</span>
@@ -992,17 +1067,18 @@ function PetOwnerLogin({
                 </label>
               </>
             )}
-            <label>
+            {mode !== "verify" && <label>
               <span>Email</span>
               <input
                 name="email"
                 type="email"
+                defaultValue={mode === "login" ? registrationEmail : undefined}
                 autoComplete="email"
                 placeholder="petparent@email.com"
                 required
               />
-            </label>
-            <label>
+            </label>}
+            {mode !== "verify" && <label>
               <span>Password</span>
               <span className="password-input">
                 <input
@@ -1030,7 +1106,7 @@ function PetOwnerLogin({
                 </button>
               </span>
               <small>Gunakan kombinasi huruf, angka, dan simbol.</small>
-            </label>
+            </label>}
             {mode === "register" && (
               <div className="legal-consents">
                 <label>
@@ -1069,7 +1145,10 @@ function PetOwnerLogin({
             <button
               className="primary-button full"
               disabled={
-                busy || !passwordValid || !formValid || !registrationConsent
+                busy ||
+                (mode === "verify"
+                  ? otp.length !== 6
+                  : !passwordValid || !formValid || !registrationConsent)
               }
             >
               {busy ? (
@@ -1078,11 +1157,23 @@ function PetOwnerLogin({
                 </>
               ) : mode === "login" ? (
                 "Masuk ke Slivadoc"
+              ) : mode === "verify" ? (
+                "Verifikasi & aktifkan akun"
               ) : (
                 "Daftar & kirim OTP"
               )}
             </button>
           </form>
+          {mode === "verify" && (
+            <button
+              type="button"
+              className="text-button login-switch"
+              disabled={busy}
+              onClick={() => void resendOTP()}
+            >
+              Kirim ulang OTP
+            </button>
+          )}
           <button
             className="text-button login-switch"
             onClick={() => {
@@ -1097,7 +1188,9 @@ function PetOwnerLogin({
           >
             {mode === "login"
               ? "Belum punya akun? Daftar gratis"
-              : "Sudah punya akun? Login"}
+              : mode === "verify"
+                ? "Kembali ke login"
+                : "Sudah punya akun? Login"}
           </button>
         </section>
       </div>
@@ -1145,20 +1238,6 @@ function PetOwnerLogin({
         </div>
       )}
     </>
-  );
-}
-
-function Logo() {
-  return (
-    <div className="brand" aria-label="Slivadoc">
-      <span className="brand-mark">
-        <Icon name="paw" size={22} />
-      </span>
-      <span className="brand-copy">
-        <b>sliva</b>
-        <strong>doc</strong>
-      </span>
-    </div>
   );
 }
 

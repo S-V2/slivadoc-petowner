@@ -27,3 +27,16 @@ export const shadow = {
   shadowOffset: { width: 0, height: 7 },
   elevation: 3,
 };
+
+export const typography = {
+  display: 32,
+  screenTitle: 28,
+  sectionTitle: 22,
+  cardTitle: 18,
+  bodyLarge: 16,
+  body: 15,
+  control: 15,
+  label: 13,
+  caption: 12,
+  input: 16,
+} as const;

@@ -24,5 +24,16 @@ test("web and mobile registration require both legal consents and a leading-zero
   assert.match(app, /Syarat dan Ketentuan/);
   assert.match(app, /Kebijakan Privasi/);
   assert.match(mobile, /\^0\[0-9\]\{8,15\}\$/);
-  assert.match(mobile, /terms&&privacy/);
+  assert.match(mobile, /terms\s*&&\s*privacy/);
+});
+
+test("web and mobile complete registration through OTP verification and resend", () => {
+  const mobileApi = readFileSync(new URL("../mobile/src/api.ts", import.meta.url), "utf8");
+  for (const endpoint of ["auth/petowner/register", "auth/register/verify-otp", "auth/otp/resend"]) {
+    assert.match(app + mobileApi, new RegExp(endpoint));
+    assert.match(mobile + mobileApi, new RegExp(endpoint));
+  }
+  assert.match(app, /Verifikasi & aktifkan akun/);
+  assert.match(mobile, /Verifikasi & aktifkan akun/);
+  assert.match(app, /Registrasi berhasil\. Akun Pet Owner sudah aktif/);
 });

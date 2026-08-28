@@ -24,10 +24,13 @@ import {
   createPaymentIntent,
   getAdoptions,
   getConsultationPlans,
+  getConsultationMessages,
+  getCurrentPetOwnerUserID,
   getDocumentProducts,
   getMyConsultations,
   getVeterinarians,
   isPetOwnerAuthenticated,
+  sendConsultationMessage,
   type AdoptionListing,
   type Consultation,
   type ConsultationPlan,
@@ -900,6 +903,27 @@ function ConsultationRoom({
     [consultation.id, endCall, realtime],
   );
   useEffect(() => {
+    let cancelled = false;
+    void getConsultationMessages(consultation.id)
+      .then((response) => {
+        if (cancelled) return;
+        const userID = getCurrentPetOwnerUserID();
+        setMessages(
+          response.data.map((item) => ({
+            id: item.id,
+            body: item.body,
+            mine: item.sender_user_id === userID,
+          })),
+        );
+      })
+      .catch((error) => {
+        if (!cancelled)
+          notify(
+            error instanceof Error
+              ? error.message
+              : "Riwayat pesan belum dapat dimuat",
+          );
+      });
     const token =
       localStorage.getItem("slivadoc.access_token") ||
       localStorage.getItem("access_token");
@@ -953,6 +977,7 @@ function ConsultationRoom({
     });
     socket.on("call:end", endCall);
     return () => {
+      cancelled = true;
       socket.disconnect();
       endCall();
     };
@@ -980,23 +1005,42 @@ function ConsultationRoom({
       notify(error instanceof Error ? error.message : "Panggilan belum dapat diterima");
     }
   }
-  function send() {
-    if (!text.trim() || !socketRef.current) return;
+  async function send() {
+    if (!text.trim()) return;
     const id = crypto.randomUUID();
-    socketRef.current.emit(
-      "consultation:message",
-      {
-        consultationId: consultation.id,
-        clientMessageId: id,
-        messageType: "text",
-        body: text.trim(),
-      },
-      (r: { ok: boolean }) => {
-        if (!r.ok) notify("Pesan gagal dikirim");
-      },
-    );
-    setMessages((v) => [...v, { id, body: text.trim(), mine: true }]);
+    const body = text.trim();
+    const socket = socketRef.current;
+    setMessages((v) => [...v, { id, body, mine: true }]);
     setText("");
+    if (socket?.connected) {
+      socket.emit(
+        "consultation:message",
+        {
+          consultationId: consultation.id,
+          clientMessageId: id,
+          messageType: "text",
+          body,
+        },
+        (r: { ok: boolean }) => {
+          if (!r.ok) {
+            setMessages((current) => current.filter((item) => item.id !== id));
+            notify("Pesan gagal dikirim");
+          }
+        },
+      );
+      return;
+    }
+    try {
+      await sendConsultationMessage(consultation.id, {
+        client_message_id: id,
+        message_type: "text",
+        body,
+      });
+      notify("Realtime terputus; pesan tetap tersimpan melalui API.");
+    } catch (error) {
+      setMessages((current) => current.filter((item) => item.id !== id));
+      notify(error instanceof Error ? error.message : "Pesan gagal dikirim");
+    }
   }
   return (
     <div className="modal-overlay">
@@ -1037,9 +1081,22 @@ function ConsultationRoom({
               style={{ position: "absolute", right: 12, bottom: 12, width: 150, height: 100, overflow: "hidden", border: "2px solid white", borderRadius: 12, background: "#102f45" }}
             />
             {call === "ringing" && (
-              <button className="primary-button" onClick={() => void accept()}>
-                Terima panggilan
-              </button>
+              <div className="inline-actions">
+                <button className="primary-button" onClick={() => void accept()}>
+                  Terima panggilan
+                </button>
+                <button
+                  className="secondary-button"
+                  onClick={() => {
+                    socketRef.current?.emit("call:reject", {
+                      consultationId: consultation.id,
+                    });
+                    endCall();
+                  }}
+                >
+                  Tolak
+                </button>
+              </div>
             )}
           </div>
         )}

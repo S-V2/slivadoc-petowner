@@ -17,8 +17,6 @@
 # Packages default to PRIVATE, so the VM needs `docker login ghcr.io` with a
 # PAT carrying read:packages before `docker compose pull` will work.
 #
-# This workflow is additive: it does not replace or modify ci.yml (lint/test).
-#
 # PR BUILDS: this workflow also runs on pull_request with `push: false`, so every PR
 # exercises the real image build. That matters because the repo has TWO build paths —
 # ci.yml goes through scripts/build-verified.sh (3-minute timeout, .sites-runtime
@@ -30,6 +28,60 @@
 # packages: write, and a build that does not push needs no registry credentials. The GHA
 # cache is also read-only on PRs (cache-from only, no cache-to), because fork PRs cannot
 # write the base repo's cache and a failed export would fail the build.
+#
+# ---------------------------------------------------------------------------
+# WHY THERE IS A `verify` JOB HERE, DUPLICATING ci.yml
+# ---------------------------------------------------------------------------
+# On 2026-08-28, commit 1c46a1d pushed ghcr.io/s-v2/slivadoc-petowner:latest
+# while `Pet Owner CI` was RED (run 33143276900 failed on
+# `app/lib/petowner-api.ts(113,31): error TS2339`). Publishing succeeded anyway
+# because ci.yml and publish.yml are separate workflows with no relationship.
+#
+# `needs:` cannot fix that: it only expresses dependencies between jobs WITHIN
+# one workflow file, so it cannot reference a job in ci.yml. Writing it that
+# way would fail to parse or silently do nothing — the worst outcome, because
+# we would believe we were gated when we were not.
+#
+# The alternative, a `workflow_run` trigger keyed on ci.yml's conclusion, does
+# genuinely gate, but it only fires on the default branch and runs in the
+# default branch's context, which would delete the pull_request build path
+# above. That path was added deliberately, so that trade was rejected.
+#
+# Hence: a `verify` job lives here and the build jobs declare `needs:`. It
+# duplicates the lint/typecheck/test commands from ci.yml. That duplication is
+# deliberate and accepted — these are fast checks and GitHub bills by the
+# minute, not by uniqueness. ci.yml is NOT modified by this workflow's
+# existence; it remains the repo's own quality gate.
+#
+# ---------------------------------------------------------------------------
+# WHY THE IMAGE IS BOOTED BEFORE IT IS PUSHED
+# ---------------------------------------------------------------------------
+# Also on 2026-08-28, slivadoc-petowner crash-looped in production while every
+# pre-production check was green. The image BUILT fine and CI was green,
+# because the failure was not a build failure: the runtime stage copies only
+# dist/ + node_modules/vinext + node_modules/react, and a silent bump of vinext
+# from 0.0.50 to 1.0.0-beta.8 (smuggled into 1c46a1d, a commit titled as a
+# security fix) made vinext's own prod-server import `react` as a bare
+# specifier. The container died at BOOT with ERR_MODULE_NOT_FOUND, before
+# binding a port — see the payload-collection step in ./Dockerfile.
+#
+# Nothing in this workflow ever RAN the image, so a runtime module-resolution
+# failure was structurally invisible to it. It now runs the image and asserts a
+# real render before pushing. This is the one check that would have caught it.
+#
+# TESTED BYTES == PUBLISHED BYTES. The image is built exactly once, with
+# `load: true` and `push: false`, smoke-tested from the local daemon, and then
+# pushed with a plain `docker push` of that same loaded image. It is
+# deliberately NOT re-built by a second build-push-action step: a second buildx
+# invocation only reproduces the same bytes if the cache hits, and "almost
+# always" is the wrong guarantee for a gate whose entire purpose is to never
+# publish an artifact that was not executed. Pushing the loaded image makes the
+# property true by construction rather than by assumption, and costs one build
+# instead of two.
+#
+# The `<title>` assertion is sourced from tests/rendered-html.test.mjs rather
+# than hardcoded here, so the workflow and the test cannot drift apart. A bare
+# 200 would not be enough: a page rendering an error shell also returns 200.
 #
 # REQUIRED REPOSITORY VARIABLES (Settings -> Secrets and variables -> Actions ->
 # Variables). These are *variables*, not secrets: they are public URLs baked
@@ -62,9 +114,49 @@ concurrency:
   group: publish-slivadoc-petowner-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  WEB_IMAGE: ghcr.io/s-v2/slivadoc-petowner
+  API_IMAGE: ghcr.io/s-v2/slivadoc-petowner-api
+
 jobs:
+  # Mirrors the `web` job of ci.yml. See the note above on why this is
+  # duplicated rather than referenced.
+  verify-web:
+    name: Verify web (lint, typecheck, test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc -p tsconfig.app.json
+      - run: npm test
+
+  # Mirrors the `petowner-api` job of ci.yml.
+  verify-api:
+    name: Verify Pet Owner API
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/petowner-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: services/petowner-api/package-lock.json
+      - run: npm ci
+      - run: npm test
+
   web:
-    name: Build and push slivadoc-petowner (web)
+    name: Build, smoke and push slivadoc-petowner (web)
+    needs: verify-web
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -82,16 +174,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      # Built ONCE, loaded into the local daemon, never pushed from here.
+      # linux/amd64 matches the deployment VM and the runner, so the loaded
+      # image runs natively in the smoke step with no emulation.
+      - name: Build (load, do not push)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
+          load: true
+          push: false
           tags: |
-            ghcr.io/s-v2/slivadoc-petowner:latest
-            ghcr.io/s-v2/slivadoc-petowner:${{ github.sha }}
+            ${{ env.WEB_IMAGE }}:latest
+            ${{ env.WEB_IMAGE }}:${{ github.sha }}
           build-args: |
             NEXT_PUBLIC_PETOWNER_API_URL=${{ vars.NEXT_PUBLIC_PETOWNER_API_URL }}
             NEXT_PUBLIC_PLATFORM_API_URL=${{ vars.NEXT_PUBLIC_PLATFORM_API_URL }}
@@ -103,8 +199,102 @@ jobs:
           # unknown/unknown entry, which keeps `docker pull` on the VM simple.
           provenance: false
 
+      - name: Report image size
+        run: |
+          set -euo pipefail
+          BYTES="$(docker image inspect "${WEB_IMAGE}:${GITHUB_SHA}" --format '{{.Size}}')"
+          echo "uncompressed size: ${BYTES} bytes ($((BYTES / 1048576)) MB)" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # The gate. Boots the image that was just built and asserts a real render.
+      # Every wait is bounded; the container is always torn down and its logs are
+      # always dumped on failure.
+      - name: Boot smoke test
+        run: |
+          set -euo pipefail
+
+          IMAGE="${WEB_IMAGE}:${GITHUB_SHA}"
+
+          # Source the expected marker from the repo's own render test, so this
+          # workflow and tests/rendered-html.test.mjs cannot drift apart.
+          MARKER_JSON="$(node -e '
+            const fs = require("node:fs");
+            const src = fs.readFileSync("tests/rendered-html.test.mjs", "utf8");
+            const m = src.match(/assert\.match\(\s*html\s*,\s*\/((?:[^\/\\\n]|\\.)+)\/([gimsuy]*)\s*\)/);
+            if (!m) {
+              console.error("could not source expected marker from tests/rendered-html.test.mjs");
+              process.exit(1);
+            }
+            process.stdout.write(JSON.stringify({ pattern: m[1], flags: m[2] }));
+          ')"
+          echo "expected marker: ${MARKER_JSON}"
+
+          cleanup() {
+            echo "--- container logs ---"
+            docker logs smoke 2>&1 || true
+            echo "--- container state ---"
+            docker inspect -f 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}}' smoke 2>&1 || true
+            docker rm -f smoke >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker run -d --name smoke -p 127.0.0.1:3000:3000 "$IMAGE"
+
+          # Poll GET / for up to 60s. Fail fast if the container exits, which is
+          # exactly how the ERR_MODULE_NOT_FOUND boot crash presents.
+          ok=0
+          for _ in $(seq 1 30); do
+            if [ -z "$(docker ps -q --filter name=^smoke$ --filter status=running)" ]; then
+              echo "::error::container exited before serving a request"
+              exit 1
+            fi
+            code="$(curl -sS -o /tmp/smoke.html -D /tmp/smoke.head -w '%{http_code}' \
+                      -m 10 http://127.0.0.1:3000/ 2>/dev/null || true)"
+            if [ "$code" = "200" ]; then ok=1; break; fi
+            sleep 2
+          done
+
+          if [ "$ok" -ne 1 ]; then
+            echo "::error::GET / never returned 200 within 60s (last code: ${code:-none})"
+            exit 1
+          fi
+
+          if ! grep -iqE '^content-type:[[:space:]]*text/html' /tmp/smoke.head; then
+            echo "::error::GET / did not return text/html"
+            cat /tmp/smoke.head
+            exit 1
+          fi
+
+          # A 200 alone is not enough: an error shell also returns 200.
+          SMOKE_MARKER="$MARKER_JSON" node -e '
+            const fs = require("node:fs");
+            const { pattern, flags } = JSON.parse(process.env.SMOKE_MARKER);
+            const re = new RegExp(pattern, flags);
+            const html = fs.readFileSync("/tmp/smoke.html", "utf8");
+            if (!re.test(html)) {
+              console.error("::error::rendered HTML did not match /" + pattern + "/" + flags);
+              console.error(html.slice(0, 2000));
+              process.exit(1);
+            }
+            console.log("rendered HTML matched /" + pattern + "/" + flags);
+          '
+
+          echo "boot smoke test passed" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Pushes the exact bytes that were just smoke-tested. No rebuild.
+      - name: Push
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          docker push "${WEB_IMAGE}:${GITHUB_SHA}"
+          docker push "${WEB_IMAGE}:latest"
+          DIGEST="$(docker image inspect "${WEB_IMAGE}:${GITHUB_SHA}" \
+                     --format '{{index .RepoDigests 0}}')"
+          echo "pushed ${DIGEST}" | tee -a "$GITHUB_STEP_SUMMARY"
+
   api:
-    name: Build and push slivadoc-petowner-api
+    name: Build, smoke and push slivadoc-petowner-api
+    needs: verify-api
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -124,16 +314,75 @@ jobs:
 
       # Context is the service directory, so services/petowner-api/.dockerignore
       # applies and the repo-root ignore file does not.
-      - name: Build and push
+      - name: Build (load, do not push)
         uses: docker/build-push-action@v6
         with:
           context: ./services/petowner-api
           file: ./services/petowner-api/Dockerfile
           platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
+          load: true
+          push: false
           tags: |
-            ghcr.io/s-v2/slivadoc-petowner-api:latest
-            ghcr.io/s-v2/slivadoc-petowner-api:${{ github.sha }}
+            ${{ env.API_IMAGE }}:latest
+            ${{ env.API_IMAGE }}:${{ github.sha }}
           cache-from: type=gha,scope=petowner-api
           cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max,scope=petowner-api' || '' }}
           provenance: false
+
+      # The API does expose a health endpoint, so the equivalent gate here is a
+      # real /health probe rather than an HTML assertion.
+      - name: Boot smoke test
+        run: |
+          set -euo pipefail
+
+          IMAGE="${API_IMAGE}:${GITHUB_SHA}"
+
+          cleanup() {
+            echo "--- container logs ---"
+            docker logs smoke-api 2>&1 || true
+            echo "--- container state ---"
+            docker inspect -f 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}}' smoke-api 2>&1 || true
+            docker rm -f smoke-api >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker run -d --name smoke-api -p 127.0.0.1:8090:8090 "$IMAGE"
+
+          ok=0
+          for _ in $(seq 1 30); do
+            if [ -z "$(docker ps -q --filter name=^smoke-api$ --filter status=running)" ]; then
+              echo "::error::container exited before serving a request"
+              exit 1
+            fi
+            code="$(curl -sS -o /tmp/health.json -w '%{http_code}' \
+                      -m 10 http://127.0.0.1:8090/health 2>/dev/null || true)"
+            if [ "$code" = "200" ]; then ok=1; break; fi
+            sleep 2
+          done
+
+          if [ "$ok" -ne 1 ]; then
+            echo "::error::GET /health never returned 200 within 60s (last code: ${code:-none})"
+            exit 1
+          fi
+
+          node -e '
+            const fs = require("node:fs");
+            const body = JSON.parse(fs.readFileSync("/tmp/health.json", "utf8"));
+            if (body.status !== "ok") {
+              console.error("::error::/health did not report status ok: " + JSON.stringify(body));
+              process.exit(1);
+            }
+            console.log("/health reported status ok");
+          '
+
+          echo "api boot smoke test passed" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Push
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          docker push "${API_IMAGE}:${GITHUB_SHA}"
+          docker push "${API_IMAGE}:latest"
+          DIGEST="$(docker image inspect "${API_IMAGE}:${GITHUB_SHA}" \
+                     --format '{{index .RepoDigests 0}}')"
+          echo "pushed ${DIGEST}" | tee -a "$GITHUB_STEP_SUMMARY"

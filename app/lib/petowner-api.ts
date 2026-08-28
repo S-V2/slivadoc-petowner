@@ -47,10 +47,12 @@ export type RealtimeMessage = {
 };
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = typeof window === "undefined" ? "" : window.localStorage.getItem("slivadoc.access_token") ?? window.localStorage.getItem("access_token") ?? "";
   const response = await fetch(`${PETOWNER_API_URL}${path}`, {
     ...init,
     headers: {
       ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
   });
@@ -107,6 +109,10 @@ export function addCommunityComment(postId: string, author: string, body: string
 let socket: Socket | null = null;
 
 export function realtimeSocket() {
-  socket ??= io(PETOWNER_API_URL, { autoConnect: false, transports: ["websocket", "polling"] });
+  const token = typeof window === "undefined" ? "" : window.localStorage.getItem("slivadoc.access_token") ?? window.localStorage.getItem("access_token") ?? "";
+  if (!socket || socket.auth?.token !== token) {
+    socket?.disconnect();
+    socket = io(PETOWNER_API_URL, { autoConnect: false, auth: { token }, transports: ["websocket", "polling"] });
+  }
   return socket;
 }

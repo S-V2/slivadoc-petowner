@@ -123,15 +123,14 @@ Development memakai geolocation browser/native serta OpenStreetMap/Nominatim mel
 | Upload foto | `POST /api/uploads/images` multipart |
 | Lokasi | `GET /api/location/search`, `GET /api/location/reverse` |
 | SlivaCare | `POST /api/assistant/chat` |
-| Komunitas | `GET/POST /api/community/posts`, like, comments |
-| Realtime komunitas | `community:join`, `community:new-post`, `community:update` |
+| Komunitas | `/api/v1/community/*` pada `slivadoc-backend` dengan bearer session |
 | Realtime chat | `chat:join`, `chat:history`, `chat:send`, `chat:message` |
 | Sliva Academy | `GET /api/v1/public/academy/programs`, `POST /api/v1/academy/enrollments` |
 | Pet Event | `GET /api/v1/public/events`, `POST /api/v1/events/{eventID}/registrations` |
 | PetSpot | `GET /api/v1/public/petspots` dengan koordinat opsional |
 | PetHub | public feed/streams, create thread, dan reaction di `/api/v1/pethub/*` |
 
-Gateway menyimpan posting komunitas lama dan chat ke file JSON lokal untuk development. Modul Sliva World sudah terhubung ke `slivadoc-backend`, PostgreSQL, dan bearer session Slivadoc; UI menyediakan fallback lokal agar tetap dapat dipreview ketika backend belum dinyalakan.
+Gateway bersifat stateless. Komunitas dan chat disimpan oleh `slivadoc-backend` di PostgreSQL, wajib memakai bearer session Slivadoc, dan tidak lagi memiliki fallback data lokal yang dapat berbeda antar-replika.
 
 ## Validasi
 

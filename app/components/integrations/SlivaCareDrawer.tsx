@@ -54,9 +54,14 @@ export default function SlivaCareDrawer({ pet, owner, onClose, notify }: Props) 
     setMessage("");
     if (mode === "care-team") {
       if(!owner){window.dispatchEvent(new Event("slivadoc:login-required"));notify("Login diperlukan untuk menghubungi care team");return}
-      realtimeSocket().emit("chat:send", { conversationId, senderId: owner.id, senderName: owner.full_name, body }, (result: { ok: boolean; error?: string }) => {
+      realtimeSocket().emit("chat:send", { conversationId, body }, (result: { ok: boolean; error?: string }) => {
         if (!result?.ok) notify(result?.error ?? "Pesan realtime belum terkirim");
       });
+      return;
+    }
+    if (!owner) {
+      window.dispatchEvent(new Event("slivadoc:login-required"));
+      notify("Login diperlukan untuk menggunakan SlivaCare Assistant");
       return;
     }
 

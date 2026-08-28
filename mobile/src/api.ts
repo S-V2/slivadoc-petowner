@@ -20,7 +20,7 @@ export type AssistantMessage = { role: "user" | "assistant"; content: string };
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${PETOWNER_API_URL}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: { "Content-Type": "application/json", ...(platformAccessToken ? { Authorization: `Bearer ${platformAccessToken}` } : {}), ...init?.headers },
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.answer ?? payload.message ?? payload.error ?? "Layanan pet owner belum tersedia");
@@ -28,7 +28,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 let platformAccessToken = "";
-export function setPlatformAccessToken(token: string) { platformAccessToken = token; }
+export function setPlatformAccessToken(token: string) { platformAccessToken = token; realtime.auth = { token }; }
 export function hasPlatformSession(){return Boolean(platformAccessToken)}
 
 const mobileCache=new Map<string,{expires:number;value:unknown}>();
@@ -123,10 +123,10 @@ export async function uploadMobileImage(uri: string, mimeType = "image/jpeg", fi
   const body = new FormData();
   body.append("folder", folder);
   body.append("file", { uri, type: mimeType, name: fileName } as unknown as Blob);
-  const response = await fetch(`${PETOWNER_API_URL}/api/uploads/images`, { method: "POST", body });
+  const response = await fetch(`${PETOWNER_API_URL}/api/uploads/images`, { method: "POST", headers: platformAccessToken ? { Authorization: `Bearer ${platformAccessToken}` } : undefined, body });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.message ?? payload.error ?? "Upload foto gagal");
   return payload as { url: string; publicId: string };
 }
 
-export const realtime = io(PETOWNER_API_URL, { autoConnect: false, transports: ["websocket", "polling"] });
+export const realtime = io(PETOWNER_API_URL, { autoConnect: false, auth: { token: platformAccessToken }, transports: ["websocket", "polling"] });

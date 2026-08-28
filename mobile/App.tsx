@@ -157,7 +157,7 @@ function MobileApp() {
 
   const navigationBottom=Math.max(insets.bottom,Platform.OS==="android"?12:8);
   return <>
-      <StatusBar style="dark" backgroundColor={colors.canvas} />
+      <StatusBar style="dark" />
       <SafeAreaView edges={["top","left","right"]} style={styles.safeArea}>
         <AppSurfaceProvider bottomInset={navigationBottom} refreshing={refreshing} onRefresh={()=>void reloadData(true)}>
           <View style={styles.app}>

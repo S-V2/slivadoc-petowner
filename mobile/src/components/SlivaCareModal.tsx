@@ -45,7 +45,7 @@ export function SlivaCareModal({ visible, onClose, onAction,owner,pet,onLogin }:
     setMessage("");
     if (mode === "team") {
       if(!owner||!pet){onLogin();onAction("Login diperlukan untuk menghubungi care team");return}
-      realtime.emit("chat:send", { conversationId: `care-${pet.id}`, senderId: owner.id, senderName: owner.full_name, body }, (result: { ok: boolean; error?: string }) => {
+      realtime.emit("chat:send", { conversationId: `care-${pet.id}`, body }, (result: { ok: boolean; error?: string }) => {
         if (!result?.ok) onAction(result?.error ?? "Pesan belum terkirim");
       });
       return;

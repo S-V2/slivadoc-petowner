@@ -5,7 +5,7 @@
 # Build context is THIS directory, not the repo root:
 #   docker build --platform=linux/amd64 \
 #     -t ghcr.io/s-v2/slivadoc-petowner-api:latest ./services/petowner-api
-#   docker run --rm -p 8090:8090 -v petowner-data:/data \
+#   docker run --rm -p 8090:8090 \
 #     ghcr.io/s-v2/slivadoc-petowner-api:latest
 #
 # ---------------------------------------------------------------------------
@@ -24,12 +24,8 @@
 #   server.listen at :197). socket.io is attached to the SAME node:http server
 #   (src/index.js:27-28), so realtime and REST share this one port — do not try
 #   to expose a second one.
-# * Datastore is a single JSON file, DATA_DIR/petowner.json (src/index.js:22-24,
-#   src/store.js:41-48 write-temp-then-rename). DATA_DIR defaults to /data here
-#   and is declared as a VOLUME: without a named volume mounted there, every
-#   community post and chat message is lost on redeploy.
-#   The store serialises writes through one in-process promise queue
-#   (src/store.js:13,42), so this service MUST stay at a single replica.
+# * Community and SlivaCare chat state is persisted by slivadoc-backend in
+#   PostgreSQL. This gateway is stateless and may run with multiple replicas.
 # * Degrades gracefully with no third-party credentials, which is why the
 #   healthcheck can be trusted at boot: /health (src/index.js:58) is a static
 #   JSON response with no dependency on Cloudinary or OpenAI. Uploads return
@@ -60,7 +56,7 @@
 #   `init: true` for this service.
 #
 # Runtime environment (all optional; defaults in src/index.js):
-#   PORT=8090  CORS_ORIGINS  DATA_DIR=/data
+#   PORT=8090  CORS_ORIGINS  SLIVADOC_API_URL
 #   CLOUDINARY_CLOUD_NAME  CLOUDINARY_API_KEY  CLOUDINARY_API_SECRET
 #   CLOUDINARY_FOLDER      OPENAI_API_KEY      OPENAI_MODEL
 #   NOMINATIM_BASE_URL     NOMINATIM_USER_AGENT
@@ -93,8 +89,7 @@ RUN apk add --no-cache tzdata tini
 
 ENV NODE_ENV=production \
     TZ=Asia/Jakarta \
-    PORT=8090 \
-    DATA_DIR=/data
+    PORT=8090
 
 WORKDIR /app
 
@@ -102,11 +97,6 @@ COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node package.json ./
 COPY --chown=node:node src ./src
 COPY --chown=node:node knowledge ./knowledge
-
-# Owned by node:node so the unprivileged user can write petowner.json into a
-# freshly created named volume (Docker seeds volume ownership from the image).
-RUN install -d -o node -g node /data
-VOLUME ["/data"]
 
 USER node
 EXPOSE 8090

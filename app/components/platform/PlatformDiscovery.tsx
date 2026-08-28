@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import NextImage from "next/image";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { Icon } from "../Icon";
 import { safeFixed } from "../../lib/safe-number";
 import {
@@ -31,56 +38,1670 @@ import {
   type PetSpot,
   type PaymentIntent,
 } from "../../lib/platform-api";
-import { BatpayPaymentPanel, PaymentMethodPicker } from "../payments/BatpayPayment";
+import {
+  BatpayPaymentPanel,
+  PaymentMethodPicker,
+} from "../payments/BatpayPayment";
 
 export type DiscoveryMode = "academy" | "events" | "petspot" | "pethub";
-type Props = { mode: DiscoveryMode; petName: string; ownerName?:string; ownerEmail?:string; notify: (message: string) => void; navigate: (mode: DiscoveryMode) => void };
+type Props = {
+  mode: DiscoveryMode;
+  petName: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  notify: (message: string) => void;
+  navigate: (mode: DiscoveryMode) => void;
+};
 
-const money = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
-const when = (value?: string) => value ? new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "Segera diumumkan";
+const money = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
+  maximumFractionDigits: 0,
+});
+const when = (value?: string) =>
+  value
+    ? new Intl.DateTimeFormat("id-ID", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(value))
+    : "Segera diumumkan";
 
-
-export default function PlatformDiscovery({ mode, petName, ownerName="Pet Parent", ownerEmail="", notify, navigate }: Props) {
-  const [programs,setPrograms]=useState<AcademyProgram[]>([]); const [events,setEvents]=useState<PetEvent[]>([]); const [spots,setSpots]=useState<PetSpot[]>([]); const [streams,setStreams]=useState<PetHubStream[]>([]); const [posts,setPosts]=useState<PetHubPost[]>([]);
-  const [loading,setLoading]=useState(true); const [selectedProgram,setSelectedProgram]=useState<AcademyProgram|null>(null); const [selectedEvent,setSelectedEvent]=useState<PetEvent|null>(null); const [selectedSpot,setSelectedSpot]=useState<PetSpot|null>(null); const [selectedStream,setSelectedStream]=useState<PetHubStream|null>(null); const [composer,setComposer]=useState(false); const [storyComposer,setStoryComposer]=useState(false); const [stories,setStories]=useState<PetHubStory[]>([]); const [commentPost,setCommentPost]=useState<PetHubPost|null>(null); const [filter,setFilter]=useState("all"); const [liked,setLiked]=useState<string[]>([]); const [renderedAt]=useState(()=>Date.now());
-  const[spotSearch,setSpotSearch]=useState("");const[maxDistance,setMaxDistance]=useState(25);const[hubTab,setHubTab]=useState("Untuk Kamu");
-  useEffect(()=>{
-    void Promise.resolve().then(()=>setLoading(true));
-    const failed=(label:string)=>(error:unknown)=>{
-      notify(error instanceof Error?error.message:`${label} belum dapat dimuat`);
+export default function PlatformDiscovery({
+  mode,
+  petName,
+  ownerName = "Pet Parent",
+  ownerEmail = "",
+  notify,
+  navigate,
+}: Props) {
+  const [programs, setPrograms] = useState<AcademyProgram[]>([]);
+  const [events, setEvents] = useState<PetEvent[]>([]);
+  const [spots, setSpots] = useState<PetSpot[]>([]);
+  const [streams, setStreams] = useState<PetHubStream[]>([]);
+  const [posts, setPosts] = useState<PetHubPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedProgram, setSelectedProgram] = useState<AcademyProgram | null>(
+    null,
+  );
+  const [selectedEvent, setSelectedEvent] = useState<PetEvent | null>(null);
+  const [selectedSpot, setSelectedSpot] = useState<PetSpot | null>(null);
+  const [selectedStream, setSelectedStream] = useState<PetHubStream | null>(
+    null,
+  );
+  const [composer, setComposer] = useState(false);
+  const [storyComposer, setStoryComposer] = useState(false);
+  const [stories, setStories] = useState<PetHubStory[]>([]);
+  const [commentPost, setCommentPost] = useState<PetHubPost | null>(null);
+  const [filter, setFilter] = useState("all");
+  const [liked, setLiked] = useState<string[]>([]);
+  const [renderedAt] = useState(() => Date.now());
+  const [spotSearch, setSpotSearch] = useState("");
+  const [maxDistance, setMaxDistance] = useState(25);
+  const [hubTab, setHubTab] = useState("Untuk Kamu");
+  useEffect(() => {
+    void Promise.resolve().then(() => setLoading(true));
+    const failed = (label: string) => (error: unknown) => {
+      notify(
+        error instanceof Error ? error.message : `${label} belum dapat dimuat`,
+      );
     };
-    if(mode==="academy"){void getAcademyPrograms().then(value=>setPrograms(value.data)).catch(failed("Program academy")).finally(()=>setLoading(false));return}
-    if(mode==="events"){void getPetEvents().then(value=>setEvents(value.data)).catch(failed("Pet event")).finally(()=>setLoading(false));return}
-    if(mode==="petspot"){void getPetSpots().then(value=>setSpots(value.data)).catch(failed("PetSpot")).finally(()=>setLoading(false));return}
-    void Promise.all([getPetHubStreams(),getPetHubStories()]).then(([stream,story])=>{setStreams(stream.data);setStories(story.data)}).catch(failed("PetHub")).finally(()=>setLoading(false));
-  },[mode,notify]);
-  useEffect(()=>{if(selectedProgram)void trackAcademyProgramClick(selectedProgram.id).catch(()=>undefined)},[selectedProgram]);
-  useEffect(()=>{if(mode!=="pethub")return;const type=hubTab==="Video"?"video":hubTab==="Thread"?"thread":"";const tab=hubTab==="Mengikuti"?"following":"for_you";void Promise.resolve().then(()=>setLoading(true));void getPetHubFeed({tab,type}).then(response=>setPosts(response.data)).catch(error=>notify(error instanceof Error?error.message:"Feed PetHub belum dapat dimuat")).finally(()=>setLoading(false))},[hubTab,mode,notify]);
-  const categorySpots=useMemo(()=>spots.filter(item=>(filter==="all"||item.category===filter)&&item.name.toLowerCase().includes(spotSearch.toLowerCase())&&(!Number.isFinite(item.distance_km)||Number(item.distance_km)<=maxDistance)),[spots,filter,spotSearch,maxDistance]);
-  const relative=(value:string)=>{const minutes=Math.max(1,Math.floor((renderedAt-new Date(value).getTime())/60000));return minutes<60?`${minutes}m`:minutes<1440?`${Math.floor(minutes/60)}j`:`${Math.floor(minutes/1440)}h`;};
+    if (mode === "academy") {
+      void getAcademyPrograms()
+        .then((value) => setPrograms(value.data))
+        .catch(failed("Program academy"))
+        .finally(() => setLoading(false));
+      return;
+    }
+    if (mode === "events") {
+      void getPetEvents()
+        .then((value) => setEvents(value.data))
+        .catch(failed("Pet event"))
+        .finally(() => setLoading(false));
+      return;
+    }
+    if (mode === "petspot") {
+      void getPetSpots()
+        .then((value) => setSpots(value.data))
+        .catch(failed("PetSpot"))
+        .finally(() => setLoading(false));
+      return;
+    }
+    void Promise.all([getPetHubStreams(), getPetHubStories()])
+      .then(([stream, story]) => {
+        setStreams(stream.data);
+        setStories(story.data);
+      })
+      .catch(failed("PetHub"))
+      .finally(() => setLoading(false));
+  }, [mode, notify]);
+  useEffect(() => {
+    if (selectedProgram)
+      void trackAcademyProgramClick(selectedProgram.id).catch(() => undefined);
+  }, [selectedProgram]);
+  useEffect(() => {
+    if (mode !== "pethub") return;
+    const type =
+      hubTab === "Video" ? "video" : hubTab === "Thread" ? "thread" : "";
+    const tab = hubTab === "Mengikuti" ? "following" : "for_you";
+    void Promise.resolve().then(() => setLoading(true));
+    void getPetHubFeed({ tab, type })
+      .then((response) => setPosts(response.data))
+      .catch((error) =>
+        notify(
+          error instanceof Error
+            ? error.message
+            : "Feed PetHub belum dapat dimuat",
+        ),
+      )
+      .finally(() => setLoading(false));
+  }, [hubTab, mode, notify]);
+  const categorySpots = useMemo(
+    () =>
+      spots.filter(
+        (item) =>
+          (filter === "all" || item.category === filter) &&
+          item.name.toLowerCase().includes(spotSearch.toLowerCase()) &&
+          (!Number.isFinite(item.distance_km) ||
+            Number(item.distance_km) <= maxDistance),
+      ),
+    [spots, filter, spotSearch, maxDistance],
+  );
+  const relative = (value: string) => {
+    const minutes = Math.max(
+      1,
+      Math.floor((renderedAt - new Date(value).getTime()) / 60000),
+    );
+    return minutes < 60
+      ? `${minutes}m`
+      : minutes < 1440
+        ? `${Math.floor(minutes / 60)}j`
+        : `${Math.floor(minutes / 1440)}h`;
+  };
 
-  async function locate(){if(!navigator.geolocation)return notify("GPS tidak tersedia");navigator.geolocation.getCurrentPosition(async position=>{try{const response=await getPetSpots({latitude:position.coords.latitude,longitude:position.coords.longitude,search:spotSearch,category:filter==="all"?undefined:filter,max_distance_km:maxDistance});setSpots(response.data);notify("PetSpot diurutkan berdasarkan koordinat perangkat") }catch(error){notify(error instanceof Error?error.message:"PetSpot belum dapat dimuat")}},()=>notify("Izinkan lokasi untuk menghitung jarak PetSpot"),{enableHighAccuracy:true,timeout:12000});}
-  async function like(post:PetHubPost){const active=liked.includes(post.id);setLiked(current=>active?current.filter(id=>id!==post.id):[...current,post.id]);setPosts(current=>current.map(item=>item.id===post.id?{...item,like_count:Math.max(0,item.like_count+(active?-1:1))}:item));try{await reactPetHubPost(post.id)}catch(error){setLiked(current=>active?[...new Set([...current,post.id])]:current.filter(id=>id!==post.id));setPosts(current=>current.map(item=>item.id===post.id?{...item,like_count:post.like_count}:item));notify(error instanceof Error?error.message:"Reaksi belum dapat disimpan")}}
-  async function followChannel(channelID?:string){if(!channelID||!isPetOwnerAuthenticated()){loginRequired();return}try{const result=await togglePetHubChannel(channelID);setPosts(current=>current.map(item=>item.channel_id===channelID?{...item,following:result.following}:item));notify(result.following?"Channel sekarang diikuti":"Berhenti mengikuti channel")}catch(error){notify(error instanceof Error?error.message:"Channel belum dapat diperbarui")}}
-  function loginRequired(){notify("Silakan login terlebih dahulu untuk melanjutkan.");window.dispatchEvent(new CustomEvent("slivadoc:login-required"));}
+  async function locate() {
+    if (!navigator.geolocation) return notify("GPS tidak tersedia");
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const response = await getPetSpots({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            search: spotSearch,
+            category: filter === "all" ? undefined : filter,
+            max_distance_km: maxDistance,
+          });
+          setSpots(response.data);
+          notify("PetSpot diurutkan berdasarkan koordinat perangkat");
+        } catch (error) {
+          notify(
+            error instanceof Error
+              ? error.message
+              : "PetSpot belum dapat dimuat",
+          );
+        }
+      },
+      () => notify("Izinkan lokasi untuk menghitung jarak PetSpot"),
+      { enableHighAccuracy: true, timeout: 12000 },
+    );
+  }
+  async function like(post: PetHubPost) {
+    const active = liked.includes(post.id);
+    setLiked((current) =>
+      active ? current.filter((id) => id !== post.id) : [...current, post.id],
+    );
+    setPosts((current) =>
+      current.map((item) =>
+        item.id === post.id
+          ? {
+              ...item,
+              like_count: Math.max(0, item.like_count + (active ? -1 : 1)),
+            }
+          : item,
+      ),
+    );
+    try {
+      await reactPetHubPost(post.id);
+    } catch (error) {
+      setLiked((current) =>
+        active
+          ? [...new Set([...current, post.id])]
+          : current.filter((id) => id !== post.id),
+      );
+      setPosts((current) =>
+        current.map((item) =>
+          item.id === post.id ? { ...item, like_count: post.like_count } : item,
+        ),
+      );
+      notify(
+        error instanceof Error ? error.message : "Reaksi belum dapat disimpan",
+      );
+    }
+  }
+  async function followChannel(channelID?: string) {
+    if (!channelID || !isPetOwnerAuthenticated()) {
+      loginRequired();
+      return;
+    }
+    try {
+      const result = await togglePetHubChannel(channelID);
+      setPosts((current) =>
+        current.map((item) =>
+          item.channel_id === channelID
+            ? { ...item, following: result.following }
+            : item,
+        ),
+      );
+      notify(
+        result.following
+          ? "Channel sekarang diikuti"
+          : "Berhenti mengikuti channel",
+      );
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Channel belum dapat diperbarui",
+      );
+    }
+  }
+  function loginRequired() {
+    notify("Silakan login terlebih dahulu untuk melanjutkan.");
+    window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
+  }
 
-  if(mode==="academy") return <><UniverseNav active={mode} navigate={navigate}/><section className="world-hero academy-hero"><div><span>SLIVADOC PET ACADEMY</span><h2>Belajar bersama. Bertumbuh bersama.</h2><p>Program training terverifikasi dengan kurikulum terukur, positive reinforcement, dan progres digital untuk {petName}.</p><button type="button" onClick={()=>document.querySelector("#academy-catalog")?.scrollIntoView({behavior:"smooth"})}>Jelajahi program <Icon name="arrow" size={16}/></button></div><div className="hero-stat"><b>4,9</b><small>rating academy partner</small></div></section><div className="world-toolbar"><div><button className={filter==="all"?"active":""} onClick={()=>setFilter("all")}>Semua</button>{["obedience","behavior","agility","handler"].map(item=><button className={filter===item?"active":""} key={item} onClick={()=>setFilter(item)}>{item.replace("-"," ")}</button>)}</div><span>{loading?"Memuat program…":`${programs.length} program tersedia`}</span></div><div id="academy-catalog" className="academy-grid">{programs.filter(item=>filter==="all"||item.category===filter).map((item,index)=><article className="academy-card" key={item.id}><div className={`academy-visual tone-${index%3}`}>{item.cover_url?<img src={item.cover_url} alt=""/>:<><span>{index%3===0?"🐕‍🦺":index%3===1?"🐶":"🏅"}</span><small>{item.academy_name}</small></>}</div><div className="academy-card-body"><div className="card-meta"><span>{item.level}</span><b>★ {item.trainer_rating||4.9}</b></div><h3>{item.title}</h3><p>{item.description}</p><div className="trainer-line"><span>{item.trainer_name.slice(0,1)}</span><p><b>{item.trainer_name}</b><small>{item.academy_name}</small></p></div><div className="academy-facts"><span>◷ {item.duration_weeks} minggu</span><span>▤ {item.session_count} sesi</span><b>{money.format(item.price)}</b></div><button type="button" className="primary-button full" onClick={()=>setSelectedProgram(item)}>Lihat detail & daftar</button></div></article>)}</div>{selectedProgram&&<ProgramModal item={selectedProgram} petName={petName} ownerName={ownerName} close={()=>setSelectedProgram(null)} notify={notify}/>}</>;
+  if (mode === "academy")
+    return (
+      <>
+        <UniverseNav active={mode} navigate={navigate} />
+        <section className="world-hero academy-hero">
+          <div>
+            <span>SLIVADOC PET ACADEMY</span>
+            <h2>Belajar bersama. Bertumbuh bersama.</h2>
+            <p>
+              Program training terverifikasi dengan kurikulum terukur, positive
+              reinforcement, dan progres digital untuk {petName}.
+            </p>
+            <button
+              type="button"
+              onClick={() =>
+                document
+                  .querySelector("#academy-catalog")
+                  ?.scrollIntoView({ behavior: "smooth" })
+              }
+            >
+              Jelajahi program <Icon name="arrow" size={16} />
+            </button>
+          </div>
+          <div className="hero-stat">
+            <b>4,9</b>
+            <small>rating academy partner</small>
+          </div>
+        </section>
+        <div className="world-toolbar">
+          <div>
+            <button
+              className={filter === "all" ? "active" : ""}
+              onClick={() => setFilter("all")}
+            >
+              Semua
+            </button>
+            {["obedience", "behavior", "agility", "handler"].map((item) => (
+              <button
+                className={filter === item ? "active" : ""}
+                key={item}
+                onClick={() => setFilter(item)}
+              >
+                {item.replace("-", " ")}
+              </button>
+            ))}
+          </div>
+          <span>
+            {loading
+              ? "Memuat program…"
+              : `${programs.length} program tersedia`}
+          </span>
+        </div>
+        <div id="academy-catalog" className="academy-grid">
+          {programs
+            .filter((item) => filter === "all" || item.category === filter)
+            .map((item, index) => (
+              <article className="academy-card" key={item.id}>
+                <div className={`academy-visual tone-${index % 3}`}>
+                  {item.cover_url ? (
+                    <NextImage
+                      src={item.cover_url}
+                      alt=""
+                      width={640}
+                      height={400}
+                      unoptimized
+                    />
+                  ) : (
+                    <>
+                      <span>
+                        {index % 3 === 0 ? "🐕‍🦺" : index % 3 === 1 ? "🐶" : "🏅"}
+                      </span>
+                      <small>{item.academy_name}</small>
+                    </>
+                  )}
+                </div>
+                <div className="academy-card-body">
+                  <div className="card-meta">
+                    <span>{item.level}</span>
+                    <b>★ {item.trainer_rating || 4.9}</b>
+                  </div>
+                  <h3>{item.title}</h3>
+                  <p>{item.description}</p>
+                  <div className="trainer-line">
+                    <span>{item.trainer_name.slice(0, 1)}</span>
+                    <p>
+                      <b>{item.trainer_name}</b>
+                      <small>{item.academy_name}</small>
+                    </p>
+                  </div>
+                  <div className="academy-facts">
+                    <span>◷ {item.duration_weeks} minggu</span>
+                    <span>▤ {item.session_count} sesi</span>
+                    <b>{money.format(item.price)}</b>
+                  </div>
+                  <button
+                    type="button"
+                    className="primary-button full"
+                    onClick={() => setSelectedProgram(item)}
+                  >
+                    Lihat detail & daftar
+                  </button>
+                </div>
+              </article>
+            ))}
+        </div>
+        {selectedProgram && (
+          <ProgramModal
+            item={selectedProgram}
+            petName={petName}
+            ownerName={ownerName}
+            close={() => setSelectedProgram(null)}
+            notify={notify}
+          />
+        )}
+      </>
+    );
 
-  if(mode==="events"){const featured=events.find(item=>item.featured)||events[0];return <><UniverseNav active={mode} navigate={navigate}/>{featured&&<section className="event-banner"><div className="event-banner-date"><b>{new Date(featured.starts_at).getDate()}</b><small>{new Intl.DateTimeFormat("id-ID",{month:"short"}).format(new Date(featured.starts_at))}</small></div><div><span>FEATURED PET EVENT</span><h2>{featured.title}</h2><p>{featured.description}</p><div className="event-meta"><span>⌖ {featured.venue}, {featured.city}</span><span>◷ {when(featured.starts_at)}</span></div><button type="button" onClick={()=>setSelectedEvent(featured)}>Lihat detail event <Icon name="arrow" size={16}/></button></div><div className="event-capacity"><b>{featured.registered_count.toLocaleString("id-ID")}</b><small>pet parent terdaftar</small><i><span style={{width:`${Math.min(100,(featured.registered_count/featured.capacity)*100)}%`}}/></i></div></section>}<div className="section-title-world"><div><span>EVENT MENDATANG</span><h2>Isi kalender pet-mu</h2></div><button onClick={()=>notify("Kalender event Slivadoc ditambahkan ke perangkat")}>＋ Tambah ke kalender</button></div><div className="event-grid">{events.map((item,index)=><button type="button" className="event-card" key={item.id} onClick={()=>setSelectedEvent(item)}><div className={`event-art event-art-${index%3}`}><span>{item.category==="sport"?"🏃‍♀️🐕":item.category==="community"?"☕🐾":"🎪"}</span><i>{item.category}</i></div><div><small>{when(item.starts_at)}</small><h3>{item.title}</h3><p>⌖ {item.venue} · {item.city}</p><footer><b>{item.price?money.format(item.price):"Gratis"}</b><span>{Math.max(0,item.capacity-item.registered_count)} tiket tersisa ›</span></footer></div></button>)}</div>{selectedEvent&&<EventModal item={selectedEvent} ownerName={ownerName} ownerEmail={ownerEmail} close={()=>setSelectedEvent(null)} notify={notify}/>}</>}
+  if (mode === "events") {
+    const featured = events.find((item) => item.featured) || events[0];
+    return (
+      <>
+        <UniverseNav active={mode} navigate={navigate} />
+        {featured && (
+          <section className="event-banner">
+            <div className="event-banner-date">
+              <b>{new Date(featured.starts_at).getDate()}</b>
+              <small>
+                {new Intl.DateTimeFormat("id-ID", { month: "short" }).format(
+                  new Date(featured.starts_at),
+                )}
+              </small>
+            </div>
+            <div>
+              <span>FEATURED PET EVENT</span>
+              <h2>{featured.title}</h2>
+              <p>{featured.description}</p>
+              <div className="event-meta">
+                <span>
+                  ⌖ {featured.venue}, {featured.city}
+                </span>
+                <span>◷ {when(featured.starts_at)}</span>
+              </div>
+              <button type="button" onClick={() => setSelectedEvent(featured)}>
+                Lihat detail event <Icon name="arrow" size={16} />
+              </button>
+            </div>
+            <div className="event-capacity">
+              <b>{featured.registered_count.toLocaleString("id-ID")}</b>
+              <small>pet parent terdaftar</small>
+              <i>
+                <span
+                  style={{
+                    width: `${Math.min(100, (featured.registered_count / featured.capacity) * 100)}%`,
+                  }}
+                />
+              </i>
+            </div>
+          </section>
+        )}
+        <div className="section-title-world">
+          <div>
+            <span>EVENT MENDATANG</span>
+            <h2>Isi kalender pet-mu</h2>
+          </div>
+          <button
+            onClick={() =>
+              notify("Kalender event Slivadoc ditambahkan ke perangkat")
+            }
+          >
+            ＋ Tambah ke kalender
+          </button>
+        </div>
+        <div className="event-grid">
+          {events.map((item, index) => (
+            <button
+              type="button"
+              className="event-card"
+              key={item.id}
+              onClick={() => setSelectedEvent(item)}
+            >
+              <div className={`event-art event-art-${index % 3}`}>
+                <span>
+                  {item.category === "sport"
+                    ? "🏃‍♀️🐕"
+                    : item.category === "community"
+                      ? "☕🐾"
+                      : "🎪"}
+                </span>
+                <i>{item.category}</i>
+              </div>
+              <div>
+                <small>{when(item.starts_at)}</small>
+                <h3>{item.title}</h3>
+                <p>
+                  ⌖ {item.venue} · {item.city}
+                </p>
+                <footer>
+                  <b>{item.price ? money.format(item.price) : "Gratis"}</b>
+                  <span>
+                    {Math.max(0, item.capacity - item.registered_count)} tiket
+                    tersisa ›
+                  </span>
+                </footer>
+              </div>
+            </button>
+          ))}
+        </div>
+        {selectedEvent && (
+          <EventModal
+            item={selectedEvent}
+            ownerName={ownerName}
+            ownerEmail={ownerEmail}
+            close={() => setSelectedEvent(null)}
+            notify={notify}
+          />
+        )}
+      </>
+    );
+  }
 
-  if(mode==="petspot")return <><UniverseNav active={mode} navigate={navigate}/><section className="petspot-head"><div><span>PET FRIENDLY DISCOVERY</span><h2>Ke mana hari ini bersama {petName}?</h2><p>Temukan pilihan ramah pet dari berbagai kota dan hitung jaraknya dari posisimu.</p></div><button type="button" onClick={()=>void locate()}><Icon name="map" size={18}/> Gunakan lokasi saya</button></section><div className="petspot-search"><label className="petspot-query"><Icon name="search"/><input value={spotSearch} onChange={event=>setSpotSearch(event.target.value)} placeholder="Cari nama cafe, mall, taman…"/></label><label className="petspot-radius"><span>Radius pencarian</span><select value={maxDistance} onChange={event=>setMaxDistance(Number(event.target.value))}><option value="3">3 km</option><option value="5">5 km</option><option value="10">10 km</option><option value="25">25 km</option><option value="100">100 km</option></select></label><button onClick={()=>void locate()}><Icon name="map" size={16}/> Cari dari posisi saya</button></div><div className="world-toolbar spot-filter"><div>{[{id:"all",label:"Semua",emoji:"⌖"},{id:"cafe",label:"Cafe",emoji:"☕"},{id:"mall",label:"Mall",emoji:"🏬"},{id:"park",label:"Taman",emoji:"🌳"},{id:"other",label:"Lainnya",emoji:"🎾"}].map(item=><button className={filter===item.id?"active":""} key={item.id} onClick={()=>setFilter(item.id)}>{item.emoji} {item.label}</button>)}</div><span>{categorySpots.length} tempat ditemukan</span></div><div className="petspot-layout"><div className="spot-list">{categorySpots.map((item,index)=><button key={item.id} className={selectedSpot?.id===item.id?"active":""} onClick={()=>setSelectedSpot(item)}><span className={`spot-thumb spot-${index%4}`}>{item.category==="cafe"?"☕":item.category==="mall"?"🏬":item.category==="park"?"🌳":"🎾"}</span><div><small>{item.verified?"✓ PETSPOT TERVERIFIKASI":"REKOMENDASI KOMUNITAS"}</small><h3>{item.name}</h3><p>★ {item.rating} ({item.review_count}) · {Number.isFinite(item.distance_km)?`${Number(item.distance_km).toFixed(2)} km`:"Aktifkan lokasi"}</p><em>{item.address}</em><div>{item.pet_facilities.slice(0,3).map(facility=><i key={facility}>{facility}</i>)}</div></div><Icon name="chevron"/></button>)}{!categorySpots.length&&<div className="empty-state"><span>⌖</span><h3>Tempat belum ditemukan</h3><p>Ubah kata kunci, kategori, atau radius.</p></div>}</div><div className="petspot-map"><div className="spot-road"/>{categorySpots.slice(0,8).map((item,index)=><button key={item.id} className={`spot-pin spot-pin-${index%6}`} onClick={()=>setSelectedSpot(item)}><span>{index+1}</span><small>{item.name}</small></button>)}<div className="map-credit">Slivadoc PetSpot · peta lokasi</div></div></div>{selectedSpot&&<SpotModal item={selectedSpot} close={()=>setSelectedSpot(null)} notify={notify}/>}</>;
+  if (mode === "petspot")
+    return (
+      <>
+        <UniverseNav active={mode} navigate={navigate} />
+        <section className="petspot-head">
+          <div>
+            <span>PET FRIENDLY DISCOVERY</span>
+            <h2>Ke mana hari ini bersama {petName}?</h2>
+            <p>
+              Temukan pilihan ramah pet dari berbagai kota dan hitung jaraknya
+              dari posisimu.
+            </p>
+          </div>
+          <button type="button" onClick={() => void locate()}>
+            <Icon name="map" size={18} /> Gunakan lokasi saya
+          </button>
+        </section>
+        <div className="petspot-search">
+          <label className="petspot-query">
+            <Icon name="search" />
+            <input
+              value={spotSearch}
+              onChange={(event) => setSpotSearch(event.target.value)}
+              placeholder="Cari nama cafe, mall, taman…"
+            />
+          </label>
+          <label className="petspot-radius">
+            <span>Radius pencarian</span>
+            <select
+              value={maxDistance}
+              onChange={(event) => setMaxDistance(Number(event.target.value))}
+            >
+              <option value="3">3 km</option>
+              <option value="5">5 km</option>
+              <option value="10">10 km</option>
+              <option value="25">25 km</option>
+              <option value="100">100 km</option>
+            </select>
+          </label>
+          <button onClick={() => void locate()}>
+            <Icon name="map" size={16} /> Cari dari posisi saya
+          </button>
+        </div>
+        <div className="world-toolbar spot-filter">
+          <div>
+            {[
+              { id: "all", label: "Semua", emoji: "⌖" },
+              { id: "cafe", label: "Cafe", emoji: "☕" },
+              { id: "mall", label: "Mall", emoji: "🏬" },
+              { id: "park", label: "Taman", emoji: "🌳" },
+              { id: "other", label: "Lainnya", emoji: "🎾" },
+            ].map((item) => (
+              <button
+                className={filter === item.id ? "active" : ""}
+                key={item.id}
+                onClick={() => setFilter(item.id)}
+              >
+                {item.emoji} {item.label}
+              </button>
+            ))}
+          </div>
+          <span>{categorySpots.length} tempat ditemukan</span>
+        </div>
+        <div className="petspot-layout">
+          <div className="spot-list">
+            {categorySpots.map((item, index) => (
+              <button
+                key={item.id}
+                className={selectedSpot?.id === item.id ? "active" : ""}
+                onClick={() => setSelectedSpot(item)}
+              >
+                <span className={`spot-thumb spot-${index % 4}`}>
+                  {item.category === "cafe"
+                    ? "☕"
+                    : item.category === "mall"
+                      ? "🏬"
+                      : item.category === "park"
+                        ? "🌳"
+                        : "🎾"}
+                </span>
+                <div>
+                  <small>
+                    {item.verified
+                      ? "✓ PETSPOT TERVERIFIKASI"
+                      : "REKOMENDASI KOMUNITAS"}
+                  </small>
+                  <h3>{item.name}</h3>
+                  <p>
+                    ★ {item.rating} ({item.review_count}) ·{" "}
+                    {Number.isFinite(item.distance_km)
+                      ? `${Number(item.distance_km).toFixed(2)} km`
+                      : "Aktifkan lokasi"}
+                  </p>
+                  <em>{item.address}</em>
+                  <div>
+                    {item.pet_facilities.slice(0, 3).map((facility) => (
+                      <i key={facility}>{facility}</i>
+                    ))}
+                  </div>
+                </div>
+                <Icon name="chevron" />
+              </button>
+            ))}
+            {!categorySpots.length && (
+              <div className="empty-state">
+                <span>⌖</span>
+                <h3>Tempat belum ditemukan</h3>
+                <p>Ubah kata kunci, kategori, atau radius.</p>
+              </div>
+            )}
+          </div>
+          <div className="petspot-map">
+            <div className="spot-road" />
+            {categorySpots.slice(0, 8).map((item, index) => (
+              <button
+                key={item.id}
+                className={`spot-pin spot-pin-${index % 6}`}
+                onClick={() => setSelectedSpot(item)}
+              >
+                <span>{index + 1}</span>
+                <small>{item.name}</small>
+              </button>
+            ))}
+            <div className="map-credit">Slivadoc PetSpot · peta lokasi</div>
+          </div>
+        </div>
+        {selectedSpot && (
+          <SpotModal
+            item={selectedSpot}
+            close={() => setSelectedSpot(null)}
+            notify={notify}
+          />
+        )}
+      </>
+    );
 
-  return <><UniverseNav active={mode} navigate={navigate}/><section className="pethub-head"><div><span><i/> PETHUB LIVE</span><h2>Satu layar untuk seluruh dunia pet.</h2><p>Live streaming, video, story foto, channel, komentar, dan pet thread dalam satu ruang.</p></div><button className="primary-button" onClick={()=>isPetOwnerAuthenticated()?setComposer(true):loginRequired()}>＋ Buat pet thread</button></section><div className="story-strip"><button className="story-add" onClick={()=>isPetOwnerAuthenticated()?setStoryComposer(true):loginRequired()}><span>＋</span><b>Story kamu</b></button>{stories.map(story=><button key={story.id} onClick={()=>notify(`Story ${story.author_name} dibuka`)}><span>{story.photo_url?<img src={story.photo_url} alt=""/>:story.author_name.slice(0,1)}</span><b>{story.author_name.split(" ")[0]}</b></button>)}</div><div className="stream-strip">{streams.map((item,index)=><button key={item.id} className={item.status==="live"?"live":""} onClick={()=>setSelectedStream(item)}><div className={`stream-art stream-${index%3}`}><span>{index%2?"👩🏻‍⚕️":"🐕‍🦺"}</span>{item.status==="live"?<i>● LIVE</i>:<i>◷ TERJADWAL</i>}<b>▶</b></div><div><span className="channel-avatar">{item.channel_name.slice(0,1)}</span><p><strong>{item.title}</strong><small>{item.channel_name} {item.verified&&"✓"}</small><em>{item.status==="live"?`${item.viewer_count.toLocaleString("id-ID")} menonton`:when(item.scheduled_at)}</em></p></div></button>)}</div><div className="pethub-layout"><section className="hub-feed"><div className="hub-tabs">{["Untuk Kamu","Mengikuti","Video","Thread"].map(item=><button key={item} className={hubTab===item?"active":""} onClick={()=>{if(item==="Mengikuti"&&!isPetOwnerAuthenticated()){loginRequired();return}setHubTab(item)}}>{item}</button>)}</div>{loading?<div className="empty-state compact">Memuat feed PetHub…</div>:posts.length?posts.map(post=><article className="hub-post" key={post.id}><header><span>{post.channel_name?.slice(0,1)||post.author_name.slice(0,1)}</span><p><b>{post.author_name} {post.verified&&<i>✓</i>}</b><small>{post.channel_handle||post.channel_name} · {relative(post.created_at)}</small></p><button onClick={()=>notify("Posting disimpan ke koleksi")}>•••</button></header><p>{post.content}</p>{post.media_url&&<img src={post.media_url} alt="Media PetHub"/>}<footer><button className={liked.includes(post.id)?"liked":""} onClick={()=>isPetOwnerAuthenticated()?void like(post):loginRequired()}><Icon name="heart" size={18}/> {post.like_count.toLocaleString("id-ID")}</button><button onClick={()=>setCommentPost(post)}><Icon name="chat" size={18}/> {post.comment_count}</button><button onClick={()=>notify("Repost akan tersedia setelah moderasi") }><Icon name="arrow" size={18}/> {post.repost_count}</button><button onClick={()=>navigator.share?.({title:"PetHub",text:post.content})??navigator.clipboard.writeText(post.content).then(()=>notify("Thread disalin"))}><Icon name="download" size={18}/></button></footer></article>):<div className="empty-state"><span>▶</span><h3>Feed ini masih kosong</h3><p>Ikuti channel atau terbitkan thread pertama.</p></div>}</section><aside className="hub-side"><section><span>TRENDING PET THREAD</span>{posts.filter(item=>item.post_type==="thread").slice(0,4).map((item,index)=><button key={item.id} onClick={()=>setCommentPost(item)}><small>{index+1} · Thread terbaru</small><b>{item.channel_name||item.author_name}</b><em>{item.content.slice(0,48)}…</em></button>)}</section><section><span>CHANNEL PILIHAN</span>{Array.from(new Map(posts.filter(item=>item.channel_id).map(item=>[item.channel_id,item])).values()).slice(0,4).map(item=><button key={item.channel_id} onClick={()=>void followChannel(item.channel_id)}><i>{item.channel_name.slice(0,1)}</i><p><b>{item.channel_name} {item.verified&&"✓"}</b><small>{item.channel_handle}</small></p><strong>{item.following?"Mengikuti":"Ikuti"}</strong></button>)}</section></aside></div>{selectedStream&&<StreamModal item={selectedStream} close={()=>setSelectedStream(null)} notify={notify} follow={()=>void followChannel(selectedStream.channel_id)}/>} {composer&&<ThreadComposer close={()=>setComposer(false)} onCreated={(post)=>setPosts(current=>[post,...current])} notify={notify} ownerName={ownerName}/>} {commentPost&&<CommentsModal post={commentPost} close={()=>setCommentPost(null)} notify={notify} ownerName={ownerName} onCount={()=>setPosts(current=>current.map(item=>item.id===commentPost.id?{...item,comment_count:item.comment_count+1}:item))}/>} {storyComposer&&<StoryComposer close={()=>setStoryComposer(false)} notify={notify} ownerName={ownerName} onCreated={story=>setStories(current=>[story,...current])}/>}</>;
+  return (
+    <>
+      <UniverseNav active={mode} navigate={navigate} />
+      <section className="pethub-head">
+        <div>
+          <span>
+            <i /> PETHUB LIVE
+          </span>
+          <h2>Satu layar untuk seluruh dunia pet.</h2>
+          <p>
+            Live streaming, video, story foto, channel, komentar, dan pet thread
+            dalam satu ruang.
+          </p>
+        </div>
+        <button
+          className="primary-button"
+          onClick={() =>
+            isPetOwnerAuthenticated() ? setComposer(true) : loginRequired()
+          }
+        >
+          ＋ Buat pet thread
+        </button>
+      </section>
+      <div className="story-strip">
+        <button
+          className="story-add"
+          onClick={() =>
+            isPetOwnerAuthenticated() ? setStoryComposer(true) : loginRequired()
+          }
+        >
+          <span>＋</span>
+          <b>Story kamu</b>
+        </button>
+        {stories.map((story) => (
+          <button
+            key={story.id}
+            onClick={() => notify(`Story ${story.author_name} dibuka`)}
+          >
+            <span>
+              {story.photo_url ? (
+                <NextImage
+                  src={story.photo_url}
+                  alt=""
+                  width={128}
+                  height={128}
+                  unoptimized
+                />
+              ) : (
+                story.author_name.slice(0, 1)
+              )}
+            </span>
+            <b>{story.author_name.split(" ")[0]}</b>
+          </button>
+        ))}
+      </div>
+      <div className="stream-strip">
+        {streams.map((item, index) => (
+          <button
+            key={item.id}
+            className={item.status === "live" ? "live" : ""}
+            onClick={() => setSelectedStream(item)}
+          >
+            <div className={`stream-art stream-${index % 3}`}>
+              <span>{index % 2 ? "👩🏻‍⚕️" : "🐕‍🦺"}</span>
+              {item.status === "live" ? <i>● LIVE</i> : <i>◷ TERJADWAL</i>}
+              <b>▶</b>
+            </div>
+            <div>
+              <span className="channel-avatar">
+                {item.channel_name.slice(0, 1)}
+              </span>
+              <p>
+                <strong>{item.title}</strong>
+                <small>
+                  {item.channel_name} {item.verified && "✓"}
+                </small>
+                <em>
+                  {item.status === "live"
+                    ? `${item.viewer_count.toLocaleString("id-ID")} menonton`
+                    : when(item.scheduled_at)}
+                </em>
+              </p>
+            </div>
+          </button>
+        ))}
+      </div>
+      <div className="pethub-layout">
+        <section className="hub-feed">
+          <div className="hub-tabs">
+            {["Untuk Kamu", "Mengikuti", "Video", "Thread"].map((item) => (
+              <button
+                key={item}
+                className={hubTab === item ? "active" : ""}
+                onClick={() => {
+                  if (item === "Mengikuti" && !isPetOwnerAuthenticated()) {
+                    loginRequired();
+                    return;
+                  }
+                  setHubTab(item);
+                }}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+          {loading ? (
+            <div className="empty-state compact">Memuat feed PetHub…</div>
+          ) : posts.length ? (
+            posts.map((post) => (
+              <article className="hub-post" key={post.id}>
+                <header>
+                  <span>
+                    {post.channel_name?.slice(0, 1) ||
+                      post.author_name.slice(0, 1)}
+                  </span>
+                  <p>
+                    <b>
+                      {post.author_name} {post.verified && <i>✓</i>}
+                    </b>
+                    <small>
+                      {post.channel_handle || post.channel_name} ·{" "}
+                      {relative(post.created_at)}
+                    </small>
+                  </p>
+                  <button onClick={() => notify("Posting disimpan ke koleksi")}>
+                    •••
+                  </button>
+                </header>
+                <p>{post.content}</p>
+                {post.media_url && (
+                  <NextImage
+                    src={post.media_url}
+                    alt="Media PetHub"
+                    width={960}
+                    height={640}
+                    unoptimized
+                  />
+                )}
+                <footer>
+                  <button
+                    className={liked.includes(post.id) ? "liked" : ""}
+                    onClick={() =>
+                      isPetOwnerAuthenticated()
+                        ? void like(post)
+                        : loginRequired()
+                    }
+                  >
+                    <Icon name="heart" size={18} />{" "}
+                    {post.like_count.toLocaleString("id-ID")}
+                  </button>
+                  <button onClick={() => setCommentPost(post)}>
+                    <Icon name="chat" size={18} /> {post.comment_count}
+                  </button>
+                  <button
+                    onClick={() =>
+                      notify("Repost akan tersedia setelah moderasi")
+                    }
+                  >
+                    <Icon name="arrow" size={18} /> {post.repost_count}
+                  </button>
+                  <button
+                    onClick={() =>
+                      navigator.share?.({
+                        title: "PetHub",
+                        text: post.content,
+                      }) ??
+                      navigator.clipboard
+                        .writeText(post.content)
+                        .then(() => notify("Thread disalin"))
+                    }
+                  >
+                    <Icon name="download" size={18} />
+                  </button>
+                </footer>
+              </article>
+            ))
+          ) : (
+            <div className="empty-state">
+              <span>▶</span>
+              <h3>Feed ini masih kosong</h3>
+              <p>Ikuti channel atau terbitkan thread pertama.</p>
+            </div>
+          )}
+        </section>
+        <aside className="hub-side">
+          <section>
+            <span>TRENDING PET THREAD</span>
+            {posts
+              .filter((item) => item.post_type === "thread")
+              .slice(0, 4)
+              .map((item, index) => (
+                <button key={item.id} onClick={() => setCommentPost(item)}>
+                  <small>{index + 1} · Thread terbaru</small>
+                  <b>{item.channel_name || item.author_name}</b>
+                  <em>{item.content.slice(0, 48)}…</em>
+                </button>
+              ))}
+          </section>
+          <section>
+            <span>CHANNEL PILIHAN</span>
+            {Array.from(
+              new Map(
+                posts
+                  .filter((item) => item.channel_id)
+                  .map((item) => [item.channel_id, item]),
+              ).values(),
+            )
+              .slice(0, 4)
+              .map((item) => (
+                <button
+                  key={item.channel_id}
+                  onClick={() => void followChannel(item.channel_id)}
+                >
+                  <i>{item.channel_name.slice(0, 1)}</i>
+                  <p>
+                    <b>
+                      {item.channel_name} {item.verified && "✓"}
+                    </b>
+                    <small>{item.channel_handle}</small>
+                  </p>
+                  <strong>{item.following ? "Mengikuti" : "Ikuti"}</strong>
+                </button>
+              ))}
+          </section>
+        </aside>
+      </div>
+      {selectedStream && (
+        <StreamModal
+          item={selectedStream}
+          close={() => setSelectedStream(null)}
+          follow={() => void followChannel(selectedStream.channel_id)}
+        />
+      )}{" "}
+      {composer && (
+        <ThreadComposer
+          close={() => setComposer(false)}
+          onCreated={(post) => setPosts((current) => [post, ...current])}
+          notify={notify}
+          ownerName={ownerName}
+        />
+      )}{" "}
+      {commentPost && (
+        <CommentsModal
+          post={commentPost}
+          close={() => setCommentPost(null)}
+          notify={notify}
+          ownerName={ownerName}
+          onCount={() =>
+            setPosts((current) =>
+              current.map((item) =>
+                item.id === commentPost.id
+                  ? { ...item, comment_count: item.comment_count + 1 }
+                  : item,
+              ),
+            )
+          }
+        />
+      )}{" "}
+      {storyComposer && (
+        <StoryComposer
+          close={() => setStoryComposer(false)}
+          notify={notify}
+          ownerName={ownerName}
+          onCreated={(story) => setStories((current) => [story, ...current])}
+        />
+      )}
+    </>
+  );
 }
 
-function UniverseNav({active,navigate}:{active:DiscoveryMode;navigate:(mode:DiscoveryMode)=>void}){return <nav className="universe-nav"><span>SLIVA WORLD</span>{([{id:"academy",label:"Pet Academy",icon:"🎓"},{id:"events",label:"Pet Event",icon:"🎟️"},{id:"petspot",label:"PetSpot",icon:"⌖"},{id:"pethub",label:"PetHub",icon:"▶"}] as const).map(item=><button key={item.id} className={active===item.id?"active":""} onClick={()=>navigate(item.id)}><i>{item.icon}</i>{item.label}</button>)}</nav>}
+function UniverseNav({
+  active,
+  navigate,
+}: {
+  active: DiscoveryMode;
+  navigate: (mode: DiscoveryMode) => void;
+}) {
+  return (
+    <nav className="universe-nav">
+      <span>SLIVA WORLD</span>
+      {(
+        [
+          { id: "academy", label: "Pet Academy", icon: "🎓" },
+          { id: "events", label: "Pet Event", icon: "🎟️" },
+          { id: "petspot", label: "PetSpot", icon: "⌖" },
+          { id: "pethub", label: "PetHub", icon: "▶" },
+        ] as const
+      ).map((item) => (
+        <button
+          key={item.id}
+          className={active === item.id ? "active" : ""}
+          onClick={() => navigate(item.id)}
+        >
+          <i>{item.icon}</i>
+          {item.label}
+        </button>
+      ))}
+    </nav>
+  );
+}
 
-function ProgramModal({item,petName,ownerName,close,notify}:{item:AcademyProgram;petName:string;ownerName:string;close:()=>void;notify:(message:string)=>void}){const[enroll,setEnroll]=useState(false);const[done,setDone]=useState(false);const[busy,setBusy]=useState(false);const[paymentMethod,setPaymentMethod]=useState("qris");const[payment,setPayment]=useState<PaymentIntent|null>(null);async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!isPetOwnerAuthenticated()){notify("Login diperlukan untuk mendaftar academy");window.dispatchEvent(new CustomEvent("slivadoc:login-required"));return}const values=Object.fromEntries(new FormData(event.currentTarget));setBusy(true);try{const enrollment=await enrollAcademy({program_id:item.id,participant_name:String(values.participant_name),pet_name:String(values.pet_name)});if(enrollment.amount>0)setPayment(await createPaymentIntent("academy_enrollment",enrollment.id,paymentMethod));else setDone(true);notify(enrollment.amount>0?"Pendaftaran dibuat, selesaikan pembayaran":"Pendaftaran academy berhasil dibuat")}catch(error){notify(error instanceof Error?error.message:"Pendaftaran academy belum dapat disimpan")}finally{setBusy(false)}}return <Modal close={close} className="world-modal"><div className="modal-world-cover academy-modal-cover"><span>🎓</span><i>{item.academy_name}</i></div><div className="modal-world-body">{done?<Success title="Pendaftaran berhasil!" note={`${petName} terdaftar di ${item.title}. Detail tersedia di Aktivitas.`} close={close}/>:payment?<BatpayPaymentPanel payment={payment} onPaid={()=>setDone(true)}/>:!enroll?<><small className="world-kicker">{item.category} · {item.level}</small><h2>{item.title}</h2><p>{item.description}</p><div className="world-detail-grid"><span><small>Trainer</small><b>{item.trainer_name}</b></span><span><small>Mulai</small><b>{when(item.next_schedule)}</b></span><span><small>Durasi</small><b>{item.duration_weeks} minggu · {item.session_count} sesi</b></span><span><small>Investasi</small><b>{money.format(item.price)}</b></span></div><button className="primary-button full" onClick={()=>isPetOwnerAuthenticated()?setEnroll(true):(notify("Login diperlukan untuk mendaftar academy"),window.dispatchEvent(new CustomEvent("slivadoc:login-required")))}>Daftarkan {petName}</button></>:<form className="world-form" onSubmit={submit}><h2>Data peserta academy</h2><label><span>Nama pet parent</span><input name="participant_name" defaultValue={ownerName} required/></label><label><span>Nama pet</span><input name="pet_name" defaultValue={petName} required/></label><div className="checkout-line"><span>Total program</span><b>{money.format(item.price)}</b></div>{item.price>0&&<PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} disabled={busy}/>}<button className="primary-button full" disabled={busy}>{busy?"Membuat pembayaran…":item.price>0?"Lanjut ke pembayaran":"Konfirmasi pendaftaran"}</button></form>}</div></Modal>}
-function EventModal({item,ownerName,ownerEmail,close,notify}:{item:PetEvent;ownerName:string;ownerEmail:string;close:()=>void;notify:(message:string)=>void}){const[register,setRegister]=useState(false);const[done,setDone]=useState(false);const[busy,setBusy]=useState(false);const[paymentMethod,setPaymentMethod]=useState("qris");const[payment,setPayment]=useState<PaymentIntent|null>(null);function start(){if(!isPetOwnerAuthenticated()){notify("Login diperlukan untuk mengambil tiket event");window.dispatchEvent(new CustomEvent("slivadoc:login-required"));return}setRegister(true)}async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!isPetOwnerAuthenticated())return;const values=Object.fromEntries(new FormData(event.currentTarget));setBusy(true);try{const registration=await registerEvent(item.id,{participant_name:String(values.participant_name),participant_email:String(values.participant_email),ticket_quantity:Number(values.ticket_quantity)});if(registration.amount>0)setPayment(await createPaymentIntent("event_registration",registration.id,paymentMethod));else setDone(true);notify(registration.amount>0?"Tiket dibuat, selesaikan pembayaran":"Tiket event tersimpan di Aktivitas")}catch(error){notify(error instanceof Error?error.message:"Tiket event belum dapat disimpan")}finally{setBusy(false)}}return <Modal close={close} className="world-modal"><div className="modal-world-cover event-modal-cover"><span>🎪</span><i>{item.category}</i></div><div className="modal-world-body">{done?<Success title="Tiket berhasil diamankan!" note={`QR ticket ${item.title} tersedia di Aktivitas.`} close={close}/>:payment?<BatpayPaymentPanel payment={payment} onPaid={()=>setDone(true)}/>:register?<form className="world-form" onSubmit={submit}><h2>Pesan tiket event</h2><label><span>Nama peserta</span><input name="participant_name" defaultValue={ownerName} required/></label><label><span>Email</span><input name="participant_email" type="email" defaultValue={ownerEmail} required/></label><label><span>Jumlah tiket</span><select name="ticket_quantity" defaultValue="1"><option>1</option><option>2</option><option>3</option><option>4</option></select></label><div className="checkout-line"><span>Harga per tiket</span><b>{item.price?money.format(item.price):"Gratis"}</b></div>{item.price>0&&<PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} disabled={busy}/>}<button className="primary-button full" disabled={busy}>{busy?"Membuat pembayaran…":item.price>0?"Lanjut ke pembayaran":"Konfirmasi tiket"}</button></form>:<><small className="world-kicker">{when(item.starts_at)}</small><h2>{item.title}</h2><p>{item.description}</p><div className="world-detail-grid"><span><small>Lokasi</small><b>{item.venue}, {item.city}</b></span><span><small>Tiket</small><b>{item.price?money.format(item.price):"Gratis"}</b></span><span><small>Kapasitas</small><b>{item.registered_count}/{item.capacity} terdaftar</b></span><span><small>Status</small><b>{item.status}</b></span></div><button className="primary-button full" onClick={start}>Ambil tiket</button></>}</div></Modal>}
-function SpotModal({item,close,notify}:{item:PetSpot;close:()=>void;notify:(message:string)=>void}){const maps=`https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`;const[busy,setBusy]=useState(false);async function save(){if(!isPetOwnerAuthenticated()){notify("Login diperlukan untuk menyimpan PetSpot");window.dispatchEvent(new CustomEvent("slivadoc:login-required"));return}setBusy(true);try{const result=await togglePetOwnerFavorite("petspot",item.id);notify(result.favorite?`${item.name} disimpan ke favorit`:`${item.name} dihapus dari favorit`);close()}catch(error){notify(error instanceof Error?error.message:"PetSpot belum dapat disimpan")}finally{setBusy(false)}}return <Modal close={close} className="world-modal spot-modal"><div className="modal-world-cover spot-modal-cover"><span>{item.category==="cafe"?"☕":item.category==="park"?"🌳":"🏬"}</span><i>{item.verified?"✓ PetSpot Verified":"Community Spot"}</i></div><div className="modal-world-body"><small className="world-kicker">★ {item.rating} · {item.review_count} ulasan · {safeFixed(item.distance_km,1,"—")} km</small><h2>{item.name}</h2><p>{item.description}</p><div className="spot-address"><Icon name="map"/><span><b>{item.address}</b><small>{item.city} · {item.opening_hours?.daily||"Jam buka lihat di lokasi"}</small></span></div><div className="facility-grid">{item.pet_facilities.map(value=><span key={value}>✓ {value}</span>)}</div><div className="world-modal-actions"><a className="primary-button" href={maps} target="_blank" rel="noreferrer">Petunjuk arah</a><button className="secondary-button" disabled={busy} onClick={()=>void save()}>{busy?"Menyimpan…":"♡ Simpan"}</button></div></div></Modal>}
-function StreamModal({item,close,notify,follow}:{item:PetHubStream;close:()=>void;notify:(message:string)=>void;follow:()=>void}){const[message,setMessage]=useState("");return <Modal close={close} className="stream-modal"><div className="player">{item.playback_url?<video src={item.playback_url} controls autoPlay/>:<><span>🐕‍🦺</span><small>{item.status==="live"?"● LIVE · playback sedang dipersiapkan":when(item.scheduled_at)}</small></>}</div><div className="stream-body"><small>{item.status==="live"?`${item.viewer_count.toLocaleString("id-ID")} sedang menonton`:"Live terjadwal"}</small><h2>{item.title}</h2><p>{item.description}</p><div className="stream-channel"><span>{item.channel_name.slice(0,1)}</span><p><b>{item.channel_name} {item.verified&&"✓"}</b><small>{item.channel_handle}</small></p><button onClick={follow}>Ikuti</button></div><div className="live-chat"><b>Live chat</b><div className="empty-state compact">Pesan live akan tampil ketika provider streaming mengaktifkan room chat.</div><label><input value={message} onChange={event=>setMessage(event.target.value)} placeholder="Tulis pesan yang suportif…" disabled/><button disabled>Kirim</button></label></div></div></Modal>}
-function ThreadComposer({close,onCreated,notify,ownerName}:{close:()=>void;onCreated:(post:PetHubPost)=>void;notify:(message:string)=>void;ownerName:string}){const [content,setContent]=useState("");const[busy,setBusy]=useState(false);async function submit(){if(content.trim().length<3||!isPetOwnerAuthenticated())return;setBusy(true);try{const id=(await createPetHubPost({author_name:ownerName,content:content.trim(),post_type:"thread"})).id;onCreated({id,author_name:ownerName,content:content.trim(),media_url:"",post_type:"thread",like_count:0,comment_count:0,repost_count:0,created_at:new Date().toISOString(),channel_name:ownerName,channel_handle:"@petowner",channel_avatar_url:"",verified:false});notify("Pet thread berhasil diterbitkan");close();}catch(error){notify(error instanceof Error?error.message:"Thread belum dapat diterbitkan")}finally{setBusy(false)}}return <Modal close={close} className="world-modal"><div className="modal-world-body"><small className="world-kicker">BUAT PET THREAD · LOGIN TERVERIFIKASI</small><h2>Apa yang sedang kamu pikirkan?</h2><textarea className="thread-input" value={content} onChange={event=>setContent(event.target.value)} maxLength={5000} placeholder="Bagikan insight, cerita, atau pertanyaan tentang pet…" autoFocus/><div className="composer-bottom"><span>{content.length}/5000</span><button className="primary-button" disabled={content.trim().length<3||busy} onClick={submit}>{busy?"Menerbitkan…":"Terbitkan thread"}</button></div></div></Modal>}
-function CommentsModal({post,close,notify,ownerName,onCount}:{post:PetHubPost;close:()=>void;notify:(m:string)=>void;ownerName:string;onCount:()=>void}){const[comments,setComments]=useState<PetHubComment[]>([]);const[text,setText]=useState("");const[busy,setBusy]=useState(true);useEffect(()=>{getPetHubComments(post.id).then(r=>setComments(r.data)).catch(()=>setComments([])).finally(()=>setBusy(false))},[post.id]);async function send(){if(!text.trim())return;if(!isPetOwnerAuthenticated()){notify("Login diperlukan untuk berkomentar");window.dispatchEvent(new CustomEvent("slivadoc:login-required"));return};try{const result=await createPetHubComment(post.id,text.trim());setComments(v=>[...v,{id:result.id,user_id:"me",author_name:ownerName,content:text.trim(),created_at:new Date().toISOString()}]);setText("");onCount()}catch(error){notify(error instanceof Error?error.message:"Komentar belum dapat dikirim")}}return <Modal close={close} className="comments-modal"><div className="comments-head"><small>PET THREAD</small><h2>Diskusi</h2><p>{post.content}</p></div><div className="comments-list">{busy?<span>Memuat komentar…</span>:comments.length?comments.map(item=><div key={item.id}><i>{item.author_name.slice(0,1)}</i><p><b>{item.author_name}</b><span>{item.content}</span><small>{when(item.created_at)}</small></p></div>):<span>Belum ada komentar. Jadilah yang pertama.</span>}</div><footer><input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")void send()}} placeholder={isPetOwnerAuthenticated()?"Tulis komentar yang suportif…":"Login untuk ikut berdiskusi"}/><button onClick={()=>void send()} disabled={isPetOwnerAuthenticated()&&!text.trim()}>Kirim</button></footer></Modal>}
-function StoryComposer({close,notify,ownerName,onCreated}:{close:()=>void;notify:(m:string)=>void;ownerName:string;onCreated:(story:PetHubStory)=>void}){const[photo,setPhoto]=useState("");const[caption,setCaption]=useState("");const[busy,setBusy]=useState(false);function choose(file?:File){if(!file)return;if(file.size>650000){notify("Foto maksimal 650 KB untuk story");return}const reader=new FileReader();reader.onload=()=>setPhoto(String(reader.result));reader.readAsDataURL(file)}async function submit(){if(!photo||!isPetOwnerAuthenticated())return;setBusy(true);try{const result=await createPetHubStory(photo,caption);onCreated({id:result.id,user_id:"me",author_name:ownerName,photo_url:photo,caption,view_count:0,expires_at:new Date(Date.now()+86400000).toISOString(),created_at:new Date().toISOString()});notify("Story foto aktif selama 24 jam");close()}catch(error){notify(error instanceof Error?error.message:"Story belum dapat diterbitkan")}finally{setBusy(false)}}return <Modal close={close} className="story-modal"><div className="story-preview">{photo?<img src={photo} alt="Preview story"/>:<label><span>📷</span><b>Pilih foto story</b><small>Story saat ini hanya mendukung foto · maks. 650 KB</small><input type="file" accept="image/*" onChange={e=>choose(e.target.files?.[0])}/></label>}</div><input className="story-caption" value={caption} onChange={e=>setCaption(e.target.value)} maxLength={300} placeholder="Tambahkan caption…"/><button className="primary-button full" disabled={!photo||busy} onClick={()=>void submit()}>{busy?"Menerbitkan…":"Bagikan story 24 jam"}</button></Modal>}
-function Modal({children,close,className}:{children:ReactNode;close:()=>void;className:string}){return <div className="modal-overlay" onMouseDown={close}><section className={`modal ${className}`} onMouseDown={event=>event.stopPropagation()}><button className="modal-close" onClick={close}><Icon name="close"/></button>{children}</section></div>}
-function Success({title,note,close}:{title:string;note:string;close:()=>void}){return <div className="world-success"><span><Icon name="check" size={28}/></span><h2>{title}</h2><p>{note}</p><button className="primary-button full" onClick={close}>Lihat aktivitas saya</button></div>}
+function ProgramModal({
+  item,
+  petName,
+  ownerName,
+  close,
+  notify,
+}: {
+  item: AcademyProgram;
+  petName: string;
+  ownerName: string;
+  close: () => void;
+  notify: (message: string) => void;
+}) {
+  const [enroll, setEnroll] = useState(false);
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [payment, setPayment] = useState<PaymentIntent | null>(null);
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!isPetOwnerAuthenticated()) {
+      notify("Login diperlukan untuk mendaftar academy");
+      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
+      return;
+    }
+    const values = Object.fromEntries(new FormData(event.currentTarget));
+    setBusy(true);
+    try {
+      const enrollment = await enrollAcademy({
+        program_id: item.id,
+        participant_name: String(values.participant_name),
+        pet_name: String(values.pet_name),
+      });
+      if (enrollment.amount > 0)
+        setPayment(
+          await createPaymentIntent(
+            "academy_enrollment",
+            enrollment.id,
+            paymentMethod,
+          ),
+        );
+      else setDone(true);
+      notify(
+        enrollment.amount > 0
+          ? "Pendaftaran dibuat, selesaikan pembayaran"
+          : "Pendaftaran academy berhasil dibuat",
+      );
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Pendaftaran academy belum dapat disimpan",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal close={close} className="world-modal">
+      <div className="modal-world-cover academy-modal-cover">
+        <span>🎓</span>
+        <i>{item.academy_name}</i>
+      </div>
+      <div className="modal-world-body">
+        {done ? (
+          <Success
+            title="Pendaftaran berhasil!"
+            note={`${petName} terdaftar di ${item.title}. Detail tersedia di Aktivitas.`}
+            close={close}
+          />
+        ) : payment ? (
+          <BatpayPaymentPanel payment={payment} onPaid={() => setDone(true)} />
+        ) : !enroll ? (
+          <>
+            <small className="world-kicker">
+              {item.category} · {item.level}
+            </small>
+            <h2>{item.title}</h2>
+            <p>{item.description}</p>
+            <div className="world-detail-grid">
+              <span>
+                <small>Trainer</small>
+                <b>{item.trainer_name}</b>
+              </span>
+              <span>
+                <small>Mulai</small>
+                <b>{when(item.next_schedule)}</b>
+              </span>
+              <span>
+                <small>Durasi</small>
+                <b>
+                  {item.duration_weeks} minggu · {item.session_count} sesi
+                </b>
+              </span>
+              <span>
+                <small>Investasi</small>
+                <b>{money.format(item.price)}</b>
+              </span>
+            </div>
+            <button
+              className="primary-button full"
+              onClick={() =>
+                isPetOwnerAuthenticated()
+                  ? setEnroll(true)
+                  : (notify("Login diperlukan untuk mendaftar academy"),
+                    window.dispatchEvent(
+                      new CustomEvent("slivadoc:login-required"),
+                    ))
+              }
+            >
+              Daftarkan {petName}
+            </button>
+          </>
+        ) : (
+          <form className="world-form" onSubmit={submit}>
+            <h2>Data peserta academy</h2>
+            <label>
+              <span>Nama pet parent</span>
+              <input
+                name="participant_name"
+                defaultValue={ownerName}
+                required
+              />
+            </label>
+            <label>
+              <span>Nama pet</span>
+              <input name="pet_name" defaultValue={petName} required />
+            </label>
+            <div className="checkout-line">
+              <span>Total program</span>
+              <b>{money.format(item.price)}</b>
+            </div>
+            {item.price > 0 && (
+              <PaymentMethodPicker
+                value={paymentMethod}
+                onChange={setPaymentMethod}
+                disabled={busy}
+              />
+            )}
+            <button className="primary-button full" disabled={busy}>
+              {busy
+                ? "Membuat pembayaran…"
+                : item.price > 0
+                  ? "Lanjut ke pembayaran"
+                  : "Konfirmasi pendaftaran"}
+            </button>
+          </form>
+        )}
+      </div>
+    </Modal>
+  );
+}
+function EventModal({
+  item,
+  ownerName,
+  ownerEmail,
+  close,
+  notify,
+}: {
+  item: PetEvent;
+  ownerName: string;
+  ownerEmail: string;
+  close: () => void;
+  notify: (message: string) => void;
+}) {
+  const [register, setRegister] = useState(false);
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [payment, setPayment] = useState<PaymentIntent | null>(null);
+  function start() {
+    if (!isPetOwnerAuthenticated()) {
+      notify("Login diperlukan untuk mengambil tiket event");
+      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
+      return;
+    }
+    setRegister(true);
+  }
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!isPetOwnerAuthenticated()) return;
+    const values = Object.fromEntries(new FormData(event.currentTarget));
+    setBusy(true);
+    try {
+      const registration = await registerEvent(item.id, {
+        participant_name: String(values.participant_name),
+        participant_email: String(values.participant_email),
+        ticket_quantity: Number(values.ticket_quantity),
+      });
+      if (registration.amount > 0)
+        setPayment(
+          await createPaymentIntent(
+            "event_registration",
+            registration.id,
+            paymentMethod,
+          ),
+        );
+      else setDone(true);
+      notify(
+        registration.amount > 0
+          ? "Tiket dibuat, selesaikan pembayaran"
+          : "Tiket event tersimpan di Aktivitas",
+      );
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Tiket event belum dapat disimpan",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal close={close} className="world-modal">
+      <div className="modal-world-cover event-modal-cover">
+        <span>🎪</span>
+        <i>{item.category}</i>
+      </div>
+      <div className="modal-world-body">
+        {done ? (
+          <Success
+            title="Tiket berhasil diamankan!"
+            note={`QR ticket ${item.title} tersedia di Aktivitas.`}
+            close={close}
+          />
+        ) : payment ? (
+          <BatpayPaymentPanel payment={payment} onPaid={() => setDone(true)} />
+        ) : register ? (
+          <form className="world-form" onSubmit={submit}>
+            <h2>Pesan tiket event</h2>
+            <label>
+              <span>Nama peserta</span>
+              <input
+                name="participant_name"
+                defaultValue={ownerName}
+                required
+              />
+            </label>
+            <label>
+              <span>Email</span>
+              <input
+                name="participant_email"
+                type="email"
+                defaultValue={ownerEmail}
+                required
+              />
+            </label>
+            <label>
+              <span>Jumlah tiket</span>
+              <select name="ticket_quantity" defaultValue="1">
+                <option>1</option>
+                <option>2</option>
+                <option>3</option>
+                <option>4</option>
+              </select>
+            </label>
+            <div className="checkout-line">
+              <span>Harga per tiket</span>
+              <b>{item.price ? money.format(item.price) : "Gratis"}</b>
+            </div>
+            {item.price > 0 && (
+              <PaymentMethodPicker
+                value={paymentMethod}
+                onChange={setPaymentMethod}
+                disabled={busy}
+              />
+            )}
+            <button className="primary-button full" disabled={busy}>
+              {busy
+                ? "Membuat pembayaran…"
+                : item.price > 0
+                  ? "Lanjut ke pembayaran"
+                  : "Konfirmasi tiket"}
+            </button>
+          </form>
+        ) : (
+          <>
+            <small className="world-kicker">{when(item.starts_at)}</small>
+            <h2>{item.title}</h2>
+            <p>{item.description}</p>
+            <div className="world-detail-grid">
+              <span>
+                <small>Lokasi</small>
+                <b>
+                  {item.venue}, {item.city}
+                </b>
+              </span>
+              <span>
+                <small>Tiket</small>
+                <b>{item.price ? money.format(item.price) : "Gratis"}</b>
+              </span>
+              <span>
+                <small>Kapasitas</small>
+                <b>
+                  {item.registered_count}/{item.capacity} terdaftar
+                </b>
+              </span>
+              <span>
+                <small>Status</small>
+                <b>{item.status}</b>
+              </span>
+            </div>
+            <button className="primary-button full" onClick={start}>
+              Ambil tiket
+            </button>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+function SpotModal({
+  item,
+  close,
+  notify,
+}: {
+  item: PetSpot;
+  close: () => void;
+  notify: (message: string) => void;
+}) {
+  const maps = `https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`;
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    if (!isPetOwnerAuthenticated()) {
+      notify("Login diperlukan untuk menyimpan PetSpot");
+      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await togglePetOwnerFavorite("petspot", item.id);
+      notify(
+        result.favorite
+          ? `${item.name} disimpan ke favorit`
+          : `${item.name} dihapus dari favorit`,
+      );
+      close();
+    } catch (error) {
+      notify(
+        error instanceof Error ? error.message : "PetSpot belum dapat disimpan",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal close={close} className="world-modal spot-modal">
+      <div className="modal-world-cover spot-modal-cover">
+        <span>
+          {item.category === "cafe"
+            ? "☕"
+            : item.category === "park"
+              ? "🌳"
+              : "🏬"}
+        </span>
+        <i>{item.verified ? "✓ PetSpot Verified" : "Community Spot"}</i>
+      </div>
+      <div className="modal-world-body">
+        <small className="world-kicker">
+          ★ {item.rating} · {item.review_count} ulasan ·{" "}
+          {safeFixed(item.distance_km, 1, "—")} km
+        </small>
+        <h2>{item.name}</h2>
+        <p>{item.description}</p>
+        <div className="spot-address">
+          <Icon name="map" />
+          <span>
+            <b>{item.address}</b>
+            <small>
+              {item.city} ·{" "}
+              {item.opening_hours?.daily || "Jam buka lihat di lokasi"}
+            </small>
+          </span>
+        </div>
+        <div className="facility-grid">
+          {item.pet_facilities.map((value) => (
+            <span key={value}>✓ {value}</span>
+          ))}
+        </div>
+        <div className="world-modal-actions">
+          <a
+            className="primary-button"
+            href={maps}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Petunjuk arah
+          </a>
+          <button
+            className="secondary-button"
+            disabled={busy}
+            onClick={() => void save()}
+          >
+            {busy ? "Menyimpan…" : "♡ Simpan"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+function StreamModal({
+  item,
+  close,
+  follow,
+}: {
+  item: PetHubStream;
+  close: () => void;
+  follow: () => void;
+}) {
+  const [message, setMessage] = useState("");
+  return (
+    <Modal close={close} className="stream-modal">
+      <div className="player">
+        {item.playback_url ? (
+          <video src={item.playback_url} controls autoPlay />
+        ) : (
+          <>
+            <span>🐕‍🦺</span>
+            <small>
+              {item.status === "live"
+                ? "● LIVE · playback sedang dipersiapkan"
+                : when(item.scheduled_at)}
+            </small>
+          </>
+        )}
+      </div>
+      <div className="stream-body">
+        <small>
+          {item.status === "live"
+            ? `${item.viewer_count.toLocaleString("id-ID")} sedang menonton`
+            : "Live terjadwal"}
+        </small>
+        <h2>{item.title}</h2>
+        <p>{item.description}</p>
+        <div className="stream-channel">
+          <span>{item.channel_name.slice(0, 1)}</span>
+          <p>
+            <b>
+              {item.channel_name} {item.verified && "✓"}
+            </b>
+            <small>{item.channel_handle}</small>
+          </p>
+          <button onClick={follow}>Ikuti</button>
+        </div>
+        <div className="live-chat">
+          <b>Live chat</b>
+          <div className="empty-state compact">
+            Pesan live akan tampil ketika provider streaming mengaktifkan room
+            chat.
+          </div>
+          <label>
+            <input
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="Tulis pesan yang suportif…"
+              disabled
+            />
+            <button disabled>Kirim</button>
+          </label>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+function ThreadComposer({
+  close,
+  onCreated,
+  notify,
+  ownerName,
+}: {
+  close: () => void;
+  onCreated: (post: PetHubPost) => void;
+  notify: (message: string) => void;
+  ownerName: string;
+}) {
+  const [content, setContent] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function submit() {
+    if (content.trim().length < 3 || !isPetOwnerAuthenticated()) return;
+    setBusy(true);
+    try {
+      const id = (
+        await createPetHubPost({
+          author_name: ownerName,
+          content: content.trim(),
+          post_type: "thread",
+        })
+      ).id;
+      onCreated({
+        id,
+        author_name: ownerName,
+        content: content.trim(),
+        media_url: "",
+        post_type: "thread",
+        like_count: 0,
+        comment_count: 0,
+        repost_count: 0,
+        created_at: new Date().toISOString(),
+        channel_name: ownerName,
+        channel_handle: "@petowner",
+        channel_avatar_url: "",
+        verified: false,
+      });
+      notify("Pet thread berhasil diterbitkan");
+      close();
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Thread belum dapat diterbitkan",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal close={close} className="world-modal">
+      <div className="modal-world-body">
+        <small className="world-kicker">
+          BUAT PET THREAD · LOGIN TERVERIFIKASI
+        </small>
+        <h2>Apa yang sedang kamu pikirkan?</h2>
+        <textarea
+          className="thread-input"
+          value={content}
+          onChange={(event) => setContent(event.target.value)}
+          maxLength={5000}
+          placeholder="Bagikan insight, cerita, atau pertanyaan tentang pet…"
+          autoFocus
+        />
+        <div className="composer-bottom">
+          <span>{content.length}/5000</span>
+          <button
+            className="primary-button"
+            disabled={content.trim().length < 3 || busy}
+            onClick={submit}
+          >
+            {busy ? "Menerbitkan…" : "Terbitkan thread"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+function CommentsModal({
+  post,
+  close,
+  notify,
+  ownerName,
+  onCount,
+}: {
+  post: PetHubPost;
+  close: () => void;
+  notify: (m: string) => void;
+  ownerName: string;
+  onCount: () => void;
+}) {
+  const [comments, setComments] = useState<PetHubComment[]>([]);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(true);
+  useEffect(() => {
+    getPetHubComments(post.id)
+      .then((r) => setComments(r.data))
+      .catch(() => setComments([]))
+      .finally(() => setBusy(false));
+  }, [post.id]);
+  async function send() {
+    if (!text.trim()) return;
+    if (!isPetOwnerAuthenticated()) {
+      notify("Login diperlukan untuk berkomentar");
+      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
+      return;
+    }
+    try {
+      const result = await createPetHubComment(post.id, text.trim());
+      setComments((v) => [
+        ...v,
+        {
+          id: result.id,
+          user_id: "me",
+          author_name: ownerName,
+          content: text.trim(),
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      setText("");
+      onCount();
+    } catch (error) {
+      notify(
+        error instanceof Error ? error.message : "Komentar belum dapat dikirim",
+      );
+    }
+  }
+  return (
+    <Modal close={close} className="comments-modal">
+      <div className="comments-head">
+        <small>PET THREAD</small>
+        <h2>Diskusi</h2>
+        <p>{post.content}</p>
+      </div>
+      <div className="comments-list">
+        {busy ? (
+          <span>Memuat komentar…</span>
+        ) : comments.length ? (
+          comments.map((item) => (
+            <div key={item.id}>
+              <i>{item.author_name.slice(0, 1)}</i>
+              <p>
+                <b>{item.author_name}</b>
+                <span>{item.content}</span>
+                <small>{when(item.created_at)}</small>
+              </p>
+            </div>
+          ))
+        ) : (
+          <span>Belum ada komentar. Jadilah yang pertama.</span>
+        )}
+      </div>
+      <footer>
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void send();
+          }}
+          placeholder={
+            isPetOwnerAuthenticated()
+              ? "Tulis komentar yang suportif…"
+              : "Login untuk ikut berdiskusi"
+          }
+        />
+        <button
+          onClick={() => void send()}
+          disabled={isPetOwnerAuthenticated() && !text.trim()}
+        >
+          Kirim
+        </button>
+      </footer>
+    </Modal>
+  );
+}
+function StoryComposer({
+  close,
+  notify,
+  ownerName,
+  onCreated,
+}: {
+  close: () => void;
+  notify: (m: string) => void;
+  ownerName: string;
+  onCreated: (story: PetHubStory) => void;
+}) {
+  const [photo, setPhoto] = useState("");
+  const [caption, setCaption] = useState("");
+  const [busy, setBusy] = useState(false);
+  function choose(file?: File) {
+    if (!file) return;
+    if (file.size > 650000) {
+      notify("Foto maksimal 650 KB untuk story");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setPhoto(String(reader.result));
+    reader.readAsDataURL(file);
+  }
+  async function submit() {
+    if (!photo || !isPetOwnerAuthenticated()) return;
+    setBusy(true);
+    try {
+      const result = await createPetHubStory(photo, caption);
+      onCreated({
+        id: result.id,
+        user_id: "me",
+        author_name: ownerName,
+        photo_url: photo,
+        caption,
+        view_count: 0,
+        expires_at: new Date(Date.now() + 86400000).toISOString(),
+        created_at: new Date().toISOString(),
+      });
+      notify("Story foto aktif selama 24 jam");
+      close();
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Story belum dapat diterbitkan",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal close={close} className="story-modal">
+      <div className="story-preview">
+        {photo ? (
+          <NextImage
+            src={photo}
+            alt="Preview story"
+            width={720}
+            height={1280}
+            unoptimized
+          />
+        ) : (
+          <label>
+            <span>📷</span>
+            <b>Pilih foto story</b>
+            <small>Story saat ini hanya mendukung foto · maks. 650 KB</small>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => choose(e.target.files?.[0])}
+            />
+          </label>
+        )}
+      </div>
+      <input
+        className="story-caption"
+        value={caption}
+        onChange={(e) => setCaption(e.target.value)}
+        maxLength={300}
+        placeholder="Tambahkan caption…"
+      />
+      <button
+        className="primary-button full"
+        disabled={!photo || busy}
+        onClick={() => void submit()}
+      >
+        {busy ? "Menerbitkan…" : "Bagikan story 24 jam"}
+      </button>
+    </Modal>
+  );
+}
+function Modal({
+  children,
+  close,
+  className,
+}: {
+  children: ReactNode;
+  close: () => void;
+  className: string;
+}) {
+  return (
+    <div className="modal-overlay" onMouseDown={close}>
+      <section
+        className={`modal ${className}`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <button className="modal-close" onClick={close}>
+          <Icon name="close" />
+        </button>
+        {children}
+      </section>
+    </div>
+  );
+}
+function Success({
+  title,
+  note,
+  close,
+}: {
+  title: string;
+  note: string;
+  close: () => void;
+}) {
+  return (
+    <div className="world-success">
+      <span>
+        <Icon name="check" size={28} />
+      </span>
+      <h2>{title}</h2>
+      <p>{note}</p>
+      <button className="primary-button full" onClick={close}>
+        Lihat aktivitas saya
+      </button>
+    </div>
+  );
+}

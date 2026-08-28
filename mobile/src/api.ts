@@ -150,7 +150,23 @@ export type MobileBootstrap = {
     balance: number;
     earned: number;
     redeemed: number;
-    formula: string;
+    formula: {
+      enabled: boolean;
+      point_value_rupiah?: number;
+      expiry_days?: number;
+      settlement_hold_days?: number;
+      max_redemption_bps?: number;
+      min_redemption_points?: number;
+      payment_methods?: Array<{
+        method: string;
+        label: string;
+        mode: string;
+        divisor: number;
+        points_per_unit: number;
+        fixed_points: number;
+      }>;
+      rules?: string[];
+    };
   };
 };
 export type MobileService = {

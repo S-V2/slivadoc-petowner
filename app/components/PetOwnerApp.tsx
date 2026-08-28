@@ -59,6 +59,7 @@ import {
   type CareReminder,
   type PublicCampaign,
   type PaymentIntent,
+  type RewardFormula,
 } from "../lib/platform-api";
 import {
   BatpayPaymentPanel,
@@ -73,6 +74,22 @@ import {
 } from "../data/mock";
 
 type Notify = (message: string) => void;
+
+function rewardFormulaText(formula: RewardFormula) {
+  if (!formula.enabled) return "SlivaRewards sedang tidak aktif.";
+  const methods = (formula.payment_methods ?? []).map((method) => {
+    if (method.mode === "fixed")
+      return `${method.label}: ${method.fixed_points.toLocaleString("id-ID")} poin per transaksi`;
+    if (method.mode === "transaction_divisor")
+      return `${method.label}: ${method.points_per_unit.toLocaleString("id-ID")} poin per ${formatRupiah(method.divisor)}`;
+    return `${method.label}: tanpa base poin`;
+  });
+  return [
+    ...methods,
+    `1 poin bernilai ${formatRupiah(formula.point_value_rupiah ?? 0)}`,
+    `tersedia setelah ${formula.settlement_hold_days ?? 0} hari dan berlaku ${formula.expiry_days ?? 0} hari`,
+  ].join(" · ");
+}
 
 const navItems: { id: AppView; label: string; icon: IconName }[] = [
   { id: "home", label: "Beranda", icon: "home" },
@@ -244,6 +261,9 @@ export default function PetOwnerApp() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [points, setPoints] = useState(0);
+  const [rewardFormula, setRewardFormula] = useState<RewardFormula>({
+    enabled: false,
+  });
   const [remoteProducts, setRemoteProducts] = useState<DiscoveryProduct[]>([]);
   const [remoteServices, setRemoteServices] = useState<Service[]>([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -364,6 +384,7 @@ export default function PetOwnerApp() {
       setActivities([]);
       setFavoriteIds([]);
       setPoints(0);
+      setRewardFormula({ enabled: false });
       setBootstrapLoading(false);
       return;
     }
@@ -382,6 +403,7 @@ export default function PetOwnerApp() {
       setActivities(data.activities);
       setFavoriteIds(data.favorites.map((item) => item.entity_id));
       setPoints(data.points.balance);
+      setRewardFormula(data.points.formula);
       setAuthenticated(true);
     } catch (error) {
       localStorage.removeItem("slivadoc.access_token");
@@ -405,6 +427,7 @@ export default function PetOwnerApp() {
           setNotifications(data.notifications);
           setActivities(data.activities);
           setPoints(data.points.balance);
+          setRewardFormula(data.points.formula);
         })
         .catch(() => undefined);
     };
@@ -641,6 +664,7 @@ export default function PetOwnerApp() {
               notify={notify}
               activities={activities}
               points={points}
+              rewardFormula={rewardFormula}
             />
           )}
           {activeView === "health" && (
@@ -730,6 +754,7 @@ export default function PetOwnerApp() {
               account={account}
               petCount={petProfiles.length}
               points={points}
+              rewardFormula={rewardFormula}
               onChanged={loadBootstrap}
               onLogout={() => {
                 localStorage.removeItem("slivadoc.access_token");
@@ -787,6 +812,9 @@ export default function PetOwnerApp() {
           onClose={() => setCartOpen(false)}
           notify={notify}
           productCatalog={productCatalog}
+          points={points}
+          rewardFormula={rewardFormula}
+          onRewardChanged={loadBootstrap}
         />
       )}
       {addPetOpen && (
@@ -3106,12 +3134,14 @@ function BookingsView({
   notify,
   activities,
   points,
+  rewardFormula,
 }: {
   openBooking: (service?: Service) => void;
   setActiveView: (view: AppView) => void;
   notify: Notify;
   activities: ActivityItem[];
   points: number;
+  rewardFormula: RewardFormula;
 }) {
   const [tab, setTab] = useState("Mendatang");
   const [detail, setDetail] = useState<ActivityItem | null>(null);
@@ -3162,7 +3192,7 @@ function BookingsView({
           onClick={() =>
             notify(
               points
-                ? `Saldo ${points.toLocaleString("id-ID")} poin. Rumus: floor(transaksi bersih / Rp10.000) × multiplier membership.`
+                ? `Saldo ${points.toLocaleString("id-ID")} poin. ${rewardFormulaText(rewardFormula)}`
                 : "Belum ada transaksi terbayar, jadi Sliva Point masih 0.",
             )
           }
@@ -3899,6 +3929,7 @@ function ProfileView({
   account,
   petCount,
   points,
+  rewardFormula,
   onLogout,
   onChanged,
 }: {
@@ -3906,6 +3937,7 @@ function ProfileView({
   account: PetOwnerBootstrap["user"];
   petCount: number;
   points: number;
+  rewardFormula: RewardFormula;
   onLogout: () => void;
   onChanged: () => Promise<void>;
 }) {
@@ -4004,9 +4036,8 @@ function ProfileView({
                   : "Belum ada poin"}
               </b>
               <p>
-                Poin hanya dihitung dari transaksi berstatus lunas. Rumus dasar:
-                floor(nilai transaksi bersih ÷ Rp10.000) × multiplier
-                membership. Refund membatalkan poin transaksi terkait.
+                {rewardFormulaText(rewardFormula)}. Transaksi refund otomatis
+                membalik poin terkait.
               </p>
             </div>
           </div>
@@ -5071,22 +5102,45 @@ function CartDrawer({
   onClose,
   notify,
   productCatalog,
+  points,
+  rewardFormula,
+  onRewardChanged,
 }: {
   cart: Record<string, number>;
   setCart: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   onClose: () => void;
   notify: Notify;
   productCatalog: Product[];
+  points: number;
+  rewardFormula: RewardFormula;
+  onRewardChanged: () => Promise<void>;
 }) {
   const [voucher, setVoucher] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [busy, setBusy] = useState(false);
+  const [redeemPoints, setRedeemPoints] = useState(0);
   const items = productCatalog.filter((product) => cart[product.id]);
   const subtotal = items.reduce(
     (sum, item) => sum + item.price * cart[item.id],
     0,
   );
+  const pointValue = rewardFormula.point_value_rupiah ?? 0;
+  const maxRedemptionBPS = rewardFormula.max_redemption_bps ?? 0;
+  const minimumRedemption = rewardFormula.min_redemption_points ?? 0;
+  const maximumBySubtotal =
+    pointValue > 0
+      ? Math.floor((subtotal * maxRedemptionBPS) / 10_000 / pointValue)
+      : 0;
+  const maximumRedeemable = Math.max(
+    0,
+    Math.min(points, maximumBySubtotal),
+  );
+  const appliedRedeemPoints =
+    redeemPoints >= minimumRedemption
+      ? Math.min(redeemPoints, maximumRedeemable)
+      : 0;
+  const pointsDiscount = appliedRedeemPoints * pointValue;
   const update = (id: string, amount: number) =>
     setCart((current) => {
       const next = {
@@ -5106,6 +5160,7 @@ function CartDrawer({
     try {
       const order = await createPetOwnerOrder(
         items.map((item) => ({ product_id: item.id, quantity: cart[item.id] })),
+        appliedRedeemPoints,
       );
       setPayment(
         await createPaymentIntent("shop_order", order.id, paymentMethod),
@@ -5141,6 +5196,7 @@ function CartDrawer({
             onPaid={() => {
               setCart({});
               notify("Pembayaran berhasil, pesanan sedang diproses");
+              void onRewardChanged();
             }}
           />
         ) : items.length === 0 ? (
@@ -5199,6 +5255,52 @@ function CartDrawer({
                 Pakai
               </button>
             </label>
+            {rewardFormula.enabled && points > 0 && maximumRedeemable > 0 && (
+              <section className="points-redemption-card">
+                <div>
+                  <span>✦</span>
+                  <p>
+                    <b>Pakai SlivaPoints</b>
+                    <small>
+                      Saldo {points.toLocaleString("id-ID")} · maksimal checkout
+                      ini {maximumRedeemable.toLocaleString("id-ID")} poin
+                    </small>
+                  </p>
+                </div>
+                <label>
+                  <input
+                    type="number"
+                    min={minimumRedemption}
+                    max={maximumRedeemable}
+                    step="1"
+                    value={redeemPoints || ""}
+                    placeholder={`Min. ${minimumRedemption.toLocaleString("id-ID")}`}
+                    onChange={(event) =>
+                      setRedeemPoints(
+                        Math.max(
+                          0,
+                          Math.min(
+                            maximumRedeemable,
+                            Number(event.target.value || 0),
+                          ),
+                        ),
+                      )
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setRedeemPoints(maximumRedeemable)}
+                  >
+                    Maks
+                  </button>
+                </label>
+                {redeemPoints > 0 && redeemPoints < minimumRedemption && (
+                  <small>
+                    Minimum penukaran {minimumRedemption.toLocaleString("id-ID")} poin.
+                  </small>
+                )}
+              </section>
+            )}
             <div className="cart-summary">
               <span>
                 <small>Subtotal</small>
@@ -5212,9 +5314,15 @@ function CartDrawer({
                 <small>Biaya layanan</small>
                 <b>Rp2.500</b>
               </span>
+              {pointsDiscount > 0 && (
+                <span>
+                  <small>SlivaPoints ({appliedRedeemPoints.toLocaleString("id-ID")})</small>
+                  <b className="good">−{formatRupiah(pointsDiscount)}</b>
+                </span>
+              )}
               <span className="total">
                 <small>Total</small>
-                <b>{formatRupiah(subtotal + 2500)}</b>
+                <b>{formatRupiah(subtotal + 2500 - pointsDiscount)}</b>
               </span>
             </div>
             <PaymentMethodPicker

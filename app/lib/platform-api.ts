@@ -7,7 +7,8 @@ export type PetOwnerUser = { id:string;email:string;full_name:string;phone:strin
 export type NotificationItem = { id:string;category:string;title:string;body:string;action_route:string;read_at?:string|null;created_at:string };
 export type ActivityItem = { id:string;pet_id:string;category:string;reference_id:string;title:string;description:string;status:string;action_route:string;action_label:string;metadata:Record<string,string|number|boolean|null>;starts_at?:string;occurred_at:string };
 export type FavoriteItem = { entity_type:string;entity_id:string;created_at:string };
-export type PointsSummary = { balance:number;earned:number;redeemed:number;formula:string };
+export type RewardFormula = { enabled:boolean;point_value_rupiah?:number;expiry_days?:number;settlement_hold_days?:number;max_redemption_bps?:number;min_redemption_points?:number;payment_methods?:Array<{method:string;label:string;mode:string;divisor:number;points_per_unit:number;fixed_points:number}>;rules?:string[] };
+export type PointsSummary = { balance:number;earned:number;redeemed:number;formula:RewardFormula };
 export type PetOwnerBootstrap = { user:PetOwnerUser;pets:PetOwnerPet[];notifications:NotificationItem[];unread_notifications:number;activities:ActivityItem[];favorites:FavoriteItem[];points:PointsSummary };
 export type FamilyAccess = { id:string;member_user_id:string;email:string;full_name:string;role:string;permissions:string[];status:string;accepted_at?:string;created_at:string };
 export type LostPetMode = { active:boolean;id?:string;public_token?:string;status?:string;last_seen_at?:string;last_seen_location?:string;latitude?:number;longitude?:number;radius_km?:number;description?:string;contact_phone?:string;reward_amount?:number };
@@ -157,7 +158,7 @@ export const createPetOwnerBooking=(input:Record<string,unknown>)=>request<{id:s
 export const getPaymentMethods=()=>request<PlatformList<PaymentMethod>&{provider:string;currency:string}>("/api/v1/payment-methods");
 export const createPaymentIntent=(referenceType:string,referenceId:string,paymentMethod:string)=>request<PaymentIntent>("/api/v1/payment-intents",{method:"POST",headers:{"Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({reference_type:referenceType,reference_id:referenceId,payment_method:paymentMethod})});
 export const getPaymentIntent=(paymentId:string)=>request<PaymentIntent>(`/api/v1/payment-intents/${paymentId}`);
-export const createPetOwnerOrder=(items:Array<{product_id:string;quantity:number}>)=>request<{id:string;order_number:string;subtotal:number;platform_fee:number;amount:number;status:string;payment_status:string;reference_type:string}>("/api/v1/petowner/orders",{method:"POST",body:JSON.stringify({items})});
+export const createPetOwnerOrder=(items:Array<{product_id:string;quantity:number}>,redeemPoints=0)=>request<{id:string;order_number:string;subtotal:number;platform_fee:number;points_redeemed:number;points_discount:number;amount:number;status:string;payment_status:string;reference_type:string}>("/api/v1/petowner/orders",{method:"POST",body:JSON.stringify({items,redeem_points:redeemPoints})});
 export const getMedicalRecords=(petId:string)=>request<PlatformList<MedicalRecord>>(`/api/v1/pets/${petId}/medical-records`);
 export const getCommunityPosts=(options?:{tab?:string;search?:string})=>{const q=new URLSearchParams();Object.entries(options??{}).forEach(([key,value])=>{if(value)q.set(key,value)});return request<PlatformList<CommunityPost>>(`/api/v1/public/community/posts${q.size?`?${q}`:""}`)};
 export const createCommunityPost=(input:Record<string,unknown>)=>request<{id:string;created_at:string;message:string}>("/api/v1/community/posts",{method:"POST",body:JSON.stringify(input)});

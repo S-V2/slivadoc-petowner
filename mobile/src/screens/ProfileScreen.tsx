@@ -3,9 +3,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, shadow } from "../theme";
 import { Card, Pill, Screen, SectionTitle, SoftButton, TopHeader } from "../components/ui";
-import type { MobileOwner } from "../api";
+import type { MobileBootstrap, MobileOwner } from "../api";
 
-export function ProfileScreen({ onAction, onOpenNotifications,owner,petCount,activityCount,points,onLogin,onLogout }: { onAction: (message: string) => void; onOpenNotifications: () => void;owner?:MobileOwner;petCount:number;activityCount:number;points:number;onLogin:()=>void;onLogout:()=>void }) {
+export function ProfileScreen({ onAction, onOpenNotifications,owner,petCount,activityCount,points,rewardFormula,onLogin,onLogout }: { onAction: (message: string) => void; onOpenNotifications: () => void;owner?:MobileOwner;petCount:number;activityCount:number;points:number;rewardFormula?:MobileBootstrap["points"]["formula"];onLogin:()=>void;onLogout:()=>void }) {
   if(!owner)return <Screen><TopHeader title="Akun" subtitle="Pet Owner Slivadoc" onNotification={onOpenNotifications}/><Card style={styles.settings}><View style={styles.profileRow}><View style={styles.avatar}><Ionicons name="person-outline" size={30} color={colors.sky600}/></View><View style={styles.profileCopy}><Text style={styles.name}>Masuk ke akunmu</Text><Text style={styles.meta}>Profil akun hanya ditampilkan setelah login berhasil.</Text></View></View><SoftButton label="Masuk sebagai Pet Owner" icon="log-in-outline" onPress={onLogin}/></Card></Screen>;
   const initials=owner.full_name.split(" ").map(item=>item[0]).slice(0,2).join("").toUpperCase();
   return <Screen>
@@ -19,7 +19,11 @@ export function ProfileScreen({ onAction, onOpenNotifications,owner,petCount,act
     <SectionTitle eyebrow="SLIVA POINT" title="Saldo dan aturan klaim" />
     <LinearGradient colors={["#158FD5", "#4AB5EA", "#776DE1"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.memberCard}>
       <View style={styles.memberTop}><View style={styles.shield}><Text style={{color:colors.white}}>✦</Text></View><View style={styles.memberCopy}><Text style={styles.memberName}>{points.toLocaleString("id-ID")} Sliva Points</Text><Text style={styles.memberNote}>{points?"Tersedia untuk klaim sesuai syarat":"Belum ada transaksi lunas"}</Text></View><Pill tone="mint">AKTIF</Pill></View>
-      <View style={styles.benefits}><Benefit text="floor(nilai transaksi bersih ÷ Rp10.000)" /><Benefit text="Dikalikan multiplier membership" /><Benefit text="Refund membatalkan poin transaksi" /></View>
+      <View style={styles.benefits}>
+        {(rewardFormula?.payment_methods ?? []).map(method => <Benefit key={method.method} text={method.mode==="fixed"?`${method.label}: ${method.fixed_points.toLocaleString("id-ID")} poin/transaksi`:`${method.label}: ${method.points_per_unit.toLocaleString("id-ID")} poin per Rp${method.divisor.toLocaleString("id-ID")}`} />)}
+        <Benefit text={`Nilai poin Rp${(rewardFormula?.point_value_rupiah ?? 0).toLocaleString("id-ID")} · hold ${rewardFormula?.settlement_hold_days ?? 0} hari`} />
+        <Benefit text="Refund otomatis membatalkan poin terkait" />
+      </View>
     </LinearGradient>
 
     <SectionTitle eyebrow="PREFERENSI" title="Pengaturan akun" />

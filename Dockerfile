@@ -65,30 +65,44 @@
 #    already handles static assets from dist/client, compression, ETags,
 #    /_vinext/image and 404s — so there is nothing to hand-write.
 #
-# 6. The runtime payload is only dist/ + node_modules/vinext (~8.9 MB measured).
-#    The built server bundle externalizes exactly three bare specifiers:
-#    node:async_hooks, vinext/server/app-router-entry and
-#    vinext/shims/request-context (dist/server/vinext-externals.json is `[]`).
-#    react, react-dom and react-server-dom-webpack are BUNDLED — the only bare
-#    import anywhere under dist/server/ssr/ is node:async_hooks. Verified by
-#    serving this image with node_modules containing *nothing but* vinext:
-#    HTTP 200, text/html, correct <title>, assets 200 with ETag, unknown path 404.
-#    Consequently next (170 MB), @cloudflare+workerd (130 MB), @next (120 MB),
-#    wrangler, typescript and vite never reach the runtime image.
+# 6. The runtime carries the FULL resolved node_modules, not a cherry-picked subset.
+#    An earlier revision copied only dist/ plus node_modules/vinext, on the evidence
+#    that the built server externalised just node:async_hooks and two vinext
+#    specifiers while react/react-dom were bundled. That was a true observation
+#    about vinext 0.0.50 and a false assumption about vinext in general. When
+#    slivadoc-petowner moved to vinext 1.0.0-beta.8, prod-server's own import graph
+#    began
+#    reaching dist/server/app-elements-wire.js, which imports `react` as a bare
+#    specifier, and the container crash-looped at BOOT:
+#        Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'react'
+#        imported from /app/node_modules/vinext/dist/server/app-elements-wire.js
+#    That took pet.slivadoc.xyz to HTTP 502 in production. Every site in this family
+#    shares this Dockerfile and is one version bump from the same failure, so the fix
+#    is applied to all five rather than only to the site that broke.
 #
-# 7. Split base images. The BUILD stage stays on Debian (bookworm-slim) because
-#    it genuinely resolves arch- AND libc-specific optional binaries — workerd,
-#    lightningcss, esbuild/rolldown — and musl there invites trouble. The
-#    RUNTIME stage is Alpine because, per note 6, its entire payload is pure
-#    JavaScript with no .node and no .wasm anywhere under node_modules/vinext,
-#    so it has no glibc dependency at all. That saves roughly 100 MB per image.
+#    vinext/dist contains 115 bare `react` imports, 68 `vite`, plus next/*,
+#    react-dom/*, @vinext/* and more. Which of those a given release loads at
+#    runtime is vinext's business and can change in any version bump, so any
+#    hand-maintained copy list is a tripwire, not a fix. Adding react and
+#    react-dom would only move it. The runtime therefore gets exactly what
+#    `npm ci` resolved — the same tree the code was built and linked against.
 #
-# 8. tzdata is installed explicitly. Node 22 bundles full ICU, so
-#    `new Date()`/Intl already resolve Asia/Jakarta on bare Alpine — but the
-#    shell and every libc consumer fall back to UTC, which means container
-#    `date` and log timestamps disagree with the application. Measured on bare
-#    node:22-alpine: `date` -> "Thu Aug 27 08:11:32 UTC 2026" while Node printed
-#    "GMT+0700 (Western Indonesia Time)". 1.4 MB buys a consistent clock.
+# 7. Single base image for both stages, and that is a consequence of note 6.
+#    A previous revision ran the runtime on node:22-alpine to save ~100 MB,
+#    justified by the payload being pure JavaScript. Once the whole node_modules
+#    ships, that premise is gone: the tree contains glibc-linked native binaries
+#    (workerd, esbuild/rolldown, lightningcss) resolved for the build platform.
+#    Putting those under musl would be a latent failure of exactly the class this
+#    revision exists to remove. Correctness over image size: both stages are
+#    node:22-bookworm-slim, so the runtime libc matches what npm resolved.
+#    A principled way to shrink this again is vinext's own `output: "standalone"`
+#    mode, which emits a traced, self-contained server — worth evaluating
+#    deliberately, not during an incident.
+#
+# 8. Debian ships tzdata, so TZ=Asia/Jakarta resolves for both Node and the shell
+#    without an extra package. (On Alpine it did not: Node's bundled ICU was
+#    correct but `date` fell back to UTC, which is why the Alpine revision had to
+#    apk add tzdata.)
 #
 # 9. server.mjs installs SIGTERM/SIGINT handlers, and that is not optional.
 #    Linux gives PID 1 no default signal disposition, so a Node process running
@@ -100,21 +114,19 @@
 # ---------------------------------------------------------------------------
 # ARCH SENSITIVITY
 # ---------------------------------------------------------------------------
-# The runtime payload is pure JavaScript and architecture-independent: there is
-# no .node or .wasm file under node_modules/vinext. Only the node base image
-# layer is arch-specific, so the image must be *built* for the target
-# (--platform=linux/amd64 for the x86_64 VM and for CI).
-# The BUILD stage does resolve arch- and libc-specific optional binaries —
-# workerd, lightningcss, esbuild/rolldown — but none of them are copied into
-# runtime, which is exactly why the runtime may be Alpine while the build is
-# not. Building on arm64 and on amd64 produces the same runtime JavaScript.
+# The runtime now ships the resolved node_modules, which includes arch- and
+# libc-specific optional binaries (workerd, lightningcss, esbuild/rolldown).
+# The image is therefore genuinely platform-bound and MUST be built for its
+# target: --platform=linux/amd64 for the x86_64 VM and for CI. Both stages share
+# one base, so the libc the binaries were resolved against is the libc they run
+# on.
 # ---------------------------------------------------------------------------
 
-ARG NODE_BUILD_IMAGE=22-bookworm-slim
-ARG NODE_RUNTIME_IMAGE=22-alpine
+# One base for both stages — see note 7.
+ARG NODE_IMAGE=22-bookworm-slim
 
 # ------------------------------- build stage -------------------------------
-FROM node:${NODE_BUILD_IMAGE} AS build
+FROM node:${NODE_IMAGE} AS build
 WORKDIR /app
 
 # Dependency layer, cached on the lockfile alone.
@@ -146,16 +158,9 @@ RUN set -eu; \
     [ -n "${NEXT_PUBLIC_REALTIME_URL:-}" ]     || unset NEXT_PUBLIC_REALTIME_URL; \
     npx vinext build
 
-# Collect the production payload: the build output plus the single package the
-# built server still imports at runtime.
-RUN set -eu; \
-    mkdir -p /out/node_modules; \
-    cp -R dist /out/dist; \
-    cp -R node_modules/vinext /out/node_modules/vinext
-
 # Production entry point. Mirrors `vinext start` (dist/cli.js:291-310) but skips
 # the CLI's build-time import graph.
-COPY <<'ENTRY' /out/server.mjs
+COPY <<'ENTRY' /app/server.mjs
 import { startProdServer } from "vinext/server/prod-server";
 
 const { server } = await startProdServer({
@@ -177,20 +182,21 @@ for (const signal of ["SIGTERM", "SIGINT"]) process.on(signal, shutdown);
 ENTRY
 
 # ------------------------------ runtime stage ------------------------------
-FROM node:${NODE_RUNTIME_IMAGE} AS runtime
-
-# Node's bundled ICU alone would leave the shell and libc on UTC — see note 8.
-RUN apk add --no-cache tzdata
+FROM node:${NODE_IMAGE} AS runtime
 
 ENV NODE_ENV=production \
     TZ=Asia/Jakarta \
     PORT=3000
 
 WORKDIR /app
-COPY --from=build --chown=node:node /out ./
 
-# The Alpine image ships the same unprivileged user as Debian: uid=1000(node),
-# gid=1000(node), so --chown=node:node above resolves identically.
+# Exactly what `npm ci` resolved, so the runtime graph can never reference a
+# package the image lacks — see note 6.
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build --chown=node:node /app/package.json ./package.json
+COPY --from=build --chown=node:node /app/server.mjs ./server.mjs
+
 USER node
 EXPOSE 3000
 

@@ -207,16 +207,9 @@ function apiPetToView(pet: PetOwnerBootstrap["pets"][number]): Pet {
   return {
     id: pet.id,
     name: pet.name,
-    type:
-      pet.species?.toLowerCase() === "cat"
-        ? "Cat"
-        : pet.species?.toLowerCase() === "rabbit"
-          ? "Rabbit"
-          : pet.species?.toLowerCase() === "bird"
-            ? "Bird"
-            : pet.species?.toLowerCase() === "dog"
-              ? "Dog"
-              : "Other",
+    type: ({dog:"Dog",cat:"Cat",small_mammal:"Small Mammal",bird:"Bird",reptile:"Reptile",amphibian:"Amphibian",fish:"Fish",aquatic:"Aquatic",arachnid:"Arachnid",insect:"Insect",equine:"Equine",farm_animal:"Farm Animal"}[pet.species_group] ?? "Other") as Pet["type"],
+    speciesCode: pet.species,
+    speciesGroup: pet.species_group,
     breed: pet.breed,
     age:
       [years ? `${years} tahun` : "", remaining ? `${remaining} bulan` : ""]
@@ -225,12 +218,7 @@ function apiPetToView(pet: PetOwnerBootstrap["pets"][number]): Pet {
     weight: `${pet.weight_kg || 0} kg`,
     gender: pet.sex === "female" ? "Betina" : "Jantan",
     color: pet.color || "#8aa5b7",
-    avatar:
-      pet.species?.toLowerCase() === "cat"
-        ? "🐈"
-        : pet.species?.toLowerCase() === "rabbit"
-          ? "🐇"
-          : "🐕",
+    avatar: pet.emoji || "🐾",
     photoUrl: pet.photo_url,
     birthDate: pet.birth_date,
     healthScore: Number(pet.health_score || 0),

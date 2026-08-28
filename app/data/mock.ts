@@ -23,7 +23,22 @@ export type AppView =
 export type Pet = {
   id: string;
   name: string;
-  type: "Dog" | "Cat" | "Rabbit" | "Bird" | "Other";
+  type:
+    | "Dog"
+    | "Cat"
+    | "Small Mammal"
+    | "Bird"
+    | "Reptile"
+    | "Amphibian"
+    | "Fish"
+    | "Aquatic"
+    | "Arachnid"
+    | "Insect"
+    | "Equine"
+    | "Farm Animal"
+    | "Other";
+  speciesCode?: string;
+  speciesGroup?: string;
   breed: string;
   age: string;
   weight: string;

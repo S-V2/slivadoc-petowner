@@ -1,7 +1,8 @@
 export const PLATFORM_API_URL = process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? "http://localhost:8080";
 
 export type PlatformList<T> = { data: T[]; count: number };
-export type PetOwnerPet = { id:string;name:string;species:string;type:string;breed:string;sex:string;birth_date?:string;age_months:number;color:string;weight_kg:number;microchip_number:string;allergies:string;medical_notes:string;vaccination_status:string;photo_url:string;medical_record_count:number;last_medical_record_at?:string;health_score:number };
+export type PetOwnerPet = { id:string;name:string;species:string;species_group:string;species_common_name:string;species_scientific_name:string;species_attributes:Record<string,unknown>;emoji:string;type:string;breed:string;sex:string;birth_date?:string;age_months:number;color:string;weight_kg:number;microchip_number:string;allergies:string;medical_notes:string;vaccination_status:string;photo_url:string;medical_record_count:number;last_medical_record_at?:string;health_score:number };
+export type PetSpecies = { code:string;label:string;group:string;scientific_name:string;emoji:string;care_profile:string;profile_schema:{required:string[];optional:string[]} };
 export type PetOwnerUser = { id:string;email:string;full_name:string;phone:string;member_since:string };
 export type NotificationItem = { id:string;category:string;title:string;body:string;action_route:string;read_at?:string|null;created_at:string };
 export type ActivityItem = { id:string;pet_id:string;category:string;reference_id:string;title:string;description:string;status:string;action_route:string;action_label:string;metadata:Record<string,string|number|boolean|null>;starts_at?:string;occurred_at:string };
@@ -129,8 +130,9 @@ export const createPawDatingMessage = (matchId:string,body:string) => request<{i
 export const reportPawDatingProfile = (profileId:string,category:string,details:string) => request<{id:string;status:string;message:string}>("/api/v1/pawdating/reports", { method:"POST", body:JSON.stringify({profile_id:profileId,category,details,evidence_urls:[]}) });
 
 export const getPetOwnerBootstrap=()=>request<PetOwnerBootstrap>("/api/v1/petowner/bootstrap");
+export const getPetSpecies=()=>request<PlatformList<PetSpecies>>("/api/v1/public/pet-species");
 export const updatePetOwnerProfile=(input:{full_name:string;phone:string})=>request<{full_name:string;phone:string;message:string}>("/api/v1/petowner/profile",{method:"PATCH",body:JSON.stringify(input)});
-export const createPetOwnerPet=(input:Record<string,unknown>)=>request<{id:string;message:string}>("/api/v1/petowner/pets",{method:"POST",body:JSON.stringify(input)});
+export const createPetOwnerPet=(input:Record<string,unknown>)=>request<{id:string;species:string;species_group:string;message:string}>("/api/v1/petowner/pets",{method:"POST",body:JSON.stringify(input)});
 export const updatePetOwnerPet=(petId:string,input:Record<string,unknown>)=>request<{id:string;message:string}>(`/api/v1/petowner/pets/${petId}`,{method:"PATCH",body:JSON.stringify(input)});
 export const getPetFamily=(petId:string)=>request<PlatformList<FamilyAccess>>(`/api/v1/petowner/pets/${petId}/family`);
 export const invitePetFamily=(petId:string,input:Record<string,unknown>)=>request<{id:string;message:string}>(`/api/v1/petowner/pets/${petId}/family`,{method:"POST",body:JSON.stringify(input)});

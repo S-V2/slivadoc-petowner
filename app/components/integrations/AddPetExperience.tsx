@@ -1,9 +1,13 @@
 "use client";
 
 import NextImage from "next/image";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Pet } from "../../data/mock";
-import { createPetOwnerPet } from "../../lib/platform-api";
+import {
+  createPetOwnerPet,
+  getPetSpecies,
+  type PetSpecies,
+} from "../../lib/platform-api";
 import { uploadImage } from "../../lib/petowner-api";
 import { Icon } from "../Icon";
 
@@ -12,16 +16,42 @@ type Props = {
   onSaved: (pet: Pet) => void;
   notify: (message: string) => void;
 };
-const typeOptions = [
-  { label: "Anjing", value: "dog", type: "Dog" as const, avatar: "🐕" },
-  { label: "Kucing", value: "cat", type: "Cat" as const, avatar: "🐈" },
-  { label: "Kelinci", value: "rabbit", type: "Rabbit" as const, avatar: "🐇" },
-  { label: "Burung", value: "bird", type: "Bird" as const, avatar: "🦜" },
-  { label: "Lainnya", value: "other", type: "Other" as const, avatar: "🐾" },
-];
+const groupLabels: Record<string, string> = {
+  dog: "Anjing",
+  cat: "Kucing",
+  small_mammal: "Mamalia kecil & eksotis",
+  bird: "Burung & unggas",
+  reptile: "Reptil",
+  amphibian: "Amfibi",
+  fish: "Ikan",
+  aquatic: "Akuatik",
+  arachnid: "Arachnida",
+  insect: "Serangga",
+  equine: "Kuda & equine",
+  farm_animal: "Hewan ternak",
+  other: "Spesies lainnya",
+};
+const groupToPetType = (group: string): Pet["type"] =>
+  ({
+    dog: "Dog",
+    cat: "Cat",
+    small_mammal: "Small Mammal",
+    bird: "Bird",
+    reptile: "Reptile",
+    amphibian: "Amphibian",
+    fish: "Fish",
+    aquatic: "Aquatic",
+    arachnid: "Arachnid",
+    insect: "Insect",
+    equine: "Equine",
+    farm_animal: "Farm Animal",
+  })[group] as Pet["type"] ?? "Other";
 
 export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
-  const [type, setType] = useState(typeOptions[0]);
+  const [speciesOptions, setSpeciesOptions] = useState<PetSpecies[]>([]);
+  const [speciesCode, setSpeciesCode] = useState("");
+  const [customSpecies, setCustomSpecies] = useState("");
+  const [customScientificName, setCustomScientificName] = useState("");
   const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
   const [gender, setGender] = useState("male");
@@ -31,6 +61,35 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
   const [preview, setPreview] = useState("");
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const species =
+    speciesOptions.find((item) => item.code === speciesCode) ?? null;
+  const groupedSpecies = useMemo(
+    () =>
+      speciesOptions.reduce<Record<string, PetSpecies[]>>((groups, item) => {
+        (groups[item.group] ??= []).push(item);
+        return groups;
+      }, {}),
+    [speciesOptions],
+  );
+  useEffect(() => {
+    let active = true;
+    void getPetSpecies()
+      .then((result) => {
+        if (!active) return;
+        setSpeciesOptions(result.data);
+        setSpeciesCode(result.data[0]?.code ?? "");
+      })
+      .catch((cause) =>
+        notify(
+          cause instanceof Error
+            ? cause.message
+            : "Katalog spesies belum dapat dimuat",
+        ),
+      );
+    return () => {
+      active = false;
+    };
+  }, [notify]);
   function choosePhoto(selected?: File) {
     if (!selected) return;
     if (!["image/jpeg", "image/png", "image/webp"].includes(selected.type))
@@ -41,15 +100,23 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
     setPreview(URL.createObjectURL(selected));
   }
   async function save() {
-    if (!name.trim() || !breed.trim() || !birthDate)
-      return notify("Lengkapi nama, ras, dan tanggal lahir");
+    if (!name.trim() || !species)
+      return notify("Lengkapi nama dan pilih jenis hewan");
+    if (species.code === "other" && customSpecies.trim().length < 2)
+      return notify("Isi nama spesies untuk pilihan Spesies lainnya");
     setLoading(true);
     try {
       let photoUrl = "";
       if (file) photoUrl = (await uploadImage(file, "pets")).url;
       const result = await createPetOwnerPet({
         name: name.trim(),
-        species: type.value,
+        species: species.code,
+        species_common_name:
+          species.code === "other" ? customSpecies.trim() : species.label,
+        species_scientific_name:
+          species.code === "other"
+            ? customScientificName.trim()
+            : species.scientific_name,
         breed: breed.trim(),
         sex: gender,
         birth_date: birthDate,
@@ -57,24 +124,18 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
         weight_kg: Number(weight || 0),
         photo_url: photoUrl,
       });
-      const birth = new Date(birthDate);
-      const months = Math.max(
-        0,
-        Math.floor((Date.now() - birth.getTime()) / 2_629_800_000),
-      );
       onSaved({
         id: result.id,
         name: name.trim(),
-        type: type.type,
+        type: groupToPetType(species.group),
+        speciesCode: species.code,
+        speciesGroup: species.group,
         breed: breed.trim(),
-        age:
-          months >= 12
-            ? `${Math.floor(months / 12)} tahun ${months % 12} bulan`
-            : `${months} bulan`,
+        age: birthDate ? "Profil baru · usia dihitung server" : "Belum diisi",
         weight: weight ? `${weight} kg` : "Belum diisi",
         gender: gender === "female" ? "Betina" : "Jantan",
         color: "#57b9f6",
-        avatar: type.avatar,
+        avatar: species.emoji,
         photoUrl,
         birthDate,
         healthScore: 55,
@@ -119,7 +180,7 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
               unoptimized
             />
           ) : (
-            <span>{type.avatar}</span>
+            <span>{species?.emoji ?? "🐾"}</span>
           )}
           <button type="button" onClick={() => inputRef.current?.click()}>
             <Icon name="camera" size={15} />{" "}
@@ -133,21 +194,46 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
             onChange={(event) => choosePhoto(event.target.files?.[0])}
           />
         </div>
-        <label className="field-label">Jenis hewan</label>
-        <div className="pet-type-grid">
-          {typeOptions.map((item) => (
-            <button
-              type="button"
-              className={type.value === item.value ? "selected" : ""}
-              onClick={() => setType(item)}
-              key={item.value}
-            >
-              <span>{item.avatar}</span>
-              {item.label}
-            </button>
-          ))}
+        <label className="field-label" htmlFor="pet-species">Jenis hewan *</label>
+        <div className="species-picker">
+          <span aria-hidden="true">{species?.emoji ?? "🐾"}</span>
+          <select
+            id="pet-species"
+            value={speciesCode}
+            disabled={!speciesOptions.length}
+            onChange={(event) => setSpeciesCode(event.target.value)}
+          >
+            {!speciesOptions.length && <option>Memuat katalog spesies…</option>}
+            {Object.entries(groupedSpecies).map(([group, items]) => (
+              <optgroup key={group} label={groupLabels[group] ?? group}>
+                {items.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.emoji} {item.label}
+                    {item.scientific_name ? ` · ${item.scientific_name}` : ""}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
         </div>
+        {species && (
+          <p className="species-hint">
+            {groupLabels[species.group] ?? species.group} · profil perawatan {species.care_profile.replaceAll("_", " ")}
+          </p>
+        )}
         <div className="form-grid">
+          {species?.code === "other" && (
+            <>
+              <label>
+                <span>Nama umum spesies *</span>
+                <input value={customSpecies} onChange={(event) => setCustomSpecies(event.target.value)} placeholder="Contoh: kelabang gurun" />
+              </label>
+              <label>
+                <span>Nama ilmiah (opsional)</span>
+                <input value={customScientificName} onChange={(event) => setCustomScientificName(event.target.value)} placeholder="Genus species" />
+              </label>
+            </>
+          )}
           <label>
             <span>Nama hewan *</span>
             <input
@@ -157,7 +243,7 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
             />
           </label>
           <label>
-            <span>Ras *</span>
+            <span>Ras / varietas (opsional)</span>
             <input
               value={breed}
               onChange={(event) => setBreed(event.target.value)}
@@ -175,7 +261,7 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
             </select>
           </label>
           <label>
-            <span>Tanggal lahir *</span>
+            <span>Tanggal lahir / menetas (opsional)</span>
             <input
               value={birthDate}
               onChange={(event) => setBirthDate(event.target.value)}
@@ -211,7 +297,7 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
           <button
             className="primary-button"
             type="button"
-            disabled={loading}
+            disabled={loading || !species}
             onClick={() => void save()}
           >
             {loading ? "Menyimpan..." : "Simpan profil"}{" "}

@@ -10,11 +10,7 @@ import {
   type FormEvent,
 } from "react";
 import { io, type Socket } from "socket.io-client";
-import type {
-  RemoteParticipant,
-  RemoteTrack,
-  Room,
-} from "twilio-video";
+import { startConsultationMedia, type ConsultationMedia } from "../../lib/consultation-sfu";
 import type { Pet } from "../../data/mock";
 import {
   applyAdoption,
@@ -818,7 +814,8 @@ function ConsultationRoom({
   notify: (m: string) => void;
 }) {
   const socketRef = useRef<Socket | null>(null);
-  const roomRef = useRef<Room | null>(null);
+  const mediaRef = useRef<ConsultationMedia | null>(null);
+  const currentUserIdRef = useRef("");
   const localMedia = useRef<HTMLDivElement | null>(null);
   const remoteMedia = useRef<HTMLDivElement | null>(null);
   const [messages, setMessages] = useState<
@@ -831,11 +828,8 @@ function ConsultationRoom({
   const realtime =
     process.env.NEXT_PUBLIC_REALTIME_URL || "http://localhost:8091";
   const endCall = useCallback(() => {
-    roomRef.current?.localParticipant.tracks.forEach((publication) => {
-      if (publication.track.kind !== "data") publication.track.stop();
-    });
-    roomRef.current?.disconnect();
-    roomRef.current = null;
+    mediaRef.current?.stop();
+    mediaRef.current = null;
     localMedia.current?.replaceChildren();
     remoteMedia.current?.replaceChildren();
     setCall("idle");
@@ -846,57 +840,14 @@ function ConsultationRoom({
         localStorage.getItem("slivadoc.access_token") ||
         localStorage.getItem("access_token");
       if (!accessToken) throw new Error("Login diperlukan untuk membuka media.");
-      const response = await fetch(
-        `${realtime}/api/v1/consultations/${encodeURIComponent(consultation.id)}/twilio-token`,
-        { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } },
-      );
-      const payload = (await response.json().catch(() => ({}))) as {
-        token?: string;
-        roomName?: string;
-        error?: string;
-      };
-      if (!response.ok || !payload.token || !payload.roomName) {
-        throw new Error(
-          payload.error === "twilio_video_not_configured"
-            ? "Twilio Video belum dikonfigurasi."
-            : "Akses media konsultasi ditolak.",
-        );
-      }
       endCall();
-      const { connect } = await import("twilio-video");
-      const room = await connect(payload.token, {
-        name: payload.roomName,
-        audio: true,
+      mediaRef.current = await startConsultationMedia({
+        realtimeURL: realtime,
+        consultationId: consultation.id,
+        accessToken,
         video,
-        networkQuality: { local: 1, remote: 1 },
-      });
-      roomRef.current = room;
-      const attachTrack = (track: RemoteTrack) => {
-        if (track.kind === "data") return;
-        const element = track.attach();
-        if (track.kind === "video") Object.assign(element.style, { width: "100%", height: "100%", objectFit: "cover" });
-        remoteMedia.current?.append(element);
-      };
-      const attachParticipant = (participant: RemoteParticipant) => {
-        participant.tracks.forEach((publication) => {
-          if (publication.track) attachTrack(publication.track);
-        });
-        participant.on("trackSubscribed", attachTrack);
-      };
-      room.participants.forEach(attachParticipant);
-      room.on("participantConnected", attachParticipant);
-      room.on("disconnected", () => {
-        localMedia.current?.replaceChildren();
-        remoteMedia.current?.replaceChildren();
-        roomRef.current = null;
-        setCall("idle");
-      });
-      room.localParticipant.tracks.forEach((publication) => {
-        if (publication.track.kind === "video") {
-          const element = publication.track.attach();
-          Object.assign(element.style, { width: "100%", height: "100%", objectFit: "cover" });
-          localMedia.current?.append(element);
-        }
+        localContainer: localMedia.current,
+        remoteContainer: remoteMedia.current,
       });
       setCall("active");
     },
@@ -941,6 +892,7 @@ function ConsultationRoom({
       "consultation:join",
       { consultationId: consultation.id },
       (r: { ok: boolean; userId?: string }) => {
+        currentUserIdRef.current = r.userId || "";
         currentUserId = r.userId || "";
         setState(
           r.ok ? "● Dokter dan room terhubung" : "Room belum dapat dibuka",
@@ -976,6 +928,18 @@ function ConsultationRoom({
       notify("Panggilan ditolak oleh penerima");
     });
     socket.on("call:end", endCall);
+    socket.on(
+      "call:tracks",
+      (payload: { fromUserId?: string; sessionId?: string; tracks?: { sessionId?: string; trackName: string; kind?: string }[] }) => {
+        if (payload.fromUserId && payload.fromUserId === currentUserIdRef.current) return;
+        void mediaRef.current?.pull(
+          (payload.tracks || []).map((track) => ({
+            ...track,
+            sessionId: track.sessionId ?? payload.sessionId ?? "",
+          })),
+        );
+      },
+    );
     return () => {
       cancelled = true;
       socket.disconnect();
@@ -1072,34 +1036,32 @@ function ConsultationRoom({
             </button>
           </div>
         </header>
-        {call !== "idle" && (
-          <div className="webrtc-stage">
-            <div ref={remoteMedia} className="twilio-remote-media" style={{ width: "100%", height: "100%" }} />
-            <div
-              ref={localMedia}
-              className="twilio-local-media"
-              style={{ position: "absolute", right: 12, bottom: 12, width: 150, height: 100, overflow: "hidden", border: "2px solid white", borderRadius: 12, background: "#102f45" }}
-            />
-            {call === "ringing" && (
-              <div className="inline-actions">
-                <button className="primary-button" onClick={() => void accept()}>
-                  Terima panggilan
-                </button>
-                <button
-                  className="secondary-button"
-                  onClick={() => {
-                    socketRef.current?.emit("call:reject", {
-                      consultationId: consultation.id,
-                    });
-                    endCall();
-                  }}
-                >
-                  Tolak
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        <div className="webrtc-stage" style={{ display: call === "idle" ? "none" : undefined }}>
+          <div ref={remoteMedia} className="sfu-remote-media" style={{ width: "100%", height: "100%" }} />
+          <div
+            ref={localMedia}
+            className="sfu-local-media"
+            style={{ position: "absolute", right: 12, bottom: 12, width: 150, height: 100, overflow: "hidden", border: "2px solid white", borderRadius: 12, background: "#102f45" }}
+          />
+          {call === "ringing" && (
+            <div className="inline-actions">
+              <button className="primary-button" onClick={() => void accept()}>
+                Terima panggilan
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  socketRef.current?.emit("call:reject", {
+                    consultationId: consultation.id,
+                  });
+                  endCall();
+                }}
+              >
+                Tolak
+              </button>
+            </div>
+          )}
+        </div>
         <div className="consult-messages">
           {messages.length === 0 && (
             <div className="room-welcome">

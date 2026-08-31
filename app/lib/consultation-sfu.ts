@@ -187,25 +187,37 @@ export async function startConsultationMedia(options: {
   };
 
   try {
-    const publishedTracks: { location: "local"; mid?: string; trackName: string; kind: string }[] = [];
-    for (const track of stream.getTracks()) {
+    const localTracks = stream.getTracks();
+    for (const track of localTracks) {
       try {
-        const transceiver = pc.addTransceiver(track, { direction: "sendonly" });
-        publishedTracks.push({
-          location: "local",
-          mid: transceiver.mid ?? undefined,
-          trackName: track.id,
-          kind: track.kind,
-        });
+        pc.addTransceiver(track, { direction: "sendonly" });
       } catch {
         pc.addTrack(track);
-        publishedTracks.push({ location: "local", trackName: track.id, kind: track.kind });
       }
     }
     attachLocalVideo(localContainer, stream);
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
+
+    // `mid` MUST be read after setLocalDescription. RTCRtpTransceiver.mid is null
+    // until the local description is applied, so collecting it at addTransceiver
+    // time always yielded undefined, JSON dropped the key, and Cloudflare rejected
+    // the publish with 406 invalid_params "tracks[0]: Missing mid in track" — which
+    // the gateway surfaced only as a generic 502 cloudflare_sfu_unavailable. Reading
+    // it from getTransceivers() here also covers the addTrack fallback above, which
+    // never had a transceiver reference to read.
+    const publishedTracks = pc
+      .getTransceivers()
+      .flatMap((transceiver) => {
+        const track = transceiver.sender.track;
+        if (!track || !transceiver.mid || !localTracks.includes(track)) return [];
+        return [{ location: "local" as const, mid: transceiver.mid, trackName: track.id, kind: track.kind }];
+      });
+    if (publishedTracks.length !== localTracks.length) {
+      throw new Error("Koneksi media gagal.");
+    }
+
     iceReady = waitForIceConnected(pc, 15_000, abort.signal).then(() => {
       iceResolved = true;
     });

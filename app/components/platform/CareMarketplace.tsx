@@ -825,6 +825,15 @@ function ConsultationRoom({
   const [state, setState] = useState("Menghubungkan room…");
   const [call, setCall] = useState<"idle" | "ringing" | "active">("idle");
   const [incomingMode, setIncomingMode] = useState<"voice" | "video">("voice");
+  // Each plan sells one call channel: the seeded plans give `voice` its
+  // voice_minutes, `video` its video_minutes, and only `bundle` carries both,
+  // so the room must offer exactly what was paid for. Video is the premium
+  // channel and is opt-in per mode — an unrecognised mode (reachable only by
+  // widening the consultation_plans.mode CHECK) degrades to voice-only instead
+  // of handing out a video consultation on a cheaper package.
+  const voiceAllowed = consultation.mode !== "chat";
+  const videoAllowed =
+    consultation.mode === "video" || consultation.mode === "bundle";
   const realtime =
     process.env.NEXT_PUBLIC_REALTIME_URL || "http://localhost:8091";
   const endCall = useCallback(() => {
@@ -1021,8 +1030,12 @@ function ConsultationRoom({
             </p>
           </div>
           <div>
-            <button onClick={() => void startCall(false)}>📞</button>
-            <button onClick={() => void startCall(true)}>🎥</button>
+            {voiceAllowed && (
+              <button onClick={() => void startCall(false)}>📞</button>
+            )}
+            {videoAllowed && (
+              <button onClick={() => void startCall(true)}>🎥</button>
+            )}
             <button
               className="danger"
               onClick={() => {

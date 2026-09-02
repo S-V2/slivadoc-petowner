@@ -507,6 +507,7 @@ function MobileApp() {
                   onOpenNotifications={() => setNotificationsOpen(true)}
                   owner={bootstrap?.user}
                   petName={pet?.name}
+                  pet={pet}
                   onLogin={() => setLoginOpen(true)}
                 />
               ) : null}
@@ -764,7 +765,6 @@ function MobileApp() {
         onClose={() => setPayment(undefined)}
         onPaid={() => {
           void refreshAccount().then(() => {
-            setPayment(undefined);
             navigateTo("activity");
             notify("Pembayaran berhasil, booking sudah dikonfirmasi");
           });

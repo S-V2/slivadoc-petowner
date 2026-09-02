@@ -5,24 +5,13 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "scheme": "slivadoc",
     "androidStatusBar": {
       "backgroundColor": "#F5FBFE",
       "barStyle": "dark-content",
       "translucent": false
     },
-    "androidNavigationBar": {
-      "backgroundColor": "#FFFFFF",
-      "barStyle": "dark-content",
-      "enforceContrast": false
-    },
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#EAF8FF"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.slivadoc.petowner",
@@ -40,15 +29,33 @@
       },
       "predictiveBackGestureEnabled": true,
       "softwareKeyboardLayoutMode": "pan",
-      "permissions": ["CAMERA", "ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+      "permissions": [
+        "CAMERA",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "plugins": [
-      ["expo-location", { "locationWhenInUsePermission": "Izinkan Slivadoc menggunakan lokasi untuk menemukan layanan hewan terdekat." }],
-      ["expo-image-picker", { "photosPermission": "Izinkan Slivadoc memilih foto hewan dan dokumen kesehatan." }]
-    ],
-    "extra": {
-      "apiBaseUrl": "http://localhost:8080",
-      "petOwnerApiUrl": "http://localhost:8090"
-    }
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "imageWidth": 220,
+          "backgroundColor": "#EAF8FF"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Izinkan Slivadoc menggunakan lokasi untuk menemukan layanan hewan terdekat."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Izinkan Slivadoc memilih foto hewan dan dokumen kesehatan."
+        }
+      ]
+    ]
   }
 }

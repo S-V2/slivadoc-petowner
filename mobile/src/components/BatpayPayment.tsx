@@ -143,7 +143,12 @@ function MobileBatpayModalState({
         <SafeAreaView style={styles.wrap}>
           <View style={styles.sheet}>
             <View style={styles.handle} />
-            <Pressable onPress={onClose} style={styles.close}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tutup pembayaran"
+              onPress={onClose}
+              style={styles.close}
+            >
               <Text>×</Text>
             </Pressable>
             {current.status === "paid" ? (
@@ -155,7 +160,11 @@ function MobileBatpayModalState({
                 <Text style={styles.note}>
                   Transaksi sudah tercatat dan layanan sedang diproses.
                 </Text>
-                <Pressable onPress={onClose} style={styles.primary}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onClose}
+                  style={styles.primary}
+                >
                   <Text style={styles.primaryText}>Selesai</Text>
                 </Pressable>
               </View>

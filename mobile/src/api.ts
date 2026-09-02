@@ -11,15 +11,46 @@ const developmentHost =
   resolveDevelopmentHost() ??
   (Platform.OS === "android" ? "10.0.2.2" : "localhost");
 
-export const PETOWNER_API_URL =
-  process.env.EXPO_PUBLIC_PETOWNER_API_URL ?? `http://${developmentHost}:8090`;
-export const PLATFORM_API_URL =
-  process.env.EXPO_PUBLIC_PLATFORM_API_URL ?? `http://${developmentHost}:8080`;
+function normalizeServiceURL(value?: string) {
+  return String(value ?? "")
+    .trim()
+    .replace(/\/$/, "");
+}
+
+function resolveServiceURL(value: string | undefined, developmentPort: number) {
+  const configured = normalizeServiceURL(value);
+  if (configured) return configured;
+  return __DEV__ ? `http://${developmentHost}:${developmentPort}` : "";
+}
+
+function requireServiceURL(value: string, variableName: string) {
+  if (value) return value;
+  throw new Error(
+    `Konfigurasi ${variableName} belum tersedia untuk build ini. Hubungi tim Slivadoc.`,
+  );
+}
+
+export const PETOWNER_API_URL = resolveServiceURL(
+  process.env.EXPO_PUBLIC_PETOWNER_API_URL,
+  8090,
+);
+export const PLATFORM_API_URL = resolveServiceURL(
+  process.env.EXPO_PUBLIC_PLATFORM_API_URL,
+  8080,
+);
+export const REALTIME_API_URL = resolveServiceURL(
+  process.env.EXPO_PUBLIC_REALTIME_URL,
+  8091,
+);
 
 export type AssistantMessage = { role: "user" | "assistant"; content: string };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${PETOWNER_API_URL}${path}`, {
+  const baseURL = requireServiceURL(
+    PETOWNER_API_URL,
+    "EXPO_PUBLIC_PETOWNER_API_URL",
+  );
+  const response = await fetch(`${baseURL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -68,7 +99,11 @@ async function platformRequest<T>(
     if (pending) return pending as Promise<T>;
   }
   const run = (async () => {
-    const response = await fetch(`${PLATFORM_API_URL}${path}`, {
+    const baseURL = requireServiceURL(
+      PLATFORM_API_URL,
+      "EXPO_PUBLIC_PLATFORM_API_URL",
+    );
+    const response = await fetch(`${baseURL}${path}`, {
       ...init,
       headers: {
         "Content-Type": "application/json",
@@ -222,7 +257,11 @@ export type MobilePaymentIntent = {
 };
 
 export async function loginMobile(email: string, password: string) {
-  const response = await fetch(`${PLATFORM_API_URL}/api/v1/auth/login`, {
+  const baseURL = requireServiceURL(
+    PLATFORM_API_URL,
+    "EXPO_PUBLIC_PLATFORM_API_URL",
+  );
+  const response = await fetch(`${baseURL}/api/v1/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -240,14 +279,15 @@ export async function registerMobileOwner(input: {
   email: string;
   password: string;
 }) {
-  const response = await fetch(
-    `${PLATFORM_API_URL}/api/v1/auth/petowner/register`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    },
+  const baseURL = requireServiceURL(
+    PLATFORM_API_URL,
+    "EXPO_PUBLIC_PLATFORM_API_URL",
   );
+  const response = await fetch(`${baseURL}/api/v1/auth/petowner/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok)
     throw new Error(payload.message ?? "Registrasi belum dapat diproses");
@@ -496,17 +536,34 @@ export const createMobileConsultation = (plan: WorldItem, complaint: string) =>
       }),
     },
   );
+export type MobileAdoptionApplicationInput = {
+  applicant_name: string;
+  phone: string;
+  address: string;
+  housing_type: "Rumah milik" | "Rumah sewa" | "Apartemen";
+  has_other_pets: boolean;
+  experience: string;
+  reason: string;
+};
 export const applyMobileAdoption = (
   listingId: string,
-  input: Record<string, unknown>,
+  input: MobileAdoptionApplicationInput,
 ) =>
   platformRequest<{ id: string }>(
     `/api/v1/adoptions/${listingId}/applications`,
     { method: "POST", body: JSON.stringify(input) },
   );
+export type MobileDocumentRequestInput = {
+  pet_id?: string;
+  origin_city?: string;
+  destination_city?: string;
+  departure_at?: string;
+  transport_type?: "flight" | "ship";
+  submitted_documents: string[];
+};
 export const createMobileDocumentRequest = (
   productId: string,
-  input: Record<string, unknown>,
+  input: MobileDocumentRequestInput,
 ) =>
   platformRequest<{ id: string; request_number: string; amount: number }>(
     "/api/v1/pet-document-requests",
@@ -610,6 +667,10 @@ export async function uploadMobileImage(
   fileName = "pet-photo.jpg",
   folder = "pets",
 ) {
+  const baseURL = requireServiceURL(
+    PETOWNER_API_URL,
+    "EXPO_PUBLIC_PETOWNER_API_URL",
+  );
   const body = new FormData();
   body.append("folder", folder);
   body.append("file", {
@@ -617,7 +678,7 @@ export async function uploadMobileImage(
     type: mimeType,
     name: fileName,
   } as unknown as Blob);
-  const response = await fetch(`${PETOWNER_API_URL}/api/uploads/images`, {
+  const response = await fetch(`${baseURL}/api/uploads/images`, {
     method: "POST",
     headers: platformAccessToken
       ? { Authorization: `Bearer ${platformAccessToken}` }
@@ -630,8 +691,11 @@ export async function uploadMobileImage(
   return payload as { url: string; publicId: string };
 }
 
-export const realtime = io(PETOWNER_API_URL, {
-  autoConnect: false,
-  auth: { token: platformAccessToken },
-  transports: ["websocket", "polling"],
-});
+export const realtime = io(
+  REALTIME_API_URL || "https://realtime-not-configured.invalid",
+  {
+    autoConnect: false,
+    auth: { token: platformAccessToken },
+    transports: ["websocket", "polling"],
+  },
+);

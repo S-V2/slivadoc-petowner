@@ -51,6 +51,13 @@ const money = new Intl.NumberFormat("id-ID", {
   currency: "IDR",
   maximumFractionDigits: 0,
 });
+// planCharge is what the customer actually pays: consultation_plans carries a
+// discount_percent the backend applies when it creates the order, so quoting
+// plan.price alone advertises a price nobody is charged. The rounding matches
+// operations/care_social.go — half up to whole rupiah on the payable.
+function planCharge(plan: ConsultationPlan): number {
+  return Math.round((plan.price * (100 - plan.discount_percent)) / 100);
+}
 function requireLogin(notify: (message: string) => void) {
   if (isPetOwnerAuthenticated()) return true;
   notify("Silakan login terlebih dahulu untuk melanjutkan.");
@@ -325,7 +332,14 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
                         · follow-up {plan.followup_days} hari
                       </em>
                     </span>
-                    <strong>{money.format(plan.price)}</strong>
+                    {plan.discount_percent > 0 ? (
+                      <strong className="plan-price-discounted">
+                        <s>{money.format(plan.price)}</s>
+                        <span>{money.format(planCharge(plan))}</span>
+                      </strong>
+                    ) : (
+                      <strong>{money.format(plan.price)}</strong>
+                    )}
                     {plan.discount_percent > 0 && (
                       <mark>Hemat {plan.discount_percent}%</mark>
                     )}
@@ -784,9 +798,16 @@ function ConsultBooking({
       </div>
       <div className="checkout-line">
         <span>Total paket</span>
-        <b>{money.format(plan.price)}</b>
+        {plan.discount_percent > 0 ? (
+          <b className="plan-price-discounted">
+            <s>{money.format(plan.price)}</s>
+            <span>{money.format(planCharge(plan))}</span>
+          </b>
+        ) : (
+          <b>{money.format(plan.price)}</b>
+        )}
       </div>
-      {plan.price > 0 && (
+      {planCharge(plan) > 0 && (
         <PaymentMethodPicker
           value={paymentMethod}
           onChange={setPaymentMethod}
@@ -796,7 +817,7 @@ function ConsultBooking({
       <button className="primary-button full" disabled={busy}>
         {busy
           ? "Membuat pembayaran…"
-          : plan.price > 0
+          : planCharge(plan) > 0
             ? "Lanjut ke pembayaran"
             : "Mulai konsultasi gratis"}
       </button>

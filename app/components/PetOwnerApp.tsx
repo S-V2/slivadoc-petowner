@@ -48,6 +48,7 @@ import {
   completeCareReminder,
   createPaymentIntent,
   createPetOwnerOrder,
+  quotePetOwnerOrder,
   snoozeCareReminder,
   type ActivityItem,
   type DiscoveryProduct,
@@ -60,6 +61,7 @@ import {
   type PublicCampaign,
   type PaymentIntent,
   type RewardFormula,
+  type OrderQuote,
 } from "../lib/platform-api";
 import {
   BatpayPaymentPanel,
@@ -84,6 +86,12 @@ function rewardFormulaText(formula: RewardFormula) {
       return `${method.label}: ${method.points_per_unit.toLocaleString("id-ID")} poin per ${formatRupiah(method.divisor)}`;
     return `${method.label}: tanpa base poin`;
   });
+  // Without a per-method table the earn rate is the flat divisor from
+  // reward_settings: 1 poin per Rp10.000 nilai transaksi bersih.
+  if (methods.length === 0 && formula.earn_divisor_rupiah)
+    methods.push(
+      `1 poin per ${formatRupiah(formula.earn_divisor_rupiah)} nilai transaksi bersih`,
+    );
   return [
     ...methods,
     `1 poin bernilai ${formatRupiah(formula.point_value_rupiah ?? 0)}`,
@@ -5115,32 +5123,59 @@ function CartDrawer({
   rewardFormula: RewardFormula;
   onRewardChanged: () => Promise<void>;
 }) {
-  const [voucher, setVoucher] = useState("");
+  const [voucherInput, setVoucherInput] = useState("");
+  const [appliedVoucher, setAppliedVoucher] = useState("");
+  const [voucherBusy, setVoucherBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [busy, setBusy] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState(0);
-  const items = productCatalog.filter((product) => cart[product.id]);
-  const subtotal = items.reduce(
-    (sum, item) => sum + item.price * cart[item.id],
-    0,
+  // The server's breakdown. Nothing in this drawer computes the platform fee or
+  // a discount itself: the cart used to do exactly that and drifted away from
+  // what checkout actually charged. The breakdown is stored with the cart it
+  // was quoted for, so a stale total can never be shown against a newer cart.
+  const [quoted, setQuoted] = useState<{
+    key: string;
+    value: OrderQuote;
+  } | null>(null);
+  const items = useMemo(
+    () => productCatalog.filter((product) => cart[product.id]),
+    [productCatalog, cart],
   );
-  const pointValue = rewardFormula.point_value_rupiah ?? 0;
-  const maxRedemptionBPS = rewardFormula.max_redemption_bps ?? 0;
-  const minimumRedemption = rewardFormula.min_redemption_points ?? 0;
-  const maximumBySubtotal =
-    pointValue > 0
-      ? Math.floor((subtotal * maxRedemptionBPS) / 10_000 / pointValue)
-      : 0;
-  const maximumRedeemable = Math.max(
-    0,
-    Math.min(points, maximumBySubtotal),
+  const orderItems = useMemo(
+    () =>
+      items.map((product) => ({
+        product_id: product.id,
+        quantity: cart[product.id],
+      })),
+    [items, cart],
   );
-  const appliedRedeemPoints =
-    redeemPoints >= minimumRedemption
-      ? Math.min(redeemPoints, maximumRedeemable)
-      : 0;
-  const pointsDiscount = appliedRedeemPoints * pointValue;
+  const quoteKey = JSON.stringify([orderItems, appliedVoucher, redeemPoints]);
+  const quote = quoted?.key === quoteKey ? quoted.value : null;
+  useEffect(() => {
+    if (orderItems.length === 0 || !isPetOwnerAuthenticated()) return;
+    let live = true;
+    void quotePetOwnerOrder({
+      items: orderItems,
+      voucher_code: appliedVoucher,
+      redeem_points: redeemPoints,
+    })
+      .then((result) => {
+        if (live) setQuoted({ key: quoteKey, value: result });
+      })
+      .catch(() => {
+        if (live) setQuoted(null);
+      });
+    return () => {
+      live = false;
+    };
+    // orderItems is rebuilt on every render; quoteKey is its stable identity
+    // together with the voucher and the redemption.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteKey]);
+  const minimumRedemption =
+    quote?.min_redemption_points ?? rewardFormula.min_redemption_points ?? 0;
+  const maximumRedeemable = quote?.max_redeemable_points ?? 0;
   const update = (id: string, amount: number) =>
     setCart((current) => {
       const next = {
@@ -5150,6 +5185,40 @@ function CartDrawer({
       if (!next[id]) delete next[id];
       return next;
     });
+  async function applyVoucher() {
+    const code = voucherInput.toUpperCase();
+    setVoucherBusy(true);
+    try {
+      const result = await quotePetOwnerOrder({
+        items: orderItems,
+        voucher_code: code,
+        redeem_points: redeemPoints,
+      });
+      // A rejected code is not applied, so the breakdown that gets stored is
+      // the one for an empty voucher: full price, plus the reason.
+      const applied = result.voucher_error ? "" : code;
+      setQuoted({
+        key: JSON.stringify([orderItems, applied, redeemPoints]),
+        value: result,
+      });
+      setAppliedVoucher(applied);
+      if (result.voucher_error) {
+        notify(result.voucher_error);
+        return;
+      }
+      notify(
+        `Voucher ${code} dipakai · potongan ${formatRupiah(result.voucher_discount)}`,
+      );
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Voucher belum dapat diverifikasi",
+      );
+    } finally {
+      setVoucherBusy(false);
+    }
+  }
   async function checkout() {
     if (!isPetOwnerAuthenticated()) {
       notify("Login diperlukan untuk checkout Pet Shop");
@@ -5158,10 +5227,11 @@ function CartDrawer({
     }
     setBusy(true);
     try {
-      const order = await createPetOwnerOrder(
-        items.map((item) => ({ product_id: item.id, quantity: cart[item.id] })),
-        appliedRedeemPoints,
-      );
+      const order = await createPetOwnerOrder({
+        items: orderItems,
+        voucher_code: appliedVoucher,
+        redeem_points: redeemPoints,
+      });
       setPayment(
         await createPaymentIntent("shop_order", order.id, paymentMethod),
       );
@@ -5238,23 +5308,31 @@ function CartDrawer({
             <label className="voucher">
               <span>🎟️</span>
               <input
-                value={voucher}
-                onChange={(event) =>
-                  setVoucher(event.target.value.replace(/[^A-Za-z0-9]/g, ""))
-                }
+                value={voucherInput}
+                onChange={(event) => {
+                  setVoucherInput(
+                    event.target.value.replace(/[^A-Za-z0-9]/g, ""),
+                  );
+                  setAppliedVoucher("");
+                }}
                 minLength={6}
                 placeholder="Minimal 6 huruf/angka"
               />
               <button
                 type="button"
-                disabled={voucher.length < 6}
-                onClick={() =>
-                  notify(`Voucher ${voucher.toUpperCase()} sedang diverifikasi`)
-                }
+                disabled={voucherInput.length < 6 || voucherBusy}
+                onClick={() => void applyVoucher()}
               >
-                Pakai
+                {voucherBusy ? "Memeriksa…" : "Pakai"}
               </button>
             </label>
+            {appliedVoucher && quote && quote.voucher_discount > 0 && (
+              <small className="voucher-applied">
+                Voucher {appliedVoucher} aktif · potongan{" "}
+                {formatRupiah(quote.voucher_discount)}
+                {quote.voucher_description ? ` · ${quote.voucher_description}` : ""}
+              </small>
+            )}
             {rewardFormula.enabled && points > 0 && maximumRedeemable > 0 && (
               <section className="points-redemption-card">
                 <div>
@@ -5304,7 +5382,7 @@ function CartDrawer({
             <div className="cart-summary">
               <span>
                 <small>Subtotal</small>
-                <b>{formatRupiah(subtotal)}</b>
+                <b>{quote ? formatRupiah(quote.subtotal) : "…"}</b>
               </span>
               <span>
                 <small>Pengiriman</small>
@@ -5312,17 +5390,27 @@ function CartDrawer({
               </span>
               <span>
                 <small>Biaya layanan</small>
-                <b>Rp2.500</b>
+                <b>{quote ? formatRupiah(quote.platform_fee) : "…"}</b>
               </span>
-              {pointsDiscount > 0 && (
+              {quote && quote.voucher_discount > 0 && (
                 <span>
-                  <small>SlivaPoints ({appliedRedeemPoints.toLocaleString("id-ID")})</small>
-                  <b className="good">−{formatRupiah(pointsDiscount)}</b>
+                  <small>Voucher ({quote.voucher_code})</small>
+                  <b className="good">−{formatRupiah(quote.voucher_discount)}</b>
+                </span>
+              )}
+              {quote && quote.points_discount > 0 && (
+                <span>
+                  <small>
+                    SlivaPoints ({quote.points_redeemed.toLocaleString("id-ID")})
+                  </small>
+                  <b className="good">−{formatRupiah(quote.points_discount)}</b>
                 </span>
               )}
               <span className="total">
                 <small>Total</small>
-                <b>{formatRupiah(subtotal + 2500 - pointsDiscount)}</b>
+                <b>
+                  {quote ? formatRupiah(quote.total_amount) : "Menghitung…"}
+                </b>
               </span>
             </div>
             <PaymentMethodPicker

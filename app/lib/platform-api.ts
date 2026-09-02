@@ -7,8 +7,14 @@ export type PetOwnerUser = { id:string;email:string;full_name:string;phone:strin
 export type NotificationItem = { id:string;category:string;title:string;body:string;action_route:string;read_at?:string|null;created_at:string };
 export type ActivityItem = { id:string;pet_id:string;category:string;reference_id:string;title:string;description:string;status:string;action_route:string;action_label:string;metadata:Record<string,string|number|boolean|null>;starts_at?:string;occurred_at:string };
 export type FavoriteItem = { entity_type:string;entity_id:string;created_at:string };
-export type RewardFormula = { enabled:boolean;point_value_rupiah?:number;expiry_days?:number;settlement_hold_days?:number;max_redemption_bps?:number;min_redemption_points?:number;payment_methods?:Array<{method:string;label:string;mode:string;divisor:number;points_per_unit:number;fixed_points:number}>;rules?:string[] };
-export type PointsSummary = { balance:number;earned:number;redeemed:number;formula:RewardFormula };
+export type RewardFormula = { enabled:boolean;point_value_rupiah?:number;earn_divisor_rupiah?:number;expiry_days?:number;settlement_hold_days?:number;max_redemption_bps?:number;min_redemption_points?:number;payment_methods?:Array<{method:string;label:string;mode:string;divisor:number;points_per_unit:number;fixed_points:number}>;rules?:string[] };
+export type PointsSummary = { balance:number;earned:number;redeemed:number;pending?:number;formula:RewardFormula };
+// Authoritative cart breakdown from POST /api/v1/petowner/orders/quote. The
+// client renders these numbers instead of recomputing the fee or the discounts:
+// its own copy of that arithmetic is exactly what drifted from the server.
+export type OrderQuote = { subtotal:number;platform_fee:number;voucher_code:string;voucher_description:string;voucher_discount:number;voucher_error:string;points_redeemed:number;points_discount:number;total_amount:number;amount:number;max_redeemable_points:number;point_value_rupiah:number;min_redemption_points:number;max_redemption_bps:number };
+export type PetOwnerOrder = OrderQuote & { id:string;order_number:string;status:string;payment_status:string;reference_type:string };
+export type OrderQuoteInput = { items:Array<{product_id:string;quantity:number}>;voucher_code?:string;redeem_points?:number };
 export type PetOwnerBootstrap = { user:PetOwnerUser;pets:PetOwnerPet[];notifications:NotificationItem[];unread_notifications:number;activities:ActivityItem[];favorites:FavoriteItem[];points:PointsSummary };
 export type FamilyAccess = { id:string;member_user_id:string;email:string;full_name:string;role:string;permissions:string[];status:string;accepted_at?:string;created_at:string };
 export type LostPetMode = { active:boolean;id?:string;public_token?:string;status?:string;last_seen_at?:string;last_seen_location?:string;latitude?:number;longitude?:number;radius_km?:number;description?:string;contact_phone?:string;reward_amount?:number };
@@ -150,7 +156,7 @@ export const readNotification=(id:string)=>request<{read:boolean}>(`/api/v1/noti
 export const readAllNotifications=(category="")=>request<{updated:number}>(`/api/v1/notifications/read-all?category=${encodeURIComponent(category)}`,{method:"PATCH"});
 export const togglePetOwnerFavorite=(entity_type:string,entity_id:string)=>request<{favorite:boolean}>("/api/v1/petowner/favorites/toggle",{method:"POST",body:JSON.stringify({entity_type,entity_id})});
 export const getPetOwnerActivities=(category="")=>request<PlatformList<ActivityItem>>(`/api/v1/petowner/activities?category=${encodeURIComponent(category)}`);
-export const getPetOwnerPoints=()=>request<{balance:number;earned:number;redeemed:number;formula:Record<string,unknown>;transactions:unknown[]}>("/api/v1/petowner/points");
+export const getPetOwnerPoints=()=>request<PointsSummary&{transactions:Array<{id:string;reference_type:string;reference_id?:string;transaction_amount:number;points:number;multiplier:number;description:string;available_at:string;expires_at?:string;created_at:string}>}>("/api/v1/petowner/points");
 export const getDiscoveryServices=(options?:{search?:string;category?:string;latitude?:number;longitude?:number})=>{const q=new URLSearchParams();Object.entries(options??{}).forEach(([key,value])=>{if(value!==undefined&&value!=="")q.set(key,String(value))});return request<PlatformList<DiscoveryService>>(`/api/v1/public/discovery/services${q.size?`?${q}`:""}`)};
 export const getDiscoveryProducts=(search="",category="")=>request<PlatformList<DiscoveryProduct>>(`/api/v1/public/discovery/products?search=${encodeURIComponent(search)}&category=${encodeURIComponent(category)}`);
 export const globalSearch=(query:string,category="")=>request<PlatformList<GlobalSearchResult>>(`/api/v1/public/search?q=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}`);
@@ -158,7 +164,8 @@ export const createPetOwnerBooking=(input:Record<string,unknown>)=>request<{id:s
 export const getPaymentMethods=()=>request<PlatformList<PaymentMethod>&{provider:string;currency:string}>("/api/v1/payment-methods");
 export const createPaymentIntent=(referenceType:string,referenceId:string,paymentMethod:string)=>request<PaymentIntent>("/api/v1/payment-intents",{method:"POST",headers:{"Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({reference_type:referenceType,reference_id:referenceId,payment_method:paymentMethod})});
 export const getPaymentIntent=(paymentId:string)=>request<PaymentIntent>(`/api/v1/payment-intents/${paymentId}`);
-export const createPetOwnerOrder=(items:Array<{product_id:string;quantity:number}>,redeemPoints=0)=>request<{id:string;order_number:string;subtotal:number;platform_fee:number;points_redeemed:number;points_discount:number;amount:number;status:string;payment_status:string;reference_type:string}>("/api/v1/petowner/orders",{method:"POST",body:JSON.stringify({items,redeem_points:redeemPoints})});
+export const quotePetOwnerOrder=(input:OrderQuoteInput)=>request<OrderQuote>("/api/v1/petowner/orders/quote",{method:"POST",body:JSON.stringify({items:input.items,voucher_code:input.voucher_code??"",redeem_points:input.redeem_points??0})});
+export const createPetOwnerOrder=(input:OrderQuoteInput)=>request<PetOwnerOrder>("/api/v1/petowner/orders",{method:"POST",body:JSON.stringify({items:input.items,voucher_code:input.voucher_code??"",redeem_points:input.redeem_points??0})});
 export const getMedicalRecords=(petId:string)=>request<PlatformList<MedicalRecord>>(`/api/v1/pets/${petId}/medical-records`);
 export const getCommunityPosts=(options?:{tab?:string;search?:string})=>{const q=new URLSearchParams();Object.entries(options??{}).forEach(([key,value])=>{if(value)q.set(key,value)});return request<PlatformList<CommunityPost>>(`/api/v1/public/community/posts${q.size?`?${q}`:""}`)};
 export const createCommunityPost=(input:Record<string,unknown>)=>request<{id:string;created_at:string;message:string}>("/api/v1/community/posts",{method:"POST",body:JSON.stringify(input)});

@@ -1611,7 +1611,9 @@ function PageHeading({
     timeZone: "Asia/Jakarta",
   }).format(new Date());
   return (
-    <div className="page-heading">
+    <div
+      className={`page-heading ${activeView === "home" ? "page-heading--home" : ""}`}
+    >
       <div>
         <div className="heading-kicker">
           <span className="live-dot" />
@@ -1789,6 +1791,16 @@ function HomeView({
               <Icon name="chat" size={17} /> Tanya dokter
             </button>
           </div>
+          <div className="home-hero-trust" aria-label="Ringkasan layanan">
+            <span>
+              <Icon name="shield" size={13} />
+              <b>{selectedPet.healthScore}/100</b> kondisi {selectedPet.name}
+            </span>
+            <span>
+              <Icon name="clock" size={13} />
+              <b>24/7</b> SlivaCare
+            </span>
+          </div>
         </div>
       </section>
 
@@ -1825,22 +1837,31 @@ function HomeView({
         </section>
       )}
 
-      <section className="quick-grid" aria-label="Akses cepat">
-        {quickActions.map((item) => (
-          <button
-            className="quick-card"
-            type="button"
-            key={item.label}
-            onClick={item.action}
-          >
-            <span className={`quick-icon ${item.color}`}>{item.icon}</span>
-            <span>
-              <b>{item.label}</b>
-              <small>{item.note}</small>
-            </span>
-            <Icon name="chevron" size={16} />
-          </button>
-        ))}
+      <section className="home-quick-section" aria-labelledby="quick-title">
+        <header className="home-section-heading">
+          <div>
+            <span className="section-eyebrow">AKSES CEPAT</span>
+            <h2 id="quick-title">Butuh apa hari ini?</h2>
+          </div>
+          <span className="home-swipe-hint">Geser untuk lainnya</span>
+        </header>
+        <div className="quick-grid" aria-label="Akses cepat">
+          {quickActions.map((item) => (
+            <button
+              className="quick-card"
+              type="button"
+              key={item.label}
+              onClick={item.action}
+            >
+              <span className={`quick-icon ${item.color}`}>{item.icon}</span>
+              <span>
+                <b>{item.label}</b>
+                <small>{item.note}</small>
+              </span>
+              <Icon name="chevron" size={16} />
+            </button>
+          ))}
+        </div>
       </section>
 
       <div className="dashboard-grid">
@@ -2008,7 +2029,7 @@ function HomeView({
             className="link-button"
             onClick={() => setActiveView("discover")}
           >
-            Jelajahi semua <Icon name="arrow" size={15} />
+            Lihat semua <Icon name="arrow" size={15} />
           </button>
         </div>
         <div className="service-row">

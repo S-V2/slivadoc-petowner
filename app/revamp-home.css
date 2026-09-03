@@ -1,2 +1,724 @@
-.public-campaign-banner{min-height:180px;display:flex;align-items:center;overflow:hidden;padding:28px;border-radius:20px;color:#fff;background-position:center;background-size:cover;box-shadow:0 12px 34px rgba(9,43,64,.12)}.public-campaign-banner>div{max-width:560px}.public-campaign-banner span{font-size:8px;font-weight:900;letter-spacing:.14em}.public-campaign-banner h2{margin:7px 0 5px;font-size:25px;letter-spacing:-.035em}.public-campaign-banner p{margin:0 0 16px;font-size:11px;line-height:1.6;opacity:.86}.public-campaign-banner button{display:inline-flex;align-items:center;gap:6px;padding:9px 13px;border:0;border-radius:10px;color:#0b617f;background:#fff;font-size:10px;font-weight:850}
-@media(max-width:640px){.public-campaign-banner{min-height:200px;margin-inline:-14px;padding:24px 18px;border-radius:0}.public-campaign-banner h2{font-size:23px}.public-campaign-banner p{font-size:12px}}
+/* Slivadoc Pet Owner home experience — mobile-first final cascade. */
+
+.home-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.home-layout > *,
+.home-layout .quick-grid,
+.home-layout .nearby-panel {
+  margin: 0;
+}
+
+.home-layout .hero-card {
+  isolation: isolate;
+  min-height: 300px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 26px;
+  box-shadow: 0 22px 54px rgba(20, 83, 126, 0.18);
+}
+
+.home-layout .hero-card::after {
+  position: absolute;
+  z-index: 1;
+  width: 230px;
+  height: 230px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  content: "";
+  right: -82px;
+  top: -92px;
+}
+
+.home-layout .hero-overlay {
+  background:
+    linear-gradient(90deg, rgba(7, 64, 108, 0.94) 0%, rgba(10, 111, 170, 0.78) 44%, rgba(26, 145, 203, 0.08) 76%),
+    linear-gradient(180deg, transparent 55%, rgba(8, 64, 99, 0.15));
+}
+
+.home-layout .hero-copy {
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.home-hero-trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.home-hero-trust span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 10px;
+  backdrop-filter: blur(9px);
+}
+
+.home-hero-trust b {
+  color: #fff;
+  font-weight: 850;
+}
+
+.home-quick-section {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 30px rgba(33, 77, 113, 0.05);
+}
+
+.home-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.home-section-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.home-section-heading h2 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 18px;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+.home-swipe-hint {
+  display: none;
+  color: var(--sky-600);
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.home-layout .quick-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.home-layout .quick-card {
+  min-height: 66px;
+  border-color: #e4edf3;
+  background: linear-gradient(145deg, #fff, #f8fcfe);
+}
+
+.home-layout .dashboard-grid {
+  gap: 16px;
+}
+
+.home-layout .health-snapshot,
+.home-layout .care-panel,
+.home-layout .nearby-panel {
+  border-radius: 20px;
+}
+
+.home-layout .panel-heading .link-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.home-layout .timeline-list .empty-state.compact,
+.home-layout .service-row .empty-state.compact {
+  min-height: 120px;
+  width: 100%;
+  padding: 18px;
+}
+
+.home-layout .public-campaign-banner {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding: 28px;
+  border-radius: 22px;
+  color: #fff;
+  background-position: center;
+  background-size: cover;
+  box-shadow: 0 14px 38px rgba(9, 43, 64, 0.14);
+}
+
+.home-layout .public-campaign-banner > div {
+  max-width: 560px;
+}
+
+.home-layout .public-campaign-banner span {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.home-layout .public-campaign-banner h2 {
+  margin: 7px 0 5px;
+  font-size: 25px;
+  letter-spacing: -0.035em;
+}
+
+.home-layout .public-campaign-banner p {
+  margin: 0 0 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  opacity: 0.88;
+}
+
+.home-layout .public-campaign-banner button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 11px;
+  color: #0b617f;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+@media (max-width: 1180px) {
+  .home-layout .quick-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  /* The root route is an app experience on phones; desktop SEO navigation is redundant here. */
+  .app-home-seo {
+    display: none;
+  }
+
+  .page-content:has(.home-layout) {
+    padding-bottom: calc(92px + env(safe-area-inset-bottom));
+  }
+
+  .home-layout .hero-card,
+  .home-layout .hero-copy {
+    min-height: 290px;
+  }
+
+  .home-layout .hero-copy {
+    max-width: 72%;
+    padding: 27px 24px;
+  }
+
+  .home-layout .hero-actions {
+    position: static;
+    margin-top: 18px;
+  }
+
+  .home-layout .quick-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .home-layout .quick-card {
+    min-width: 0;
+    flex: initial;
+  }
+}
+
+@media (max-width: 680px) {
+  .page-content:has(.home-layout) {
+    padding: 14px 14px calc(94px + env(safe-area-inset-bottom));
+  }
+
+  .page-heading--home {
+    margin-bottom: 12px;
+    padding-inline: 2px;
+  }
+
+  .app-shell .page-content .page-heading--home .heading-kicker {
+    margin-bottom: 5px;
+    font-size: 10px !important;
+    letter-spacing: 0.06em;
+  }
+
+  .app-shell .page-heading--home h1 {
+    font-size: 22px;
+    line-height: 1.2;
+  }
+
+  .app-shell .page-heading--home p {
+    margin-top: 4px;
+    font-size: 13px !important;
+    line-height: 1.45;
+  }
+
+  .home-layout {
+    gap: 12px;
+  }
+
+  .home-layout .hero-card,
+  .home-layout .hero-copy {
+    min-height: 278px;
+  }
+
+  .home-layout .hero-card {
+    border-radius: 21px;
+    box-shadow: 0 15px 36px rgba(20, 83, 126, 0.17);
+  }
+
+  .home-layout .hero-image {
+    object-position: 70% center;
+  }
+
+  .home-layout .hero-overlay {
+    background: linear-gradient(90deg, rgba(5, 55, 95, 0.96) 0%, rgba(8, 96, 150, 0.82) 58%, rgba(20, 130, 187, 0.18) 100%);
+  }
+
+  .home-layout .hero-copy {
+    max-width: 82%;
+    padding: 20px 18px;
+  }
+
+  .home-layout .soft-badge {
+    padding: 5px 8px;
+    font-size: 9px !important;
+  }
+
+  .app-shell .home-layout .hero-copy h2 {
+    max-width: 290px;
+    margin: 11px 0 7px;
+    font-size: 22px !important;
+    line-height: 1.2;
+  }
+
+  .app-shell .home-layout .hero-copy p {
+    max-width: 285px;
+    font-size: 13px !important;
+    line-height: 1.5;
+  }
+
+  .home-layout .hero-actions {
+    gap: 7px;
+    margin-top: 15px;
+  }
+
+  .home-layout .hero-actions button {
+    min-height: 42px;
+    flex: 1;
+    padding-inline: 10px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .home-hero-trust {
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .home-hero-trust span {
+    min-height: 27px;
+    padding-inline: 8px;
+    font-size: 9px;
+  }
+
+  .home-quick-section {
+    padding: 15px 12px 10px;
+    border-radius: 19px;
+  }
+
+  .home-section-heading {
+    align-items: center;
+    margin-bottom: 11px;
+    padding-inline: 2px;
+  }
+
+  .app-shell .page-content .home-section-heading .section-eyebrow {
+    font-size: 10px !important;
+  }
+
+  .app-shell .home-section-heading h2 {
+    font-size: 17px;
+    line-height: 1.3;
+  }
+
+  .home-swipe-hint {
+    display: inline;
+    font-size: 10px;
+  }
+
+  .home-layout .quick-grid {
+    grid-template-columns: none;
+    grid-template-rows: repeat(2, 82px);
+    grid-auto-columns: 78px;
+    grid-auto-flow: column;
+    gap: 8px;
+    margin-inline: -2px;
+    padding: 2px 2px 8px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: inline proximity;
+    scrollbar-width: none;
+  }
+
+  .home-layout .quick-grid::-webkit-scrollbar,
+  .home-layout .service-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .home-layout .quick-card {
+    min-height: 82px;
+    display: grid;
+    grid-template-columns: 1fr;
+    align-content: center;
+    justify-items: center;
+    gap: 6px;
+    padding: 8px 5px;
+    border: 0;
+    border-radius: 15px;
+    background: #f5faff;
+    box-shadow: inset 0 0 0 1px #e8f2f8;
+    scroll-snap-align: start;
+    text-align: center;
+  }
+
+  .home-layout .quick-card:nth-child(3n + 2) {
+    background: #f2fbf8;
+  }
+
+  .home-layout .quick-card:nth-child(3n) {
+    background: #fff8f4;
+  }
+
+  .home-layout .quick-card > span:nth-child(2) {
+    display: block;
+  }
+
+  .home-layout .quick-card b {
+    display: block;
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: normal;
+  }
+
+  .home-layout .quick-card small,
+  .home-layout .quick-card > svg {
+    display: none;
+  }
+
+  .home-layout .quick-icon {
+    width: 37px;
+    height: 37px;
+    border-radius: 12px;
+    font-size: 19px;
+  }
+
+  .home-layout .dashboard-grid {
+    gap: 12px;
+  }
+
+  .home-layout .health-snapshot,
+  .home-layout .care-panel,
+  .home-layout .nearby-panel {
+    padding: 15px;
+    border-radius: 19px;
+  }
+
+  .home-layout .panel-heading {
+    min-height: 0;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .home-layout .panel-heading > div {
+    min-width: 0;
+    gap: 3px;
+  }
+
+  .home-layout .panel-heading .section-eyebrow {
+    font-size: 10px !important;
+    letter-spacing: 0.09em;
+  }
+
+  .app-shell .home-layout .panel-heading h3 {
+    font-size: 16px;
+    line-height: 1.32;
+  }
+
+  .app-shell .home-layout .panel-heading .link-button {
+    padding: 2px 0;
+    font-size: 12px;
+  }
+
+  .home-layout .pet-health-main {
+    gap: 10px;
+    margin-top: 12px;
+    padding: 11px;
+    border-radius: 14px;
+  }
+
+  .home-layout .pet-large-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    font-size: 32px;
+  }
+
+  .home-layout .pet-health-copy b {
+    font-size: 15px;
+  }
+
+  .home-layout .pet-health-copy span {
+    font-size: 11px;
+  }
+
+  .app-shell .home-layout .pet-health-copy small {
+    font-size: 10px !important;
+  }
+
+  .home-layout .health-score {
+    width: 54px;
+    height: 54px;
+  }
+
+  .home-layout .health-score::before {
+    width: 43px;
+    height: 43px;
+  }
+
+  .home-layout .health-score b {
+    font-size: 14px;
+  }
+
+  .app-shell .home-layout .health-score small {
+    font-size: 8px !important;
+  }
+
+  .home-layout .metric-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin: 10px 0;
+  }
+
+  .home-layout .metric-row > div {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    justify-items: center;
+    gap: 3px;
+    min-width: 0;
+    padding: 9px 5px;
+    text-align: center;
+  }
+
+  .home-layout .metric-row > div > span {
+    grid-row: auto;
+    font-size: 18px;
+  }
+
+  .app-shell .home-layout .metric-row small {
+    font-size: 9px !important;
+  }
+
+  .home-layout .metric-row b {
+    max-width: 100%;
+    margin: 0;
+    overflow: hidden;
+    font-size: 10px;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-layout .metric-row em {
+    display: none;
+  }
+
+  .home-layout .health-alert {
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .home-layout .health-alert b {
+    font-size: 11px;
+  }
+
+  .app-shell .home-layout .health-alert small {
+    font-size: 10px !important;
+    line-height: 1.4;
+  }
+
+  .home-layout .timeline-list {
+    margin: 10px 0;
+  }
+
+  .home-layout .timeline-list .empty-state.compact {
+    min-height: 88px;
+    font-size: 12px;
+  }
+
+  .home-layout .timeline-item {
+    min-height: 58px;
+  }
+
+  .home-layout .timeline-item:nth-child(n + 4) {
+    display: none;
+  }
+
+  .home-layout .timeline-date b {
+    font-size: 11px;
+  }
+
+  .app-shell .home-layout .timeline-date small,
+  .app-shell .home-layout .timeline-copy small {
+    font-size: 9px !important;
+  }
+
+  .home-layout .timeline-copy b {
+    font-size: 12px;
+  }
+
+  .home-layout .timeline-copy span {
+    font-size: 10px;
+  }
+
+  .app-shell .home-layout .full-soft-button {
+    min-height: 44px;
+    font-size: 12px;
+  }
+
+  .home-layout .nearby-panel .panel-heading h3 {
+    max-width: 220px;
+  }
+
+  .home-layout .service-row {
+    display: flex;
+    gap: 9px;
+    margin: 12px -15px -2px;
+    padding: 0 15px 4px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-padding-inline: 15px;
+    scroll-snap-type: inline proximity;
+    scrollbar-width: none;
+  }
+
+  .home-layout .service-row .empty-state.compact {
+    min-height: 108px;
+    flex: 0 0 calc(100% - 30px);
+    font-size: 12px;
+  }
+
+  .home-layout .service-mini-card {
+    flex: 0 0 196px;
+    border-radius: 15px;
+    scroll-snap-align: start;
+  }
+
+  .home-layout .service-cover {
+    height: 104px;
+  }
+
+  .home-layout .service-cover span {
+    font-size: 42px;
+  }
+
+  .home-layout .service-cover em {
+    padding: 4px 7px;
+    font-size: 9px;
+  }
+
+  .home-layout .service-card-body {
+    padding: 12px;
+  }
+
+  .home-layout .service-title b {
+    font-size: 13px;
+  }
+
+  .home-layout .service-title span {
+    font-size: 10px;
+  }
+
+  .app-shell .home-layout .service-card-body > p {
+    margin: 6px 0 12px;
+    font-size: 11px !important;
+    line-height: 1.4;
+  }
+
+  .home-layout .service-card-body strong {
+    font-size: 11px;
+  }
+
+  .home-layout .service-card-body button {
+    min-height: 34px;
+    padding-inline: 11px;
+    border-radius: 9px;
+    font-size: 12px;
+  }
+
+  .home-layout .public-campaign-banner {
+    min-height: 164px;
+    margin: 0;
+    padding: 20px 18px;
+    border-radius: 20px;
+  }
+
+  .app-shell .home-layout .public-campaign-banner h2 {
+    margin-block: 6px;
+    font-size: 20px !important;
+  }
+
+  .app-shell .home-layout .public-campaign-banner p {
+    margin-bottom: 13px;
+    font-size: 12px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .home-layout .hero-card,
+  .home-layout .hero-copy {
+    min-height: 254px;
+  }
+
+  .home-layout .hero-copy {
+    max-width: 88%;
+    padding: 17px 15px;
+  }
+
+  .app-shell .home-layout .hero-copy h2 {
+    font-size: 20px !important;
+  }
+
+  .home-layout .hero-copy > p,
+  .home-hero-trust {
+    display: none;
+  }
+
+  .home-layout .hero-actions {
+    margin-top: 14px;
+  }
+
+  .home-layout .hero-actions button {
+    font-size: 11px;
+  }
+
+  .home-swipe-hint {
+    display: none;
+  }
+
+  .home-layout .nearby-panel .panel-heading h3 {
+    max-width: 180px;
+  }
+}

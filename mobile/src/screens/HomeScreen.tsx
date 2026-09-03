@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import type { PetView, Service } from "../data";
@@ -38,32 +37,39 @@ export function HomeScreen({ onAction, onBook, onOpenChat, onOpenNotifications, 
     <Screen>
       <Pressable onPress={onLocation}><TopHeader title={locationTitle} subtitle="Lokasi kamu • ketuk untuk perbarui" onNotification={onOpenNotifications} /></Pressable>
       <View style={styles.greetingRow}>
-        <View>
+        <View style={styles.greetingCopy}>
           <Text style={styles.greeting}>{ownerName?`Halo, ${ownerName.split(" ")[0]}! 👋`:"Selamat datang! 👋"}</Text>
-          <Text style={styles.greetingNote}>{ownerName?"Data pet dan aktivitasmu sudah tersinkron.":"Masuk untuk melihat akun dan kesehatan pet."}</Text>
+          <Text numberOfLines={2} style={styles.greetingNote}>{ownerName?"Semua kabar pet-mu sudah tersinkron.":"Masuk untuk melihat akun dan kesehatan pet."}</Text>
         </View>
         <Pressable onPress={() => onAction("Pilih profil hewan")} style={styles.petPicker}>
-          <Text style={styles.petPickerEmoji}>{petView.icon}</Text><Text style={styles.petPickerName}>{petView.name}</Text><Ionicons name="chevron-down" size={13} color={colors.muted} />
+          <Text style={styles.petPickerEmoji}>{petView.icon}</Text><Text numberOfLines={1} style={styles.petPickerName}>{petView.name}</Text><Ionicons name="chevron-down" size={12} color={colors.muted} />
         </Pressable>
       </View>
 
-      <ImageBackground source={require("../../assets/hero.png")} style={styles.hero} imageStyle={styles.heroImage}>
-        <LinearGradient colors={["rgba(7,87,139,.92)", "rgba(14,126,186,.57)", "rgba(32,153,210,.04)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.heroGradient}>
-          <Pill tone="mint">DATA TERSINKRON</Pill>
-          <Text style={styles.heroTitle}>Seluruh kebahagiaan mereka, dalam satu aplikasi.</Text>
-          <Text style={styles.heroNote}>Rawat dan dapatkan bantuan profesional kapan pun {petView.name} membutuhkannya.</Text>
+      <LinearGradient colors={["#087FC8", "#20AEF1", "#7BD8FA"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+        <View style={styles.heroOrbLarge} />
+        <View style={styles.heroOrbSmall} />
+        <View style={styles.petBubble}>
+          <Text style={styles.petBubbleEmoji}>🐕</Text>
+          <Text style={[styles.petBubbleEmoji, styles.petBubbleCat]}>🐈</Text>
+          <Text style={styles.petBubbleSparkle}>✦</Text>
+        </View>
+        <View style={styles.heroContent}>
+          <Pill tone="mint">ALL-IN-ONE PET CARE</Pill>
+          <Text style={styles.heroTitle}>Semua kebutuhan pet, satu aplikasi.</Text>
+          <Text style={styles.heroNote}>Booking, konsultasi, dan kesehatan {petView.name} jadi lebih gampang.</Text>
           <View style={styles.heroButtons}>
             <PrimaryButton compact label="Buat booking" icon="calendar-outline" onPress={() => onBook()} />
             <Pressable style={styles.heroGhost} onPress={onOpenChat}><Ionicons name="chatbubble-outline" size={15} color={colors.white} /><Text style={styles.heroGhostText}>Tanya dokter</Text></Pressable>
           </View>
-        </LinearGradient>
-      </ImageBackground>
+        </View>
+      </LinearGradient>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickScroll}>
         {quickActions.map((item) => (
           <Pressable key={item.label} onPress={item.onPress} style={({ pressed }) => [styles.quickCard, pressed && styles.pressed]}>
             <View style={[styles.quickIcon, { backgroundColor: item.color }]}><Text style={styles.quickEmoji}>{item.emoji}</Text></View>
-            <Text style={styles.quickLabel}>{item.label}</Text><Text style={styles.quickNote}>{item.note}</Text>
+            <Text numberOfLines={2} style={styles.quickLabel}>{item.label}</Text><Text numberOfLines={1} style={styles.quickNote}>{item.note}</Text>
           </Pressable>
         ))}
       </ScrollView>
@@ -114,32 +120,38 @@ export function HomeScreen({ onAction, onBook, onOpenChat, onOpenNotifications, 
 }
 
 const styles = StyleSheet.create({
-  greetingRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 5, marginBottom: 16 },
-  greeting: { color: colors.navy, fontSize: 25, fontWeight: "800", letterSpacing: -0.4 },
-  greetingNote: { marginTop: 4, color: colors.muted, fontSize: 14 },
-  petPicker: { flexDirection: "row", alignItems: "center", gap: 5, padding: 4, paddingRight: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
-  petPickerEmoji: { width: 31, height: 31, borderRadius: 9, backgroundColor: "#FFF0D8", fontSize: 22, textAlign: "center", lineHeight: 31 },
-  petPickerName: { color: colors.text, fontSize: 13, fontWeight: "800" },
-  hero: { height: 310, overflow: "hidden", borderRadius: 22, ...shadow },
-  heroImage: { borderRadius: 22, resizeMode: "cover" },
-  heroGradient: { flex: 1, padding: 22, justifyContent: "center" },
-  heroTitle: { maxWidth: "72%", marginTop: 12, color: colors.white, fontSize: 29, lineHeight: 28, fontWeight: "900", letterSpacing: -0.6 },
-  heroNote: { maxWidth: "70%", marginTop: 8, color: "rgba(255,255,255,.82)", fontSize: 14, lineHeight: 21 },
-  heroButtons: { flexDirection: "row", gap: 8, marginTop: 17 },
-  heroGhost: { minHeight: 35, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: "rgba(255,255,255,.55)", flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(255,255,255,.1)" },
-  heroGhostText: { color: colors.white },
-  quickScroll: { gap: 9, paddingTop: 14, paddingRight: 15 },
-  quickCard: { width: 88, minHeight: 91, alignItems: "center", justifyContent: "center", padding: 9, borderRadius: 15, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, ...shadow },
-  quickIcon: { width: 39, height: 39, alignItems: "center", justifyContent: "center", borderRadius: 12 },
-  quickEmoji: { fontSize: 24 }, quickLabel: { marginTop: 7, color: colors.navy, fontSize: 13, fontWeight: "800" }, quickNote: { marginTop: 2, color: colors.muted, fontSize: 11 }, pressed: { opacity: .7 },
-  healthCard: { padding: 15 },
+  greetingRow: { minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4, marginBottom: 12 },
+  greetingCopy: { minWidth: 0, flex: 1 },
+  greeting: { color: colors.navy, fontSize: 21, lineHeight: 26, fontWeight: "800", letterSpacing: -0.25 },
+  greetingNote: { marginTop: 2, color: colors.muted, fontSize: 12, lineHeight: 17 },
+  petPicker: { maxWidth: 126, flexDirection: "row", alignItems: "center", gap: 5, padding: 4, paddingRight: 8, borderRadius: 13, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
+  petPickerEmoji: { width: 30, height: 30, borderRadius: 10, overflow: "hidden", backgroundColor: colors.yellow50, fontSize: 20, textAlign: "center", lineHeight: 30 },
+  petPickerName: { minWidth: 0, flexShrink: 1, color: colors.text, fontSize: 11, fontWeight: "800" },
+  hero: { position: "relative", minHeight: 232, overflow: "hidden", justifyContent: "center", borderRadius: 20, ...shadow },
+  heroContent: { zIndex: 2, width: "72%", padding: 18 },
+  heroTitle: { marginTop: 10, color: colors.white, fontSize: 23, lineHeight: 27, fontWeight: "900", letterSpacing: -0.45 },
+  heroNote: { maxWidth: 250, marginTop: 6, color: "rgba(255,255,255,.88)", fontSize: 12, lineHeight: 18 },
+  heroButtons: { flexDirection: "row", gap: 7, marginTop: 14 },
+  heroGhost: { minHeight: 40, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,.55)", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, backgroundColor: "rgba(255,255,255,.12)" },
+  heroGhostText: { color: colors.white, fontSize: 12, fontWeight: "700" },
+  heroOrbLarge: { position: "absolute", right: -62, top: -76, width: 230, height: 230, borderRadius: 115, backgroundColor: "rgba(255,255,255,.14)" },
+  heroOrbSmall: { position: "absolute", right: 52, bottom: -55, width: 115, height: 115, borderRadius: 58, backgroundColor: "rgba(255,255,255,.1)" },
+  petBubble: { position: "absolute", zIndex: 1, right: 14, bottom: 20, width: 102, height: 116, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,.4)", borderRadius: 48, backgroundColor: "rgba(255,255,255,.25)", transform: [{ rotate: "5deg" }] },
+  petBubbleEmoji: { position: "absolute", left: 13, bottom: 18, fontSize: 46 },
+  petBubbleCat: { left: 48, bottom: 39, fontSize: 39 },
+  petBubbleSparkle: { position: "absolute", right: 10, top: 13, color: colors.white, fontSize: 20, fontWeight: "900" },
+  quickScroll: { gap: 4, paddingTop: 12, paddingRight: 8 },
+  quickCard: { width: 69, minHeight: 80, alignItems: "center", justifyContent: "flex-start", paddingTop: 5 },
+  quickIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 15, borderWidth: 1, borderColor: "rgba(255,255,255,.85)" },
+  quickEmoji: { fontSize: 23 }, quickLabel: { minHeight: 28, marginTop: 5, color: colors.navy, fontSize: 11, lineHeight: 13, fontWeight: "800", textAlign: "center" }, quickNote: { marginTop: 1, color: colors.muted, fontSize: 9, textAlign: "center" }, pressed: { opacity: .68, transform: [{ scale: .97 }] },
+  healthCard: { padding: 13 },
   healthTop: { flexDirection: "row", alignItems: "center" },
-  petAvatar: { position: "relative", width: 62, height: 62, alignItems: "center", justifyContent: "center", borderRadius: 18, backgroundColor: "#FFF0D8" },
-  petAvatarEmoji: { fontSize: 38 }, checkDot: { position: "absolute", right: -3, bottom: -3, width: 20, height: 20, borderRadius: 10, borderWidth: 3, borderColor: colors.white, alignItems: "center", justifyContent: "center", backgroundColor: colors.mint },
-  healthCopy: { flex: 1, marginLeft: 12, gap: 3 }, petName: { color: colors.navy, fontSize: 21, fontWeight: "900" }, petMeta: { color: colors.text, fontSize: 13 }, updated: { color: colors.muted, fontSize: 11 },
-  scoreCircle: { width: 63, height: 63, borderRadius: 32, borderWidth: 6, borderColor: colors.sky500, alignItems: "center", justifyContent: "center", backgroundColor: colors.white }, scoreValue: { color: colors.navy, fontSize: 21, fontWeight: "900" }, scoreLabel: { color: colors.muted, fontSize: 10 },
-  metricRow: { flexDirection: "row", gap: 7, marginTop: 14 }, metric: { flex: 1, padding: 9, borderRadius: 12, borderWidth: 1, borderColor: colors.line }, metricEmoji: { fontSize: 20 }, metricLabel: { marginTop: 5, color: colors.muted, fontSize: 11 }, metricValue: { marginTop: 2, color: colors.navy, fontSize: 13, fontWeight: "800" }, metricGood: { marginTop: 2, color: colors.mint, fontSize: 10, fontWeight: "700" }, metricWarn: { marginTop: 2, color: colors.yellow, fontSize: 10, fontWeight: "700" },
+  petAvatar: { position: "relative", width: 52, height: 52, alignItems: "center", justifyContent: "center", borderRadius: 17, backgroundColor: colors.yellow50 },
+  petAvatarEmoji: { fontSize: 31 }, checkDot: { position: "absolute", right: -3, bottom: -3, width: 18, height: 18, borderRadius: 9, borderWidth: 3, borderColor: colors.white, alignItems: "center", justifyContent: "center", backgroundColor: colors.mint },
+  healthCopy: { flex: 1, marginLeft: 10, gap: 2 }, petName: { color: colors.navy, fontSize: 17, fontWeight: "900" }, petMeta: { color: colors.text, fontSize: 11 }, updated: { color: colors.muted, fontSize: 9 },
+  scoreCircle: { width: 53, height: 53, borderRadius: 27, borderWidth: 5, borderColor: colors.sky500, alignItems: "center", justifyContent: "center", backgroundColor: colors.white }, scoreValue: { color: colors.navy, fontSize: 17, fontWeight: "900" }, scoreLabel: { color: colors.muted, fontSize: 8 },
+  metricRow: { flexDirection: "row", gap: 6, marginTop: 11 }, metric: { flex: 1, padding: 8, borderRadius: 12, backgroundColor: colors.canvas }, metricEmoji: { fontSize: 17 }, metricLabel: { marginTop: 4, color: colors.muted, fontSize: 9 }, metricValue: { marginTop: 1, color: colors.navy, fontSize: 11, fontWeight: "800" }, metricGood: { marginTop: 1, color: colors.mint, fontSize: 8, fontWeight: "700" }, metricWarn: { marginTop: 1, color: colors.yellow, fontSize: 8, fontWeight: "700" },
   insight: { flexDirection: "row", alignItems: "center", gap: 9, marginTop: 10, padding: 10, borderRadius: 11, backgroundColor: colors.sky50 }, insightIcon: { fontSize: 22 }, insightCopy: { flex: 1, gap: 2 }, insightTitle: { color: "#315E7C", fontSize: 12, fontWeight: "800" }, insightText: { color: "#66869A", fontSize: 11 }, insightAction: { color: colors.sky600, fontSize: 12, fontWeight: "800" },
   careCard: { padding: 14 }, careRow: { minHeight: 63, flexDirection: "row", alignItems: "center", gap: 10 }, careDivider: { borderBottomWidth: 1, borderBottomColor: colors.line }, careIcon: { width: 38, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center" }, blue: { backgroundColor: colors.sky50 }, mint: { backgroundColor: colors.mint50 }, violet: { backgroundColor: colors.violet50 }, peach: { backgroundColor: "#FFF1E8" }, careCopy: { flex: 1, gap: 2 }, careTime: { color: colors.sky600, fontSize: 11, fontWeight: "800" }, careTitle: { color: colors.navy, fontSize: 14, fontWeight: "800" }, careNote: { color: colors.muted, fontSize: 11 }, reminderButton: { marginTop: 10 },
-  serviceScroll: { gap: 10, paddingRight: 16, paddingBottom: 4 }, serviceCard: { width: 210, padding: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, ...shadow }, serviceVisual: { height: 105, borderRadius: 12, alignItems: "center", justifyContent: "center" }, serviceVisualPill: { position: "absolute" }, serviceEmoji: { fontSize: 48 }, serviceName: { marginTop: 10, color: colors.navy, fontSize: 15, fontWeight: "800" }, serviceMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }, serviceMetaText: { color: colors.muted, fontSize: 11 }, serviceFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 }, servicePrice: { color: colors.sky600, fontSize: 12, fontWeight: "800" }, bookCircle: { width: 29, height: 29, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky500 },
+  serviceScroll: { gap: 9, paddingRight: 12, paddingBottom: 4 }, serviceCard: { width: 176, padding: 9, borderRadius: 16, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, ...shadow }, serviceVisual: { height: 82, borderRadius: 13, alignItems: "center", justifyContent: "center" }, serviceVisualPill: { position: "absolute" }, serviceEmoji: { fontSize: 38 }, serviceName: { marginTop: 8, color: colors.navy, fontSize: 13, fontWeight: "800" }, serviceMeta: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 3 }, serviceMetaText: { color: colors.muted, fontSize: 9 }, serviceFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }, servicePrice: { color: colors.sky600, fontSize: 11, fontWeight: "800" }, bookCircle: { width: 28, height: 28, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky500 },
 });

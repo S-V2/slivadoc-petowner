@@ -47,6 +47,7 @@ import {
   hasPlatformSession,
   loginMobile,
   logoutMobile,
+  restorePlatformSession,
   readAllMobileNotifications,
   readMobileNotification,
   registerMobileOwner,
@@ -282,6 +283,18 @@ function MobileApp() {
     const result = await getMobileServices(coordinates);
     setServices(result.data.map(mapService));
   }, [mapService]);
+  useEffect(() => {
+    let mounted = true;
+    void restorePlatformSession().then((restored) => {
+      if (!mounted) return;
+      if (restored) {
+        void refreshAccount().catch(() => {});
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [refreshAccount]);
   const reloadData = async (showFeedback = true) => {
     if (refreshing) return;
     setRefreshing(true);
@@ -579,8 +592,8 @@ function MobileApp() {
                   points={bootstrap?.points.balance ?? 0}
                   rewardFormula={bootstrap?.points.formula}
                   onLogin={() => setLoginOpen(true)}
-                  onLogout={() => {
-                    logoutMobile();
+                  onLogout={async () => {
+                    await logoutMobile();
                     setBootstrap(undefined);
                     setRecords([]);
                     navigateTo("home", true);

@@ -1,3 +1,5 @@
+import * as SecureStore from "expo-secure-store";
+
 import { NativeModules, Platform } from "react-native";
 import { io } from "socket.io-client";
 import { uniqueById } from "./collections";
@@ -48,21 +50,148 @@ export const REALTIME_API_URL = resolveServiceURL(
 
 export type AssistantMessage = { role: "user" | "assistant"; content: string };
 
+const SECURE_ACCESS_KEY = "slivadoc_mobile_access_token";
+const SECURE_REFRESH_KEY = "slivadoc_mobile_refresh_token";
+
+let platformAccessToken = "";
+let platformRefreshToken = "";
+let refreshPromise: Promise<string> | null = null;
+
+export async function restorePlatformSession(): Promise<boolean> {
+  try {
+    const [access, refresh] = await Promise.all([
+      SecureStore.getItemAsync(SECURE_ACCESS_KEY),
+      SecureStore.getItemAsync(SECURE_REFRESH_KEY),
+    ]);
+    if (access) {
+      platformAccessToken = access;
+      platformRefreshToken = refresh ?? "";
+      realtime.auth = { token: access };
+      return true;
+    } else if (refresh) {
+      platformRefreshToken = refresh;
+      const newAccess = await refreshMobileSession();
+      return Boolean(newAccess);
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export async function setPlatformTokens(access: string, refresh: string) {
+  platformAccessToken = access;
+  platformRefreshToken = refresh;
+  realtime.auth = { token: access };
+  try {
+    await Promise.all([
+      access
+        ? SecureStore.setItemAsync(SECURE_ACCESS_KEY, access)
+        : SecureStore.deleteItemAsync(SECURE_ACCESS_KEY),
+      refresh
+        ? SecureStore.setItemAsync(SECURE_REFRESH_KEY, refresh)
+        : SecureStore.deleteItemAsync(SECURE_REFRESH_KEY),
+    ]);
+  } catch (err) {
+    console.warn("[Mobile API] Gagal menyimpan secure tokens", err);
+  }
+}
+
+export function setPlatformAccessToken(token: string) {
+  platformAccessToken = token;
+  realtime.auth = { token };
+}
+
+export function hasPlatformSession() {
+  return Boolean(platformAccessToken || platformRefreshToken);
+}
+
+export async function clearMobileSession() {
+  platformAccessToken = "";
+  platformRefreshToken = "";
+  realtime.auth = { token: "" };
+  mobileCache.clear();
+  mobileInFlight.clear();
+  try {
+    await Promise.all([
+      SecureStore.deleteItemAsync(SECURE_ACCESS_KEY),
+      SecureStore.deleteItemAsync(SECURE_REFRESH_KEY),
+    ]);
+  } catch {}
+}
+
+async function performMobileSessionRefresh(): Promise<string> {
+  if (!platformRefreshToken) {
+    await clearMobileSession();
+    throw new Error("Session berakhir. Silakan login kembali.");
+  }
+  const baseURL = requireServiceURL(
+    PLATFORM_API_URL,
+    "EXPO_PUBLIC_PLATFORM_API_URL",
+  );
+  const response = await fetch(`${baseURL}/api/v1/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: platformRefreshToken }),
+  });
+  const payload = (await response.json().catch(() => ({}))) as {
+    access_token?: string;
+    refresh_token?: string;
+    message?: string;
+  };
+  if (!response.ok || !payload.access_token || !payload.refresh_token) {
+    await clearMobileSession();
+    throw new Error(
+      payload.message ?? "Session berakhir. Silakan login kembali.",
+    );
+  }
+  await setPlatformTokens(payload.access_token, payload.refresh_token);
+  return payload.access_token;
+}
+
+export function refreshMobileSession(): Promise<string> {
+  if (refreshPromise) return refreshPromise;
+  const pending = performMobileSessionRefresh();
+  refreshPromise = pending;
+  pending.then(
+    () => {
+      if (refreshPromise === pending) refreshPromise = null;
+    },
+    () => {
+      if (refreshPromise === pending) refreshPromise = null;
+    },
+  );
+  return pending;
+}
+
+const mobileCache = new Map<string, { expires: number; value: unknown }>();
+const mobileInFlight = new Map<string, Promise<unknown>>();
+export function clearMobileCache() {
+  mobileCache.clear();
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const baseURL = requireServiceURL(
     PETOWNER_API_URL,
     "EXPO_PUBLIC_PETOWNER_API_URL",
   );
-  const response = await fetch(`${baseURL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(platformAccessToken
-        ? { Authorization: `Bearer ${platformAccessToken}` }
-        : {}),
-      ...init?.headers,
-    },
-  });
+  const send = (token: string) =>
+    fetch(`${baseURL}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init?.headers,
+      },
+    });
+
+  let response = await send(platformAccessToken);
+  if (response.status === 401 && platformRefreshToken) {
+    try {
+      const newToken = await refreshMobileSession();
+      response = await send(newToken);
+    } catch {}
+  }
   const payload = await response.json().catch(() => ({}));
   if (!response.ok)
     throw new Error(
@@ -74,24 +203,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-let platformAccessToken = "";
-export function setPlatformAccessToken(token: string) {
-  platformAccessToken = token;
-  realtime.auth = { token };
-}
-export function hasPlatformSession() {
-  return Boolean(platformAccessToken);
-}
-
-const mobileCache = new Map<string, { expires: number; value: unknown }>();
-const mobileInFlight = new Map<string, Promise<unknown>>();
-export function clearMobileCache() {
-  mobileCache.clear();
-}
-
 async function platformRequest<T>(
   path: string,
   init?: RequestInit,
+  retry = true,
 ): Promise<T> {
   const method = String(init?.method ?? "GET").toUpperCase();
   const key = `${path}:${platformAccessToken.slice(-12)}`;
@@ -106,16 +221,23 @@ async function platformRequest<T>(
       PLATFORM_API_URL,
       "EXPO_PUBLIC_PLATFORM_API_URL",
     );
-    const response = await fetch(`${baseURL}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...(platformAccessToken
-          ? { Authorization: `Bearer ${platformAccessToken}` }
-          : {}),
-        ...init?.headers,
-      },
-    });
+    const send = (token: string) =>
+      fetch(`${baseURL}${path}`, {
+        ...init,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...init?.headers,
+        },
+      });
+
+    let response = await send(platformAccessToken);
+    if (response.status === 401 && retry && platformRefreshToken) {
+      try {
+        const newToken = await refreshMobileSession();
+        response = await send(newToken);
+      } catch {}
+    }
     const payload = await response.json().catch(() => ({}));
     if (!response.ok)
       throw new Error(payload.message ?? "Layanan Slivadoc belum tersedia");
@@ -279,7 +401,7 @@ export async function loginMobile(email: string, password: string) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok)
     throw new Error(payload.message ?? "Email atau password salah");
-  setPlatformAccessToken(payload.access_token);
+  await setPlatformTokens(payload.access_token, payload.refresh_token);
   mobileCache.clear();
   return payload as { access_token: string; refresh_token: string };
 }
@@ -322,9 +444,24 @@ export async function resendMobileRegistrationOTP(email: string) {
     },
   );
 }
-export function logoutMobile() {
-  setPlatformAccessToken("");
-  mobileCache.clear();
+export async function logoutMobile() {
+  try {
+    const baseURL = requireServiceURL(
+      PLATFORM_API_URL,
+      "EXPO_PUBLIC_PLATFORM_API_URL",
+    );
+    if (platformAccessToken) {
+      await fetch(`${baseURL}/api/v1/auth/logout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${platformAccessToken}`,
+        },
+      }).catch(() => {});
+    }
+  } finally {
+    await clearMobileSession();
+  }
 }
 export const getMobileBootstrap = async () => {
   const result = await platformRequest<MobileBootstrap>(

@@ -1,0 +1,217 @@
+/*
+ * Slivadoc Pet Owner mobile typography standard.
+ *
+ * This file is intentionally loaded after globals.css. It is the final,
+ * product-wide mobile cascade for the app shell and replaces historical
+ * one-off font sizes without changing desktop or public SEO pages.
+ */
+
+@media (max-width: 680px) {
+  :root {
+    --type-page-title: 24px;
+    --type-section-title: 20px;
+    --type-card-title: 16px;
+    --type-body-large: 15px;
+    --type-body: 14px;
+    --type-caption: 11px;
+    --type-control: 14px;
+    --type-compact-control: 13px;
+  }
+
+  .app-shell,
+  .app-shell .page-content {
+    font-size: var(--type-body);
+    line-height: 1.55;
+  }
+
+  .app-shell .page-heading h1 {
+    font-size: var(--type-page-title);
+    line-height: 1.22;
+    letter-spacing: -0.025em;
+  }
+
+  .app-shell .page-heading p,
+  .app-shell .page-content p,
+  .app-shell .page-content li,
+  .app-shell .page-content dd {
+    font-size: var(--type-body) !important;
+    line-height: 1.55;
+  }
+
+  .app-shell .page-content h2,
+  .app-shell .modal h2,
+  .app-shell .drawer h2 {
+    font-size: var(--type-section-title);
+    line-height: 1.3;
+  }
+
+  .app-shell .page-content h3,
+  .app-shell .page-content .panel-heading h3,
+  .app-shell .page-content .panel-heading > h3 {
+    font-size: var(--type-card-title);
+    line-height: 1.38;
+  }
+
+  .app-shell .page-content small,
+  .app-shell .page-content time,
+  .app-shell .page-content dt,
+  .app-shell .page-content label,
+  .app-shell .page-content .section-eyebrow,
+  .app-shell .page-content .heading-kicker {
+    font-size: var(--type-caption) !important;
+    line-height: 1.45;
+  }
+
+  .app-shell .page-content button,
+  .app-shell .primary-button,
+  .app-shell .secondary-button,
+  .app-shell .ghost-button,
+  .app-shell .text-button {
+    font-size: var(--type-control);
+    line-height: 1.4;
+  }
+
+  /* Text inputs stay at 16 px to prevent focus zoom in mobile Safari. */
+  .app-shell .page-content input,
+  .app-shell .page-content textarea,
+  .app-shell .petowner-login .login-form input:not([type="checkbox"]) {
+    font-size: 16px !important;
+    line-height: 1.5;
+  }
+
+  .app-shell .page-content select,
+  .app-shell .filter-pills button,
+  .app-shell .filter-panel-pills button,
+  .app-shell .tabs button,
+  .app-shell .paw-tabs button,
+  .app-shell .owner-search-tabs button {
+    font-size: var(--type-compact-control) !important;
+    line-height: 1.4;
+  }
+
+  /* Marketing-style feature heroes use one compact mobile display size. */
+  .app-shell .page-content .hero-copy h2,
+  .app-shell .page-content .discover-search-card h2,
+  .app-shell .page-content .world-hero h2,
+  .app-shell .page-content .event-banner h2,
+  .app-shell .page-content .petspot-head h2,
+  .app-shell .page-content .pethub-head h2,
+  .app-shell .page-content .care-hero h2,
+  .app-shell .page-content .adoption-hero h2,
+  .app-shell .page-content .document-hero h2,
+  .app-shell .page-content .pawdating-hero h2,
+  .app-shell .page-content .shop-banner h2,
+  .app-shell .page-content .petship-hero h2,
+  .app-shell .page-content .fundraising-hero h2,
+  .app-shell .page-content .public-campaign-banner h2 {
+    font-size: 22px !important;
+    line-height: 1.24;
+    letter-spacing: -0.025em;
+  }
+
+  .app-shell .page-content .hero-copy p,
+  .app-shell .page-content .discover-search-card p,
+  .app-shell .page-content .world-hero p,
+  .app-shell .page-content .event-banner p,
+  .app-shell .page-content .care-hero p,
+  .app-shell .page-content .adoption-hero p,
+  .app-shell .page-content .document-hero p,
+  .app-shell .page-content .pawdating-hero-copy > p,
+  .app-shell .page-content .shop-banner p,
+  .app-shell .page-content .petship-hero p,
+  .app-shell .page-content .fundraising-hero p,
+  .app-shell .page-content .public-campaign-banner p {
+    font-size: var(--type-body) !important;
+    line-height: 1.55;
+  }
+
+  /* Sheets and dialogs follow the same hierarchy as regular screens. */
+  .app-shell .petowner-login h2,
+  .app-shell .discover-filter-panel h2,
+  .app-shell .activity-detail-hero h2,
+  .app-shell .mobile-more-sheet header h2,
+  .app-shell .group-chat-sheet > header h2,
+  .app-shell .comments-sheet > header h2 {
+    font-size: var(--type-section-title) !important;
+    line-height: 1.3;
+  }
+
+  .app-shell .mobile-more-sheet b,
+  .app-shell .mobile-nav small {
+    font-size: var(--type-caption) !important;
+  }
+
+  .app-shell .top-login {
+    font-size: var(--type-compact-control);
+  }
+
+  /* Discovery: keep copy readable without squeezing it beside the sorter. */
+  .app-shell .discover-search-card {
+    min-height: 0;
+    padding: 20px 18px;
+  }
+
+  .app-shell .discover-search-card > label {
+    height: 46px;
+    margin-top: 16px;
+  }
+
+  .app-shell .filter-bar,
+  .app-shell .discover-result-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .app-shell .filter-pills {
+    min-width: 0;
+  }
+
+  .app-shell .discover-result-head {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .app-shell .discover-result-head p {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .app-shell .discover-result-head select {
+    width: 100%;
+    min-height: 44px;
+    padding-inline: 12px 34px;
+    font-size: var(--type-control) !important;
+  }
+
+  .app-shell .service-name-row h3,
+  .app-shell .doctor-card h3,
+  .app-shell .adoption-card h3,
+  .app-shell .document-card h3,
+  .app-shell .document-product-card h3,
+  .app-shell .paw-profile-copy h3,
+  .app-shell .fundraiser-card h3 {
+    font-size: var(--type-card-title) !important;
+    line-height: 1.38;
+  }
+}
+
+@media (max-width: 360px) {
+  :root {
+    --type-page-title: 23px;
+  }
+
+  .app-shell .page-content .hero-copy h2,
+  .app-shell .page-content .discover-search-card h2,
+  .app-shell .page-content .world-hero h2,
+  .app-shell .page-content .event-banner h2,
+  .app-shell .page-content .petspot-head h2,
+  .app-shell .page-content .pethub-head h2,
+  .app-shell .page-content .care-hero h2,
+  .app-shell .page-content .adoption-hero h2,
+  .app-shell .page-content .document-hero h2,
+  .app-shell .page-content .pawdating-hero h2,
+  .app-shell .page-content .shop-banner h2 {
+    font-size: 21px !important;
+  }
+}

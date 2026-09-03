@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./mobile-typography.css";
 import "./seo.css";
 import { SEO, absoluteUrl } from "./lib/seo-config";
 

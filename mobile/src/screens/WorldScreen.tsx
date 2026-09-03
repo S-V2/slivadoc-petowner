@@ -242,8 +242,14 @@ export function WorldScreen({
     if (mode === "academy" && selected)
       void trackMobileAcademyProgramClick(selected.id).catch(() => undefined);
   }, [mode, selected]);
-  useEffect(() => {
-    if (!selected) return;
+  // Opening an item starts its form fresh. This runs in the open handler rather than an
+  // effect on purpose. Calling setState in an effect body is the cascading render that
+  // react-hooks/set-state-in-effect rejects, and the effect's dependency on
+  // owner.full_name / owner.phone / the `selected` object identity made it re-run and
+  // wipe whatever the user had already typed every time owner data or the fetched list
+  // refreshed underneath an open sheet. `selected` only ever becomes non-null here, so
+  // this is the single entry point.
+  const openItem = (item: WorldItem) => {
     if (mode === "adoption") {
       setAdoptionForm({
         ...emptyAdoptionForm(),
@@ -252,7 +258,8 @@ export function WorldScreen({
       });
     }
     if (mode === "documents") setDocumentForm(emptyDocumentForm());
-  }, [mode, owner?.full_name, owner?.phone, selected]);
+    setSelected(item);
+  };
   const publish = async () => {
     if (thread.trim().length < 3) return;
     if (!owner) {
@@ -671,7 +678,7 @@ export function WorldScreen({
             ) : (
               <Pressable
                 key={item.id}
-                onPress={() => setSelected(item)}
+                onPress={() => openItem(item)}
                 style={styles.card}
               >
                 <View

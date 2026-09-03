@@ -1,5 +1,8 @@
 import { NativeModules, Platform } from "react-native";
 import { io } from "socket.io-client";
+import { uniqueById } from "./collections";
+
+export { uniqueById } from "./collections";
 
 function resolveDevelopmentHost() {
   const scriptUrl = String(NativeModules.SourceCode?.scriptURL ?? "");
@@ -316,8 +319,17 @@ export function logoutMobile() {
   setPlatformAccessToken("");
   mobileCache.clear();
 }
-export const getMobileBootstrap = () =>
-  platformRequest<MobileBootstrap>("/api/v1/petowner/bootstrap");
+export const getMobileBootstrap = async () => {
+  const result = await platformRequest<MobileBootstrap>(
+    "/api/v1/petowner/bootstrap",
+  );
+  return {
+    ...result,
+    pets: uniqueById(result.pets),
+    notifications: uniqueById(result.notifications),
+    activities: uniqueById(result.activities),
+  };
+};
 export const getMobileServices = (options?: {
   search?: string;
   category?: string;
@@ -330,12 +342,12 @@ export const getMobileServices = (options?: {
   });
   return platformRequest<{ data: MobileService[] }>(
     `/api/v1/public/discovery/services${query.size ? `?${query}` : ""}`,
-  );
+  ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 };
 export const getMobileMedicalRecords = (petId: string) =>
   platformRequest<{ data: MobileMedicalRecord[] }>(
     `/api/v1/pets/${petId}/medical-records`,
-  );
+  ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 export const createMobileBooking = (input: Record<string, unknown>) =>
   platformRequest<{
     id: string;
@@ -404,7 +416,7 @@ export type MobileCommunityComment = {
 export const getMobileCommunityPosts = (tab = "for_you") =>
   platformRequest<{ data: MobileCommunityPost[] }>(
     `/api/v1/public/community/posts?tab=${encodeURIComponent(tab)}`,
-  );
+  ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 export const createMobileCommunityPost = (input: Record<string, unknown>) =>
   platformRequest<{ id: string; created_at: string; message: string }>(
     "/api/v1/community/posts",
@@ -418,7 +430,7 @@ export const reactMobileCommunityPost = (id: string) =>
 export const getMobileCommunityComments = (id: string) =>
   platformRequest<{ data: MobileCommunityComment[] }>(
     `/api/v1/community/posts/${id}/comments`,
-  );
+  ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 export const createMobileCommunityComment = (id: string, body: string) =>
   platformRequest<{ id: string; created_at: string; message: string }>(
     `/api/v1/community/posts/${id}/comments`,
@@ -479,34 +491,41 @@ export type WorldItem = {
   like_count?: number;
   comment_count?: number;
 };
+
+const getUniqueWorldItems = (path: string) =>
+  platformRequest<{ data: WorldItem[] }>(path).then((result) => ({
+    ...result,
+    data: uniqueById(result.data),
+  }));
+
 export const getMobileAcademy = () =>
-  platformRequest<{ data: WorldItem[] }>("/api/v1/public/academy/programs");
+  getUniqueWorldItems("/api/v1/public/academy/programs");
 export const trackMobileAcademyProgramClick = (programId: string) =>
   platformRequest<void>(`/api/v1/public/academy/programs/${programId}/click`, {
     method: "POST",
   });
 export const getMobileEvents = () =>
-  platformRequest<{ data: WorldItem[] }>("/api/v1/public/events");
+  getUniqueWorldItems("/api/v1/public/events");
 export const getMobilePetSpots = () =>
-  platformRequest<{ data: WorldItem[] }>("/api/v1/public/petspots");
+  getUniqueWorldItems("/api/v1/public/petspots");
 export const getMobileStreams = () =>
-  platformRequest<{ data: WorldItem[] }>("/api/v1/public/pethub/streams");
+  getUniqueWorldItems("/api/v1/public/pethub/streams");
 export const getMobilePetHubFeed = () =>
-  platformRequest<{ data: WorldItem[] }>("/api/v1/public/pethub/feed");
+  getUniqueWorldItems("/api/v1/public/pethub/feed");
 export const getMobileVeterinarians = () =>
-  platformRequest<{ data: WorldItem[] }>("/api/v1/public/veterinarians");
+  getUniqueWorldItems("/api/v1/public/veterinarians");
 export const getMobileConsultationPlans = () =>
-  platformRequest<{ data: WorldItem[] }>("/api/v1/public/consultation-plans");
+  getUniqueWorldItems("/api/v1/public/consultation-plans");
 export const getMobileAdoptions = () =>
-  platformRequest<{ data: WorldItem[] }>("/api/v1/public/adoptions");
+  getUniqueWorldItems("/api/v1/public/adoptions");
 export const getMobileDocumentProducts = () =>
-  platformRequest<{ data: WorldItem[] }>("/api/v1/public/pet-documents");
+  getUniqueWorldItems("/api/v1/public/pet-documents");
 export const getMobilePawDatingProfiles = () =>
-  platformRequest<{ data: WorldItem[] }>(
+  getUniqueWorldItems(
     "/api/v1/public/pawdating/profiles?min_level=2&min_health_score=80&max_distance_km=200",
   );
 export const getMobileMyPawDatingProfiles = () =>
-  platformRequest<{ data: WorldItem[] }>("/api/v1/pawdating/profiles");
+  getUniqueWorldItems("/api/v1/pawdating/profiles");
 export const sendMobilePawDatingInterest = (
   targetProfileId: string,
   sourceProfileId: string,

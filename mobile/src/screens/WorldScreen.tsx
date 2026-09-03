@@ -38,6 +38,7 @@ import {
   type MobileOwner,
   type MobilePaymentIntent,
   type WorldItem,
+  uniqueById,
 } from "../api";
 import { colors, shadow } from "../theme";
 import { PrimaryButton, Screen, TopHeader } from "../components/ui";
@@ -224,10 +225,10 @@ export function WorldScreen({
               academy: academy.status === "fulfilled" ? academy.value.data : [],
               events: events.status === "fulfilled" ? events.value.data : [],
               petspot: spots.status === "fulfilled" ? spots.value.data : [],
-              pethub: [
+              pethub: uniqueById([
                 ...(streams.status === "fulfilled" ? streams.value.data : []),
                 ...(feed.status === "fulfilled" ? feed.value.data : []),
-              ],
+              ]),
               consult: consult.status === "fulfilled" ? consult.value.data : [],
               adoption:
                 adoption.status === "fulfilled" ? adoption.value.data : [],
@@ -272,7 +273,10 @@ export function WorldScreen({
       const feed = await getMobilePetHubFeed();
       setItems((current) => ({
         ...current,
-        pethub: [...current.pethub.filter((item) => item.status), ...feed.data],
+        pethub: uniqueById([
+          ...current.pethub.filter((item) => item.status),
+          ...feed.data,
+        ]),
       }));
       setThread("");
       setComposer(false);

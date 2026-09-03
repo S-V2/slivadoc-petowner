@@ -88,9 +88,9 @@
 # into the client bundle at build time, so keeping them visible makes them
 # reviewable and editable without a secret rotation.
 #
-#   NEXT_PUBLIC_PETOWNER_API_URL = https://petapi.slivadoc.xyz
-#   NEXT_PUBLIC_PLATFORM_API_URL = https://api.slivadoc.xyz
-#   NEXT_PUBLIC_REALTIME_URL     = https://rt.slivadoc.xyz
+#   NEXT_PUBLIC_PETOWNER_API_URL = https://petapi.slivadoc.com
+#   NEXT_PUBLIC_PLATFORM_API_URL = https://api.slivadoc.com
+#   NEXT_PUBLIC_REALTIME_URL     = https://rt.slivadoc.com
 #
 # These CANNOT be changed by editing compose or restarting a container — Vite
 # inlines them into the client bundle, so a change means a rebuild of the web

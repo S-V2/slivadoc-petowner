@@ -5,7 +5,7 @@ import { colors, shadow } from "../theme";
 import { Pill, PrimaryButton, Screen, TopHeader } from "../components/ui";
 import { useMemo, useState } from "react";
 
-export function DiscoverScreen({ onBook, onAction, onOpenNotifications,services,favorites,onToggleFavorite,locationTitle }: { onBook: (service: Service) => void; onAction: (message: string) => void; onOpenNotifications: () => void;services:Service[];favorites:string[];onToggleFavorite:(id:string)=>void;locationTitle:string }) {
+export function DiscoverScreen({ onBook, onAction, onOpenNotifications,services,favorites,onToggleFavorite }: { onBook: (service: Service) => void; onAction: (message: string) => void; onOpenNotifications: () => void;services:Service[];favorites:string[];onToggleFavorite:(id:string)=>void }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Semua");
   const categories = useMemo(() => ["Semua", ...Array.from(new Set(services.map((item) => item.category)))], [services]);
@@ -13,7 +13,7 @@ export function DiscoverScreen({ onBook, onAction, onOpenNotifications,services,
 
   return (
     <Screen>
-      <TopHeader title="Jelajahi Layanan" subtitle={locationTitle} onNotification={onOpenNotifications} />
+      <TopHeader title="Jelajahi Layanan" subtitle="Layanan pet care terverifikasi" onNotification={onOpenNotifications} />
       <Text style={styles.title}>Mau manjain pet-mu dengan apa? ✨</Text>
       <Text style={styles.subtitle}>Temukan layanan terverifikasi di dekatmu.</Text>
       <View style={styles.searchBox}><Ionicons name="search" size={18} color={colors.muted} /><TextInput placeholder="Cari klinik atau layanan" placeholderTextColor="#9AA7B6" value={query} onChangeText={setQuery} style={styles.searchInput} /><Pressable onPress={() => onAction(`Mencari “${query || "semua layanan"}”`)} style={styles.filterButton}><Ionicons name="options" size={17} color={colors.white} /></Pressable></View>

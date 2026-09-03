@@ -51,7 +51,6 @@ import {
   readMobileNotification,
   registerMobileOwner,
   resendMobileRegistrationOTP,
-  reverseGeocode,
   toggleMobileFavorite,
   verifyMobileRegistrationOTP,
   type MobileBootstrap,
@@ -59,6 +58,7 @@ import {
   type MobileNotification,
   type MobilePaymentIntent,
   type MobileService,
+  type MobileGlobalSearchResult,
 } from "./src/api";
 import { SlivaCareModal } from "./src/components/SlivaCareModal";
 import {
@@ -126,6 +126,28 @@ const moreTabs: TabItem[] = [
   },
 ];
 
+const searchRouteTabs: Record<string, Tab> = {
+  home: "home",
+  discover: "discover",
+  shop: "discover",
+  favorites: "discover",
+  bookings: "activity",
+  activity: "activity",
+  health: "health",
+  community: "community",
+  profile: "profile",
+  pets: "health",
+  academy: "world",
+  events: "world",
+  petspot: "world",
+  pethub: "world",
+  adoption: "world",
+  documents: "world",
+  pawdating: "world",
+  petship: "world",
+  fundraising: "world",
+};
+
 export default function App() {
   return (
     <SafeAreaProvider>
@@ -144,7 +166,6 @@ function MobileApp() {
   const [bookingOpen, setBookingOpen] = useState(false);
   const [payment, setPayment] = useState<MobilePaymentIntent>();
   const [selectedService, setSelectedService] = useState<Service>();
-  const [locationTitle, setLocationTitle] = useState("Pilih lokasi spesifik");
   const [bootstrap, setBootstrap] = useState<MobileBootstrap>();
   const [services, setServices] = useState<Service[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -243,7 +264,22 @@ function MobileApp() {
     return data;
   }, []);
   const loadServices = useCallback(async () => {
-    const result = await getMobileServices();
+    let coordinates: { latitude: number; longitude: number } | undefined;
+    try {
+      const permission = await ExpoLocation.getForegroundPermissionsAsync();
+      if (permission.status === "granted") {
+        const position = await ExpoLocation.getCurrentPositionAsync({
+          accuracy: ExpoLocation.Accuracy.Balanced,
+        });
+        coordinates = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+      }
+    } catch {
+      coordinates = undefined;
+    }
+    const result = await getMobileServices(coordinates);
     setServices(result.data.map(mapService));
   }, [mapService]);
   const reloadData = async (showFeedback = true) => {
@@ -375,31 +411,24 @@ function MobileApp() {
     setSelectedService(selected);
     setBookingOpen(true);
   };
-  const updateLocation = async () => {
-    try {
-      const permission = await ExpoLocation.requestForegroundPermissionsAsync();
-      if (permission.status !== "granted")
-        return notify("Izin lokasi diperlukan untuk mencari layanan terdekat");
-      notify("Mendeteksi lokasi perangkat...");
-      const position = await ExpoLocation.getCurrentPositionAsync({
-        accuracy: ExpoLocation.Accuracy.High,
-      });
-      const result = await reverseGeocode(
-        position.coords.latitude,
-        position.coords.longitude,
-      );
-      setLocationTitle(result.label.split(",").slice(0, 3).join(", "));
-      const nearby = await getMobileServices({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-      setServices(nearby.data.map(mapService));
-      notify("Lokasi layanan berhasil diperbarui");
-    } catch (cause) {
-      notify(
-        cause instanceof Error ? cause.message : "Lokasi belum dapat ditemukan",
-      );
+  const openSearchResult = (result: MobileGlobalSearchResult) => {
+    if (result.id === "booking") {
+      openBooking();
+      return;
     }
+    if (result.category === "service") {
+      const service = services.find((item) => item.id === result.id);
+      if (service) {
+        openBooking(service);
+        return;
+      }
+    }
+    if (result.route === "consult" || result.category === "veterinarian") {
+      setChatOpen(true);
+      return;
+    }
+    navigateTo(searchRouteTabs[result.route] ?? "discover");
+    notify(`Membuka ${result.title}`);
   };
 
   const navigationBottom = Math.max(
@@ -464,8 +493,7 @@ function MobileApp() {
                   onBook={openBooking}
                   onOpenChat={() => setChatOpen(true)}
                   onOpenNotifications={() => setNotificationsOpen(true)}
-                  locationTitle={locationTitle}
-                  onLocation={updateLocation}
+                  onSearchResult={openSearchResult}
                   onNavigate={navigateTo}
                   ownerName={bootstrap?.user.full_name}
                   pet={pet}
@@ -480,7 +508,6 @@ function MobileApp() {
                   onOpenNotifications={() => setNotificationsOpen(true)}
                   services={services}
                   favorites={favorites}
-                  locationTitle={locationTitle}
                   onToggleFavorite={async (id) => {
                     if (!requireLogin()) return;
                     try {

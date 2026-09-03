@@ -32,10 +32,17 @@ test("native mobile theme preserves Slivadoc sky blue as the primary color", () 
 });
 
 test("home uses a compact illustrated hero and dense quick actions", () => {
-  assert.match(home, /minHeight:\s*232/);
-  assert.match(home, /heroTitle:[^\n]*fontSize:\s*23/);
-  assert.match(home, /quickCard:[^\n]*width:\s*69/);
+  assert.match(home, /minHeight:\s*208/);
+  assert.match(home, /heroTitle:[^\n]*fontSize:\s*typography\.screenTitle/);
+  assert.match(home, /quickCard:[^\n]*width:\s*68/);
   assert.doesNotMatch(home, /ImageBackground/);
+});
+
+test("home header prioritizes global search and never renders location copy", () => {
+  assert.match(home, /Cari dokter, layanan, produk/);
+  assert.match(home, /getMobileGlobalSearch/);
+  assert.match(home, /PENCARIAN POPULER/);
+  assert.doesNotMatch(home, /locationTitle|onLocation|Lokasi kamu/);
 });
 
 test("discovery cards scan horizontally on a phone viewport", () => {

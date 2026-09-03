@@ -220,6 +220,13 @@ export type MobileService = {
   branch_name: string;
   duration_minutes: number;
 };
+export type MobileGlobalSearchResult = {
+  category: string;
+  id: string;
+  title: string;
+  subtitle: string;
+  route: string;
+};
 export type MobileMedicalRecord = {
   id: string;
   record_type: string;
@@ -344,6 +351,10 @@ export const getMobileServices = (options?: {
     `/api/v1/public/discovery/services${query.size ? `?${query}` : ""}`,
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 };
+export const getMobileGlobalSearch = (query: string, category = "") =>
+  platformRequest<{ data: MobileGlobalSearchResult[] }>(
+    `/api/v1/public/search?q=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}`,
+  );
 export const getMobileMedicalRecords = (petId: string) =>
   platformRequest<{ data: MobileMedicalRecord[] }>(
     `/api/v1/pets/${petId}/medical-records`,

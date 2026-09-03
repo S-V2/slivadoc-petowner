@@ -78,6 +78,10 @@ Untuk memulai ulang Metro sekaligus membersihkan cache, jalankan
 
 Tekan `a` untuk Android Emulator atau `i` untuk iOS Simulator. Default koneksi API sudah disesuaikan:
 
+`npm run android` otomatis menghentikan proses Metro lama milik project mobile
+ini dan membangun ulang cache sebelum membuka emulator. Ini mencegah Android
+tersambung ke bundle lama ketika dependency berubah setelah `git pull`.
+
 - Android Emulator: `http://10.0.2.2:8090`
 - iOS Simulator: `http://localhost:8090`
 - HP fisik dengan Expo Go: aplikasi otomatis mencoba IP LAN yang dipakai Metro untuk port `8080` dan `8090`

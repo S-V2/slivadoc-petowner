@@ -19,13 +19,7 @@ import {
 } from "../api";
 import type { PetView, Service } from "../data";
 import { colors, radius, shadow, spacing, typography } from "../theme";
-import {
-  Card,
-  Pill,
-  PrimaryButton,
-  Screen,
-  SoftButton,
-} from "../components/ui";
+import { Pill, PrimaryButton, Screen } from "../components/ui";
 
 type Props = {
   onAction: (message: string) => void;
@@ -78,6 +72,13 @@ function searchIcon(category: string): keyof typeof Ionicons.glyphMap {
   if (category === "academy") return "school-outline";
   if (category === "veterinarian") return "medkit-outline";
   return "sparkles-outline";
+}
+
+function serviceGradient(tone: Service["tone"]): [string, string] {
+  if (tone === "mint") return ["#DDFBF3", "#F4FFFC"];
+  if (tone === "violet") return ["#ECE7FF", "#F8F6FF"];
+  if (tone === "peach") return ["#FFF0E5", "#FFF9F4"];
+  return ["#DDF3FF", "#F3FBFF"];
 }
 
 function HomeSectionHeader({
@@ -293,6 +294,7 @@ export function HomeScreen({
   const [searchOpen, setSearchOpen] = useState(false);
   const petView = pet ?? { id: "", name: "pet kamu", breed: "Login untuk melihat profil", age: "—", weight: "—", icon: "🐾", score: 0, allergies: "" };
   const featuredActivities = activities.slice(0, 3);
+  const healthStatus = petView.score >= 80 ? "Kondisi prima" : petView.score >= 60 ? "Tetap terpantau" : pet ? "Lengkapi datanya" : "Mulai profil pet";
   const homeCare = services.find((item) => item.category.toLowerCase().includes("home"));
   const hotel = services.find((item) => item.category.toLowerCase().includes("hotel"));
   const firstName = ownerName?.trim().split(" ")[0];
@@ -383,47 +385,87 @@ export function HomeScreen({
 
         <View style={styles.sectionBlock}>
           <HomeSectionHeader icon="heart" eyebrow="HEALTH SNAPSHOT" title={`Kondisi ${petView.name}`} note="Pantau kesehatan tanpa ribet" action="Detail" onAction={() => onNavigate("health")} tone="blue" />
-          <LinearGradient colors={["#FFFFFF", "#EFF9FF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.healthCard}>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Ganti profil pet aktif, saat ini ${petView.name}`} onPress={() => onAction("Pilih profil hewan")} style={({ pressed }) => [styles.healthTop, pressed && styles.pressed]}>
+          <LinearGradient colors={["#087FC7", "#20ADEB", "#68D2F7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.healthCard}>
+            <View style={styles.healthGlowLarge} />
+            <View style={styles.healthGlowSmall} />
+            <View style={styles.healthTop}>
               <View style={styles.petAvatar}><Text style={styles.petAvatarEmoji}>{petView.icon}</Text><View style={styles.checkDot}><Ionicons name="checkmark" size={10} color={colors.white} /></View></View>
               <View style={styles.healthCopy}>
-                <View style={styles.activePetLabel}><Text style={styles.activePetLabelText}>PET AKTIF</Text><Ionicons name="swap-horizontal" size={11} color={colors.sky600} /></View>
+                <View style={styles.activePetLabel}><View style={styles.activePetPulse} /><Text style={styles.activePetLabelText}>PET AKTIF</Text></View>
                 <Text numberOfLines={1} style={styles.petName}>{petView.name}</Text>
                 <Text numberOfLines={1} style={styles.petMeta}>{petView.breed} • {petView.age}</Text>
-                <Text style={styles.updated}>{petView.lastUpdated ? `Update ${new Date(petView.lastUpdated).toLocaleDateString("id-ID")}` : "Belum ada rekam medis"}</Text>
               </View>
-              <View style={styles.healthScoreWrap}><View style={styles.scoreCircle}><Text style={styles.scoreValue}>{petView.score}</Text><Text style={styles.scoreLabel}>Health</Text></View><Ionicons name="chevron-down" size={13} color={colors.sky600} /></View>
-            </Pressable>
-            <View style={styles.metricRow}>
-              <View style={[styles.metric, styles.metricBlue]}><Text style={styles.metricEmoji}>⚖️</Text><Text style={styles.metricLabel}>Berat</Text><Text style={styles.metricValue}>{petView.weight}</Text></View>
-              <View style={[styles.metric, styles.metricMint]}><Text style={styles.metricEmoji}>📋</Text><Text style={styles.metricLabel}>Aktivitas</Text><Text style={styles.metricValue}>{activities.length} terbaru</Text></View>
-              <View style={[styles.metric, styles.metricViolet]}><Text style={styles.metricEmoji}>🛡️</Text><Text style={styles.metricLabel}>Health score</Text><Text style={styles.metricValue}>{petView.score}/100</Text></View>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Ganti profil pet aktif, saat ini ${petView.name}`} onPress={() => onAction("Pilih profil hewan")} style={({ pressed }) => [styles.petSwitchButton, pressed && styles.pressed]}>
+                <Ionicons name="swap-horizontal" size={13} color={colors.white} />
+                <Text style={styles.petSwitchText}>Ganti</Text>
+              </Pressable>
             </View>
-            <View style={styles.insight}>
-              <View style={styles.insightIcon}><Ionicons name="bulb-outline" size={17} color={colors.sky600} /></View>
+            <View style={styles.healthOverview}>
+              <View style={styles.healthScoreWrap}>
+                <View style={styles.scoreCircle}>
+                  <Text style={styles.scoreValue}>{petView.score}</Text>
+                  <Text style={styles.scoreLabel}>/ 100</Text>
+                </View>
+                <Text style={styles.healthStatus}>{healthStatus}</Text>
+                <Text numberOfLines={1} style={styles.updated}>{petView.lastUpdated ? `Update ${new Date(petView.lastUpdated).toLocaleDateString("id-ID")}` : "Belum ada rekam medis"}</Text>
+              </View>
+              <View style={styles.metricStack}>
+                <View style={styles.metric}>
+                  <View style={[styles.metricIcon, styles.metricIconMint]}><Ionicons name="scale-outline" size={14} color="#13856F" /></View>
+                  <View style={styles.metricCopy}><Text style={styles.metricLabel}>Berat badan</Text><Text style={styles.metricValue}>{petView.weight}</Text></View>
+                </View>
+                <View style={styles.metric}>
+                  <View style={[styles.metricIcon, styles.metricIconViolet]}><Ionicons name="pulse-outline" size={14} color="#6655C7" /></View>
+                  <View style={styles.metricCopy}><Text style={styles.metricLabel}>Aktivitas</Text><Text style={styles.metricValue}>{activities.length} catatan</Text></View>
+                </View>
+              </View>
+            </View>
+            <Pressable accessibilityRole="button" onPress={() => onNavigate("activity")} style={({ pressed }) => [styles.insight, pressed && styles.pressed]}>
+              <View style={styles.insightIcon}><Ionicons name="sparkles" size={16} color={colors.sky600} /></View>
               <View style={styles.insightCopy}><Text style={styles.insightTitle}>Insight untuk {petView.name}</Text><Text numberOfLines={2} style={styles.insightText}>{activities[0]?.description || "Belum ada aktivitas kesehatan terjadwal."}</Text></View>
-              <Pressable hitSlop={8} onPress={() => onNavigate("activity")}><Ionicons name="arrow-forward" size={16} color={colors.sky600} /></Pressable>
-            </View>
+              <View style={styles.insightArrow}><Ionicons name="arrow-forward" size={14} color={colors.white} /></View>
+            </Pressable>
           </LinearGradient>
         </View>
 
         <View style={styles.sectionBlock}>
           <HomeSectionHeader icon="calendar" eyebrow="CARE PLAN" title="Perawatan terdekat" note="Biar jadwal nggak kelewat" action="Semua" onAction={() => onNavigate("activity")} tone="mint" />
-          <Card style={styles.careCard}>
+          <LinearGradient colors={["#F2FFFB", "#FFFFFF", "#F2FAFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.careCard}>
+            <View style={styles.careGlow} />
             {featuredActivities.map((item, index) => (
               <Pressable key={item.id} onPress={() => onAction(`Detail ${item.title}`)} style={[styles.careRow, index < featuredActivities.length - 1 && styles.careDivider]}>
-                <View style={[styles.careIcon, item.category === "health" ? styles.mint : item.category === "booking" ? styles.violet : styles.blue]}><Text>{item.category === "health" ? "🩺" : item.category === "booking" ? "📅" : "📋"}</Text></View>
+                <View style={styles.careTimeline}>
+                  <View style={[styles.careIcon, item.category === "health" ? styles.mint : item.category === "booking" ? styles.violet : styles.blue]}><Text style={styles.careEmoji}>{item.category === "health" ? "🩺" : item.category === "booking" ? "📅" : "📋"}</Text></View>
+                  {index < featuredActivities.length - 1 ? <View style={styles.careLine} /> : null}
+                </View>
                 <View style={styles.careCopy}>
-                  <Text style={styles.careTime}>{new Date(item.starts_at || item.occurred_at).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</Text>
+                  <View style={styles.careTimePill}><Ionicons name="time-outline" size={11} color="#14836E" /><Text style={styles.careTime}>{new Date(item.starts_at || item.occurred_at).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</Text></View>
                   <Text numberOfLines={1} style={styles.careTitle}>{item.title}</Text>
                   <Text numberOfLines={2} style={styles.careNote}>{item.description}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#A3AFBC" />
+                <View style={styles.careArrow}><Ionicons name="chevron-forward" size={14} color={colors.sky600} /></View>
               </Pressable>
             ))}
-            {featuredActivities.length === 0 ? <View style={styles.emptyCare}><Text style={styles.emptyCareEmoji}>🗓️</Text><View><Text style={styles.emptyCareTitle}>Jadwal masih kosong</Text><Text style={styles.careNote}>Booking pertama kamu akan muncul di sini.</Text></View></View> : null}
-            <SoftButton label="Lihat semua aktivitas" icon="arrow-forward" onPress={() => onNavigate("activity")} style={styles.reminderButton} />
-          </Card>
+            {featuredActivities.length === 0 ? (
+              <View style={styles.emptyCare}>
+                <View style={styles.emptyCareVisual}>
+                  <View style={styles.emptyCareOrbit} />
+                  <View style={styles.emptyCareIcon}><Ionicons name="calendar" size={25} color="#168773" /></View>
+                  <View style={styles.emptyCareSpark}><Ionicons name="sparkles" size={11} color="#6757C9" /></View>
+                </View>
+                <View style={styles.emptyCareCopy}>
+                  <View style={styles.emptyCareBadge}><Text style={styles.emptyCareBadgeText}>MULAI DARI SINI ✨</Text></View>
+                  <Text style={styles.emptyCareTitle}>Jadwal masih santai</Text>
+                  <Text style={styles.careNote}>Booking perawatan pertama dan kami bantu ingatkan.</Text>
+                </View>
+              </View>
+            ) : null}
+            <Pressable accessibilityRole="button" onPress={() => onNavigate("activity")} style={({ pressed }) => [styles.careCta, pressed && styles.pressed]}>
+              <View style={styles.careCtaIcon}><Ionicons name="calendar-outline" size={16} color={colors.sky600} /></View>
+              <View style={styles.careCtaCopy}><Text style={styles.careCtaTitle}>{featuredActivities.length ? "Lihat semua aktivitas" : "Buat care plan pertama"}</Text><Text style={styles.careCtaNote}>Semua jadwal pet dalam satu tempat</Text></View>
+              <View style={styles.careCtaArrow}><Ionicons name="arrow-forward" size={14} color={colors.white} /></View>
+            </Pressable>
+          </LinearGradient>
         </View>
 
         <View style={styles.sectionBlock}>
@@ -431,19 +473,22 @@ export function HomeScreen({
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.serviceScroll}>
             {services.map((service) => (
               <Pressable key={service.id} onPress={() => onBook(service)} style={({ pressed }) => [styles.serviceCard, pressed && styles.pressed]}>
-                <View style={[styles.serviceVisual, service.tone === "mint" ? styles.mint : service.tone === "violet" ? styles.violet : service.tone === "peach" ? styles.peach : styles.blue]}>
+                <LinearGradient colors={serviceGradient(service.tone)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.serviceVisual}>
                   <View style={styles.serviceShine} />
-                  <Text style={styles.serviceEmoji}>{service.icon}</Text>
-                  <Pill>{service.category}</Pill>
+                  <View style={styles.serviceVisualTop}><Pill tone={service.tone === "peach" ? "yellow" : service.tone}>{service.category}</Pill><View style={styles.serviceFavorite}><Ionicons name="heart-outline" size={14} color={colors.navy} /></View></View>
+                  <View style={styles.serviceEmojiWrap}><Text style={styles.serviceEmoji}>{service.icon}</Text></View>
+                  <View style={styles.topPick}><Ionicons name="sparkles" size={10} color="#6757C9" /><Text style={styles.topPickText}>TOP PICK</Text></View>
+                </LinearGradient>
+                <View style={styles.serviceCardBody}>
+                  <Text numberOfLines={1} style={styles.serviceName}>{service.name}</Text>
+                  <View style={styles.serviceLocation}><Ionicons name="location-outline" size={11} color={colors.muted} /><Text numberOfLines={1} style={styles.serviceLocationText}>{service.address || "Terdekat dari kamu"}</Text></View>
+                  <View style={styles.serviceMeta}>
+                    <View style={styles.ratingPill}><Ionicons name="star" size={10} color="#E59D14" /><Text style={styles.ratingText}>{service.rating}</Text></View>
+                    <Text style={styles.serviceMetaDot}>•</Text>
+                    <Text numberOfLines={1} style={styles.serviceMetaText}>{service.distance}</Text>
+                  </View>
+                  <View style={styles.serviceFooter}><Text numberOfLines={1} style={styles.servicePrice}>{service.price}</Text><View style={styles.bookPill}><Text style={styles.bookPillText}>Pilih</Text><Ionicons name="arrow-forward" size={12} color={colors.white} /></View></View>
                 </View>
-                <Text numberOfLines={1} style={styles.serviceName}>{service.name}</Text>
-                <View style={styles.serviceMeta}>
-                  <Ionicons name="star" size={10} color={colors.yellow} />
-                  <Text style={styles.serviceMetaText}>{service.rating}</Text>
-                  <Text style={styles.serviceMetaText}>•</Text>
-                  <Text numberOfLines={1} style={styles.serviceMetaText}>{service.distance}</Text>
-                </View>
-                <View style={styles.serviceFooter}><Text numberOfLines={1} style={styles.servicePrice}>{service.price}</Text><View style={styles.bookCircle}><Ionicons name="arrow-forward" size={14} color={colors.white} /></View></View>
               </Pressable>
             ))}
           </ScrollView>
@@ -500,7 +545,7 @@ const styles = StyleSheet.create({
   quickMiniEmoji: { fontSize: 20 },
   quickMiniLabel: { minHeight: 25, marginTop: 5, color: colors.navy, fontSize: 9, lineHeight: 11, fontWeight: "800", textAlign: "center" },
   quickMiniNote: { color: colors.muted, fontSize: 8, textAlign: "center" },
-  sectionBlock: { marginTop: 25 },
+  sectionBlock: { marginTop: 24 },
   sectionHeader: { minWidth: 0, flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 10 },
   sectionHeaderIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 13 },
   blueSectionIcon: { backgroundColor: colors.sky50 },
@@ -512,61 +557,98 @@ const styles = StyleSheet.create({
   sectionNote: { marginTop: 1, color: colors.muted, fontSize: 9 },
   sectionAction: { minHeight: 34, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, borderRadius: 11, backgroundColor: colors.sky50 },
   sectionActionText: { color: colors.sky600, fontSize: 10, fontWeight: "800" },
-  healthCard: { overflow: "hidden", padding: 13, borderWidth: 1, borderColor: colors.sky100, borderRadius: 20, ...shadow },
-  healthTop: { flexDirection: "row", alignItems: "center", paddingBottom: 11, borderBottomWidth: 1, borderBottomColor: "rgba(85,196,250,.18)" },
-  petAvatar: { position: "relative", width: 50, height: 50, alignItems: "center", justifyContent: "center", borderRadius: 17, backgroundColor: colors.yellow50 },
-  petAvatarEmoji: { fontSize: 29 },
+  healthCard: { position: "relative", overflow: "hidden", padding: 13, borderRadius: 22, shadowColor: "#087FC7", shadowOpacity: 0.16, shadowRadius: 15, shadowOffset: { width: 0, height: 7 }, elevation: 4 },
+  healthGlowLarge: { position: "absolute", right: -55, top: -78, width: 190, height: 190, borderRadius: 95, backgroundColor: "rgba(255,255,255,.15)" },
+  healthGlowSmall: { position: "absolute", left: -35, bottom: 36, width: 100, height: 100, borderRadius: 50, backgroundColor: "rgba(255,255,255,.08)" },
+  healthTop: { zIndex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10 },
+  petAvatar: { position: "relative", width: 52, height: 52, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,.68)", borderRadius: 18, backgroundColor: "rgba(255,255,255,.94)" },
+  petAvatarEmoji: { fontSize: 28 },
   checkDot: { position: "absolute", right: -3, bottom: -3, width: 18, height: 18, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: colors.white, borderRadius: 9, backgroundColor: colors.mint },
-  healthCopy: { minWidth: 0, flex: 1, gap: 2, marginLeft: 10 },
-  activePetLabel: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.sky50 },
-  activePetLabelText: { color: colors.sky600, fontSize: 8, fontWeight: "900", letterSpacing: 0.4 },
-  petName: { color: colors.navy, fontSize: typography.cardTitle, fontWeight: "900" },
-  petMeta: { color: colors.text, fontSize: 11 },
-  updated: { color: colors.muted, fontSize: 9 },
-  healthScoreWrap: { flexDirection: "row", alignItems: "center", gap: 4 },
-  scoreCircle: { width: 50, height: 50, alignItems: "center", justifyContent: "center", borderWidth: 5, borderColor: colors.sky400, borderRadius: 25, backgroundColor: colors.white },
-  scoreValue: { color: colors.navy, fontSize: typography.cardTitle, fontWeight: "900" },
-  scoreLabel: { color: colors.muted, fontSize: 8 },
-  metricRow: { flexDirection: "row", gap: 6, marginTop: 12 },
-  metric: { flex: 1, minHeight: 66, padding: 8, borderRadius: 12 },
-  metricBlue: { backgroundColor: colors.sky50 },
-  metricMint: { backgroundColor: colors.mint50 },
-  metricViolet: { backgroundColor: colors.violet50 },
-  metricEmoji: { fontSize: 16 },
-  metricLabel: { marginTop: 3, color: colors.muted, fontSize: 9 },
-  metricValue: { marginTop: 1, color: colors.navy, fontSize: 11, fontWeight: "800" },
-  insight: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, padding: 10, borderRadius: 12, backgroundColor: "#F4FAFE" },
-  insightIcon: { width: 31, height: 31, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: colors.white },
+  healthCopy: { minWidth: 0, flex: 1, gap: 2 },
+  activePetLabel: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: "rgba(255,255,255,.2)" },
+  activePetPulse: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#BFFFEF" },
+  activePetLabelText: { color: colors.white, fontSize: 8, fontWeight: "900", letterSpacing: 0.5 },
+  petName: { color: colors.white, fontSize: 16, lineHeight: 20, fontWeight: "900" },
+  petMeta: { color: "rgba(255,255,255,.82)", fontSize: 10 },
+  petSwitchButton: { minHeight: 34, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, borderWidth: 1, borderColor: "rgba(255,255,255,.38)", borderRadius: 11, backgroundColor: "rgba(255,255,255,.14)" },
+  petSwitchText: { color: colors.white, fontSize: 10, fontWeight: "800" },
+  healthOverview: { zIndex: 1, minWidth: 0, flexDirection: "row", gap: 8, marginTop: 12 },
+  healthScoreWrap: { width: 112, alignItems: "center", justifyContent: "center", padding: 9, borderWidth: 1, borderColor: "rgba(255,255,255,.28)", borderRadius: 17, backgroundColor: "rgba(255,255,255,.14)" },
+  scoreCircle: { width: 60, height: 60, flexDirection: "row", alignItems: "baseline", justifyContent: "center", paddingTop: 14, borderWidth: 5, borderColor: "rgba(255,255,255,.52)", borderRadius: 30, backgroundColor: colors.white },
+  scoreValue: { color: colors.navy, fontSize: 18, lineHeight: 22, fontWeight: "900" },
+  scoreLabel: { color: colors.muted, fontSize: 8, fontWeight: "700" },
+  healthStatus: { marginTop: 5, color: colors.white, fontSize: 10, fontWeight: "800" },
+  updated: { marginTop: 1, color: "rgba(255,255,255,.72)", fontSize: 8 },
+  metricStack: { minWidth: 0, flex: 1, gap: 7 },
+  metric: { minHeight: 55, flexDirection: "row", alignItems: "center", gap: 9, padding: 9, borderWidth: 1, borderColor: "rgba(255,255,255,.62)", borderRadius: 15, backgroundColor: "rgba(255,255,255,.93)" },
+  metricIcon: { width: 33, height: 33, alignItems: "center", justifyContent: "center", borderRadius: 11 },
+  metricIconMint: { backgroundColor: colors.mint50 },
+  metricIconViolet: { backgroundColor: colors.violet50 },
+  metricCopy: { minWidth: 0, flex: 1 },
+  metricLabel: { color: colors.muted, fontSize: 9 },
+  metricValue: { marginTop: 1, color: colors.navy, fontSize: 11, fontWeight: "900" },
+  insight: { zIndex: 1, flexDirection: "row", alignItems: "center", gap: 8, marginTop: 9, padding: 10, borderRadius: 14, backgroundColor: "rgba(255,255,255,.96)" },
+  insightIcon: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: colors.sky50 },
   insightCopy: { minWidth: 0, flex: 1, gap: 2 },
   insightTitle: { color: "#315E7C", fontSize: 11, fontWeight: "800" },
   insightText: { color: "#66869A", fontSize: 10, lineHeight: 14 },
-  careCard: { padding: 13, borderWidth: 1, borderColor: "#DDF5EF", backgroundColor: "#FCFFFE" },
-  careRow: { minHeight: 66, flexDirection: "row", alignItems: "center", gap: 10 },
-  careDivider: { borderBottomWidth: 1, borderBottomColor: colors.line },
-  careIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 12 },
+  insightArrow: { width: 26, height: 26, alignItems: "center", justifyContent: "center", borderRadius: 9, backgroundColor: colors.sky500 },
+  careCard: { position: "relative", overflow: "hidden", padding: 13, borderWidth: 1, borderColor: "#D5F3EB", borderRadius: 22, shadowColor: "#238A7A", shadowOpacity: 0.08, shadowRadius: 13, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
+  careGlow: { position: "absolute", right: -42, top: -58, width: 135, height: 135, borderRadius: 68, backgroundColor: "rgba(38,190,161,.08)" },
+  careRow: { zIndex: 1, minHeight: 76, flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 5 },
+  careDivider: { borderBottomWidth: 1, borderBottomColor: "rgba(120,177,170,.16)" },
+  careTimeline: { alignSelf: "stretch", alignItems: "center", justifyContent: "center" },
+  careIcon: { zIndex: 1, width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 14 },
+  careEmoji: { fontSize: 19 },
+  careLine: { position: "absolute", top: "72%", bottom: -18, width: 2, backgroundColor: "#D9F2EB" },
   blue: { backgroundColor: colors.sky50 },
   mint: { backgroundColor: colors.mint50 },
   violet: { backgroundColor: colors.violet50 },
   peach: { backgroundColor: colors.peach50 },
   careCopy: { minWidth: 0, flex: 1, gap: 2 },
-  careTime: { color: colors.sky600, fontSize: 10, fontWeight: "800" },
+  careTimePill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.mint50 },
+  careTime: { color: "#14836E", fontSize: 9, fontWeight: "800" },
   careTitle: { color: colors.navy, fontSize: typography.body, fontWeight: "800" },
   careNote: { color: colors.muted, fontSize: typography.caption, lineHeight: 14 },
-  emptyCare: { minHeight: 64, flexDirection: "row", alignItems: "center", gap: 10 },
-  emptyCareEmoji: { fontSize: 25 },
-  emptyCareTitle: { color: colors.navy, fontSize: typography.body, fontWeight: "800" },
-  reminderButton: { marginTop: 10 },
-  serviceScroll: { gap: 10, paddingRight: 12, paddingBottom: 5 },
-  serviceCard: { width: 174, padding: 9, borderRadius: 17, backgroundColor: colors.white, ...shadow },
-  serviceVisual: { position: "relative", height: 78, overflow: "hidden", alignItems: "center", justifyContent: "center", borderRadius: 13 },
-  serviceShine: { position: "absolute", right: -18, top: -24, width: 70, height: 70, borderRadius: 35, backgroundColor: "rgba(255,255,255,.72)" },
-  serviceEmoji: { fontSize: 35 },
-  serviceName: { marginTop: 8, color: colors.navy, fontSize: typography.body, fontWeight: "800" },
-  serviceMeta: { minWidth: 0, flexDirection: "row", alignItems: "center", gap: 3, marginTop: 3 },
+  careArrow: { width: 28, height: 28, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: colors.sky50 },
+  emptyCare: { zIndex: 1, minHeight: 112, flexDirection: "row", alignItems: "center", gap: 13, paddingHorizontal: 3, paddingVertical: 8 },
+  emptyCareVisual: { position: "relative", width: 78, height: 78, alignItems: "center", justifyContent: "center" },
+  emptyCareOrbit: { position: "absolute", width: 72, height: 72, borderWidth: 1, borderColor: "#BDEADF", borderStyle: "dashed", borderRadius: 36 },
+  emptyCareIcon: { width: 52, height: 52, alignItems: "center", justifyContent: "center", borderRadius: 18, backgroundColor: colors.mint50, transform: [{ rotate: "-5deg" }] },
+  emptyCareSpark: { position: "absolute", right: 1, top: 4, width: 23, height: 23, alignItems: "center", justifyContent: "center", borderRadius: 9, backgroundColor: colors.violet50 },
+  emptyCareCopy: { minWidth: 0, flex: 1 },
+  emptyCareBadge: { alignSelf: "flex-start", paddingHorizontal: 7, paddingVertical: 4, borderRadius: 7, backgroundColor: colors.yellow50 },
+  emptyCareBadgeText: { color: "#9A6B13", fontSize: 8, fontWeight: "900", letterSpacing: 0.3 },
+  emptyCareTitle: { marginTop: 6, color: colors.navy, fontSize: typography.cardTitle, fontWeight: "900" },
+  careCta: { zIndex: 1, minHeight: 54, flexDirection: "row", alignItems: "center", gap: 9, marginTop: 6, padding: 8, borderWidth: 1, borderColor: colors.sky100, borderRadius: 15, backgroundColor: "rgba(255,255,255,.92)" },
+  careCtaIcon: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: colors.sky50 },
+  careCtaCopy: { minWidth: 0, flex: 1 },
+  careCtaTitle: { color: colors.navy, fontSize: 11, fontWeight: "900" },
+  careCtaNote: { marginTop: 1, color: colors.muted, fontSize: 9 },
+  careCtaArrow: { width: 30, height: 30, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: colors.sky500 },
+  serviceScroll: { gap: 11, paddingRight: 16, paddingBottom: 7 },
+  serviceCard: { width: 188, overflow: "hidden", borderWidth: 1, borderColor: colors.line, borderRadius: 20, backgroundColor: colors.white, shadowColor: "#396E91", shadowOpacity: 0.1, shadowRadius: 13, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
+  serviceVisual: { position: "relative", height: 112, overflow: "hidden", alignItems: "center", justifyContent: "center" },
+  serviceVisualTop: { position: "absolute", zIndex: 2, left: 9, right: 9, top: 9, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  serviceFavorite: { width: 28, height: 28, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,.72)", borderRadius: 10, backgroundColor: "rgba(255,255,255,.76)" },
+  serviceShine: { position: "absolute", right: -24, top: -34, width: 100, height: 100, borderRadius: 50, backgroundColor: "rgba(255,255,255,.62)" },
+  serviceEmojiWrap: { width: 62, height: 62, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,.72)", borderRadius: 23, backgroundColor: "rgba(255,255,255,.66)", transform: [{ rotate: "-4deg" }] },
+  serviceEmoji: { fontSize: 37 },
+  topPick: { position: "absolute", right: 9, bottom: 8, flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 4, borderRadius: 7, backgroundColor: "rgba(255,255,255,.8)" },
+  topPickText: { color: "#6757C9", fontSize: 7, fontWeight: "900", letterSpacing: 0.3 },
+  serviceCardBody: { padding: 10 },
+  serviceName: { color: colors.navy, fontSize: typography.body, fontWeight: "900" },
+  serviceLocation: { minWidth: 0, flexDirection: "row", alignItems: "center", gap: 3, marginTop: 4 },
+  serviceLocationText: { minWidth: 0, flex: 1, color: colors.muted, fontSize: 9 },
+  serviceMeta: { minWidth: 0, flexDirection: "row", alignItems: "center", gap: 4, marginTop: 7 },
+  ratingPill: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.yellow50 },
+  ratingText: { color: "#9B6B11", fontSize: 9, fontWeight: "900" },
+  serviceMetaDot: { color: "#B2BEC7", fontSize: 9 },
   serviceMetaText: { flexShrink: 1, color: colors.muted, fontSize: 9 },
   serviceFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 5, marginTop: 8 },
-  servicePrice: { minWidth: 0, flex: 1, color: colors.sky600, fontSize: 11, fontWeight: "800" },
-  bookCircle: { width: 28, height: 28, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: colors.sky500 },
+  servicePrice: { minWidth: 0, flex: 1, color: colors.sky600, fontSize: 11, fontWeight: "900" },
+  bookPill: { minHeight: 29, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, borderRadius: 10, backgroundColor: colors.sky500 },
+  bookPillText: { color: colors.white, fontSize: 9, fontWeight: "900" },
   pressed: { opacity: 0.7, transform: [{ scale: 0.985 }] },
   searchBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(14,32,55,.42)" },
   searchSheet: { width: "100%", height: "86%", overflow: "hidden", borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: colors.canvas },

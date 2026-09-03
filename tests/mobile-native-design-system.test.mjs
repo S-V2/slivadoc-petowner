@@ -15,6 +15,13 @@ const discover = await readFile(
   "utf8",
 );
 const app = await readFile(new URL("../mobile/App.tsx", import.meta.url), "utf8");
+const mobilePackage = JSON.parse(
+  await readFile(new URL("../mobile/package.json", import.meta.url), "utf8"),
+);
+const expoStarter = await readFile(
+  new URL("../mobile/scripts/start-expo.mjs", import.meta.url),
+  "utf8",
+);
 
 test("native mobile theme keeps the compact commerce-style hierarchy", () => {
   assert.match(theme, /screenTitle:\s*22/);
@@ -43,6 +50,31 @@ test("pet selector lives inside the health snapshot only", () => {
   assert.match(home, /HEALTH SNAPSHOT[\s\S]*Pilih profil hewan/);
   assert.equal(home.match(/Pilih profil hewan/g)?.length, 1);
   assert.doesNotMatch(home, /petPicker/);
+});
+
+test("home care sections use lively layered cards instead of rigid panels", () => {
+  assert.match(home, /healthGlowLarge/);
+  assert.match(home, /petSwitchButton/);
+  assert.match(home, /healthOverview/);
+  assert.match(home, /careTimeline/);
+  assert.match(home, /Buat care plan pertama/);
+  assert.match(home, /serviceFavorite/);
+  assert.match(home, /TOP PICK/);
+  assert.match(home, /serviceGradient\(service\.tone\)/);
+});
+
+test("android start replaces stale project Metro and clears its cache", () => {
+  assert.equal(
+    mobilePackage.scripts.android,
+    "node ./scripts/start-expo.mjs android",
+  );
+  assert.equal(
+    mobilePackage.scripts.preandroid,
+    "node ./scripts/ensure-dependencies.mjs",
+  );
+  assert.match(expoStarter, /findStaleExpoProcesses/);
+  assert.match(expoStarter, /process\.kill\(pid, "SIGTERM"\)/);
+  assert.match(expoStarter, /\["start", `--\$\{platform\}`, "--clear"/);
 });
 
 test("home header prioritizes global search and never renders location copy", () => {

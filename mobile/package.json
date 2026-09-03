@@ -9,7 +9,7 @@
     "prestart:clear": "node ./scripts/ensure-dependencies.mjs",
     "start:clear": "expo start --clear",
     "preandroid": "node ./scripts/ensure-dependencies.mjs",
-    "android": "expo start --android",
+    "android": "node ./scripts/start-expo.mjs android",
     "preios": "node ./scripts/ensure-dependencies.mjs",
     "ios": "expo start --ios",
     "typecheck": "tsc --noEmit",

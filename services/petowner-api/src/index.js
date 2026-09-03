@@ -13,6 +13,7 @@ import {
   createCorsOriginValidator,
   isOriginAllowed,
   parseAllowedOrigins,
+  resolveAllowedOrigins,
 } from "./cors.js";
 import {
   bearerToken,
@@ -22,10 +23,9 @@ import {
 } from "./platform-client.js";
 
 const port = Number(process.env.PORT || 8090);
-const defaultOrigins =
-  "http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:8081,https://slivadoc-pet-owner.evans-moris21.chatgpt.site";
-const origins = parseAllowedOrigins(
-  `${defaultOrigins},${process.env.CORS_ORIGINS || ""}`,
+const origins = resolveAllowedOrigins(
+  process.env.CORS_ORIGINS,
+  process.env.NODE_ENV,
 );
 const validateOrigin = createCorsOriginValidator(origins);
 const corsOptions = {
@@ -33,11 +33,90 @@ const corsOptions = {
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 };
-const platform = createPlatformClient(
-  process.env.SLIVADOC_API_URL || "http://localhost:8080",
-);
+const platformBaseUrl =
+  process.env.SLIVADOC_API_URL || "http://localhost:8080";
+if (!process.env.SLIVADOC_API_URL) {
+  console.warn(
+    "[PetOwner API] WARNING: SLIVADOC_API_URL is unset. Defaulting to http://localhost:8080 which will fail in containerized environments.",
+  );
+}
+let platformHost = "localhost:8080";
+try {
+  platformHost = new URL(platformBaseUrl).host;
+} catch {
+  platformHost = platformBaseUrl;
+}
+let platformReachable = false;
+let lastPlatformProbe = 0;
+let probeInFlight = false;
+
+async function probePlatformHealth() {
+  if (probeInFlight) return;
+  probeInFlight = true;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(`${platformBaseUrl}/health/live`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    platformReachable = res.ok;
+  } catch {
+    platformReachable = false;
+  } finally {
+    lastPlatformProbe = Date.now();
+    probeInFlight = false;
+  }
+}
+probePlatformHealth().catch(() => {});
+
+const platform = createPlatformClient(platformBaseUrl);
+
+const nominatimBase =
+  process.env.NOMINATIM_BASE_URL || "https://nominatim.openstreetmap.org";
+if (
+  !process.env.NOMINATIM_BASE_URL ||
+  nominatimBase.includes("nominatim.openstreetmap.org")
+) {
+  console.warn(
+    "[PetOwner API] WARNING: NOMINATIM_BASE_URL is using the public OpenStreetMap instance. Production traffic requires a dedicated Nominatim instance.",
+  );
+}
+
+const locationLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 30,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+});
+
+const locationCache = new Map();
+const LOCATION_CACHE_TTL_MS = 10 * 60 * 1000;
+const MAX_LOCATION_CACHE_ENTRIES = 500;
+
+function getCachedLocation(key) {
+  const entry = locationCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    locationCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCachedLocation(key, data) {
+  if (locationCache.size >= MAX_LOCATION_CACHE_ENTRIES) {
+    const oldestKey = locationCache.keys().next().value;
+    if (oldestKey) locationCache.delete(oldestKey);
+  }
+  locationCache.set(key, {
+    data,
+    expiresAt: Date.now() + LOCATION_CACHE_TTL_MS,
+  });
+}
 
 const app = express();
+app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS ?? 0));
 const server = createServer(app);
 const io = new SocketServer(server, { cors: corsOptions });
 const upload = multer({
@@ -105,9 +184,20 @@ async function requirePlatformUser(request, response, next) {
   }
 }
 
-app.get("/health", (_request, response) =>
-  response.json({ status: "ok", service: "slivadoc-petowner-api" }),
-);
+app.get("/health", (_request, response) => {
+  if (Date.now() - lastPlatformProbe > 30_000) {
+    probePlatformHealth().catch(() => {});
+  }
+  response.json({
+    status: "ok",
+    service: "slivadoc-petowner-api",
+    platform: {
+      configured: Boolean(process.env.SLIVADOC_API_URL),
+      host: platformHost,
+      reachable: platformReachable,
+    },
+  });
+});
 app.get("/api/config/status", (_request, response) =>
   response.json({
     cloudinary: Boolean(
@@ -172,82 +262,128 @@ app.post(
   },
 );
 
-app.get("/api/location/reverse", async (request, response, next) => {
-  try {
-    const latitude = z.coerce
-      .number()
-      .min(-90)
-      .max(90)
-      .parse(request.query.lat);
-    const longitude = z.coerce
-      .number()
-      .min(-180)
-      .max(180)
-      .parse(request.query.lng);
-    const base =
-      process.env.NOMINATIM_BASE_URL || "https://nominatim.openstreetmap.org";
-    const url = new URL("/reverse", base);
-    url.search = new URLSearchParams({
-      format: "jsonv2",
-      lat: String(latitude),
-      lon: String(longitude),
-      zoom: "18",
-      addressdetails: "1",
-    }).toString();
-    const result = await fetch(url, {
-      headers: {
-        "User-Agent":
-          process.env.NOMINATIM_USER_AGENT || "SlivadocPetOwner/0.1",
-      },
-    });
-    if (!result.ok) throw new Error(`Nominatim failed (${result.status})`);
-    const data = await result.json();
-    response.json({
-      latitude,
-      longitude,
-      label: data.display_name,
-      address: data.address,
-      provider: "OpenStreetMap/Nominatim",
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+app.get(
+  "/api/location/reverse",
+  locationLimiter,
+  async (request, response, next) => {
+    try {
+      const latRaw = request.query.lat;
+      const lngRaw = request.query.lng;
+      if (
+        latRaw === undefined ||
+        lngRaw === undefined ||
+        latRaw === "" ||
+        lngRaw === ""
+      ) {
+        return response.status(400).json({
+          error: "invalid_params",
+          message: "Parameter lat (-90..90) dan lng (-180..180) diperlukan",
+        });
+      }
+      const latitude = Number(latRaw);
+      const longitude = Number(lngRaw);
+      if (
+        !Number.isFinite(latitude) ||
+        latitude < -90 ||
+        latitude > 90 ||
+        !Number.isFinite(longitude) ||
+        longitude < -180 ||
+        longitude > 180
+      ) {
+        return response.status(400).json({
+          error: "invalid_params",
+          message:
+            "Parameter lat (-90..90) dan lng (-180..180) di luar rentang valid",
+        });
+      }
+      const cacheKey = `reverse:${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+      const cached = getCachedLocation(cacheKey);
+      if (cached) {
+        return response.json(cached);
+      }
+      const base =
+        process.env.NOMINATIM_BASE_URL || "https://nominatim.openstreetmap.org";
+      const url = new URL("/reverse", base);
+      url.search = new URLSearchParams({
+        format: "jsonv2",
+        lat: String(latitude),
+        lon: String(longitude),
+        zoom: "18",
+        addressdetails: "1",
+      }).toString();
+      const result = await fetch(url, {
+        headers: {
+          "User-Agent":
+            process.env.NOMINATIM_USER_AGENT || "SlivadocPetOwner/0.1",
+        },
+      });
+      if (!result.ok) throw new Error(`Nominatim failed (${result.status})`);
+      const data = await result.json();
+      const payload = {
+        latitude,
+        longitude,
+        label: data.display_name,
+        address: data.address,
+        provider: "OpenStreetMap/Nominatim",
+      };
+      setCachedLocation(cacheKey, payload);
+      response.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
-app.get("/api/location/search", async (request, response, next) => {
-  try {
-    const query = z.string().trim().min(3).max(160).parse(request.query.q);
-    const base =
-      process.env.NOMINATIM_BASE_URL || "https://nominatim.openstreetmap.org";
-    const url = new URL("/search", base);
-    url.search = new URLSearchParams({
-      format: "jsonv2",
-      q: query,
-      countrycodes: "id",
-      limit: "6",
-      addressdetails: "1",
-    }).toString();
-    const result = await fetch(url, {
-      headers: {
-        "User-Agent":
-          process.env.NOMINATIM_USER_AGENT || "SlivadocPetOwner/0.1",
-      },
-    });
-    if (!result.ok) throw new Error(`Nominatim failed (${result.status})`);
-    const data = await result.json();
-    response.json(
-      data.map((item) => ({
+app.get(
+  "/api/location/search",
+  locationLimiter,
+  async (request, response, next) => {
+    try {
+      const rawQ =
+        typeof request.query.q === "string" ? request.query.q.trim() : "";
+      if (!rawQ || rawQ.length < 1 || rawQ.length > 160) {
+        return response.status(400).json({
+          error: "invalid_params",
+          message: "Parameter q (1-160 karakter) diperlukan",
+        });
+      }
+      const cacheKey = `search:${rawQ.toLowerCase()}`;
+      const cached = getCachedLocation(cacheKey);
+      if (cached) {
+        return response.json(cached);
+      }
+      const base =
+        process.env.NOMINATIM_BASE_URL || "https://nominatim.openstreetmap.org";
+      const url = new URL("/search", base);
+      url.search = new URLSearchParams({
+        format: "jsonv2",
+        q: rawQ,
+        countrycodes: "id",
+        limit: "6",
+        addressdetails: "1",
+      }).toString();
+      const result = await fetch(url, {
+        headers: {
+          "User-Agent":
+            process.env.NOMINATIM_USER_AGENT || "SlivadocPetOwner/0.1",
+        },
+      });
+      if (!result.ok) throw new Error(`Nominatim failed (${result.status})`);
+      const data = await result.json();
+      const payload = data.map((item) => ({
         id: String(item.place_id),
         label: item.display_name,
         latitude: Number(item.lat),
         longitude: Number(item.lon),
         type: item.type,
-      })),
-    );
-  } catch (error) {
-    next(error);
-  }
-});
+      }));
+      setCachedLocation(cacheKey, payload);
+      response.json(payload);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 app.post(
   "/api/assistant/chat",

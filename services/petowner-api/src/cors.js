@@ -37,3 +37,20 @@ export function isOriginAllowed(origin, allowedOrigins) {
 export function createCorsOriginValidator(allowedOrigins) {
   return (origin, callback) => callback(null, isOriginAllowed(origin, allowedOrigins));
 }
+
+export function getDefaultOrigins(nodeEnv = process.env.NODE_ENV) {
+  return nodeEnv === "production"
+    ? []
+    : [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:5173",
+        "http://localhost:8081",
+      ];
+}
+
+export function resolveAllowedOrigins(configuredOrigins = process.env.CORS_ORIGINS, nodeEnv = process.env.NODE_ENV) {
+  const defaults = getDefaultOrigins(nodeEnv);
+  const configured = parseAllowedOrigins(configuredOrigins || "");
+  return [...new Set([...defaults, ...configured])];
+}

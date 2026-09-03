@@ -71,6 +71,11 @@ npm ci
 npm start
 ```
 
+Gunakan `npm start` (bukan `npm expo start`). Saat ada dependency baru setelah
+`git pull`, perintah start akan menyinkronkan `node_modules` secara otomatis.
+Untuk memulai ulang Metro sekaligus membersihkan cache, jalankan
+`npm run start:clear`.
+
 Tekan `a` untuk Android Emulator atau `i` untuk iOS Simulator. Default koneksi API sudah disesuaikan:
 
 - Android Emulator: `http://10.0.2.2:8090`

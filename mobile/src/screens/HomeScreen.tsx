@@ -24,7 +24,6 @@ import {
   Pill,
   PrimaryButton,
   Screen,
-  SectionTitle,
   SoftButton,
 } from "../components/ui";
 
@@ -79,6 +78,41 @@ function searchIcon(category: string): keyof typeof Ionicons.glyphMap {
   if (category === "academy") return "school-outline";
   if (category === "veterinarian") return "medkit-outline";
   return "sparkles-outline";
+}
+
+function HomeSectionHeader({
+  icon,
+  eyebrow,
+  title,
+  note,
+  action,
+  onAction,
+  tone,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  eyebrow: string;
+  title: string;
+  note: string;
+  action: string;
+  onAction: () => void;
+  tone: "blue" | "mint" | "violet";
+}) {
+  return (
+    <View style={styles.sectionHeader}>
+      <View style={[styles.sectionHeaderIcon, styles[`${tone}SectionIcon`]]}>
+        <Ionicons name={icon} size={17} color={tone === "blue" ? colors.sky600 : tone === "mint" ? "#168773" : "#6757C9"} />
+      </View>
+      <View style={styles.sectionHeaderCopy}>
+        <Text style={styles.sectionEyebrow}>{eyebrow}</Text>
+        <Text numberOfLines={1} style={styles.sectionHeading}>{title}</Text>
+        <Text numberOfLines={1} style={styles.sectionNote}>{note}</Text>
+      </View>
+      <Pressable accessibilityRole="button" hitSlop={8} onPress={onAction} style={styles.sectionAction}>
+        <Text style={styles.sectionActionText}>{action}</Text>
+        <Ionicons name="arrow-forward" size={14} color={colors.sky600} />
+      </Pressable>
+    </View>
+  );
 }
 
 function HomeSearchModal({
@@ -145,8 +179,11 @@ function HomeSearchModal({
   const visibleResults = canSearch && !searching ? results : [];
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView edges={["top", "bottom", "left", "right"]} style={styles.searchPage}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.searchBackdrop} onPress={onClose}>
+        <Pressable style={styles.searchSheet} onPress={(event) => event.stopPropagation()}>
+          <SafeAreaView edges={["bottom", "left", "right"]} style={styles.searchSheetSafe}>
+            <View style={styles.searchHandle} />
         <View style={styles.searchHeader}>
           <Pressable accessibilityRole="button" accessibilityLabel="Kembali ke beranda" onPress={onClose} style={styles.searchBack}>
             <Ionicons name="arrow-back" size={20} color={colors.text} />
@@ -182,7 +219,7 @@ function HomeSearchModal({
           ))}
         </ScrollView>
 
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.searchContent}>
+        <ScrollView style={styles.searchBody} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.searchContent}>
           {!canSearch ? (
             <View>
               <Text style={styles.searchEyebrow}>PENCARIAN POPULER</Text>
@@ -234,7 +271,9 @@ function HomeSearchModal({
             </View>
           )}
         </ScrollView>
-      </SafeAreaView>
+          </SafeAreaView>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
@@ -257,9 +296,11 @@ export function HomeScreen({
   const homeCare = services.find((item) => item.category.toLowerCase().includes("home"));
   const hotel = services.find((item) => item.category.toLowerCase().includes("hotel"));
   const firstName = ownerName?.trim().split(" ")[0];
-  const quickActions = [
-    { label: "Booking", note: "Klinik", emoji: "📅", color: colors.sky50, onPress: () => onBook() },
-    { label: "Tanya Dokter", note: "Online", emoji: "👩🏻‍⚕️", color: colors.mint50, onPress: onOpenChat },
+  const primaryQuickActions = [
+    { label: "Booking", note: "Atur jadwal klinik", emoji: "📅", gradient: ["#0588D4", "#43C2F7"] as const, onPress: () => onBook() },
+    { label: "Tanya Dokter", note: "Konsultasi online", emoji: "👩🏻‍⚕️", gradient: ["#16A98E", "#62D9C3"] as const, onPress: onOpenChat },
+  ];
+  const secondaryQuickActions = [
     { label: "Home Care", note: "Ke rumah", emoji: "🏠", color: colors.peach50, onPress: () => homeCare ? onBook(homeCare) : onNavigate("discover") },
     { label: "Darurat", note: "24 jam", emoji: "🚑", color: colors.red50, onPress: () => onAction("Menghubungkan hotline darurat 24/7") },
     { label: "Pet Hotel", note: "Terpercaya", emoji: "🏡", color: colors.violet50, onPress: () => hotel ? onBook(hotel) : onNavigate("discover") },
@@ -285,11 +326,7 @@ export function HomeScreen({
             <Text style={styles.greeting}>{firstName ? `Hai, ${firstName}! 👋` : "Hai, Pet Parent! 👋"}</Text>
             <Text numberOfLines={2} style={styles.greetingNote}>{firstName ? "Yuk, cek kebutuhan pet-mu hari ini." : "Semua kebutuhan pet jadi lebih gampang."}</Text>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Pilih profil hewan" onPress={() => onAction("Pilih profil hewan")} style={styles.petPicker}>
-            <Text style={styles.petPickerEmoji}>{petView.icon}</Text>
-            <Text numberOfLines={1} style={styles.petPickerName}>{petView.name}</Text>
-            <Ionicons name="chevron-down" size={12} color={colors.muted} />
-          </Pressable>
+          <View style={styles.greetingSparkle}><Ionicons name="sparkles" size={17} color={colors.sky600} /></View>
         </View>
 
         <LinearGradient colors={["#078DD8", "#23B2F3", "#8ADDF9"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
@@ -318,33 +355,45 @@ export function HomeScreen({
           <View style={styles.quickHeading}>
             <View>
               <Text style={styles.quickTitle}>Layanan cepat</Text>
-              <Text style={styles.quickSubtitle}>Yang paling sering kamu butuhkan</Text>
+              <Text style={styles.quickSubtitle}>Semua yang pet-mu butuhkan, sekali tap</Text>
             </View>
-            <View style={styles.quickBadge}><Ionicons name="flash" size={13} color={colors.sky600} /></View>
+            <View style={styles.quickBadge}><Ionicons name="flash" size={12} color={colors.sky600} /><Text style={styles.quickBadgeText}>6 pilihan</Text></View>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickScroll}>
-            {quickActions.map((item) => (
-              <Pressable key={item.label} accessibilityRole="button" onPress={item.onPress} style={({ pressed }) => [styles.quickCard, pressed && styles.pressed]}>
-                <View style={[styles.quickIcon, { backgroundColor: item.color }]}><Text style={styles.quickEmoji}>{item.emoji}</Text></View>
-                <Text numberOfLines={2} style={styles.quickLabel}>{item.label}</Text>
-                <Text numberOfLines={1} style={styles.quickNote}>{item.note}</Text>
+          <View style={styles.quickFeatureRow}>
+            {primaryQuickActions.map((item) => (
+              <Pressable key={item.label} accessibilityRole="button" onPress={item.onPress} style={({ pressed }) => [styles.quickFeaturePressable, pressed && styles.pressed]}>
+                <LinearGradient colors={item.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.quickFeatureCard}>
+                  <View style={styles.quickFeatureTop}><View style={styles.quickFeatureIcon}><Text style={styles.quickFeatureEmoji}>{item.emoji}</Text></View><View style={styles.quickFeatureArrow}><Ionicons name="arrow-up" size={13} color={colors.white} /></View></View>
+                  <Text style={styles.quickFeatureLabel}>{item.label}</Text>
+                  <Text style={styles.quickFeatureNote}>{item.note}</Text>
+                </LinearGradient>
               </Pressable>
             ))}
-          </ScrollView>
+          </View>
+          <View style={styles.quickMiniRow}>
+            {secondaryQuickActions.map((item) => (
+              <Pressable key={item.label} accessibilityRole="button" onPress={item.onPress} style={({ pressed }) => [styles.quickMiniCard, pressed && styles.pressed]}>
+                <View style={[styles.quickMiniIcon, { backgroundColor: item.color }]}><Text style={styles.quickMiniEmoji}>{item.emoji}</Text></View>
+                <Text numberOfLines={2} style={styles.quickMiniLabel}>{item.label}</Text>
+                <Text numberOfLines={1} style={styles.quickMiniNote}>{item.note}</Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
 
         <View style={styles.sectionBlock}>
-          <SectionTitle eyebrow="HEALTH SNAPSHOT" title={`Kondisi ${petView.name}`} action="Detail" onAction={() => onNavigate("health")} />
-          <Card style={styles.healthCard}>
-            <View style={styles.healthTop}>
+          <HomeSectionHeader icon="heart" eyebrow="HEALTH SNAPSHOT" title={`Kondisi ${petView.name}`} note="Pantau kesehatan tanpa ribet" action="Detail" onAction={() => onNavigate("health")} tone="blue" />
+          <LinearGradient colors={["#FFFFFF", "#EFF9FF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.healthCard}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Ganti profil pet aktif, saat ini ${petView.name}`} onPress={() => onAction("Pilih profil hewan")} style={({ pressed }) => [styles.healthTop, pressed && styles.pressed]}>
               <View style={styles.petAvatar}><Text style={styles.petAvatarEmoji}>{petView.icon}</Text><View style={styles.checkDot}><Ionicons name="checkmark" size={10} color={colors.white} /></View></View>
               <View style={styles.healthCopy}>
+                <View style={styles.activePetLabel}><Text style={styles.activePetLabelText}>PET AKTIF</Text><Ionicons name="swap-horizontal" size={11} color={colors.sky600} /></View>
                 <Text numberOfLines={1} style={styles.petName}>{petView.name}</Text>
                 <Text numberOfLines={1} style={styles.petMeta}>{petView.breed} • {petView.age}</Text>
                 <Text style={styles.updated}>{petView.lastUpdated ? `Update ${new Date(petView.lastUpdated).toLocaleDateString("id-ID")}` : "Belum ada rekam medis"}</Text>
               </View>
-              <View style={styles.scoreCircle}><Text style={styles.scoreValue}>{petView.score}</Text><Text style={styles.scoreLabel}>Health</Text></View>
-            </View>
+              <View style={styles.healthScoreWrap}><View style={styles.scoreCircle}><Text style={styles.scoreValue}>{petView.score}</Text><Text style={styles.scoreLabel}>Health</Text></View><Ionicons name="chevron-down" size={13} color={colors.sky600} /></View>
+            </Pressable>
             <View style={styles.metricRow}>
               <View style={[styles.metric, styles.metricBlue]}><Text style={styles.metricEmoji}>⚖️</Text><Text style={styles.metricLabel}>Berat</Text><Text style={styles.metricValue}>{petView.weight}</Text></View>
               <View style={[styles.metric, styles.metricMint]}><Text style={styles.metricEmoji}>📋</Text><Text style={styles.metricLabel}>Aktivitas</Text><Text style={styles.metricValue}>{activities.length} terbaru</Text></View>
@@ -355,11 +404,11 @@ export function HomeScreen({
               <View style={styles.insightCopy}><Text style={styles.insightTitle}>Insight untuk {petView.name}</Text><Text numberOfLines={2} style={styles.insightText}>{activities[0]?.description || "Belum ada aktivitas kesehatan terjadwal."}</Text></View>
               <Pressable hitSlop={8} onPress={() => onNavigate("activity")}><Ionicons name="arrow-forward" size={16} color={colors.sky600} /></Pressable>
             </View>
-          </Card>
+          </LinearGradient>
         </View>
 
         <View style={styles.sectionBlock}>
-          <SectionTitle eyebrow="CARE PLAN" title="Perawatan terdekat" action="Lihat semua" onAction={() => onNavigate("activity")} />
+          <HomeSectionHeader icon="calendar" eyebrow="CARE PLAN" title="Perawatan terdekat" note="Biar jadwal nggak kelewat" action="Semua" onAction={() => onNavigate("activity")} tone="mint" />
           <Card style={styles.careCard}>
             {featuredActivities.map((item, index) => (
               <Pressable key={item.id} onPress={() => onAction(`Detail ${item.title}`)} style={[styles.careRow, index < featuredActivities.length - 1 && styles.careDivider]}>
@@ -378,11 +427,12 @@ export function HomeScreen({
         </View>
 
         <View style={styles.sectionBlock}>
-          <SectionTitle eyebrow="REKOMENDASI" title={`Pilihan untuk ${petView.name}`} action="Jelajahi" onAction={() => onNavigate("discover")} />
+          <HomeSectionHeader icon="sparkles" eyebrow="REKOMENDASI" title={`Pilihan untuk ${petView.name}`} note="Favorit pet parent di sekitarmu" action="Jelajahi" onAction={() => onNavigate("discover")} tone="violet" />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.serviceScroll}>
             {services.map((service) => (
               <Pressable key={service.id} onPress={() => onBook(service)} style={({ pressed }) => [styles.serviceCard, pressed && styles.pressed]}>
                 <View style={[styles.serviceVisual, service.tone === "mint" ? styles.mint : service.tone === "violet" ? styles.violet : service.tone === "peach" ? styles.peach : styles.blue]}>
+                  <View style={styles.serviceShine} />
                   <Text style={styles.serviceEmoji}>{service.icon}</Text>
                   <Pill>{service.category}</Pill>
                 </View>
@@ -415,9 +465,7 @@ const styles = StyleSheet.create({
   greetingCopy: { minWidth: 0, flex: 1 },
   greeting: { color: colors.navy, fontSize: 18, lineHeight: 23, fontWeight: "800", letterSpacing: -0.2 },
   greetingNote: { marginTop: 2, color: colors.muted, fontSize: typography.label, lineHeight: 17 },
-  petPicker: { maxWidth: 124, flexDirection: "row", alignItems: "center", gap: 5, padding: 4, paddingRight: 8, borderRadius: radius.md, backgroundColor: colors.white, ...shadow },
-  petPickerEmoji: { width: 30, height: 30, overflow: "hidden", borderRadius: radius.sm, backgroundColor: colors.yellow50, fontSize: 20, lineHeight: 30, textAlign: "center" },
-  petPickerName: { minWidth: 0, flexShrink: 1, color: colors.text, fontSize: 11, fontWeight: "800" },
+  greetingSparkle: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.sky50, transform: [{ rotate: "-6deg" }] },
   hero: { position: "relative", minHeight: 208, overflow: "hidden", justifyContent: "center", borderRadius: 22, ...shadow },
   heroContent: { zIndex: 2, width: "73%", padding: 17 },
   heroTitle: { maxWidth: 230, marginTop: 10, color: colors.white, fontSize: typography.screenTitle, lineHeight: 26, fontWeight: "900", letterSpacing: -0.4 },
@@ -431,27 +479,51 @@ const styles = StyleSheet.create({
   petBubbleDog: { position: "absolute", left: 11, bottom: 16, fontSize: 44 },
   petBubbleCat: { position: "absolute", left: 45, bottom: 37, fontSize: 37 },
   petBubbleSparkle: { position: "absolute", right: 9, top: 12, color: colors.white, fontSize: 19, fontWeight: "900" },
-  quickPanel: { marginTop: 13, paddingTop: 12, paddingBottom: 9, borderRadius: 20, backgroundColor: colors.white, ...shadow },
-  quickHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 13 },
+  quickPanel: { marginTop: 14, padding: 12, overflow: "hidden", borderWidth: 1, borderColor: colors.sky100, borderRadius: 22, backgroundColor: "#F9FDFF", ...shadow },
+  quickHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   quickTitle: { color: colors.navy, fontSize: typography.cardTitle, lineHeight: 19, fontWeight: "800" },
   quickSubtitle: { marginTop: 1, color: colors.muted, fontSize: typography.caption },
-  quickBadge: { width: 28, height: 28, alignItems: "center", justifyContent: "center", borderRadius: radius.sm, backgroundColor: colors.sky50 },
-  quickScroll: { gap: 5, paddingTop: 10, paddingHorizontal: 8 },
-  quickCard: { width: 68, minHeight: 76, alignItems: "center" },
-  quickIcon: { width: 43, height: 43, alignItems: "center", justifyContent: "center", borderRadius: 15 },
-  quickEmoji: { fontSize: 22 },
-  quickLabel: { minHeight: 26, marginTop: 5, color: colors.navy, fontSize: 10, lineHeight: 12, fontWeight: "800", textAlign: "center" },
-  quickNote: { color: colors.muted, fontSize: 8, textAlign: "center" },
-  sectionBlock: { marginTop: 6 },
-  healthCard: { padding: 13, borderWidth: 0 },
-  healthTop: { flexDirection: "row", alignItems: "center" },
+  quickBadge: { minHeight: 28, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, borderRadius: radius.sm, backgroundColor: colors.sky50 },
+  quickBadgeText: { color: colors.sky600, fontSize: 9, fontWeight: "800" },
+  quickFeatureRow: { flexDirection: "row", gap: 8, marginTop: 11 },
+  quickFeaturePressable: { minWidth: 0, flex: 1 },
+  quickFeatureCard: { minHeight: 104, justifyContent: "flex-end", overflow: "hidden", padding: 11, borderRadius: 17 },
+  quickFeatureTop: { position: "absolute", top: 10, left: 10, right: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  quickFeatureIcon: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "rgba(255,255,255,.92)" },
+  quickFeatureEmoji: { fontSize: 21 },
+  quickFeatureArrow: { width: 24, height: 24, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "rgba(255,255,255,.18)", transform: [{ rotate: "45deg" }] },
+  quickFeatureLabel: { color: colors.white, fontSize: typography.body, fontWeight: "900" },
+  quickFeatureNote: { marginTop: 2, color: "rgba(255,255,255,.78)", fontSize: 9 },
+  quickMiniRow: { flexDirection: "row", gap: 6, marginTop: 8 },
+  quickMiniCard: { minWidth: 0, flex: 1, minHeight: 88, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderRadius: 14, backgroundColor: colors.white },
+  quickMiniIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 13 },
+  quickMiniEmoji: { fontSize: 20 },
+  quickMiniLabel: { minHeight: 25, marginTop: 5, color: colors.navy, fontSize: 9, lineHeight: 11, fontWeight: "800", textAlign: "center" },
+  quickMiniNote: { color: colors.muted, fontSize: 8, textAlign: "center" },
+  sectionBlock: { marginTop: 25 },
+  sectionHeader: { minWidth: 0, flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 10 },
+  sectionHeaderIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 13 },
+  blueSectionIcon: { backgroundColor: colors.sky50 },
+  mintSectionIcon: { backgroundColor: colors.mint50 },
+  violetSectionIcon: { backgroundColor: colors.violet50 },
+  sectionHeaderCopy: { minWidth: 0, flex: 1 },
+  sectionEyebrow: { color: colors.muted, fontSize: 8, fontWeight: "900", letterSpacing: 0.9 },
+  sectionHeading: { marginTop: 1, color: colors.navy, fontSize: typography.sectionTitle, lineHeight: 20, fontWeight: "900", letterSpacing: -0.2 },
+  sectionNote: { marginTop: 1, color: colors.muted, fontSize: 9 },
+  sectionAction: { minHeight: 34, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, borderRadius: 11, backgroundColor: colors.sky50 },
+  sectionActionText: { color: colors.sky600, fontSize: 10, fontWeight: "800" },
+  healthCard: { overflow: "hidden", padding: 13, borderWidth: 1, borderColor: colors.sky100, borderRadius: 20, ...shadow },
+  healthTop: { flexDirection: "row", alignItems: "center", paddingBottom: 11, borderBottomWidth: 1, borderBottomColor: "rgba(85,196,250,.18)" },
   petAvatar: { position: "relative", width: 50, height: 50, alignItems: "center", justifyContent: "center", borderRadius: 17, backgroundColor: colors.yellow50 },
   petAvatarEmoji: { fontSize: 29 },
   checkDot: { position: "absolute", right: -3, bottom: -3, width: 18, height: 18, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: colors.white, borderRadius: 9, backgroundColor: colors.mint },
   healthCopy: { minWidth: 0, flex: 1, gap: 2, marginLeft: 10 },
+  activePetLabel: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.sky50 },
+  activePetLabelText: { color: colors.sky600, fontSize: 8, fontWeight: "900", letterSpacing: 0.4 },
   petName: { color: colors.navy, fontSize: typography.cardTitle, fontWeight: "900" },
   petMeta: { color: colors.text, fontSize: 11 },
   updated: { color: colors.muted, fontSize: 9 },
+  healthScoreWrap: { flexDirection: "row", alignItems: "center", gap: 4 },
   scoreCircle: { width: 50, height: 50, alignItems: "center", justifyContent: "center", borderWidth: 5, borderColor: colors.sky400, borderRadius: 25, backgroundColor: colors.white },
   scoreValue: { color: colors.navy, fontSize: typography.cardTitle, fontWeight: "900" },
   scoreLabel: { color: colors.muted, fontSize: 8 },
@@ -468,7 +540,7 @@ const styles = StyleSheet.create({
   insightCopy: { minWidth: 0, flex: 1, gap: 2 },
   insightTitle: { color: "#315E7C", fontSize: 11, fontWeight: "800" },
   insightText: { color: "#66869A", fontSize: 10, lineHeight: 14 },
-  careCard: { padding: 13, borderWidth: 0 },
+  careCard: { padding: 13, borderWidth: 1, borderColor: "#DDF5EF", backgroundColor: "#FCFFFE" },
   careRow: { minHeight: 66, flexDirection: "row", alignItems: "center", gap: 10 },
   careDivider: { borderBottomWidth: 1, borderBottomColor: colors.line },
   careIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 12 },
@@ -486,7 +558,8 @@ const styles = StyleSheet.create({
   reminderButton: { marginTop: 10 },
   serviceScroll: { gap: 10, paddingRight: 12, paddingBottom: 5 },
   serviceCard: { width: 174, padding: 9, borderRadius: 17, backgroundColor: colors.white, ...shadow },
-  serviceVisual: { height: 78, alignItems: "center", justifyContent: "center", borderRadius: 13 },
+  serviceVisual: { position: "relative", height: 78, overflow: "hidden", alignItems: "center", justifyContent: "center", borderRadius: 13 },
+  serviceShine: { position: "absolute", right: -18, top: -24, width: 70, height: 70, borderRadius: 35, backgroundColor: "rgba(255,255,255,.72)" },
   serviceEmoji: { fontSize: 35 },
   serviceName: { marginTop: 8, color: colors.navy, fontSize: typography.body, fontWeight: "800" },
   serviceMeta: { minWidth: 0, flexDirection: "row", alignItems: "center", gap: 3, marginTop: 3 },
@@ -495,7 +568,10 @@ const styles = StyleSheet.create({
   servicePrice: { minWidth: 0, flex: 1, color: colors.sky600, fontSize: 11, fontWeight: "800" },
   bookCircle: { width: 28, height: 28, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: colors.sky500 },
   pressed: { opacity: 0.7, transform: [{ scale: 0.985 }] },
-  searchPage: { flex: 1, backgroundColor: colors.canvas },
+  searchBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(14,32,55,.42)" },
+  searchSheet: { width: "100%", height: "86%", overflow: "hidden", borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: colors.canvas },
+  searchSheetSafe: { flex: 1 },
+  searchHandle: { alignSelf: "center", width: 42, height: 5, marginTop: 9, marginBottom: 5, borderRadius: 3, backgroundColor: "#D7E3EA" },
   searchHeader: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: spacing.lg, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: colors.line, backgroundColor: colors.white },
   searchBack: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.md, backgroundColor: colors.sky50 },
   searchInputWrap: { minWidth: 0, flex: 1, height: 42, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: radius.md, backgroundColor: colors.canvas },
@@ -505,6 +581,7 @@ const styles = StyleSheet.create({
   searchCategoryActive: { borderColor: colors.sky500, backgroundColor: colors.sky500 },
   searchCategoryText: { color: colors.muted, fontSize: 11, fontWeight: "700" },
   searchCategoryTextActive: { color: colors.white },
+  searchBody: { flex: 1 },
   searchContent: { flexGrow: 1, padding: spacing.lg, paddingBottom: 40 },
   searchEyebrow: { color: colors.muted, fontSize: 9, fontWeight: "800", letterSpacing: 0.9 },
   searchTitle: { marginTop: 4, color: colors.navy, fontSize: typography.sectionTitle, fontWeight: "800" },

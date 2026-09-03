@@ -1364,7 +1364,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(14,32,55,.42)",
   },
   sheetKeyboard: { flex: 1, justifyContent: "flex-end" },
-  sheetWrap: { width: "100%", maxHeight: "92%" },
+  sheetWrap: { width: "100%", maxHeight: "88%" },
   sheet: {
     maxHeight: "100%",
     borderTopLeftRadius: 24,

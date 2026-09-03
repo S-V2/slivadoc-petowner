@@ -34,8 +34,15 @@ test("native mobile theme preserves Slivadoc sky blue as the primary color", () 
 test("home uses a compact illustrated hero and dense quick actions", () => {
   assert.match(home, /minHeight:\s*208/);
   assert.match(home, /heroTitle:[^\n]*fontSize:\s*typography\.screenTitle/);
-  assert.match(home, /quickCard:[^\n]*width:\s*68/);
+  assert.match(home, /quickFeatureCard:[^\n]*minHeight:\s*104/);
+  assert.match(home, /quickMiniRow:[^\n]*flexDirection:\s*"row"/);
   assert.doesNotMatch(home, /ImageBackground/);
+});
+
+test("pet selector lives inside the health snapshot only", () => {
+  assert.match(home, /HEALTH SNAPSHOT[\s\S]*Pilih profil hewan/);
+  assert.equal(home.match(/Pilih profil hewan/g)?.length, 1);
+  assert.doesNotMatch(home, /petPicker/);
 });
 
 test("home header prioritizes global search and never renders location copy", () => {
@@ -55,4 +62,11 @@ test("bottom navigation stays compact without sacrificing tap space", () => {
   assert.match(app, /tabBar:[\s\S]*?height:\s*66/);
   assert.match(app, /tabItem:[\s\S]*?minHeight:\s*56/);
   assert.match(app, /tabLabel:[^\n]*fontSize:\s*10/);
+});
+
+test("mobile sheets preserve tappable space above the panel", () => {
+  assert.match(home, /searchSheet:[^\n]*height:\s*"86%"/);
+  assert.match(app, /sheetWrap:\s*\{\s*maxHeight:\s*"88%"/);
+  assert.match(app, /loginSheetWrap:\s*\{\s*maxHeight:\s*"88%"/);
+  assert.match(app, /bookingWrap:\s*\{\s*maxHeight:\s*"88%"/);
 });

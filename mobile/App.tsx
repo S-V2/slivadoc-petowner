@@ -1899,7 +1899,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(14,32,55,.42)",
   },
-  sheetWrap: { maxHeight: "92%" },
+  sheetWrap: { maxHeight: "88%" },
   sheet: {
     paddingHorizontal: 16,
     paddingBottom: 20,
@@ -2026,7 +2026,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: colors.sky500,
   },
-  loginSheetWrap: { maxHeight: "94%" },
+  loginSheetWrap: { maxHeight: "88%" },
   loginSheet: {
     maxHeight: "100%",
     paddingHorizontal: 16,
@@ -2296,7 +2296,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.sky500,
   },
-  bookingWrap: { maxHeight: "95%" },
+  bookingWrap: { maxHeight: "88%" },
   bookingSheet: {
     maxHeight: "100%",
     paddingHorizontal: 16,

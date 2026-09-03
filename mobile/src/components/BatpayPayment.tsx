@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(14,32,55,.42)",
   },
-  wrap: { maxHeight: "94%" },
+  wrap: { maxHeight: "88%" },
   sheet: {
     position: "relative",
     minHeight: 430,

@@ -85,9 +85,11 @@ RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts
 FROM node:${NODE_RUNTIME_IMAGE} AS runtime
 
 # tzdata: consistent clock for shell/libc as well as Node. tini: real PID 1.
-# apk upgrade closes HIGH/CRITICAL CVEs in the Alpine base that trivy still
-# reports under ignore-unfixed.
-RUN apk update && apk upgrade --no-cache && apk add --no-cache tzdata tini
+# apk upgrade plus dropping npm/npx/corepack (unused at runtime; `CMD` is
+# `node src/index.js`) closes the HIGH/CRITICAL findings trivy reports in the
+# Alpine node image even with ignore-unfixed.
+RUN apk update && apk upgrade --no-cache && apk add --no-cache tzdata tini \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 ENV NODE_ENV=production \
     TZ=Asia/Jakarta \

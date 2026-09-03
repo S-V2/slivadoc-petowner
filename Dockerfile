@@ -228,9 +228,11 @@ ENTRY
 FROM node:${NODE_RUNTIME_IMAGE} AS runtime
 
 # Node's bundled ICU alone would leave the shell and libc on UTC — see note 8.
-# apk upgrade closes HIGH/CRITICAL CVEs in the Alpine base that trivy still
-# reports under ignore-unfixed.
-RUN apk update && apk upgrade --no-cache && apk add --no-cache tzdata
+# apk upgrade plus dropping npm/npx/corepack (unused at runtime; `CMD` is
+# `node server.mjs`) closes the HIGH/CRITICAL findings trivy reports in the
+# Alpine node image even with ignore-unfixed.
+RUN apk update && apk upgrade --no-cache && apk add --no-cache tzdata \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 ENV NODE_ENV=production \
     TZ=Asia/Jakarta \

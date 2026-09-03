@@ -19,7 +19,7 @@ import {
 } from "../api";
 import type { PetView, Service } from "../data";
 import { colors, radius, shadow, spacing, typography } from "../theme";
-import { Pill, PrimaryButton, Screen } from "../components/ui";
+import { Pill, Screen } from "../components/ui";
 
 type Props = {
   onAction: (message: string) => void;
@@ -340,15 +340,16 @@ export function HomeScreen({
             <Text style={styles.petBubbleSparkle}>✦</Text>
           </View>
           <View style={styles.heroContent}>
-            <Pill tone="mint">PET CARE, MADE EASY</Pill>
-            <Text style={styles.heroTitle}>Rawat mereka tanpa ribet.</Text>
-            <Text style={styles.heroNote}>Booking dan konsultasi untuk {petView.name}, langsung dari satu tempat.</Text>
-            <View style={styles.heroButtons}>
-              <PrimaryButton compact light label="Buat booking" icon="calendar-outline" onPress={() => onBook()} />
-              <Pressable accessibilityRole="button" onPress={onOpenChat} style={styles.heroGhost}>
-                <Ionicons name="chatbubble-outline" size={14} color={colors.white} />
-                <Text style={styles.heroGhostText}>Tanya dokter</Text>
-              </Pressable>
+            <Pill tone="mint">DAILY PET MOMENT</Pill>
+            <Text style={styles.heroTitle}>Bikin hari mereka lebih happy.</Text>
+            <Text style={styles.heroNote}>Mulai dari momen kecil untuk {petView.name} yang lebih sehat dan ceria.</Text>
+            <View style={styles.heroMoment}>
+              <View style={styles.heroMomentIcon}><Ionicons name="heart" size={16} color={colors.sky600} /></View>
+              <View style={styles.heroMomentCopy}>
+                <Text style={styles.heroMomentEyebrow}>IDE HARI INI</Text>
+                <Text numberOfLines={1} style={styles.heroMomentText}>10 menit quality time</Text>
+              </View>
+              <Text style={styles.heroMomentEmoji}>💙</Text>
             </View>
           </View>
         </LinearGradient>
@@ -511,13 +512,16 @@ const styles = StyleSheet.create({
   greeting: { color: colors.navy, fontSize: 18, lineHeight: 23, fontWeight: "800", letterSpacing: -0.2 },
   greetingNote: { marginTop: 2, color: colors.muted, fontSize: typography.label, lineHeight: 17 },
   greetingSparkle: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.sky50, transform: [{ rotate: "-6deg" }] },
-  hero: { position: "relative", minHeight: 208, overflow: "hidden", justifyContent: "center", borderRadius: 22, ...shadow },
+  hero: { position: "relative", minHeight: 220, overflow: "hidden", justifyContent: "center", borderRadius: 22, ...shadow },
   heroContent: { zIndex: 2, width: "73%", padding: 17 },
   heroTitle: { maxWidth: 230, marginTop: 10, color: colors.white, fontSize: typography.screenTitle, lineHeight: 26, fontWeight: "900", letterSpacing: -0.4 },
   heroNote: { maxWidth: 230, marginTop: 6, color: "rgba(255,255,255,.88)", fontSize: typography.label, lineHeight: 17 },
-  heroButtons: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 13 },
-  heroGhost: { minHeight: 40, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: "rgba(255,255,255,.5)", borderRadius: 12, backgroundColor: "rgba(255,255,255,.12)" },
-  heroGhostText: { color: colors.white, fontSize: 11, fontWeight: "700" },
+  heroMoment: { maxWidth: 222, minHeight: 50, flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, padding: 8, borderWidth: 1, borderColor: "rgba(255,255,255,.42)", borderRadius: 15, backgroundColor: "rgba(255,255,255,.2)" },
+  heroMomentIcon: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "rgba(255,255,255,.92)" },
+  heroMomentCopy: { minWidth: 0, flex: 1 },
+  heroMomentEyebrow: { color: "rgba(255,255,255,.72)", fontSize: 7, fontWeight: "900", letterSpacing: 0.6 },
+  heroMomentText: { marginTop: 2, color: colors.white, fontSize: 10, fontWeight: "800" },
+  heroMomentEmoji: { fontSize: 15 },
   heroOrbLarge: { position: "absolute", right: -62, top: -88, width: 230, height: 230, borderRadius: 115, backgroundColor: "rgba(255,255,255,.14)" },
   heroOrbSmall: { position: "absolute", right: 48, bottom: -62, width: 125, height: 125, borderRadius: 63, backgroundColor: "rgba(255,255,255,.1)" },
   petBubble: { position: "absolute", zIndex: 1, right: 12, bottom: 18, width: 98, height: 108, borderWidth: 1, borderColor: "rgba(255,255,255,.42)", borderRadius: 44, backgroundColor: "rgba(255,255,255,.22)", transform: [{ rotate: "5deg" }] },

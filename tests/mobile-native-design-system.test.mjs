@@ -39,11 +39,21 @@ test("native mobile theme preserves Slivadoc sky blue as the primary color", () 
 });
 
 test("home uses a compact illustrated hero and dense quick actions", () => {
-  assert.match(home, /minHeight:\s*208/);
+  assert.match(home, /minHeight:\s*220/);
   assert.match(home, /heroTitle:[^\n]*fontSize:\s*typography\.screenTitle/);
   assert.match(home, /quickFeatureCard:[^\n]*minHeight:\s*104/);
   assert.match(home, /quickMiniRow:[^\n]*flexDirection:\s*"row"/);
   assert.doesNotMatch(home, /ImageBackground/);
+});
+
+test("home hero inspires a daily pet moment without duplicating quick actions", () => {
+  const hero = home.match(
+    /<LinearGradient[^>]*style=\{styles\.hero\}>[\s\S]*?<\/LinearGradient>/,
+  )?.[0];
+  assert.ok(hero);
+  assert.match(hero, /DAILY PET MOMENT/);
+  assert.match(hero, /10 menit quality time/);
+  assert.doesNotMatch(hero, /Buat booking|Tanya dokter/);
 });
 
 test("pet selector lives inside the health snapshot only", () => {

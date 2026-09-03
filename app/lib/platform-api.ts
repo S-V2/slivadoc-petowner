@@ -1,3 +1,17 @@
+import {
+  apiRequest,
+  hasSession,
+  getAccessToken,
+  getCurrentUserID,
+  getCurrentUser,
+  clearSession,
+  invalidateGetCache,
+  saveTokens,
+  logoutSession,
+  startAutomaticRefresh,
+  ApiError,
+} from "./session.ts";
+
 export const PLATFORM_API_URL =
   process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? "http://localhost:8080";
 
@@ -731,99 +745,22 @@ export type PawDatingStandards = {
   blocked_conditions: string[];
 };
 
-function accessToken() {
-  if (typeof window === "undefined") return "";
-  return (
-    window.localStorage.getItem("slivadoc.access_token") ??
-    window.localStorage.getItem("access_token") ??
-    ""
-  );
-}
-
-function tokenUserID() {
-  try {
-    const token = accessToken();
-    if (!token) return "";
-    const payload = JSON.parse(
-      atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")),
-    ) as { sub?: string };
-    return payload.sub ?? "";
-  } catch {
-    return "";
-  }
-}
-
-const responseCache = new Map<string, { expires: number; value: unknown }>();
-const inFlight = new Map<string, Promise<unknown>>();
-
-export function clearPlatformCache() {
-  responseCache.clear();
-  inFlight.clear();
-}
+export const clearPlatformCache = invalidateGetCache;
+export {
+  hasSession,
+  getAccessToken,
+  getCurrentUserID,
+  getCurrentUser,
+  clearSession,
+  saveTokens,
+  logoutSession,
+  startAutomaticRefresh,
+  ApiError,
+};
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = accessToken();
-  const method = String(init.method ?? "GET").toUpperCase();
-  const key = `${method}:${path}:${token.slice(-16)}`;
-
-  if (method === "GET") {
-    const cached = responseCache.get(key);
-    if (cached && cached.expires > Date.now()) return cached.value as T;
-    const pending = inFlight.get(key);
-    if (pending) return pending as Promise<T>;
-  }
-
-  const active =
-    typeof document !== "undefined" &&
-    document.activeElement instanceof HTMLButtonElement
-      ? document.activeElement
-      : null;
-
-  if (method !== "GET" && active) {
-    active.disabled = true;
-    active.classList.add("api-button-loading");
-    active.setAttribute("aria-busy", "true");
-  }
-
-  const run = (async () => {
-    const response = await fetch(`${PLATFORM_API_URL}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...init.headers,
-      },
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(
-        payload.message ??
-          payload.error ??
-          "Layanan sedang belum tersedia. Coba lagi sebentar.",
-      );
-    }
-    if (method === "GET") {
-      responseCache.set(key, { expires: Date.now() + 15_000, value: payload });
-    } else {
-      clearPlatformCache();
-    }
-    return payload as T;
-  })();
-
-  if (method === "GET") inFlight.set(key, run);
-
-  try {
-    return await run;
-  } finally {
-    if (method === "GET") inFlight.delete(key);
-    if (method !== "GET" && active) {
-      active.disabled = false;
-      active.classList.remove("api-button-loading");
-      active.removeAttribute("aria-busy");
-    }
-  }
+  return apiRequest<T>(path, init);
 }
-
 export const getAcademyPrograms = () =>
   request<PlatformList<AcademyProgram>>("/api/v1/public/academy/programs");
 
@@ -876,8 +813,7 @@ export const getPetSpots = (options?: {
 
 export const getPetHubStreams = () =>
   request<PlatformList<PetHubStream>>("/api/v1/public/pethub/streams");
-
-export const getPetHubFeed = (options?: {
+export const getPetHubFeed = async (options?: {
   tab?: string;
   type?: string;
   search?: string;
@@ -886,8 +822,11 @@ export const getPetHubFeed = (options?: {
   Object.entries(options ?? {}).forEach(([key, value]) => {
     if (value) query.set(key, value);
   });
-  if (options?.tab === "following" && tokenUserID()) {
-    query.set("viewer_id", tokenUserID());
+  if (options?.tab === "following") {
+    const userID = await getCurrentUserID();
+    if (userID) {
+      query.set("viewer_id", userID);
+    }
   }
   return request<PlatformList<PetHubPost>>(
     `/api/v1/public/pethub/feed${query.size ? `?${query}` : ""}`,
@@ -915,9 +854,6 @@ export const togglePetHubChannel = (channelId: string) =>
     `/api/v1/pethub/channels/${channelId}/follow`,
     { method: "POST" },
   );
-
-export const isPetOwnerAuthenticated = () => Boolean(accessToken());
-
 export const getVeterinarians = () =>
   request<PlatformList<Veterinarian>>("/api/v1/public/veterinarians");
 
@@ -956,8 +892,9 @@ export const sendConsultationMessage = (
     { method: "POST", body: JSON.stringify(input) },
   );
 
-export const getCurrentPetOwnerUserID = () => tokenUserID();
+export const isPetOwnerAuthenticated = () => hasSession();
 
+export const getCurrentPetOwnerUserID = () => getCurrentUserID();
 export const getAdoptions = () =>
   request<PlatformList<AdoptionListing>>("/api/v1/public/adoptions");
 

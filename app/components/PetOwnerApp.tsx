@@ -37,6 +37,10 @@ import {
   invitePetFamily,
   revokePetFamily,
   isPetOwnerAuthenticated,
+  saveTokens,
+  clearSession,
+  logoutSession,
+  startAutomaticRefresh,
   readAllNotifications,
   readNotification,
   togglePetOwnerFavorite,
@@ -380,6 +384,13 @@ export default function PetOwnerApp() {
     setToast(message);
     window.setTimeout(() => setToast(""), 2600);
   }, []);
+  useEffect(() => {
+    return startAutomaticRefresh(() => {
+      setAuthenticated(false);
+      notify("Session pet owner berakhir. Silakan login kembali.");
+    });
+  }, [notify]);
+
 
   async function loadBootstrap() {
     setBootstrapLoading(true);
@@ -414,8 +425,7 @@ export default function PetOwnerApp() {
       setRewardFormula(data.points.formula);
       setAuthenticated(true);
     } catch (error) {
-      localStorage.removeItem("slivadoc.access_token");
-      localStorage.removeItem("slivadoc.refresh_token");
+      clearSession();
       setAuthenticated(false);
       notify(
         error instanceof Error ? error.message : "Session pet owner berakhir",
@@ -764,9 +774,8 @@ export default function PetOwnerApp() {
               points={points}
               rewardFormula={rewardFormula}
               onChanged={loadBootstrap}
-              onLogout={() => {
-                localStorage.removeItem("slivadoc.access_token");
-                localStorage.removeItem("slivadoc.refresh_token");
+              onLogout={async () => {
+                await logoutSession();
                 void loadBootstrap();
                 navigate("home");
               }}
@@ -975,8 +984,12 @@ function PetOwnerLogin({
         setMessage(`OTP sudah dikirim ke ${values.email}.`);
         return;
       }
-      localStorage.setItem("slivadoc.access_token", data.access_token);
-      localStorage.setItem("slivadoc.refresh_token", data.refresh_token);
+      saveTokens({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        session_id: data.session_id,
+        expires_in: data.expires_in,
+      });
       clearPlatformCache();
       await onSuccess();
       notify("Login berhasil. Selamat datang di Slivadoc.");

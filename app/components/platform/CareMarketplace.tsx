@@ -21,6 +21,7 @@ import {
   getAdoptions,
   getConsultationPlans,
   getConsultationMessages,
+  getAccessToken,
   getCurrentPetOwnerUserID,
   getDocumentProducts,
   getMyConsultations,
@@ -866,9 +867,7 @@ function ConsultationRoom({
   }, []);
   const connectMedia = useCallback(
     async (video: boolean) => {
-      const accessToken =
-        localStorage.getItem("slivadoc.access_token") ||
-        localStorage.getItem("access_token");
+      const accessToken = getAccessToken();
       if (!accessToken) throw new Error("Login diperlukan untuk membuka media.");
       endCall();
       mediaRef.current = await startConsultationMedia({
@@ -885,10 +884,12 @@ function ConsultationRoom({
   );
   useEffect(() => {
     let cancelled = false;
-    void getConsultationMessages(consultation.id)
-      .then((response) => {
+    void Promise.all([
+      getConsultationMessages(consultation.id),
+      getCurrentPetOwnerUserID(),
+    ])
+      .then(([response, userID]) => {
         if (cancelled) return;
-        const userID = getCurrentPetOwnerUserID();
         setMessages(
           response.data.map((item) => ({
             id: item.id,
@@ -905,9 +906,7 @@ function ConsultationRoom({
               : "Riwayat pesan belum dapat dimuat",
           );
       });
-    const token =
-      localStorage.getItem("slivadoc.access_token") ||
-      localStorage.getItem("access_token");
+    const token = getAccessToken();
     if (!token) {
       queueMicrotask(() => setState("Login diperlukan"));
       return;

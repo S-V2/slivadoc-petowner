@@ -1,3 +1,5 @@
+import { getAccessToken } from "./session.ts";
+
 import { io, type Socket } from "socket.io-client";
 
 export const PETOWNER_API_URL =
@@ -47,12 +49,7 @@ export type RealtimeMessage = {
 };
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const token =
-    typeof window === "undefined"
-      ? ""
-      : (window.localStorage.getItem("slivadoc.access_token") ??
-        window.localStorage.getItem("access_token") ??
-        "");
+  const token = getAccessToken();
   const response = await fetch(`${PETOWNER_API_URL}${path}`, {
     ...init,
     headers: {
@@ -163,12 +160,7 @@ let socket: Socket | null = null;
 let socketToken = "";
 
 export function realtimeSocket() {
-  const token =
-    typeof window === "undefined"
-      ? ""
-      : (window.localStorage.getItem("slivadoc.access_token") ??
-        window.localStorage.getItem("access_token") ??
-        "");
+  const token = getAccessToken();
   if (!socket || socketToken !== token) {
     socket?.disconnect();
     socket = io(PETOWNER_API_URL, {

@@ -281,6 +281,16 @@ jobs:
 
           echo "boot smoke test passed" | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Scan the smoked image before it can be published.
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.WEB_IMAGE }}:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+
       # Pushes the exact bytes that were just smoke-tested. No rebuild.
       - name: Push
         if: github.event_name != 'pull_request'
@@ -376,6 +386,15 @@ jobs:
           '
 
           echo "api boot smoke test passed" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.API_IMAGE }}:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
 
       - name: Push
         if: github.event_name != 'pull_request'

@@ -4216,50 +4216,113 @@ function ServiceDetail({
   close: () => void;
   book: () => void;
 }) {
+  const rating = service.rating > 0 ? service.rating.toFixed(1) : "Baru";
   return (
-    <div className="modal-overlay" onMouseDown={close}>
+    <div className="modal-overlay service-detail-overlay" onMouseDown={close}>
       <section
         className="modal service-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="service-detail-title"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <button
+          className="modal-close service-detail-close"
+          onClick={close}
+          aria-label="Tutup detail layanan"
+        >
           <Icon name="close" />
         </button>
-        <div className={`service-detail-visual ${service.accent}`}>
-          <span>{service.emoji}</span>
-          <em>{service.type}</em>
+        <header className="service-detail-hero">
+          <div className={`service-detail-visual ${service.accent}`}>
+            <span>{service.emoji}</span>
+            <em>{service.type}</em>
+            <i>✓ MITRA SLIVADOC</i>
+          </div>
+          <div className="service-detail-heading">
+            <span className="service-verified-pill">
+              <Icon name="shield" size={13} /> Layanan terverifikasi
+            </span>
+            <h2 id="service-detail-title">{service.name}</h2>
+            <p>
+              <Icon name="map" size={15} />
+              <span>{service.address}</span>
+            </p>
+            <div className="service-detail-live">
+              <i />
+              <b>{service.status}</b>
+              <span>·</span>
+              <span>{service.distance} dari lokasi kamu</span>
+            </div>
+          </div>
+        </header>
+        <div className="service-detail-body">
+          <section className="service-detail-highlight">
+            <div>
+              <span className="detail-highlight-icon">★</span>
+              <p>
+                <b>{rating}</b>
+                <small>
+                  {service.reviews > 0
+                    ? `${service.reviews.toLocaleString("id-ID")} ulasan pet parent`
+                    : "Mitra baru"}
+                </small>
+              </p>
+            </div>
+            <div>
+              <span className="detail-highlight-icon mint">Rp</span>
+              <p>
+                <b>{service.price}</b>
+                <small>Estimasi biaya layanan</small>
+              </p>
+            </div>
+            <div>
+              <span className="detail-highlight-icon violet">
+                <Icon name="clock" size={17} />
+              </span>
+              <p>
+                <b>Siap dipesan</b>
+                <small>Jadwal dipilih saat booking</small>
+              </p>
+            </div>
+          </section>
+          <section className="service-detail-section">
+            <div className="service-detail-section-title">
+              <span>INFORMASI LAYANAN</span>
+              <h3>Yang tersedia untuk pet-mu</h3>
+            </div>
+            <div className="service-detail-benefits">
+              {service.tags.map((tag) => (
+                <span key={tag}>
+                  <i>
+                    <Icon name="check" size={12} />
+                  </i>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </section>
+          <aside className="service-detail-assurance">
+            <span>
+              <Icon name="shield" size={20} />
+            </span>
+            <div>
+              <b>Booking lebih tenang bersama Slivadoc</b>
+              <p>
+                Informasi mitra, jadwal, aktivitas, dan status layanan tersimpan
+                dalam satu alur yang mudah dipantau.
+              </p>
+            </div>
+          </aside>
         </div>
-        <span className="section-eyebrow">LAYANAN TERVERIFIKASI</span>
-        <h2>{service.name}</h2>
-        <p>
-          <Icon name="map" size={14} /> {service.distance} · {service.address}
-        </p>
-        <div className="tag-row">
-          {service.tags.map((tag) => (
-            <span key={tag}>{tag}</span>
-          ))}
-        </div>
-        <dl className="service-detail-facts">
-          <div>
-            <dt>Status</dt>
-            <dd>{service.status}</dd>
-          </div>
-          <div>
-            <dt>Harga</dt>
-            <dd>{service.price}</dd>
-          </div>
-          <div>
-            <dt>Rating & ulasan</dt>
-            <dd>
-              {service.rating > 0
-                ? `★ ${service.rating.toFixed(1)} · ${service.reviews.toLocaleString("id-ID")} ulasan`
-                : `— · ${service.reviews.toLocaleString("id-ID")} ulasan`}
-            </dd>
-          </div>
-        </dl>
-        <button className="primary-button full" onClick={book}>
-          Booking layanan
-        </button>
+        <footer className="service-detail-actions">
+          <button className="secondary-button" type="button" onClick={close}>
+            Kembali
+          </button>
+          <button className="primary-button" type="button" onClick={book}>
+            Pilih jadwal & booking <Icon name="arrow" size={16} />
+          </button>
+        </footer>
       </section>
     </div>
   );

@@ -85,7 +85,9 @@ RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts
 FROM node:${NODE_RUNTIME_IMAGE} AS runtime
 
 # tzdata: consistent clock for shell/libc as well as Node. tini: real PID 1.
-RUN apk add --no-cache tzdata tini
+# apk upgrade closes HIGH/CRITICAL CVEs in the Alpine base that trivy still
+# reports under ignore-unfixed.
+RUN apk update && apk upgrade --no-cache && apk add --no-cache tzdata tini
 
 ENV NODE_ENV=production \
     TZ=Asia/Jakarta \

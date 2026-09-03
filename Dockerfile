@@ -228,7 +228,9 @@ ENTRY
 FROM node:${NODE_RUNTIME_IMAGE} AS runtime
 
 # Node's bundled ICU alone would leave the shell and libc on UTC — see note 8.
-RUN apk add --no-cache tzdata
+# apk upgrade closes HIGH/CRITICAL CVEs in the Alpine base that trivy still
+# reports under ignore-unfixed.
+RUN apk update && apk upgrade --no-cache && apk add --no-cache tzdata
 
 ENV NODE_ENV=production \
     TZ=Asia/Jakarta \

@@ -117,9 +117,12 @@ test("PetHub tab rail keeps every tab reachable", async ({ page }) => {
   const boxes = await Promise.all([rail.boundingBox(), thread.boundingBox()]);
   expect(boxes[0]).not.toBeNull();
   expect(boxes[1]).not.toBeNull();
-  expect(boxes[1]!.x).toBeGreaterThanOrEqual(boxes[0]!.x);
+  const subpixelTolerance = 1;
+  expect(boxes[1]!.x).toBeGreaterThanOrEqual(
+    boxes[0]!.x - subpixelTolerance,
+  );
   expect(boxes[1]!.x + boxes[1]!.width).toBeLessThanOrEqual(
-    boxes[0]!.x + boxes[0]!.width,
+    boxes[0]!.x + boxes[0]!.width + subpixelTolerance,
   );
 });
 

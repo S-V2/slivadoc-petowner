@@ -1,11 +1,67 @@
 /*
- * Slivadoc Pet Owner mobile typography standard.
+ * Slivadoc Pet Owner responsive system.
  *
- * This file is intentionally loaded after globals.css. It is the final,
- * product-wide mobile cascade for the app shell and replaces historical
- * one-off font sizes without changing desktop or public SEO pages.
+ * Loaded after globals.css as the single product-wide mobile cascade for
+ * shell sizing, typography, touch targets, fixed controls, and narrow headers.
+ * Feature stylesheets retain only feature-specific layout rules.
  */
 
+.main-shell,
+.topbar,
+.topbar > *,
+.global-search,
+.global-search input,
+.top-actions {
+  min-width: 0;
+}
+
+.topbar {
+  width: 100%;
+  max-width: 100%;
+}
+
+.mobile-brand,
+.top-actions {
+  flex: 0 0 auto;
+}
+
+.petowner-login,
+.petowner-login .login-brand,
+.petowner-login .login-form,
+.petowner-login .login-form > label,
+.petowner-login .password-input,
+.petowner-login .legal-consents,
+.petowner-login .legal-consents label,
+.petowner-login .legal-consents label > span {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.petowner-login .login-brand {
+  padding-right: 44px;
+}
+
+.petowner-login .legal-consents label {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  width: 100%;
+}
+
+.petowner-login .login-form .legal-consents input[type="checkbox"] {
+  width: 18px !important;
+  min-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 2px 0 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+.petowner-login .legal-consents label > span,
+.petowner-login .legal-consents button {
+  overflow-wrap: anywhere;
+}
 @media (max-width: 680px) {
   :root {
     --type-page-title: 24px;
@@ -213,5 +269,206 @@
   .app-shell .page-content .pawdating-hero h2,
   .app-shell .page-content .shop-banner h2 {
     font-size: 21px !important;
+  }
+}
+
+@media (max-width: 860px) {
+  html,
+  body {
+    overflow-x: clip;
+  }
+
+  .floating-chat {
+    display: none;
+  }
+
+  .tabs {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabs button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 680px) {
+  .community-tools-live {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .community-tools-live > label {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .drawer.chat-drawer {
+    padding: 0;
+  }
+
+  .community-tools-live > span {
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .chat-header h3 {
+    font-size: 15px;
+  }
+
+  .chat-header p,
+  .chat-context small,
+  .message small,
+  .chat-date {
+    font-size: 11px;
+  }
+
+  .chat-context b,
+  .chat-context button {
+    font-size: 13px;
+  }
+
+  .community-tabs button {
+    flex: 0 0 auto;
+    padding-inline: 14px;
+  }
+
+  .create-post > button:nth-child(2) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .message p {
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .quick-replies button {
+    font-size: 13px;
+  }
+
+  .chat-input input {
+    min-width: 0;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 580px) {
+  .topbar {
+    gap: 8px;
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-left: max(12px, env(safe-area-inset-left));
+  }
+
+  .global-search {
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  .top-actions {
+    gap: 4px;
+  }
+
+  .top-login {
+    padding-inline: 10px;
+  }
+
+  .petowner-login .login-brand {
+    gap: 8px;
+    margin-bottom: 22px;
+  }
+}
+
+@media (max-width: 860px) {
+  .app-shell button,
+  .app-shell input:not([type="checkbox"]):not([type="radio"]),
+  .app-shell select,
+  .app-shell textarea {
+    min-height: 44px !important;
+  }
+
+  .app-shell button {
+    min-width: 44px;
+  }
+
+  .mobile-nav button {
+    align-self: stretch;
+  }
+}
+
+@media (max-width: 360px) {
+  .topbar {
+    gap: 6px;
+    padding-inline: 10px;
+  }
+
+  .mobile-brand .brand-mark {
+    width: 32px;
+    height: 32px;
+  }
+
+  .global-search {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    padding-inline: 12px;
+  }
+
+  .global-search input {
+    width: 0;
+    flex: 0 1 0;
+    padding: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .global-search:focus-within {
+    position: absolute;
+    z-index: 75;
+    inset-inline: 10px;
+    width: auto;
+    height: 44px;
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(20, 55, 82, .18);
+  }
+
+  .global-search:focus-within input {
+    width: auto;
+    flex: 1 1 auto;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .top-login {
+    padding-inline: 8px;
+  }
+
+  .petowner-login {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .petowner-login .login-brand .brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+
+  .petowner-login .login-brand .brand-copy {
+    font-size: 22px;
+  }
+
+  .petowner-login .login-brand > span {
+    padding-inline: 6px;
+    font-size: 8px;
   }
 }

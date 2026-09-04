@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const css = await readFile(
-  new URL("../app/mobile-typography.css", import.meta.url),
+  new URL("../app/mobile-responsive.css", import.meta.url),
   "utf8",
 );
 const layout = await readFile(
@@ -15,9 +15,9 @@ const guideline = await readFile(
   "utf8",
 );
 
-test("root layout loads the final mobile typography cascade", () => {
+test("root layout loads the consolidated mobile responsive cascade", () => {
   const globalsIndex = layout.indexOf('import "./globals.css"');
-  const mobileIndex = layout.indexOf('import "./mobile-typography.css"');
+  const mobileIndex = layout.indexOf('import "./mobile-responsive.css"');
 
   assert.ok(globalsIndex >= 0);
   assert.ok(mobileIndex > globalsIndex);
@@ -63,5 +63,5 @@ test("discovery results stack their sorter instead of squeezing summary copy", (
 test("mobile guideline documents tokens, touch targets, and target widths", () => {
   assert.match(guideline, /--type-compact-control/);
   assert.match(guideline, /44 × 44 px/);
-  assert.match(guideline, /320, 360, 375, 390, dan 430 px/);
+  assert.match(guideline, /320, 375, 414, dan 768 px/);
 });

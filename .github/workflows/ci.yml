@@ -24,9 +24,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - run: npm run lint
       - run: npx tsc -p tsconfig.app.json
       - run: npm test
+      - run: npm run test:responsive
 
   petowner-api:
     name: Pet Owner API tests

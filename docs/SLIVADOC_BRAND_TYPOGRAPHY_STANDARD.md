@@ -41,7 +41,7 @@ Input teks mobile wajib 16 px agar browser tidak melakukan auto-zoom. Caption 11
 | `--type-control` | 14 px | Tombol dan dropdown standar |
 | `--type-compact-control` | 13 px | Chip, tab, dan filter |
 
-Token mobile web ditetapkan di `app/mobile-typography.css`. Jangan menambahkan ukuran font mobile per halaman bila salah satu token di atas sudah mewakili peran teksnya.
+Token dan aturan responsif mobile web ditetapkan di `app/mobile-responsive.css`. Jangan menambahkan ukuran font, target sentuh, atau breakpoint shell mobile per halaman bila aturan bersama tersebut sudah mewakili kebutuhan UI.
 
 ## Skala aplikasi mobile native
 
@@ -74,7 +74,7 @@ Token native tersedia di `mobile/src/theme.ts` dan harus digunakan oleh komponen
 
 ## Checklist responsive mobile
 
-Perubahan UI dianggap siap bila sudah diperiksa pada lebar 320, 360, 375, 390, dan 430 px:
+Perubahan UI dianggap siap bila sudah diperiksa pada lebar 320, 375, 414, dan 768 px:
 
 - Tidak ada horizontal scroll pada header, konten halaman, modal, drawer, atau bottom sheet.
 - H1, hero title, H2, dan H3 mengikuti skala di atas dan tidak memakai nilai mobile khusus yang lebih besar.
@@ -82,6 +82,9 @@ Perubahan UI dianggap siap bila sudah diperiksa pada lebar 320, 360, 375, 390, d
 - Teks tidak bertabrakan, terpotong tanpa affordance, atau terjepit oleh elemen di sampingnya.
 - Tombol dan input tetap memiliki target sentuh minimal 44 px.
 - Bottom navigation tetap satu baris, label terbaca, dan menghormati safe-area perangkat.
+- Kontrol fixed tidak menutupi atau mengambil klik dari tombol, tab, dan kartu di bawahnya.
+- Rail filter atau tab menampung overflow-nya sendiri dan setiap pilihan tetap dapat dijangkau.
+- Jalankan `npm run test:responsive` untuk memeriksa kontrak layout tersebut di Chromium.
 - Layout tetap rapi saat text zoom 125% dan orientasi portrait.
 
 ## Loading

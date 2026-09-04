@@ -10,12 +10,12 @@ const [component, page, layout, homeCss] = await Promise.all([
   readFile(new URL("app/revamp-home.css", root), "utf8"),
 ]);
 
-test("home revamp stylesheet is loaded after the shared mobile scale", () => {
-  const mobileIndex = layout.indexOf('import "./mobile-typography.css"');
+test("shared mobile cascade is loaded after the home feature stylesheet", () => {
+  const mobileIndex = layout.indexOf('import "./mobile-responsive.css"');
   const homeIndex = layout.indexOf('import "./revamp-home.css"');
 
-  assert.ok(mobileIndex >= 0);
-  assert.ok(homeIndex > mobileIndex);
+  assert.ok(homeIndex >= 0);
+  assert.ok(mobileIndex > homeIndex);
 });
 
 test("home provides a compact hero and app-style quick actions", () => {

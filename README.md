@@ -150,8 +150,12 @@ npm run api:test
 npm run lint
 npm run build
 npm test
+npm run test:responsive
 cd mobile && npm run typecheck
 ```
+
+Sebelum menjalankan pemeriksaan responsive untuk pertama kali, pasang Chromium
+Playwright dengan `npx playwright install chromium`.
 
 Setup verifikasi mesin pencari, environment produksi, standar profil cabang, dan KPI dijelaskan di [`docs/SEO-OPERATIONS.md`](docs/SEO-OPERATIONS.md).
 

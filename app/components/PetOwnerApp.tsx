@@ -789,6 +789,7 @@ export default function PetOwnerApp() {
         setActiveView={navigate}
         cartCount={cartCount}
         authenticated={authenticated}
+        onOpenChat={() => setChatOpen(true)}
       />
 
       <button
@@ -1473,6 +1474,8 @@ function Topbar({
       <label className={`global-search ${searchOpen ? "open" : ""}`}>
         <Icon name="search" size={18} />
         <input
+          type="search"
+          aria-label="Cari di seluruh Slivadoc"
           value={query}
           placeholder="Cari dokter, layanan, produk..."
           onFocus={() => setSearchOpen(true)}
@@ -4673,11 +4676,13 @@ function MobileNav({
   setActiveView,
   cartCount,
   authenticated,
+  onOpenChat,
 }: {
   activeView: AppView;
   setActiveView: (view: AppView) => void;
   cartCount: number;
   authenticated: boolean;
+  onOpenChat: () => void;
 }) {
   const [more, setMore] = useState(false);
   const primaryIds: AppView[] = ["home", "discover", "community", "bookings"];
@@ -4736,6 +4741,18 @@ function MobileNav({
               </button>
             </header>
             <div>
+              <button
+                type="button"
+                onClick={() => {
+                  setMore(false);
+                  onOpenChat();
+                }}
+              >
+                <span>
+                  <Icon name="chat" />
+                </span>
+                <b>SlivaCare</b>
+              </button>
               {navItems
                 .filter(
                   (item) =>

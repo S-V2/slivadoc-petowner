@@ -1,5 +1,8 @@
 import { createContext, useContext, type PropsWithChildren, type ReactNode } from "react";
 import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -10,6 +13,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, radius, shadow, spacing, typography } from "../theme";
 
@@ -111,6 +115,50 @@ export function EmptyState({ icon, title, note, action, onAction }: { icon: stri
   return <View style={styles.empty}><Text style={styles.emptyIcon}>{icon}</Text><Text style={styles.emptyTitle}>{title}</Text><Text style={styles.emptyNote}>{note}</Text><PrimaryButton compact label={action} onPress={onAction} /></View>;
 }
 
+export function BoundedBottomSheet({
+  visible,
+  onClose,
+  children,
+  maxHeight = "86%",
+}: PropsWithChildren<{
+  visible: boolean;
+  onClose: () => void;
+  maxHeight?: `${number}%` | number;
+}>) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.sheetRoot}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Tutup panel"
+          onPress={onClose}
+          style={styles.sheetBackdrop}
+        >
+          <Pressable
+            accessibilityRole="none"
+            onPress={(event) => event.stopPropagation()}
+            style={[styles.sheet, { maxHeight }]}
+          >
+            <SafeAreaView edges={["bottom", "left", "right"]} style={styles.sheetSafe}>
+              <View style={styles.sheetHandle} />
+              {children}
+            </SafeAreaView>
+          </Pressable>
+        </Pressable>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
   screenContent: { paddingHorizontal: spacing.lg },
@@ -145,4 +193,26 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 44 },
   emptyTitle: { marginTop: 10, color: colors.navy, fontSize: typography.sectionTitle, lineHeight: 22, fontWeight: "800" },
   emptyNote: { maxWidth: 280, marginTop: 5, marginBottom: 14, color: colors.muted, fontSize: typography.body, lineHeight: 19, textAlign: "center" },
+  sheetRoot: { flex: 1 },
+  sheetBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(13, 35, 54, .42)",
+  },
+  sheet: {
+    overflow: "hidden",
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    backgroundColor: colors.white,
+  },
+  sheetSafe: { minHeight: 120, backgroundColor: colors.white },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 42,
+    height: 5,
+    marginTop: 9,
+    marginBottom: 4,
+    borderRadius: 3,
+    backgroundColor: "#D9E7EF",
+  },
 });

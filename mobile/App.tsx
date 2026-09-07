@@ -441,10 +441,6 @@ function MobileApp() {
     notify("Login diperlukan untuk fitur akun");
     return false;
   };
-  const openCareChat = () => {
-    setChatContext("care");
-    setChatOpen(true);
-  };
   const openSupportChat = () => {
     if (!requireLogin()) return;
     setChatContext("support");
@@ -503,7 +499,7 @@ function MobileApp() {
       }
     }
     if (result.route === "consult" || result.category === "veterinarian") {
-      openCareChat();
+      openConsultation();
       return;
     }
     navigateTo(searchRouteTabs[result.route] ?? "discover");
@@ -550,6 +546,22 @@ function MobileApp() {
           onRefresh={() => void reloadData(true)}
         >
           <View style={styles.app}>
+            {Platform.OS === "android" && tab !== "home" ? (
+              <View style={styles.androidBackBar}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Kembali ke halaman sebelumnya"
+                  onPress={() => goBack()}
+                  style={({ pressed }) => [
+                    styles.androidBackButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons name="arrow-back" size={20} color={colors.navy} />
+                  <Text style={styles.androidBackText}>Kembali</Text>
+                </Pressable>
+              </View>
+            ) : null}
             <Animated.View
               style={[
                 styles.screenStage,
@@ -570,7 +582,7 @@ function MobileApp() {
                 <HomeScreen
                   onAction={notify}
                   onBook={openBooking}
-                  onOpenChat={openCareChat}
+                  onOpenConsultation={() => openConsultation()}
                   onOpenNotifications={() => setNotificationsOpen(true)}
                   onSearchResult={openSearchResult}
                   onNavigate={navigateTo}
@@ -858,7 +870,7 @@ function MobileApp() {
             .at(-1) ?? "home";
           setNotificationsOpen(false);
           if (route === "consult") {
-            openCareChat();
+            openConsultation();
           } else {
             navigateTo(searchRouteTabs[route] ?? "home");
           }
@@ -1979,6 +1991,25 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.canvas },
   app: { flex: 1, backgroundColor: colors.canvas },
   screenStage: { flex: 1 },
+  androidBackBar: {
+    minHeight: 42,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+    backgroundColor: colors.canvas,
+  },
+  androidBackButton: {
+    minWidth: 96,
+    minHeight: 40,
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 7,
+    borderRadius: 12,
+  },
+  androidBackText: { color: colors.navy, fontSize: 12, fontWeight: "800" },
   pressed: { opacity: 0.68, transform: [{ scale: 0.98 }] },
   tabBar: {
     position: "absolute",

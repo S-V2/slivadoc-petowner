@@ -57,6 +57,10 @@ test("index.js configures trust proxy, location rate limiter, and health probe",
   assert.match(source, /locationCache/);
   assert.match(source, /probePlatformHealth/);
   assert.match(source, /platform:\s*\{\s*configured/);
+  assert.match(source, /["']\/api\/uploads\/media["']/);
+  assert.match(source, /50 \* 1024 \* 1024/);
+  assert.match(source, /"video\/mp4"/);
+  assert.match(source, /resource_type: resourceType/);
 });
 
 test("HTTP server boots, validates location params, and exposes platform health shape", async () => {

@@ -819,6 +819,63 @@ export const createMobileCommunityComment = (id: string, body: string) =>
     { method: "POST", body: JSON.stringify({ body }) },
   );
 
+export type MobileCommunityGroup = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  category: string;
+  city: string;
+  cover_url: string;
+  visibility: "public" | "private";
+  member_count: number;
+  owner: boolean;
+  joined: boolean;
+  membership_status?: "active" | "pending" | "blocked" | "none";
+  last_message?: string;
+  last_message_at?: string;
+  last_sender_name?: string;
+};
+export type MobileCommunityGroupMessage = {
+  id: string;
+  sender_user_id: string;
+  sender_name: string;
+  body: string;
+  created_at: string;
+  mine: boolean;
+};
+export type MobileCommunityGroupInput = {
+  name: string;
+  description: string;
+  category: string;
+  city: string;
+  visibility: "public" | "private";
+  cover_url?: string;
+};
+export const getMobileCommunityGroups = (scope: "mine" | "discover" = "mine") =>
+  platformRequest<{ data: MobileCommunityGroup[] }>(
+    `/api/v1/community/groups?scope=${scope}`,
+  ).then((result) => ({ ...result, data: uniqueById(result.data) }));
+export const createMobileCommunityGroup = (input: MobileCommunityGroupInput) =>
+  platformRequest<{ id: string; slug: string; message: string }>(
+    "/api/v1/community/groups",
+    { method: "POST", body: JSON.stringify(input) },
+  );
+export const joinMobileCommunityGroup = (id: string) =>
+  platformRequest<{ joined: boolean; message: string }>(
+    `/api/v1/community/groups/${id}/join`,
+    { method: "POST" },
+  );
+export const getMobileCommunityGroupMessages = (id: string) =>
+  platformRequest<{ data: MobileCommunityGroupMessage[] }>(
+    `/api/v1/community/groups/${id}/messages`,
+  ).then((result) => ({ ...result, data: uniqueById(result.data) }));
+export const sendMobileCommunityGroupMessage = (id: string, body: string) =>
+  platformRequest<{ id: string; created_at: string }>(
+    `/api/v1/community/groups/${id}/messages`,
+    { method: "POST", body: JSON.stringify({ body }) },
+  );
+
 export type WorldItem = {
   id: string;
   title?: string;
@@ -872,6 +929,17 @@ export type WorldItem = {
   author_name?: string;
   like_count?: number;
   comment_count?: number;
+  repost_count?: number;
+  media_url?: string;
+  photo_url?: string;
+  thumbnail_url?: string;
+  post_type?: "thread" | "photo" | "video" | "poll" | "update";
+  media_type?: "image" | "video";
+  channel_avatar_url?: string;
+  channel_handle?: string;
+  verified?: boolean;
+  following?: boolean;
+  created_at?: string;
 };
 
 const getUniqueWorldItems = (path: string) =>
@@ -894,6 +962,10 @@ export const getMobileStreams = () =>
   getUniqueWorldItems("/api/v1/public/pethub/streams");
 export const getMobilePetHubFeed = () =>
   getUniqueWorldItems("/api/v1/public/pethub/feed");
+export const getMobilePetHubReels = () =>
+  getUniqueWorldItems("/api/v1/public/pethub/feed?type=video");
+export const getMobilePetHubStories = () =>
+  getUniqueWorldItems("/api/v1/public/pethub/stories");
 export const getMobileVeterinarians = () =>
   getUniqueWorldItems("/api/v1/public/veterinarians");
 export const getMobileConsultationPlans = () =>
@@ -978,6 +1050,17 @@ export const commentMobilePetHubPost = (postId: string, content: string) =>
     method: "POST",
     body: JSON.stringify({ content }),
   });
+export type MobilePetHubComment = {
+  id: string;
+  user_id: string;
+  author_name: string;
+  content: string;
+  created_at: string;
+};
+export const getMobilePetHubComments = (postId: string) =>
+  platformRequest<{ data: MobilePetHubComment[] }>(
+    `/api/v1/pethub/posts/${postId}/comments`,
+  ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 export const enrollMobileAcademy = (
   programId: string,
   participantName: string,
@@ -1017,6 +1100,29 @@ export const createMobilePetHubPost = (content: string, authorName: string) =>
       author_name: authorName,
       content,
       post_type: "thread",
+    }),
+  });
+export const createMobilePetHubMediaPost = (input: {
+  content: string;
+  media_url: string;
+  post_type: "photo" | "video";
+}) =>
+  platformRequest<{ id: string; message: string }>("/api/v1/pethub/posts", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+export const createMobilePetHubStory = (input: {
+  media_url: string;
+  media_type: "image" | "video";
+  caption: string;
+}) =>
+  platformRequest<{ id: string; expires_in: number }>("/api/v1/pethub/stories", {
+    method: "POST",
+    body: JSON.stringify({
+      photo_url: input.media_url,
+      media_url: input.media_url,
+      media_type: input.media_type,
+      caption: input.caption,
     }),
   });
 export const reactMobilePetHubPost = (postId: string) =>
@@ -1090,6 +1196,41 @@ export async function uploadMobileImage(
   if (!response.ok)
     throw new Error(payload.message ?? payload.error ?? "Upload foto gagal");
   return payload as { url: string; publicId: string };
+}
+
+export async function uploadMobileMedia(
+  uri: string,
+  mimeType: string,
+  fileName: string,
+  folder = "pethub",
+) {
+  const baseURL = requireServiceURL(
+    PETOWNER_API_URL,
+    "EXPO_PUBLIC_PETOWNER_API_URL",
+  );
+  const body = new FormData();
+  body.append("folder", folder);
+  body.append("file", {
+    uri,
+    type: mimeType,
+    name: fileName,
+  } as unknown as Blob);
+  const response = await fetch(`${baseURL}/api/uploads/media`, {
+    method: "POST",
+    headers: platformAccessToken
+      ? { Authorization: `Bearer ${platformAccessToken}` }
+      : undefined,
+    body,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok)
+    throw new Error(payload.message ?? payload.error ?? "Upload media gagal");
+  return payload as {
+    url: string;
+    publicId: string;
+    resourceType: "image" | "video";
+    thumbnailUrl?: string;
+  };
 }
 
 export const realtime = io(

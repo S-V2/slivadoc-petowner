@@ -19,7 +19,6 @@ import {
   createMobileConsultation,
   createMobileDocumentRequest,
   createMobilePaymentIntent,
-  createMobilePetHubPost,
   enrollMobileAcademy,
   getMobileAcademy,
   getMobileAdoptions,
@@ -28,24 +27,25 @@ import {
   getMobileEvents,
   getMobileMyPawDatingProfiles,
   getMobilePawDatingProfiles,
-  getMobilePetHubFeed,
   getMobilePetSpots,
-  getMobileStreams,
-  reactMobilePetHubPost,
   registerMobileEvent,
   sendMobilePawDatingInterest,
   trackMobileAcademyProgramClick,
   type MobileOwner,
   type MobilePaymentIntent,
   type WorldItem,
-  uniqueById,
 } from "../api";
 import { colors, shadow } from "../theme";
-import { PrimaryButton, Screen, TopHeader } from "../components/ui";
+import {
+  PrimaryButton,
+  Screen,
+  TopHeader,
+} from "../components/ui";
 import {
   MobileBatpayModal,
   MobilePaymentMethods,
 } from "../components/BatpayPayment";
+import { PetHubExperience } from "./PetHubExperience";
 
 type Mode =
   | "pawdating"
@@ -184,9 +184,6 @@ export function WorldScreen({
   const [mode, setMode] = useState<Mode>(intent?.mode ?? "academy");
   const [items, setItems] = useState<Record<Mode, WorldItem[]>>(emptyWorld);
   const [selected, setSelected] = useState<WorldItem | null>(null);
-  const [composer, setComposer] = useState(false);
-  const [thread, setThread] = useState("");
-  const [liked, setLiked] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("qris");
@@ -204,8 +201,6 @@ export function WorldScreen({
         getMobileAcademy(),
         getMobileEvents(),
         getMobilePetSpots(),
-        getMobileStreams(),
-        getMobilePetHubFeed(),
         getMobileConsultationPlans(),
         getMobileAdoptions(),
         getMobileDocumentProducts(),
@@ -216,8 +211,6 @@ export function WorldScreen({
             academy,
             events,
             spots,
-            streams,
-            feed,
             consult,
             adoption,
             documents,
@@ -228,10 +221,7 @@ export function WorldScreen({
               academy: academy.status === "fulfilled" ? academy.value.data : [],
               events: events.status === "fulfilled" ? events.value.data : [],
               petspot: spots.status === "fulfilled" ? spots.value.data : [],
-              pethub: uniqueById([
-                ...(streams.status === "fulfilled" ? streams.value.data : []),
-                ...(feed.status === "fulfilled" ? feed.value.data : []),
-              ]),
+              pethub: [],
               consult: consult.status === "fulfilled" ? consult.value.data : [],
               adoption:
                 adoption.status === "fulfilled" ? adoption.value.data : [],
@@ -281,54 +271,6 @@ export function WorldScreen({
     }
     if (mode === "documents") setDocumentForm(emptyDocumentForm());
     setSelected(item);
-  };
-  const publish = async () => {
-    if (thread.trim().length < 3) return;
-    if (!owner) {
-      onLogin();
-      return;
-    }
-    setBusy(true);
-    try {
-      await createMobilePetHubPost(thread.trim(), owner.full_name);
-      const feed = await getMobilePetHubFeed();
-      setItems((current) => ({
-        ...current,
-        pethub: uniqueById([
-          ...current.pethub.filter((item) => item.status),
-          ...feed.data,
-        ]),
-      }));
-      setThread("");
-      setComposer(false);
-      onAction("Pet thread diterbitkan dan tersinkron");
-    } catch (cause) {
-      onAction(
-        cause instanceof Error
-          ? cause.message
-          : "Pet thread belum dapat diterbitkan",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-  const toggleLike = async (item: WorldItem) => {
-    if (!owner) {
-      onLogin();
-      return;
-    }
-    try {
-      const result = await reactMobilePetHubPost(item.id);
-      setLiked((current) =>
-        result.liked
-          ? [...new Set([...current, item.id])]
-          : current.filter((id) => id !== item.id),
-      );
-    } catch (cause) {
-      onAction(
-        cause instanceof Error ? cause.message : "Reaksi belum tersimpan",
-      );
-    }
   };
   const runPrimaryAction = async () => {
     if (!selected) return;
@@ -544,6 +486,46 @@ export function WorldScreen({
       emoji: "▤",
     },
   };
+  if (mode === "pethub") {
+    return (
+      <Screen>
+        <TopHeader
+          title="Sliva World"
+          subtitle="Seluruh dunia pet dalam satu aplikasi"
+          onNotification={onOpenNotifications}
+        />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.modeRow}
+        >
+          {modes.map((item) => (
+            <Pressable
+              key={item.id}
+              onPress={() => setMode(item.id)}
+              style={[styles.mode, mode === item.id && styles.activeMode]}
+            >
+              <Text style={styles.modeIcon}>{item.icon}</Text>
+              <Text
+                style={[
+                  styles.modeLabel,
+                  mode === item.id && styles.activeModeLabel,
+                ]}
+              >
+                {item.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+        <PetHubExperience
+          refreshVersion={refreshVersion}
+          owner={owner}
+          onLogin={onLogin}
+          onAction={onAction}
+        />
+      </Screen>
+    );
+  }
   return (
     <>
       <Screen>
@@ -578,7 +560,6 @@ export function WorldScreen({
         <View
           style={[
             styles.hero,
-            mode === "pethub" && styles.darkHero,
             mode === "events" && styles.eventHero,
             mode === "pawdating" && styles.pawDatingHero,
           ]}
@@ -601,106 +582,31 @@ export function WorldScreen({
             <Text style={styles.sectionTitle}>
               {mode === "pawdating"
                 ? "Verified matches"
-                : mode === "pethub"
-                  ? "Sedang ramai"
-                  : mode === "petspot"
+                : mode === "petspot"
                     ? "Di sekitar kamu"
                     : "Pilihan untukmu"}
             </Text>
           </View>
-          {mode === "pethub" ? (
-            <Pressable onPress={() => setComposer(true)} style={styles.create}>
-              <Ionicons name="add" size={17} color={colors.white} />
-              <Text style={styles.createText}>Buat thread</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={() =>
-                onAction(
-                  mode === "petspot"
-                    ? "Lokasi perangkat digunakan untuk mengurutkan PetSpot"
-                    : mode === "pawdating"
-                      ? "Filter level, kesehatan, ras, gender, dan jarak dibuka"
-                      : "Filter dibuka",
-                )
-              }
-            >
-              <Ionicons
-                name={mode === "petspot" ? "navigate" : "options"}
-                size={20}
-                color={colors.sky600}
-              />
-            </Pressable>
-          )}
+          <Pressable
+            onPress={() =>
+              onAction(
+                mode === "petspot"
+                  ? "Lokasi perangkat digunakan untuk mengurutkan PetSpot"
+                  : mode === "pawdating"
+                    ? "Filter level, kesehatan, ras, gender, dan jarak dibuka"
+                    : "Filter dibuka",
+              )
+            }
+          >
+            <Ionicons
+              name={mode === "petspot" ? "navigate" : "options"}
+              size={20}
+              color={colors.sky600}
+            />
+          </Pressable>
         </View>
         <View style={styles.list}>
-          {items[mode].map((item, index) =>
-            mode === "pethub" && item.content ? (
-              <View key={item.id} style={styles.threadCard}>
-                <View style={styles.author}>
-                  <View style={styles.avatar}>
-                    <Text>
-                      {(item.channel_name || item.author_name || "S")[0]}
-                    </Text>
-                  </View>
-                  <View style={styles.authorCopy}>
-                    <Text style={styles.authorName}>{item.author_name}</Text>
-                    <Text style={styles.authorHandle}>
-                      {item.channel_name} · baru saja
-                    </Text>
-                  </View>
-                  <Pressable onPress={() => onAction("Thread disimpan")}>
-                    <Ionicons
-                      name="ellipsis-horizontal"
-                      size={18}
-                      color={colors.muted}
-                    />
-                  </Pressable>
-                </View>
-                <Text style={styles.threadBody}>{item.content}</Text>
-                <View style={styles.actions}>
-                  <Pressable
-                    style={styles.actionItem}
-                    onPress={() => toggleLike(item)}
-                  >
-                    <Ionicons
-                      name={liked.includes(item.id) ? "heart" : "heart-outline"}
-                      size={18}
-                      color={
-                        liked.includes(item.id) ? colors.red : colors.muted
-                      }
-                    />
-                    <Text style={styles.actionText}>
-                      {(item.like_count ?? 0) +
-                        (liked.includes(item.id) ? 1 : 0)}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.actionItem}
-                    onPress={() => onAction("Diskusi thread dibuka")}
-                  >
-                    <Ionicons
-                      name="chatbubble-outline"
-                      size={17}
-                      color={colors.muted}
-                    />
-                    <Text style={styles.actionText}>
-                      {item.comment_count ?? 0}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.actionItem}
-                    onPress={() => onAction("Thread dibagikan")}
-                  >
-                    <Ionicons
-                      name="share-social-outline"
-                      size={18}
-                      color={colors.muted}
-                    />
-                  </Pressable>
-                </View>
-              </View>
-            ) : (
+          {items[mode].map((item, index) => (
               <Pressable
                 key={item.id}
                 onPress={() => openItem(item)}
@@ -784,8 +690,7 @@ export function WorldScreen({
                   </View>
                 </View>
               </Pressable>
-            ),
-          )}
+          ))}
         </View>
       </Screen>
       <Modal
@@ -1148,37 +1053,6 @@ export function WorldScreen({
           onAction("Pembayaran berhasil dan transaksi sudah tercatat");
         }}
       />
-      <Modal
-        visible={composer}
-        animationType="slide"
-        onRequestClose={() => setComposer(false)}
-      >
-        <SafeAreaView style={styles.composer}>
-          <View style={styles.composerHead}>
-            <View>
-              <Text style={styles.eyebrow}>BUAT PET THREAD</Text>
-              <Text style={styles.composerTitle}>
-                Apa yang sedang kamu pikirkan?
-              </Text>
-            </View>
-            <Pressable onPress={() => setComposer(false)}>
-              <Ionicons name="close" size={23} color={colors.text} />
-            </Pressable>
-          </View>
-          <TextInput
-            value={thread}
-            onChangeText={setThread}
-            multiline
-            autoFocus
-            maxLength={5000}
-            placeholder="Bagikan insight, cerita, atau pertanyaan tentang pet…"
-            placeholderTextColor="#9AA7B6"
-            style={styles.input}
-          />
-          <Text style={styles.counter}>{thread.length}/5000</Text>
-          <PrimaryButton label="Terbitkan thread" onPress={publish} />
-        </SafeAreaView>
-      </Modal>
     </>
   );
 }

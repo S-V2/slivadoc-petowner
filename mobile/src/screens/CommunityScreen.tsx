@@ -26,7 +26,13 @@ import {
 } from "../api";
 import type { PetView } from "../data";
 import { colors, shadow } from "../theme";
-import { PrimaryButton, TopHeader, useAppSurface } from "../components/ui";
+import {
+  BoundedBottomSheet,
+  PrimaryButton,
+  TopHeader,
+  useAppSurface,
+} from "../components/ui";
+import { CommunityGroups } from "./CommunityGroups";
 
 type Props = {
   refreshVersion: number;
@@ -62,6 +68,10 @@ export function CommunityScreen({
     "Lost & Found": "lost_found",
   };
   const load = async () => {
+    if (activeTab === "Grup") {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const result = await getMobileCommunityPosts(
@@ -174,12 +184,16 @@ export function CommunityScreen({
               <Text style={styles.online}>● </Text>Komunitas pet parent aktif
             </Text>
           </View>
-          <Pressable
-            onPress={() => (owner ? setComposer(true) : onLogin())}
-            style={styles.create}
-          >
-            <Ionicons name="add" size={20} color={colors.white} />
-          </Pressable>
+          {activeTab !== "Grup" ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Buat posting"
+              onPress={() => (owner ? setComposer(true) : onLogin())}
+              style={styles.create}
+            >
+              <Ionicons name="add" size={20} color={colors.white} />
+            </Pressable>
+          ) : null}
         </View>
         <ScrollView
           horizontal
@@ -205,7 +219,15 @@ export function CommunityScreen({
             ),
           )}
         </ScrollView>
-        <Pressable
+        {activeTab === "Grup" ? (
+          <CommunityGroups
+            owner={owner}
+            refreshVersion={refreshVersion}
+            onLogin={onLogin}
+            onAction={onAction}
+          />
+        ) : (
+        <><Pressable
           onPress={() => (owner ? setComposer(true) : onLogin())}
           style={styles.prompt}
         >
@@ -279,6 +301,7 @@ export function CommunityScreen({
           <Text style={styles.subtitle}>
             Belum ada posting pada filter ini.
           </Text>
+        )}</>
         )}
       </ScrollView>
       <Composer
@@ -437,8 +460,8 @@ function Composer({
     }
   };
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.composerPage}>
+    <BoundedBottomSheet visible={visible} onClose={onClose} maxHeight="86%">
+      <SafeAreaView edges={["bottom"]} style={styles.composerPage}>
         <View style={styles.composerHeader}>
           <View>
             <Text style={styles.composerKicker}>SLIVADOC COMMUNITY</Text>
@@ -498,7 +521,7 @@ function Composer({
           disabled={loading || body.trim().length < 3}
         />
       </SafeAreaView>
-    </Modal>
+    </BoundedBottomSheet>
   );
 }
 
@@ -631,7 +654,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   actionText: { color: colors.muted, fontSize: 10 },
-  composerPage: { flex: 1, padding: 16, backgroundColor: colors.white },
+  composerPage: { padding: 16, paddingTop: 4, backgroundColor: colors.white },
   composerHeader: {
     flexDirection: "row",
     alignItems: "center",

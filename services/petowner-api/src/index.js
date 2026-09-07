@@ -128,6 +128,22 @@ const upload = multer({
       ["image/jpeg", "image/png", "image/webp"].includes(file.mimetype),
     ),
 });
+const mediaUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_request, file, callback) =>
+    callback(
+      null,
+      [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "video/mp4",
+        "video/quicktime",
+        "video/webm",
+      ].includes(file.mimetype),
+    ),
+});
 
 const cloudinary = cloudinaryPackage.v2;
 cloudinary.config({
@@ -255,6 +271,84 @@ app.post(
         publicId: result.public_id,
         width: result.width,
         height: result.height,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+app.post(
+  "/api/uploads/media",
+  requirePlatformUser,
+  mediaUpload.single("file"),
+  async (request, response, next) => {
+    try {
+      if (!request.file)
+        return response.status(400).json({
+          error: "media_required",
+          message: "Pilih foto atau video yang ingin diunggah",
+        });
+      if (
+        !process.env.CLOUDINARY_CLOUD_NAME ||
+        !process.env.CLOUDINARY_API_KEY ||
+        !process.env.CLOUDINARY_API_SECRET
+      ) {
+        return response.status(503).json({
+          error: "cloudinary_not_configured",
+          message: "Penyimpanan media belum dikonfigurasi",
+        });
+      }
+      const resourceType = request.file.mimetype.startsWith("video/")
+        ? "video"
+        : "image";
+      const requestedFolder = String(request.body.folder || "pethub")
+        .replace(/[^a-z0-9/_-]/gi, "")
+        .slice(0, 80);
+      const folder = `${process.env.CLOUDINARY_FOLDER || "slivadoc/petowner"}/${requestedFolder || "pethub"}`;
+      const result = await new Promise((resolveUpload, rejectUpload) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder,
+            resource_type: resourceType,
+            ...(resourceType === "image"
+              ? {
+                  transformation: [
+                    {
+                      width: 1600,
+                      height: 1600,
+                      crop: "limit",
+                      quality: "auto",
+                      fetch_format: "auto",
+                    },
+                  ],
+                }
+              : {}),
+          },
+          (error, uploaded) =>
+            error ? rejectUpload(error) : resolveUpload(uploaded),
+        );
+        stream.end(request.file.buffer);
+      });
+      const thumbnailUrl =
+        resourceType === "video"
+          ? cloudinary.url(result.public_id, {
+              resource_type: "video",
+              format: "jpg",
+              secure: true,
+              transformation: [
+                { start_offset: "0", width: 720, height: 960, crop: "fill" },
+              ],
+            })
+          : result.secure_url;
+      response.status(201).json({
+        url: result.secure_url,
+        publicId: result.public_id,
+        resourceType,
+        thumbnailUrl,
+        width: result.width,
+        height: result.height,
+        duration: result.duration,
       });
     } catch (error) {
       next(error);

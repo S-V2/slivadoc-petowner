@@ -24,7 +24,7 @@ import { Pill, Screen } from "../components/ui";
 type Props = {
   onAction: (message: string) => void;
   onBook: (service?: Service) => void;
-  onOpenChat: () => void;
+  onOpenConsultation: () => void;
   onOpenNotifications: () => void;
   onSearchResult: (result: MobileGlobalSearchResult) => void;
   onNavigate: (tab: "discover" | "world" | "activity" | "health") => void;
@@ -282,7 +282,7 @@ function HomeSearchModal({
 export function HomeScreen({
   onAction,
   onBook,
-  onOpenChat,
+  onOpenConsultation,
   onOpenNotifications,
   onSearchResult,
   onNavigate,
@@ -300,7 +300,7 @@ export function HomeScreen({
   const firstName = ownerName?.trim().split(" ")[0];
   const primaryQuickActions = [
     { label: "Booking", note: "Atur jadwal klinik", emoji: "📅", gradient: ["#0588D4", "#43C2F7"] as const, onPress: () => onBook() },
-    { label: "Tanya Dokter", note: "Konsultasi online", emoji: "👩🏻‍⚕️", gradient: ["#16A98E", "#62D9C3"] as const, onPress: onOpenChat },
+    { label: "Tanya Dokter", note: "Pilih dokter & paket", emoji: "👩🏻‍⚕️", gradient: ["#16A98E", "#62D9C3"] as const, onPress: onOpenConsultation },
   ];
   const secondaryQuickActions = [
     { label: "Home Care", note: "Ke rumah", emoji: "🏠", color: colors.peach50, onPress: () => homeCare ? onBook(homeCare) : onNavigate("discover") },

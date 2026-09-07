@@ -24,6 +24,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { DiscoverScreen } from "./src/screens/DiscoverScreen";
+import { MarketplaceScreen } from "./src/screens/MarketplaceScreen";
 import { ActivityScreen } from "./src/screens/ActivityScreen";
 import { HealthScreen } from "./src/screens/HealthScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
@@ -70,6 +71,7 @@ import slivadocLogo from "./assets/slivadoc-logo.png";
 
 type Tab =
   | "home"
+  | "marketplace"
   | "discover"
   | "world"
   | "activity"
@@ -87,10 +89,10 @@ type TabItem = {
 const bottomTabs: TabItem[] = [
   { id: "home", label: "Beranda", icon: "home-outline", activeIcon: "home" },
   {
-    id: "discover",
-    label: "Jelajahi",
-    icon: "search-outline",
-    activeIcon: "search",
+    id: "marketplace",
+    label: "Belanja",
+    icon: "bag-handle-outline",
+    activeIcon: "bag-handle",
   },
   {
     id: "community",
@@ -107,6 +109,12 @@ const bottomTabs: TabItem[] = [
 ];
 
 const moreTabs: TabItem[] = [
+  {
+    id: "discover",
+    label: "Layanan",
+    icon: "search-outline",
+    activeIcon: "search",
+  },
   {
     id: "world",
     label: "Sliva World",
@@ -130,8 +138,11 @@ const moreTabs: TabItem[] = [
 const searchRouteTabs: Record<string, Tab> = {
   home: "home",
   discover: "discover",
-  shop: "discover",
-  favorites: "discover",
+  shop: "marketplace",
+  marketplace: "marketplace",
+  product: "marketplace",
+  products: "marketplace",
+  favorites: "marketplace",
   bookings: "activity",
   activity: "activity",
   health: "health",
@@ -477,7 +488,7 @@ function MobileApp() {
           </View>
           <Text style={styles.brandLoadingTitle}>Menyiapkan Slivadoc</Text>
           <Text style={styles.brandLoadingCopy}>
-            Menyinkronkan profil pet, layanan, dan aktivitas Anda.
+            Menyinkronkan profil pet, marketplace, dan aktivitas Anda.
           </Text>
           <ActivityIndicator color={colors.sky600} size="small" />
         </SafeAreaView>
@@ -535,6 +546,35 @@ function MobileApp() {
                     if (!requireLogin()) return;
                     try {
                       const result = await toggleMobileFavorite(id);
+                      setFavorites((current) =>
+                        result.favorite
+                          ? [...new Set([...current, id])]
+                          : current.filter((item) => item !== id),
+                      );
+                    } catch (cause) {
+                      notify(
+                        cause instanceof Error
+                          ? cause.message
+                          : "Favorit belum dapat diperbarui",
+                      );
+                    }
+                  }}
+                />
+              ) : null}
+              {tab === "marketplace" ? (
+                <MarketplaceScreen
+                  authenticated={Boolean(bootstrap)}
+                  favorites={favorites}
+                  refreshVersion={refreshVersion}
+                  onAction={notify}
+                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onRequireLogin={() => {
+                    requireLogin();
+                  }}
+                  onToggleFavorite={async (id) => {
+                    if (!requireLogin()) return;
+                    try {
+                      const result = await toggleMobileFavorite(id, "product");
                       setFavorites((current) =>
                         result.favorite
                           ? [...new Set([...current, id])]

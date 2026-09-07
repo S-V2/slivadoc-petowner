@@ -358,6 +358,53 @@ export type MobileService = {
   branch_name: string;
   duration_minutes: number;
 };
+export type MobileProduct = {
+  id: string;
+  business_id: string;
+  business_name: string;
+  branch_id?: string;
+  branch_name: string;
+  city: string;
+  name: string;
+  sku: string;
+  barcode: string;
+  category: string;
+  description: string;
+  image_url: string;
+  price: number;
+  stock: number;
+  minimum_stock: number;
+  available: boolean;
+  rating: number;
+  review_count: number;
+  sold_count: number;
+};
+export type MobileProductReview = {
+  id: string;
+  product_id: string;
+  user_id: string;
+  reviewer_name: string;
+  rating: number;
+  comment: string;
+  verified_purchase: boolean;
+  created_at: string;
+  updated_at: string;
+};
+export type MobileOrderQuote = {
+  subtotal: number;
+  platform_fee: number;
+  voucher_code: string;
+  voucher_description: string;
+  voucher_discount: number;
+  voucher_error: string;
+  points_redeemed: number;
+  points_discount: number;
+  total_amount: number;
+  max_redeemable_points: number;
+  point_value_rupiah: number;
+  min_redemption_points: number;
+  max_redemption_bps: number;
+};
 export type MobileGlobalSearchResult = {
   category: string;
   id: string;
@@ -505,6 +552,67 @@ export const getMobileServices = (options?: {
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 };
 
+export const getMobileProducts = (options?: {
+  search?: string;
+  category?: string;
+  business_id?: string;
+}) => {
+  const query = new URLSearchParams();
+  Object.entries(options ?? {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  });
+  return platformRequest<{ data: MobileProduct[]; count: number }>(
+    `/api/v1/public/discovery/products${query.size ? `?${query}` : ""}`,
+  ).then((result) => ({ ...result, data: uniqueById(result.data) }));
+};
+
+export const getMobileProductReviews = (productId: string) =>
+  platformRequest<{
+    data: MobileProductReview[];
+    count: number;
+    rating: number;
+  }>(`/api/v1/public/products/${productId}/reviews`).then((result) => ({
+    ...result,
+    data: uniqueById(result.data),
+  }));
+
+export const saveMobileProductReview = (
+  productId: string,
+  input: { rating: number; comment: string },
+) =>
+  platformRequest<{ id: string; message: string }>(
+    `/api/v1/petowner/products/${productId}/reviews`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+
+export const quoteMobileOrder = (input: {
+  items: Array<{ product_id: string; quantity: number }>;
+  voucher_code?: string;
+  redeem_points?: number;
+}) =>
+  platformRequest<MobileOrderQuote>("/api/v1/petowner/orders/quote", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+export const createMobileOrder = (input: {
+  items: Array<{ product_id: string; quantity: number }>;
+  voucher_code?: string;
+  redeem_points?: number;
+}) =>
+  platformRequest<
+    MobileOrderQuote & {
+      id: string;
+      order_number: string;
+      status: string;
+      payment_status: string;
+      reference_type: "shop_order";
+    }
+  >("/api/v1/petowner/orders", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
 export const getMobilePetFamily = (petId: string) =>
   platformRequest<{ data: MobileFamilyAccess[] }>(
     `/api/v1/petowner/pets/${petId}/family`,
@@ -576,10 +684,13 @@ export const readAllMobileNotifications = () =>
   platformRequest<{ updated: number }>("/api/v1/notifications/read-all", {
     method: "PATCH",
   });
-export const toggleMobileFavorite = (entityId: string) =>
+export const toggleMobileFavorite = (
+  entityId: string,
+  entityType = "service",
+) =>
   platformRequest<{ favorite: boolean }>("/api/v1/petowner/favorites/toggle", {
     method: "POST",
-    body: JSON.stringify({ entity_type: "service", entity_id: entityId }),
+    body: JSON.stringify({ entity_type: entityType, entity_id: entityId }),
   });
 export type MobileCommunityPost = {
   id: string;

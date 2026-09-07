@@ -274,13 +274,29 @@ export type MobileOwner = {
   full_name: string;
   phone: string;
   member_since: string;
+  email_verified?: boolean;
+  email_verified_at?: string | null;
+  phone_verified?: boolean;
+  phone_verified_at?: string | null;
 };
 export type MobileNotification = {
   id: string;
   category: string;
   title: string;
   body: string;
+  action_route?: string;
   read_at?: string | null;
+  created_at: string;
+};
+export type MobileFamilyAccess = {
+  id: string;
+  member_user_id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  permissions: string[];
+  status: string;
+  accepted_at?: string | null;
   created_at: string;
 };
 export type MobileActivity = {
@@ -488,6 +504,31 @@ export const getMobileServices = (options?: {
     `/api/v1/public/discovery/services${query.size ? `?${query}` : ""}`,
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 };
+
+export const getMobilePetFamily = (petId: string) =>
+  platformRequest<{ data: MobileFamilyAccess[] }>(
+    `/api/v1/petowner/pets/${petId}/family`,
+  ).then((result) => ({ ...result, data: uniqueById(result.data) }));
+
+export const inviteMobilePetFamily = (
+  petId: string,
+  input: {
+    email: string;
+    full_name: string;
+    role: string;
+    permissions: string[];
+  },
+) =>
+  platformRequest<{ id: string; message: string }>(
+    `/api/v1/petowner/pets/${petId}/family`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+
+export const revokeMobilePetFamily = (accessId: string) =>
+  platformRequest<{ message: string }>(
+    `/api/v1/petowner/family/${accessId}`,
+    { method: "DELETE" },
+  );
 export const getMobileGlobalSearch = (query: string, category = "") =>
   platformRequest<{ data: MobileGlobalSearchResult[] }>(
     `/api/v1/public/search?q=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}`,

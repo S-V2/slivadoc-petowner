@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Linking,
@@ -170,6 +170,7 @@ export function WorldScreen({
   petName,
   pet,
   onLogin,
+  intent,
 }: {
   refreshVersion: number;
   onAction: (message: string) => void;
@@ -178,8 +179,9 @@ export function WorldScreen({
   petName?: string;
   pet?: WorldPet;
   onLogin: () => void;
+  intent?: { token: number; mode: "consult"; itemId?: string };
 }) {
-  const [mode, setMode] = useState<Mode>("academy");
+  const [mode, setMode] = useState<Mode>(intent?.mode ?? "academy");
   const [items, setItems] = useState<Record<Mode, WorldItem[]>>(emptyWorld);
   const [selected, setSelected] = useState<WorldItem | null>(null);
   const [composer, setComposer] = useState(false);
@@ -193,6 +195,7 @@ export function WorldScreen({
     useState<AdoptionForm>(emptyAdoptionForm);
   const [documentForm, setDocumentForm] =
     useState<DocumentForm>(emptyDocumentForm);
+  const handledIntent = useRef(0);
   useEffect(() => {
     queueMicrotask(() => {
       setLoading(true);
@@ -239,6 +242,24 @@ export function WorldScreen({
         .finally(() => setLoading(false));
     });
   }, [refreshVersion]);
+  useEffect(() => {
+    if (!intent || loading || handledIntent.current === intent.token) return;
+    queueMicrotask(() => {
+      handledIntent.current = intent.token;
+      setMode("consult");
+      if (!intent.itemId) {
+        setSelected(null);
+        return;
+      }
+      const plan = items.consult.find((item) => item.id === intent.itemId);
+      if (!plan) {
+        setSelected(null);
+        onAction("Paket konsultasi sebelumnya sudah tidak tersedia");
+        return;
+      }
+      setSelected(plan);
+    });
+  }, [intent, items.consult, loading, onAction]);
   useEffect(() => {
     if (mode === "academy" && selected)
       void trackMobileAcademyProgramClick(selected.id).catch(() => undefined);

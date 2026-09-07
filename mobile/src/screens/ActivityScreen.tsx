@@ -1,33 +1,682 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useState } from "react";
-import { colors, shadow } from "../theme";
-import { Card, Pill, PrimaryButton, Screen, SoftButton, TopHeader } from "../components/ui";
-import type { MobileActivity } from "../api";
+import { Ionicons } from "@expo/vector-icons";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-export function ActivityScreen({ onAction, onBook, onOpenNotifications,activities,petNames }: { onAction: (message: string) => void; onBook: () => void; onOpenNotifications: () => void;activities:MobileActivity[];petNames:Record<string,string> }) {
-  const [tab, setTab] = useState("Mendatang");
-  const [now]=useState(()=>Date.now());
-  const matches=(item:MobileActivity)=>tab==="Mendatang"?Boolean(item.starts_at&&new Date(item.starts_at).getTime()>now):tab==="Berlangsung"?["active","confirmed","processing","paid"].includes(item.status):!item.starts_at||new Date(item.starts_at).getTime()<=now||["completed","cancelled"].includes(item.status);
-  const visible=activities.filter(matches);
-  const counts={booking:activities.filter(item=>item.category==="booking").length,order:activities.filter(item=>item.category==="order").length,consult:activities.filter(item=>item.category==="consultation").length};
+import {
+  getMobileActivityCenter,
+  type MobileActivityCenterItem,
+  type MobileActivityOrderItem,
+  type MobileActivityState,
+  type MobileActivityType,
+} from "../api";
+import { Card, EmptyState, Pill, PrimaryButton, Screen, SoftButton } from "../components/ui";
+import { colors, shadow, typography } from "../theme";
+
+type TypeFilter = MobileActivityType | "all";
+type PillTone = "blue" | "mint" | "yellow" | "violet" | "red";
+
+type ActivityScreenProps = {
+  authenticated: boolean;
+  refreshVersion: number;
+  onAction: (message: string) => void;
+  onOpenNotifications: () => void;
+  onLogin: () => void;
+  onCreateBooking: () => void;
+  onCreateOrder: () => void;
+  onCreateConsultation: () => void;
+  onRebook: (serviceId?: string) => void;
+  onReorder: (items: MobileActivityOrderItem[]) => void;
+  onReconsult: (planId?: string) => void;
+  onOpenProduct: (productId: string) => void;
+};
+
+const typeOptions: Array<{
+  id: TypeFilter;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}> = [
+  { id: "all", label: "Semua", icon: "sparkles-outline" },
+  { id: "booking", label: "Booking", icon: "calendar-outline" },
+  { id: "order", label: "Belanja", icon: "bag-handle-outline" },
+  { id: "consultation", label: "Konsultasi", icon: "chatbubbles-outline" },
+];
+
+const stateOptions: Array<{ id: MobileActivityState; label: string }> = [
+  { id: "all", label: "Semua" },
+  { id: "upcoming", label: "Mendatang" },
+  { id: "ongoing", label: "Berjalan" },
+  { id: "history", label: "Riwayat" },
+];
+
+const money = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
+  maximumFractionDigits: 0,
+});
+
+const dateTime = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+function formatDate(value?: string | null) {
+  if (!value) return "Belum dijadwalkan";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "Belum dijadwalkan" : dateTime.format(parsed);
+}
+
+function typePresentation(type: MobileActivityType) {
+  if (type === "booking") {
+    return { label: "Booking", icon: "calendar-outline" as const, color: colors.sky600, surface: colors.sky50 };
+  }
+  if (type === "order") {
+    return { label: "Belanja", icon: "bag-handle-outline" as const, color: "#6655C7", surface: colors.violet50 };
+  }
+  return { label: "Konsultasi", icon: "chatbubbles-outline" as const, color: "#14836E", surface: colors.mint50 };
+}
+
+function statusPresentation(status: string): { label: string; tone: PillTone } {
+  const normalized = status.toLowerCase();
+  const labels: Record<string, string> = {
+    pending_payment: "Menunggu pembayaran",
+    requested: "Menunggu konfirmasi",
+    confirmed: "Terkonfirmasi",
+    scheduled: "Terjadwal",
+    waiting: "Menunggu dokter",
+    active: "Sedang berlangsung",
+    in_progress: "Sedang berlangsung",
+    processing: "Diproses",
+    shipped: "Dikirim",
+    completed: "Selesai",
+    cancelled: "Dibatalkan",
+    no_show: "Tidak hadir",
+  };
+  if (normalized === "completed") return { label: "Selesai", tone: "mint" };
+  if (normalized === "cancelled" || normalized === "no_show") return { label: labels[normalized] ?? status, tone: "red" };
+  if (["active", "in_progress", "processing", "shipped"].includes(normalized)) {
+    return { label: labels[normalized] ?? status, tone: "blue" };
+  }
+  return { label: labels[normalized] ?? status.replaceAll("_", " "), tone: "yellow" };
+}
+
+function repeatLabel(item: MobileActivityCenterItem) {
+  if (item.type === "booking") return "Booking lagi";
+  if (item.type === "order") return "Beli lagi";
+  return "Konsultasi ulang";
+}
+
+function ActivitySummary({
+  active,
+  count,
+  icon,
+  label,
+  onPress,
+  tone,
+}: {
+  active: boolean;
+  count: number;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  tone: "blue" | "violet" | "mint";
+}) {
+  const palette =
+    tone === "violet"
+      ? { background: colors.violet50, foreground: "#6655C7" }
+      : tone === "mint"
+        ? { background: colors.mint50, foreground: "#14836E" }
+        : { background: colors.sky50, foreground: colors.sky600 };
   return (
-    <Screen>
-      <TopHeader title="Aktivitas" subtitle="Booking, konsultasi & pesanan" onNotification={onOpenNotifications} />
-      <Text style={styles.title}>Aktivitas pet-mu 🐾</Text><Text style={styles.subtitle}>Pantau semua booking, pesanan, dan konsultasi.</Text>
-      <View style={styles.summaryRow}><Summary icon="📅" value={String(counts.booking)} label="Booking" color={colors.sky50} /><Summary icon="📦" value={String(counts.order)} label="Pesanan" color={colors.violet50} /><Summary icon="💬" value={String(counts.consult)} label="Konsultasi" color={colors.mint50} /></View>
-      <View style={styles.tabs}>{["Mendatang", "Berlangsung", "Riwayat"].map((item) => <Pressable key={item} onPress={() => setTab(item)} style={[styles.tab, tab === item && styles.activeTab]}><Text style={[styles.tabText, tab === item && styles.activeTabText]}>{item}</Text></Pressable>)}</View>
-      <View style={styles.list}>{visible.map(item=>{const date=new Date(item.starts_at||item.occurred_at);return <Card key={item.id} style={styles.bookingCard}><View style={styles.bookingDate}><Text style={styles.month}>{date.toLocaleDateString("id-ID",{month:"short"}).toUpperCase()}</Text><Text style={styles.day}>{String(date.getDate()).padStart(2,"0")}</Text><Text style={styles.time}>{date.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})}</Text></View><View style={[styles.bookingIcon,item.category==="health"?styles.mint:item.category==="booking"?styles.violet:styles.blue]}><Text style={styles.bookingEmoji}>{item.category==="order"?"📦":item.category==="consultation"?"💬":item.category==="health"?"🩺":"📅"}</Text></View><View style={styles.bookingCopy}><Pill tone={item.status==="completed"?"mint":"yellow"}>{item.status.toUpperCase()}</Pill><Text style={styles.cardTitle}>{item.title}</Text><Text style={styles.cardNote}>{item.description}</Text>{item.pet_id&&<Text style={styles.petChip}>🐾 {petNames[item.pet_id]||"Pet"}</Text>}</View><View style={styles.bookingActions}><SoftButton label={item.action_label||"Detail"} onPress={()=>onAction(`${item.title}: ${item.description}`)} style={styles.flex}/>{item.metadata?.latitude&&item.metadata?.longitude?<PrimaryButton compact label="Arah" icon="navigate" onPress={()=>onAction(`Buka arah ke ${item.metadata.latitude}, ${item.metadata.longitude}`)} style={styles.flex}/>:null}</View></Card>})}{visible.length===0?<Card style={styles.deliveryCard}><Text style={styles.cardTitle}>Belum ada aktivitas</Text><Text style={styles.cardNote}>Data akan muncul setelah ada transaksi atau booking pada akun ini.</Text></Card>:null}<PrimaryButton label="Buat booking baru" icon="add" onPress={onBook}/></View>
-    </Screen>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.summaryCard,
+        active && { borderColor: palette.foreground },
+        pressed && styles.pressed,
+      ]}
+    >
+      <View style={[styles.summaryIcon, { backgroundColor: palette.background }]}>
+        <Ionicons name={icon} size={17} color={palette.foreground} />
+      </View>
+      <Text style={styles.summaryCount}>{count}</Text>
+      <Text numberOfLines={1} style={styles.summaryLabel}>{label}</Text>
+    </Pressable>
   );
 }
 
-function Summary({ icon, value, label, color }: { icon: string; value: string; label: string; color: string }) { return <View style={styles.summary}><View style={[styles.summaryIcon, { backgroundColor: color }]}><Text>{icon}</Text></View><Text style={styles.summaryValue}>{value}</Text><Text style={styles.summaryLabel}>{label}</Text></View>; }
+function NewAction({
+  icon,
+  label,
+  note,
+  onPress,
+  tone,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  note: string;
+  onPress: () => void;
+  tone: "blue" | "violet" | "mint";
+}) {
+  const palette =
+    tone === "violet"
+      ? { background: colors.violet50, foreground: "#6655C7" }
+      : tone === "mint"
+        ? { background: colors.mint50, foreground: "#14836E" }
+        : { background: colors.sky50, foreground: colors.sky600 };
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.newAction, pressed && styles.pressed]}
+    >
+      <View style={[styles.newActionIcon, { backgroundColor: palette.background }]}>
+        <Ionicons name={icon} size={20} color={palette.foreground} />
+      </View>
+      <Text style={styles.newActionLabel}>{label}</Text>
+      <Text numberOfLines={2} style={styles.newActionNote}>{note}</Text>
+      <Ionicons name="arrow-forward" size={15} color={palette.foreground} />
+    </Pressable>
+  );
+}
+
+function ActivityCard({
+  item,
+  onDetail,
+  onRepeat,
+}: {
+  item: MobileActivityCenterItem;
+  onDetail: () => void;
+  onRepeat: () => void;
+}) {
+  const presentation = typePresentation(item.type);
+  const status = statusPresentation(item.status);
+  const when = item.scheduled_at || item.occurred_at;
+  return (
+    <Card style={styles.activityCard}>
+      <View style={styles.activityTop}>
+        <View style={[styles.activityIcon, { backgroundColor: presentation.surface }]}>
+          <Ionicons name={presentation.icon} size={21} color={presentation.color} />
+        </View>
+        <View style={styles.activityCopy}>
+          <View style={styles.activityMetaRow}>
+            <Text style={[styles.activityType, { color: presentation.color }]}>{presentation.label}</Text>
+            <Text style={styles.activityCode}>{item.code}</Text>
+          </View>
+          <Text numberOfLines={2} style={styles.activityTitle}>{item.title}</Text>
+          <Text numberOfLines={2} style={styles.activitySubtitle}>{item.subtitle}</Text>
+        </View>
+      </View>
+      <View style={styles.activityInfoRow}>
+        <Pill tone={status.tone}>{status.label}</Pill>
+        <View style={styles.dateInline}>
+          <Ionicons name="time-outline" size={13} color={colors.muted} />
+          <Text numberOfLines={1} style={styles.dateInlineText}>{formatDate(when)}</Text>
+        </View>
+      </View>
+      {item.type === "order" && item.item_count ? (
+        <Text style={styles.activityHint}>{item.item_count} produk · {money.format(item.total_amount ?? item.amount)}</Text>
+      ) : item.pet_name ? (
+        <Text style={styles.activityHint}>🐾 {item.pet_name} · {money.format(item.amount)}</Text>
+      ) : (
+        <Text style={styles.activityHint}>{money.format(item.amount)}</Text>
+      )}
+      <View style={styles.cardActions}>
+        <SoftButton label="Lihat detail" icon="receipt-outline" onPress={onDetail} style={styles.actionFlex} />
+        <PrimaryButton compact label={repeatLabel(item)} icon="refresh-outline" onPress={onRepeat} style={styles.actionFlex} />
+      </View>
+    </Card>
+  );
+}
+
+function DetailRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <View style={styles.detailRow}>
+      <View style={styles.detailRowIcon}><Ionicons name={icon} size={16} color={colors.sky600} /></View>
+      <View style={styles.detailRowCopy}>
+        <Text style={styles.detailRowLabel}>{label}</Text>
+        <Text style={styles.detailRowValue}>{value}</Text>
+      </View>
+    </View>
+  );
+}
+
+function ActivityDetailSheet({
+  item,
+  onClose,
+  onOpenProduct,
+  onRepeat,
+}: {
+  item?: MobileActivityCenterItem;
+  onClose: () => void;
+  onOpenProduct: (productId: string) => void;
+  onRepeat: () => void;
+}) {
+  if (!item) return null;
+  const presentation = typePresentation(item.type);
+  const status = statusPresentation(item.status);
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <SafeAreaView edges={["bottom", "left", "right"]} style={styles.sheetSafeArea}>
+          <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <View style={[styles.sheetHeaderIcon, { backgroundColor: presentation.surface }]}>
+                <Ionicons name={presentation.icon} size={21} color={presentation.color} />
+              </View>
+              <View style={styles.sheetHeaderCopy}>
+                <Text style={[styles.sheetEyebrow, { color: presentation.color }]}>DETAIL {presentation.label.toUpperCase()}</Text>
+                <Text numberOfLines={1} style={styles.sheetTitle}>{item.code}</Text>
+              </View>
+              <Pressable accessibilityRole="button" accessibilityLabel="Tutup detail" onPress={onClose} style={styles.sheetClose}>
+                <Ionicons name="close" size={22} color={colors.text} />
+              </Pressable>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetContent}>
+              <View style={[styles.detailHero, { backgroundColor: presentation.surface }]}>
+                <Pill tone={status.tone}>{status.label}</Pill>
+                <Text style={styles.detailTitle}>{item.title}</Text>
+                <Text style={styles.detailSubtitle}>{item.subtitle}</Text>
+                <Text style={styles.detailAmount}>{money.format(item.total_amount ?? item.amount)}</Text>
+              </View>
+
+              {item.type === "booking" ? (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>Informasi booking</Text>
+                  <DetailRow icon="calendar-outline" label="Jadwal" value={formatDate(item.scheduled_at)} />
+                  <DetailRow icon="time-outline" label="Durasi" value={item.service_duration_minutes ? `${item.service_duration_minutes} menit` : undefined} />
+                  <DetailRow icon="paw-outline" label="Pet" value={item.pet_name} />
+                  <DetailRow icon="storefront-outline" label="Klinik / petshop" value={[item.business_name, item.branch_name].filter(Boolean).join(" · ")} />
+                  <DetailRow icon="location-outline" label="Lokasi" value={[item.address, item.city].filter(Boolean).join(", ")} />
+                  <DetailRow icon="document-text-outline" label="Catatan" value={item.notes || "Tidak ada catatan tambahan"} />
+                </View>
+              ) : null}
+
+              {item.type === "order" ? (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>Produk dalam pesanan</Text>
+                  {(item.items ?? []).map((product) => (
+                    <View key={product.id} style={styles.productRow}>
+                      <View style={styles.productImageFallback}>
+                        <Ionicons name="cube-outline" size={20} color="#6655C7" />
+                      </View>
+                      <View style={styles.productCopy}>
+                        <Text numberOfLines={2} style={styles.productName}>{product.name}</Text>
+                        <Text style={styles.productStore}>{product.business_name} · {product.quantity} item</Text>
+                        <Text style={styles.productPrice}>{money.format(product.line_total)}</Text>
+                      </View>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Lihat ${product.name}`}
+                        onPress={() => onOpenProduct(product.product_id)}
+                        style={styles.productOpen}
+                      >
+                        <Ionicons name="arrow-forward" size={17} color={colors.sky600} />
+                      </Pressable>
+                    </View>
+                  ))}
+                  <View style={styles.priceBreakdown}>
+                    <View style={styles.priceLine}><Text style={styles.priceLabel}>Subtotal</Text><Text style={styles.priceValue}>{money.format(item.subtotal ?? 0)}</Text></View>
+                    <View style={styles.priceLine}><Text style={styles.priceLabel}>Biaya platform</Text><Text style={styles.priceValue}>{money.format(item.platform_fee ?? 0)}</Text></View>
+                    {item.discount_amount ? <View style={styles.priceLine}><Text style={styles.priceDiscountLabel}>Voucher {item.voucher_code || "promo"}</Text><Text style={styles.priceDiscountValue}>−{money.format(item.discount_amount)}</Text></View> : null}
+                    {item.points_discount ? <View style={styles.priceLine}><Text style={styles.priceDiscountLabel}>{item.points_redeemed ?? 0} Sliva Points</Text><Text style={styles.priceDiscountValue}>−{money.format(item.points_discount)}</Text></View> : null}
+                    <View style={[styles.priceLine, styles.priceTotal]}><Text style={styles.priceTotalLabel}>Total</Text><Text style={styles.priceTotalValue}>{money.format(item.total_amount ?? item.amount)}</Text></View>
+                  </View>
+                </View>
+              ) : null}
+
+              {item.type === "consultation" ? (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>Informasi konsultasi</Text>
+                  <DetailRow icon="person-outline" label="Dokter hewan" value={item.doctor_name ? `drh. ${item.doctor_name}` : undefined} />
+                  <DetailRow icon="chatbubble-ellipses-outline" label="Paket & mode" value={[item.plan_name, item.mode].filter(Boolean).join(" · ")} />
+                  <DetailRow icon="calendar-outline" label="Jadwal" value={formatDate(item.scheduled_at)} />
+                  <DetailRow icon="time-outline" label="Durasi" value={item.duration_minutes ? `${item.duration_minutes} menit` : undefined} />
+                  <DetailRow icon="paw-outline" label="Pet" value={item.pet_name} />
+                  <DetailRow icon="medical-outline" label="Keluhan" value={item.complaint} />
+                  <DetailRow icon="clipboard-outline" label="Diagnosis" value={item.diagnosis || "Belum ada diagnosis"} />
+                  <DetailRow icon="document-text-outline" label="Catatan dokter" value={item.doctor_notes || "Belum ada catatan dokter"} />
+                </View>
+              ) : null}
+
+              <View style={styles.paymentCard}>
+                <View style={styles.paymentIcon}><Ionicons name="wallet-outline" size={18} color={colors.sky600} /></View>
+                <View style={styles.paymentCopy}>
+                  <Text style={styles.paymentLabel}>Status pembayaran</Text>
+                  <Text style={styles.paymentValue}>{item.payment_status.replaceAll("_", " ")}</Text>
+                </View>
+                <Text style={styles.paymentAmount}>{money.format(item.amount)}</Text>
+              </View>
+              <Text style={styles.createdAt}>Dibuat {formatDate(item.occurred_at)}</Text>
+              <PrimaryButton label={repeatLabel(item)} icon="refresh-outline" onPress={onRepeat} />
+            </ScrollView>
+          </Pressable>
+        </SafeAreaView>
+      </Pressable>
+    </Modal>
+  );
+}
+
+export function ActivityScreen({
+  authenticated,
+  refreshVersion,
+  onAction,
+  onOpenNotifications,
+  onLogin,
+  onCreateBooking,
+  onCreateOrder,
+  onCreateConsultation,
+  onRebook,
+  onReorder,
+  onReconsult,
+  onOpenProduct,
+}: ActivityScreenProps) {
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [stateFilter, setStateFilter] = useState<MobileActivityState>("all");
+  const [activities, setActivities] = useState<MobileActivityCenterItem[]>([]);
+  const [summary, setSummary] = useState({ booking: 0, order: 0, consultation: 0 });
+  const [selected, setSelected] = useState<MobileActivityCenterItem>();
+  const [loading, setLoading] = useState(true);
+  const requestSequence = useRef(0);
+
+  const loadActivities = useCallback(async () => {
+    if (!authenticated) return;
+    const request = requestSequence.current + 1;
+    requestSequence.current = request;
+    setLoading(true);
+    try {
+      const result = await getMobileActivityCenter(typeFilter, stateFilter);
+      if (requestSequence.current !== request) return;
+      setActivities(result.data);
+      setSummary(result.summary);
+    } catch (cause) {
+      if (requestSequence.current !== request) return;
+      onAction(cause instanceof Error ? cause.message : "Aktivitas belum dapat dimuat");
+    } finally {
+      if (requestSequence.current === request) setLoading(false);
+    }
+  }, [authenticated, onAction, stateFilter, typeFilter]);
+
+  useEffect(() => {
+    queueMicrotask(() => void loadActivities());
+  }, [loadActivities, refreshVersion]);
+
+  const repeat = useCallback((item: MobileActivityCenterItem) => {
+    setSelected(undefined);
+    if (item.type === "booking") {
+      onRebook(item.service_id);
+      return;
+    }
+    if (item.type === "order") {
+      onReorder(item.items ?? []);
+      return;
+    }
+    onReconsult(item.plan_id);
+  }, [onRebook, onReconsult, onReorder]);
+
+  const createForFilter = () => {
+    if (typeFilter === "order") return onCreateOrder();
+    if (typeFilter === "consultation") return onCreateConsultation();
+    return onCreateBooking();
+  };
+
+  if (!authenticated) {
+    return (
+      <Screen>
+        <View style={styles.header}>
+          <View style={styles.headerCopy}>
+            <Text style={styles.headerEyebrow}>PUSAT AKTIVITAS</Text>
+            <Text style={styles.headerTitle}>Semua perjalanan pet-mu</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={onOpenNotifications} style={styles.headerButton}>
+            <Ionicons name="notifications-outline" size={20} color={colors.text} />
+          </Pressable>
+        </View>
+        <Card style={styles.loginCard}>
+          <EmptyState icon="🐾" title="Masuk untuk melihat aktivitas" note="Booking, belanja, dan konsultasi tersimpan aman di akunmu." action="Masuk ke akun" onAction={onLogin} />
+        </Card>
+      </Screen>
+    );
+  }
+
+  return (
+    <>
+      <Screen contentStyle={styles.screenContent}>
+        <View style={styles.header}>
+          <View style={styles.headerCopy}>
+            <Text style={styles.headerEyebrow}>PUSAT AKTIVITAS</Text>
+            <Text style={styles.headerTitle}>Semua perjalanan pet-mu</Text>
+            <Text style={styles.headerSubtitle}>Pantau transaksi dan ulangi aktivitas dalam sekali tap.</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={onOpenNotifications} style={styles.headerButton}>
+            <Ionicons name="notifications-outline" size={20} color={colors.text} />
+            <View style={styles.notificationDot} />
+          </Pressable>
+        </View>
+
+        <View style={styles.summaryRow}>
+          <ActivitySummary active={typeFilter === "booking"} count={summary.booking} icon="calendar-outline" label="Booking" onPress={() => setTypeFilter("booking")} tone="blue" />
+          <ActivitySummary active={typeFilter === "order"} count={summary.order} icon="bag-handle-outline" label="Belanja" onPress={() => setTypeFilter("order")} tone="violet" />
+          <ActivitySummary active={typeFilter === "consultation"} count={summary.consultation} icon="chatbubbles-outline" label="Konsultasi" onPress={() => setTypeFilter("consultation")} tone="mint" />
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeFilters}>
+          {typeOptions.map((option) => {
+            const active = option.id === typeFilter;
+            return (
+              <Pressable
+                key={option.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => setTypeFilter(option.id)}
+                style={[styles.typeChip, active && styles.typeChipActive]}
+              >
+                <Ionicons name={option.icon} size={14} color={active ? colors.white : colors.sky600} />
+                <Text style={[styles.typeChipText, active && styles.typeChipTextActive]}>{option.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        <View style={styles.stateTabs}>
+          {stateOptions.map((option) => {
+            const active = option.id === stateFilter;
+            return (
+              <Pressable
+                key={option.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => setStateFilter(option.id)}
+                style={[styles.stateTab, active && styles.stateTabActive]}
+              >
+                <Text style={[styles.stateTabText, active && styles.stateTabTextActive]}>{option.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {typeFilter === "all" ? (
+          <View style={styles.newSection}>
+            <View style={styles.sectionHeadingRow}>
+              <View>
+                <Text style={styles.sectionEyebrow}>MULAI AKTIVITAS</Text>
+                <Text style={styles.sectionTitle}>Mau melakukan apa?</Text>
+              </View>
+              <View style={styles.liveBadge}><View style={styles.liveDot} /><Text style={styles.liveText}>Terhubung</Text></View>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.newActions}>
+              <NewAction icon="calendar-outline" label="Booking baru" note="Pilih layanan dari semua partner" onPress={onCreateBooking} tone="blue" />
+              <NewAction icon="bag-handle-outline" label="Belanja lagi" note="Cari produk dari seluruh toko" onPress={onCreateOrder} tone="violet" />
+              <NewAction icon="chatbubbles-outline" label="Tanya dokter" note="Pilih dokter dan paket konsultasi" onPress={onCreateConsultation} tone="mint" />
+            </ScrollView>
+          </View>
+        ) : (
+          <PrimaryButton
+            label={typeFilter === "order" ? "Buat pesanan baru" : typeFilter === "consultation" ? "Konsultasi baru" : "Booking layanan baru"}
+            icon="add"
+            onPress={createForFilter}
+            style={styles.createButton}
+          />
+        )}
+
+        <View style={styles.sectionHeadingRow}>
+          <View>
+            <Text style={styles.sectionEyebrow}>DATA AKUNMU</Text>
+            <Text style={styles.sectionTitle}>Daftar aktivitas</Text>
+          </View>
+          <Text style={styles.resultCount}>{activities.length} aktivitas</Text>
+        </View>
+
+        {loading ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator color={colors.sky600} />
+            <Text style={styles.loadingText}>Mengambil aktivitas terbaru…</Text>
+          </View>
+        ) : activities.length ? (
+          <View style={styles.activityList}>
+            {activities.map((item) => (
+              <ActivityCard key={`${item.type}-${item.id}`} item={item} onDetail={() => setSelected(item)} onRepeat={() => repeat(item)} />
+            ))}
+          </View>
+        ) : (
+          <Card style={styles.emptyCard}>
+            <EmptyState
+              icon={typeFilter === "order" ? "🛍️" : typeFilter === "consultation" ? "🩺" : "📅"}
+              title="Belum ada aktivitas"
+              note="Filter ini masih kosong. Mulai aktivitas baru dan progresnya akan tampil otomatis di sini."
+              action="Buat aktivitas baru"
+              onAction={createForFilter}
+            />
+          </Card>
+        )}
+      </Screen>
+      <ActivityDetailSheet
+        item={selected}
+        onClose={() => setSelected(undefined)}
+        onOpenProduct={(productId) => {
+          setSelected(undefined);
+          onOpenProduct(productId);
+        }}
+        onRepeat={() => selected && repeat(selected)}
+      />
+    </>
+  );
+}
 
 const styles = StyleSheet.create({
-  title: { marginTop: 8, color: colors.navy, fontSize: 22, lineHeight: 27, fontWeight: "900", letterSpacing: -.3 }, subtitle: { marginTop: 3, color: colors.muted, fontSize: 12, lineHeight: 17 },
-  summaryRow: { flexDirection: "row", gap: 7, marginTop: 14 }, summary: { flex: 1, padding: 9, borderWidth: 1, borderColor: colors.line, borderRadius: 14, backgroundColor: colors.white, ...shadow }, summaryIcon: { width: 31, height: 31, borderRadius: 10, alignItems: "center", justifyContent: "center" }, summaryValue: { marginTop: 6, color: colors.navy, fontSize: 16, fontWeight: "900" }, summaryLabel: { marginTop: 1, color: colors.muted, fontSize: 9 },
-  tabs: { height: 42, flexDirection: "row", gap: 3, marginTop: 14, marginBottom: 10, padding: 3, borderWidth: 1, borderColor: colors.line, borderRadius: 13, backgroundColor: colors.white }, tab: { flex: 1, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 }, activeTab: { backgroundColor: colors.sky50 }, tabText: { color: colors.muted, fontSize: 10, fontWeight: "700" }, activeTabText: { color: colors.sky600 }, tabCount: { minWidth: 16, height: 16, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky100 },
-  list: { gap: 9 }, bookingCard: { padding: 11, flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 9 }, bookingDate: { width: 45, height: 57, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 }, month: { color: colors.sky600, fontSize: 9, fontWeight: "800" }, day: { color: colors.navy, fontSize: 21, lineHeight: 22, fontWeight: "900" }, time: { color: colors.muted, fontSize: 9 }, bookingIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" }, bookingEmoji: { fontSize: 23 }, mint: { backgroundColor: colors.mint50 }, violet: { backgroundColor: colors.violet50 }, blue: { backgroundColor: colors.sky50 }, bookingCopy: { flex: 1, minWidth: 150 }, cardTitle: { marginTop: 6, color: colors.navy, fontSize: 13, lineHeight: 17, fontWeight: "900" }, cardNote: { marginTop: 2, color: colors.muted, fontSize: 10, lineHeight: 15 }, petChip: { alignSelf: "flex-start", marginTop: 5, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, overflow: "hidden", color: colors.text, backgroundColor: colors.canvas, fontSize: 9 }, bookingActions: { width: "100%", flexDirection: "row", gap: 6, paddingTop: 9, borderTopWidth: 1, borderTopColor: colors.line }, flex: { flex: 1 },
-  deliveryCard: { padding: 15 }, deliveryTop: { flexDirection: "row", alignItems: "center", gap: 11 }, deliveryCopy: { flex: 1 }, progress: { flexDirection: "row", gap: 5, marginVertical: 15 }, progressDone: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.sky500 }, progressActive: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.sky400 }, courier: { flexDirection: "row", alignItems: "center", gap: 9, padding: 10, borderRadius: 12, backgroundColor: colors.sky50 }, courierAvatar: { width: 39, height: 39, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.white }, courierCopy: { flex: 1 }, courierName: { color: colors.navy, fontSize: 13, fontWeight: "800" }, courierNote: { marginTop: 3, color: colors.muted, fontSize: 11 }, phone: { width: 34, height: 34, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: colors.white }, rowButtons: { flexDirection: "row", gap: 7, marginTop: 12 },
-  historyList: { gap: 8 }, history: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 14, backgroundColor: colors.white }, historyIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#EFF6FA" }, historyCopy: { flex: 1 }, historyTitle: { color: colors.navy, fontSize: 13, fontWeight: "800" }, historyDate: { marginTop: 4, color: colors.muted, fontSize: 11 }, historyPrice: { color: colors.text, fontSize: 12, fontWeight: "800", textAlign: "right" }, historyStatus: { marginTop: 4, color: colors.mint, fontSize: 11, fontWeight: "700", textAlign: "right" },
+  screenContent: { paddingTop: 4 },
+  header: { minHeight: 78, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
+  headerCopy: { flex: 1 },
+  headerEyebrow: { color: colors.sky600, fontSize: 9, fontWeight: "900", letterSpacing: 1.2 },
+  headerTitle: { marginTop: 3, color: colors.navy, fontSize: 21, lineHeight: 26, fontWeight: "900", letterSpacing: -0.4 },
+  headerSubtitle: { marginTop: 3, color: colors.muted, fontSize: 11, lineHeight: 16 },
+  headerButton: { position: "relative", width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, ...shadow },
+  notificationDot: { position: "absolute", right: 8, top: 8, width: 7, height: 7, borderRadius: 4, borderWidth: 1.5, borderColor: colors.white, backgroundColor: colors.red },
+  summaryRow: { flexDirection: "row", gap: 8, marginTop: 8 },
+  summaryCard: { minWidth: 0, flex: 1, padding: 10, borderWidth: 1, borderColor: colors.line, borderRadius: 16, backgroundColor: colors.white, ...shadow },
+  summaryIcon: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  summaryCount: { marginTop: 7, color: colors.navy, fontSize: 18, lineHeight: 21, fontWeight: "900" },
+  summaryLabel: { marginTop: 1, color: colors.muted, fontSize: 9, fontWeight: "700" },
+  typeFilters: { gap: 7, paddingTop: 14, paddingBottom: 10 },
+  typeChip: { height: 36, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 18, backgroundColor: colors.white },
+  typeChipActive: { borderColor: colors.sky600, backgroundColor: colors.sky600 },
+  typeChipText: { color: colors.text, fontSize: 11, fontWeight: "800" },
+  typeChipTextActive: { color: colors.white },
+  stateTabs: { height: 42, flexDirection: "row", gap: 3, padding: 3, borderWidth: 1, borderColor: colors.line, borderRadius: 14, backgroundColor: colors.white },
+  stateTab: { flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 11 },
+  stateTabActive: { backgroundColor: colors.sky50 },
+  stateTabText: { color: colors.muted, fontSize: 10, fontWeight: "700" },
+  stateTabTextActive: { color: colors.sky600, fontWeight: "900" },
+  newSection: { marginTop: 18 },
+  sectionHeadingRow: { minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 18, marginBottom: 9 },
+  sectionEyebrow: { color: colors.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1.1 },
+  sectionTitle: { marginTop: 2, color: colors.navy, fontSize: typography.sectionTitle, lineHeight: 22, fontWeight: "900" },
+  liveBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 12, backgroundColor: colors.mint50 },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.mint },
+  liveText: { color: "#14836E", fontSize: 9, fontWeight: "800" },
+  newActions: { gap: 8, paddingRight: 2 },
+  newAction: { width: 139, minHeight: 130, padding: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 17, backgroundColor: colors.white, ...shadow },
+  newActionIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  newActionLabel: { marginTop: 9, color: colors.navy, fontSize: 13, fontWeight: "900" },
+  newActionNote: { minHeight: 30, marginTop: 3, marginBottom: 4, color: colors.muted, fontSize: 9, lineHeight: 14 },
+  createButton: { marginTop: 16 },
+  resultCount: { color: colors.sky600, fontSize: 10, fontWeight: "800" },
+  activityList: { gap: 10 },
+  activityCard: { padding: 12 },
+  activityTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  activityIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  activityCopy: { minWidth: 0, flex: 1 },
+  activityMetaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  activityType: { fontSize: 9, fontWeight: "900", letterSpacing: 0.7, textTransform: "uppercase" },
+  activityCode: { flexShrink: 1, color: colors.muted, fontSize: 9, fontWeight: "700" },
+  activityTitle: { marginTop: 4, color: colors.navy, fontSize: 14, lineHeight: 18, fontWeight: "900" },
+  activitySubtitle: { marginTop: 2, color: colors.muted, fontSize: 10, lineHeight: 15 },
+  activityInfoRow: { minWidth: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 11 },
+  dateInline: { minWidth: 0, flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 4 },
+  dateInlineText: { flexShrink: 1, color: colors.muted, fontSize: 9 },
+  activityHint: { marginTop: 8, color: colors.text, fontSize: 10, fontWeight: "700" },
+  cardActions: { flexDirection: "row", gap: 7, marginTop: 11, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.line },
+  actionFlex: { minWidth: 0, flex: 1 },
+  loadingState: { minHeight: 180, alignItems: "center", justifyContent: "center", gap: 9 },
+  loadingText: { color: colors.muted, fontSize: 11 },
+  emptyCard: { overflow: "hidden" },
+  loginCard: { marginTop: 20, overflow: "hidden" },
+  pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
+  backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(10,38,58,.38)" },
+  sheetSafeArea: { width: "100%", maxHeight: "88%" },
+  sheet: { overflow: "hidden", maxHeight: "100%", borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.white, ...shadow },
+  sheetHandle: { alignSelf: "center", width: 42, height: 5, marginTop: 8, borderRadius: 3, backgroundColor: "#DCE7ED" },
+  sheetHeader: { minHeight: 70, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
+  sheetHeaderIcon: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  sheetHeaderCopy: { minWidth: 0, flex: 1 },
+  sheetEyebrow: { fontSize: 9, fontWeight: "900", letterSpacing: 1 },
+  sheetTitle: { marginTop: 2, color: colors.navy, fontSize: 16, fontWeight: "900" },
+  sheetClose: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: colors.canvas },
+  sheetContent: { padding: 16, paddingBottom: 24 },
+  detailHero: { padding: 16, borderRadius: 18 },
+  detailTitle: { marginTop: 10, color: colors.navy, fontSize: 20, lineHeight: 25, fontWeight: "900", letterSpacing: -0.3 },
+  detailSubtitle: { marginTop: 3, color: colors.text, fontSize: 11, lineHeight: 16 },
+  detailAmount: { marginTop: 11, color: colors.navy, fontSize: 17, fontWeight: "900" },
+  detailSection: { marginTop: 18 },
+  detailSectionTitle: { marginBottom: 7, color: colors.navy, fontSize: 14, fontWeight: "900" },
+  detailRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: colors.line },
+  detailRowIcon: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 },
+  detailRowCopy: { minWidth: 0, flex: 1 },
+  detailRowLabel: { color: colors.muted, fontSize: 9, fontWeight: "700" },
+  detailRowValue: { marginTop: 2, color: colors.text, fontSize: 12, lineHeight: 17, fontWeight: "700" },
+  productRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
+  productImageFallback: { width: 45, height: 45, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: colors.violet50 },
+  productCopy: { minWidth: 0, flex: 1 },
+  productName: { color: colors.navy, fontSize: 12, lineHeight: 16, fontWeight: "800" },
+  productStore: { marginTop: 2, color: colors.muted, fontSize: 9 },
+  productPrice: { marginTop: 3, color: colors.text, fontSize: 11, fontWeight: "800" },
+  productOpen: { width: 34, height: 34, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 },
+  priceBreakdown: { gap: 7, marginTop: 13, padding: 13, borderRadius: 15, backgroundColor: colors.canvas },
+  priceLine: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  priceLabel: { color: colors.muted, fontSize: 10 },
+  priceValue: { color: colors.text, fontSize: 10, fontWeight: "700" },
+  priceDiscountLabel: { color: "#14836E", fontSize: 10 },
+  priceDiscountValue: { color: "#14836E", fontSize: 10, fontWeight: "800" },
+  priceTotal: { marginTop: 3, paddingTop: 9, borderTopWidth: 1, borderTopColor: colors.line },
+  priceTotalLabel: { color: colors.navy, fontSize: 12, fontWeight: "900" },
+  priceTotalValue: { color: colors.sky600, fontSize: 13, fontWeight: "900" },
+  paymentCard: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 18, padding: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 15 },
+  paymentIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 },
+  paymentCopy: { minWidth: 0, flex: 1 },
+  paymentLabel: { color: colors.muted, fontSize: 9 },
+  paymentValue: { marginTop: 2, color: colors.navy, fontSize: 11, fontWeight: "800", textTransform: "capitalize" },
+  paymentAmount: { color: colors.navy, fontSize: 11, fontWeight: "900" },
+  createdAt: { marginVertical: 12, color: colors.muted, fontSize: 9, textAlign: "center" },
 });

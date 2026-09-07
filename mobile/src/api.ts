@@ -312,6 +312,80 @@ export type MobileActivity = {
   starts_at?: string;
   occurred_at: string;
 };
+export type MobileActivityType = "booking" | "order" | "consultation";
+export type MobileActivityState = "all" | "upcoming" | "ongoing" | "history";
+export type MobileActivityOrderItem = {
+  id: string;
+  product_id: string;
+  name: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  business_id: string;
+  business_name: string;
+  branch_id: string;
+  branch_name: string;
+  image_url: string;
+};
+export type MobileActivityCenterItem = {
+  id: string;
+  type: MobileActivityType;
+  reference_id: string;
+  code: string;
+  title: string;
+  subtitle: string;
+  status: string;
+  payment_status: string;
+  amount: number;
+  state: Exclude<MobileActivityState, "all">;
+  scheduled_at?: string | null;
+  occurred_at: string;
+  updated_at: string;
+  service_id?: string;
+  service_name?: string;
+  service_category?: string;
+  service_duration_minutes?: number;
+  service_price?: number;
+  business_id?: string;
+  business_name?: string;
+  branch_id?: string;
+  branch_name?: string;
+  address?: string;
+  city?: string;
+  pet_id?: string;
+  pet_name?: string;
+  notes?: string;
+  subtotal?: number;
+  platform_fee?: number;
+  discount_amount?: number;
+  voucher_code?: string;
+  points_redeemed?: number;
+  points_discount?: number;
+  total_amount?: number;
+  item_count?: number;
+  items?: MobileActivityOrderItem[];
+  paid_at?: string | null;
+  veterinarian_id?: string;
+  doctor_name?: string;
+  plan_id?: string;
+  plan_name?: string;
+  mode?: string;
+  description?: string;
+  duration_minutes?: number;
+  followup_days?: number;
+  plan_price?: number;
+  complaint?: string;
+  diagnosis?: string;
+  doctor_notes?: string;
+  started_at?: string | null;
+  ended_at?: string | null;
+  room_key?: string;
+};
+export type MobileActivityCenterResponse = {
+  data: MobileActivityCenterItem[];
+  count: number;
+  summary: Record<MobileActivityType, number>;
+};
 export type MobileBootstrap = {
   user: MobileOwner;
   pets: MobilePet[];
@@ -551,6 +625,14 @@ export const getMobileServices = (options?: {
     `/api/v1/public/discovery/services${query.size ? `?${query}` : ""}`,
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 };
+
+export const getMobileActivityCenter = (
+  type: MobileActivityType | "all" = "all",
+  state: MobileActivityState = "all",
+) =>
+  platformRequest<MobileActivityCenterResponse>(
+    `/api/v1/petowner/activity-center?type=${encodeURIComponent(type)}&state=${encodeURIComponent(state)}&limit=100`,
+  ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 
 export const getMobileProducts = (options?: {
   search?: string;

@@ -56,6 +56,7 @@ import {
   toggleMobileFavorite,
   verifyMobileRegistrationOTP,
   type MobileBootstrap,
+  type MobileActivityOrderItem,
   type MobileMedicalRecord,
   type MobileNotification,
   type MobilePaymentIntent,
@@ -189,6 +190,17 @@ function MobileApp() {
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [marketplaceIntent, setMarketplaceIntent] = useState<{
+    token: number;
+    productId?: string;
+    items?: Array<{ product_id: string; quantity: number }>;
+  }>();
+  const [worldIntent, setWorldIntent] = useState<{
+    token: number;
+    mode: "consult";
+    itemId?: string;
+  }>();
+  const intentTokenRef = useRef(0);
   const tabRef = useRef<Tab>("home");
   const tabHistoryRef = useRef<Tab[]>([]);
   const [screenTransition] = useState(() => new Animated.Value(1));
@@ -439,15 +451,48 @@ function MobileApp() {
     setChatOpen(true);
   };
   const openBooking = (service?: Service) => {
+    if (!service) {
+      navigateTo("discover");
+      return;
+    }
     if (!requireLogin()) return;
-    const selected = service ?? services[0];
-    if (!selected) return notify("Belum ada layanan yang tersedia");
-    setSelectedService(selected);
+    setSelectedService(service);
     setBookingOpen(true);
+  };
+  const nextIntentToken = () => {
+    intentTokenRef.current += 1;
+    return intentTokenRef.current;
+  };
+  const openMarketplace = (productId?: string) => {
+    setMarketplaceIntent({ token: nextIntentToken(), productId });
+    navigateTo("marketplace");
+  };
+  const reorderProducts = (items: MobileActivityOrderItem[]) => {
+    setMarketplaceIntent({
+      token: nextIntentToken(),
+      items: items.map((item) => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+      })),
+    });
+    navigateTo("marketplace");
+  };
+  const openConsultation = (itemId?: string) => {
+    setWorldIntent({ token: nextIntentToken(), mode: "consult", itemId });
+    navigateTo("world");
+  };
+  const rebookService = (serviceId?: string) => {
+    const service = services.find((item) => item.id === serviceId);
+    if (service) {
+      openBooking(service);
+      return;
+    }
+    navigateTo("discover");
+    notify("Pilih layanan pengganti dari semua partner Slivadoc");
   };
   const openSearchResult = (result: MobileGlobalSearchResult) => {
     if (result.id === "booking") {
-      openBooking();
+      navigateTo("discover");
       return;
     }
     if (result.category === "service") {
@@ -588,6 +633,7 @@ function MobileApp() {
                       );
                     }
                   }}
+                  intent={marketplaceIntent}
                 />
               ) : null}
               {tab === "world" ? (
@@ -599,17 +645,23 @@ function MobileApp() {
                   petName={pet?.name}
                   pet={pet}
                   onLogin={() => setLoginOpen(true)}
+                  intent={worldIntent}
                 />
               ) : null}
               {tab === "activity" ? (
                 <ActivityScreen
+                  authenticated={Boolean(bootstrap)}
+                  refreshVersion={refreshVersion}
                   onAction={notify}
-                  onBook={() => openBooking()}
                   onOpenNotifications={() => setNotificationsOpen(true)}
-                  activities={bootstrap?.activities ?? []}
-                  petNames={Object.fromEntries(
-                    pets.map((item) => [item.id, item.name]),
-                  )}
+                  onLogin={() => setLoginOpen(true)}
+                  onCreateBooking={() => navigateTo("discover")}
+                  onCreateOrder={() => openMarketplace()}
+                  onCreateConsultation={() => openConsultation()}
+                  onRebook={rebookService}
+                  onReorder={reorderProducts}
+                  onReconsult={openConsultation}
+                  onOpenProduct={openMarketplace}
                 />
               ) : null}
               {tab === "health" ? (

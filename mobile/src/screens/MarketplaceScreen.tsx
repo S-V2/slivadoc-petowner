@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -45,6 +45,11 @@ type MarketplaceScreenProps = {
   onOpenNotifications: () => void;
   onRequireLogin: () => void;
   onToggleFavorite: (id: string) => Promise<void> | void;
+  intent?: {
+    token: number;
+    productId?: string;
+    items?: Array<{ product_id: string; quantity: number }>;
+  };
 };
 
 const money = new Intl.NumberFormat("id-ID", {
@@ -199,6 +204,7 @@ export function MarketplaceScreen({
   onOpenNotifications,
   onRequireLogin,
   onToggleFavorite,
+  intent,
 }: MarketplaceScreenProps) {
   const [products, setProducts] = useState<MobileProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -221,6 +227,7 @@ export function MarketplaceScreen({
   const [quote, setQuote] = useState<MobileOrderQuote>();
   const [quoteBusy, setQuoteBusy] = useState(false);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const handledIntent = useRef(0);
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -274,13 +281,17 @@ export function MarketplaceScreen({
       return Number(right.available) - Number(left.available) || right.review_count - left.review_count;
     });
   }, [category, products, query, sort, store]);
+  const productsById = useMemo(
+    () => new Map(products.map((product) => [product.id, product])),
+    [products],
+  );
   const cartItems = useMemo(
     () =>
       Object.entries(cart).flatMap(([id, quantity]) => {
-        const product = products.find((item) => item.id === id);
+        const product = productsById.get(id);
         return product && quantity > 0 ? [{ product, quantity }] : [];
       }),
-    [cart, products],
+    [cart, productsById],
   );
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const localSubtotal = cartItems.reduce(
@@ -328,6 +339,41 @@ export function MarketplaceScreen({
     setReviewRating(5);
     void loadReviews(product);
   };
+
+  useEffect(() => {
+    if (!intent || loading || handledIntent.current === intent.token) return;
+    queueMicrotask(() => {
+      handledIntent.current = intent.token;
+      if (intent.productId) {
+        const product = productsById.get(intent.productId);
+        if (!product) {
+          onAction("Produk pada pesanan lama sudah tidak tersedia");
+          return;
+        }
+        setSelected(product);
+        setReviewComment("");
+        setReviewRating(5);
+        void loadReviews(product);
+        return;
+      }
+      if (intent.items?.length) {
+        const restored = intent.items.reduce<Record<string, number>>((result, item) => {
+          const product = productsById.get(item.product_id);
+          if (product?.available) {
+            result[product.id] = Math.max(1, Math.min(Math.floor(product.stock), item.quantity));
+          }
+          return result;
+        }, {});
+        if (!Object.keys(restored).length) {
+          onAction("Produk pada pesanan lama sedang tidak tersedia");
+          return;
+        }
+        setCart(restored);
+        setQuote(undefined);
+        setCartOpen(true);
+      }
+    });
+  }, [intent, loadReviews, loading, onAction, productsById]);
 
   const orderInput = useMemo(
     () => ({

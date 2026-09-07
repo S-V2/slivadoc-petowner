@@ -911,6 +911,50 @@ function SheetHeader({
   );
 }
 
+function notificationCategoryLabel(category: string) {
+  const labels: Record<string, string> = {
+    health: "Kesehatan",
+    booking: "Booking",
+    event: "Event",
+    community: "Komunitas",
+    points: "Points",
+  };
+  return labels[category] ?? category;
+}
+
+function notificationVisual(category: string): {
+  icon: keyof typeof Ionicons.glyphMap;
+  backgroundColor: string;
+  color: string;
+} {
+  if (category === "health") {
+    return { icon: "pulse-outline", backgroundColor: colors.mint50, color: "#168773" };
+  }
+  if (category === "booking") {
+    return { icon: "calendar-outline", backgroundColor: colors.sky50, color: colors.sky600 };
+  }
+  if (category === "event") {
+    return { icon: "ticket-outline", backgroundColor: colors.violet50, color: "#6757C9" };
+  }
+  if (category === "community") {
+    return { icon: "chatbubble-ellipses-outline", backgroundColor: colors.pink50, color: "#D45A91" };
+  }
+  if (category === "points") {
+    return { icon: "sparkles", backgroundColor: colors.yellow50, color: "#A06D0F" };
+  }
+  return { icon: "notifications-outline", backgroundColor: colors.sky50, color: colors.sky600 };
+}
+
+function formatNotificationTime(value: string) {
+  return new Date(value).toLocaleString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function MoreModal({
   visible,
   activeTab,
@@ -1011,6 +1055,7 @@ function NotificationModal({
   const visibleItems = category
     ? items.filter((item) => item.category === category)
     : items;
+  const unreadCount = visibleItems.filter((item) => !item.read_at).length;
   return (
     <Modal
       visible={visible}
@@ -1019,9 +1064,9 @@ function NotificationModal({
       onRequestClose={onClose}
     >
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <SafeAreaView style={styles.sheetWrap}>
+        <SafeAreaView edges={["bottom", "left", "right"]} style={styles.notificationSheetWrap}>
           <Pressable
-            style={styles.sheet}
+            style={styles.notificationSheet}
             onPress={(event) => event.stopPropagation()}
           >
             <View style={styles.sheetHandle} />
@@ -1033,73 +1078,75 @@ function NotificationModal({
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 6, paddingVertical: 8 }}
+              style={styles.notificationFilters}
+              contentContainerStyle={styles.notificationFiltersContent}
             >
-              <Pressable onPress={() => setCategory("")}>
-                <Pill tone={!category ? "mint" : undefined}>Semua</Pill>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setCategory("")}
+                style={({ pressed }) => [styles.notificationFilter, !category && styles.notificationFilterActive, pressed && styles.pressed]}
+              >
+                <Text style={[styles.notificationFilterText, !category && styles.notificationFilterTextActive]}>Semua</Text>
               </Pressable>
               {categories.map((value) => (
-                <Pressable key={value} onPress={() => setCategory(value)}>
-                  <Pill tone={category === value ? "mint" : undefined}>
-                    {value}
-                  </Pill>
+                <Pressable
+                  accessibilityRole="button"
+                  key={value}
+                  onPress={() => setCategory(value)}
+                  style={({ pressed }) => [styles.notificationFilter, category === value && styles.notificationFilterActive, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.notificationFilterText, category === value && styles.notificationFilterTextActive]}>{notificationCategoryLabel(value)}</Text>
                 </Pressable>
               ))}
             </ScrollView>
-            <Pressable
-              disabled={!items.some((item) => !item.read_at)}
-              onPress={() => void onReadAll()}
-            >
-              <Text style={styles.markRead}>Tandai semua sudah dibaca</Text>
-            </Pressable>
-            <ScrollView>
+            <View style={styles.notificationToolbar}>
+              <View style={styles.notificationSummary}>
+                <View style={styles.notificationSummaryIcon}><Ionicons name="mail-unread-outline" size={14} color={colors.sky600} /></View>
+                <View><Text style={styles.notificationSummaryTitle}>{visibleItems.length} update</Text><Text style={styles.notificationSummaryNote}>{unreadCount} belum dibaca</Text></View>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                disabled={!items.some((item) => !item.read_at)}
+                onPress={() => void onReadAll()}
+                style={({ pressed }) => [styles.markReadButton, !items.some((item) => !item.read_at) && styles.markReadButtonDisabled, pressed && styles.pressed]}
+              >
+                <Ionicons name="checkmark-done" size={14} color={colors.sky600} />
+                <Text style={styles.markRead}>Tandai dibaca</Text>
+              </Pressable>
+            </View>
+            <ScrollView style={styles.notificationList} contentContainerStyle={styles.notificationListContent} showsVerticalScrollIndicator={false}>
               {visibleItems.length ? (
-                visibleItems.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => {
-                      void onRead(item);
-                      onAction(item.title);
-                    }}
-                    style={styles.notification}
-                  >
-                    <View
-                      style={[
-                        styles.notificationIcon,
-                        {
-                          backgroundColor:
-                            item.category === "health"
-                              ? colors.mint50
-                              : item.category === "points"
-                                ? colors.yellow50
-                                : colors.sky50,
-                        },
-                      ]}
+                visibleItems.map((item) => {
+                  const visual = notificationVisual(item.category);
+                  return (
+                    <Pressable
+                      key={item.id}
+                      onPress={() => {
+                        void onRead(item);
+                        onAction(item.title);
+                      }}
+                      style={({ pressed }) => [styles.notification, !item.read_at && styles.notificationUnread, pressed && styles.pressed]}
                     >
-                      <Text>
-                        {item.category === "health"
-                          ? "🩺"
-                          : item.category === "booking"
-                            ? "📅"
-                            : item.category === "points"
-                              ? "✦"
-                              : "🔔"}
-                      </Text>
-                    </View>
-                    <View style={styles.notificationCopy}>
-                      <Text style={styles.notificationTitle}>{item.title}</Text>
-                      <Text style={styles.notificationNote}>{item.body}</Text>
-                      <Text style={styles.notificationTime}>
-                        {new Date(item.created_at).toLocaleString("id-ID")}
-                      </Text>
-                    </View>
-                    {!item.read_at ? <View style={styles.unreadDot} /> : null}
-                  </Pressable>
-                ))
+                      <View style={[styles.notificationIcon, { backgroundColor: visual.backgroundColor }]}>
+                        <Ionicons name={visual.icon} size={19} color={visual.color} />
+                      </View>
+                      <View style={styles.notificationCopy}>
+                        <View style={styles.notificationHeadline}>
+                          <Text numberOfLines={2} style={styles.notificationTitle}>{item.title}</Text>
+                          {!item.read_at ? <View style={styles.unreadDot} /> : null}
+                        </View>
+                        <Text numberOfLines={3} style={styles.notificationNote}>{item.body}</Text>
+                        <View style={styles.notificationTimeRow}><Ionicons name="time-outline" size={11} color="#8999A9" /><Text style={styles.notificationTime}>{formatNotificationTime(item.created_at)}</Text></View>
+                      </View>
+                    </Pressable>
+                  );
+                })
               ) : (
-                <Text style={styles.notificationNote}>
-                  Belum ada notifikasi pada kategori ini.
-                </Text>
+                <View style={styles.notificationEmpty}>
+                  <View style={styles.notificationEmptyIcon}><Ionicons name="notifications-off-outline" size={24} color={colors.sky600} /></View>
+                  <Text style={styles.notificationEmptyTitle}>Belum ada update</Text>
+                  <Text style={styles.notificationEmptyNote}>Notifikasi pada kategori ini akan muncul di sini.</Text>
+                </View>
               )}
             </ScrollView>
           </Pressable>
@@ -1907,6 +1954,19 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     backgroundColor: colors.white,
   },
+  notificationSheetWrap: {
+    height: "86%",
+    overflow: "hidden",
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    backgroundColor: colors.white,
+    shadowColor: "#173C57",
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: -5 },
+    elevation: 8,
+  },
+  notificationSheet: { flex: 1, paddingHorizontal: 16, paddingBottom: 4 },
   moreSheetWrap: { maxHeight: "84%" },
   moreSheet: {
     paddingHorizontal: 16,
@@ -1988,44 +2048,81 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.white,
   },
-  markRead: {
-    minHeight: 44,
-    paddingVertical: 12,
-    color: colors.sky600,
-    fontSize: 12,
-    fontWeight: "800",
-    textAlign: "right",
+  notificationFilters: { flexGrow: 0, marginTop: 11 },
+  notificationFiltersContent: { gap: 7, paddingBottom: 4 },
+  notificationFilter: {
+    minHeight: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 11,
+    backgroundColor: "#FAFCFE",
   },
-  notification: {
-    minHeight: 72,
+  notificationFilterActive: { borderColor: "#BCEBDD", backgroundColor: colors.mint50 },
+  notificationFilterText: { color: colors.muted, fontSize: 10, fontWeight: "800" },
+  notificationFilterTextActive: { color: "#13856F", fontWeight: "900" },
+  notificationToolbar: {
+    minHeight: 54,
     flexDirection: "row",
     alignItems: "center",
-    gap: 11,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 7,
+    marginBottom: 8,
   },
+  notificationSummary: { minWidth: 0, flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  notificationSummaryIcon: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: colors.sky50 },
+  notificationSummaryTitle: { color: colors.navy, fontSize: 11, fontWeight: "900" },
+  notificationSummaryNote: { marginTop: 1, color: colors.muted, fontSize: 9 },
+  markReadButton: { minHeight: 34, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.sky50 },
+  markReadButtonDisabled: { opacity: 0.45 },
+  markRead: { color: colors.sky600, fontSize: 10, fontWeight: "900" },
+  notificationList: { flex: 1 },
+  notificationListContent: { gap: 8, paddingBottom: 12 },
+  notification: {
+    minHeight: 88,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 11,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 16,
+    backgroundColor: "#FCFEFF",
+  },
+  notificationUnread: { borderColor: colors.sky100, backgroundColor: "#F6FBFF" },
   notificationIcon: {
-    width: 39,
-    height: 39,
-    borderRadius: 13,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
-  notificationCopy: { flex: 1 },
-  notificationTitle: { color: colors.navy, fontSize: 13, fontWeight: "900" },
+  notificationCopy: { minWidth: 0, flex: 1 },
+  notificationHeadline: { minWidth: 0, flexDirection: "row", alignItems: "flex-start", gap: 7 },
+  notificationTitle: { minWidth: 0, flex: 1, color: colors.navy, fontSize: 12, lineHeight: 16, fontWeight: "900" },
   notificationNote: {
     marginTop: 3,
     color: colors.muted,
-    fontSize: 11,
-    lineHeight: 17,
+    fontSize: 10,
+    lineHeight: 15,
   },
-  notificationTime: { marginTop: 4, color: "#8999A9", fontSize: 10 },
+  notificationTimeRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
+  notificationTime: { color: "#8999A9", fontSize: 9 },
   unreadDot: {
+    marginTop: 4,
     width: 7,
     height: 7,
+    flexShrink: 0,
     borderRadius: 4,
     backgroundColor: colors.sky500,
   },
+  notificationEmpty: { minHeight: 260, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
+  notificationEmptyIcon: { width: 54, height: 54, alignItems: "center", justifyContent: "center", borderRadius: 18, backgroundColor: colors.sky50 },
+  notificationEmptyTitle: { marginTop: 10, color: colors.navy, fontSize: typography.cardTitle, fontWeight: "900" },
+  notificationEmptyNote: { maxWidth: 260, marginTop: 4, color: colors.muted, fontSize: typography.caption, lineHeight: 15, textAlign: "center" },
   loginSheetWrap: { maxHeight: "88%" },
   loginSheet: {
     maxHeight: "100%",

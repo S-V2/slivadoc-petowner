@@ -112,3 +112,13 @@ test("mobile sheets preserve tappable space above the panel", () => {
   assert.match(app, /loginSheetWrap:\s*\{\s*maxHeight:\s*"88%"/);
   assert.match(app, /bookingWrap:\s*\{\s*maxHeight:\s*"88%"/);
 });
+
+test("notification sheet uses compact controls and top-aligned cards", () => {
+  assert.match(app, /notificationSheetWrap:\s*\{[\s\S]*?height:\s*"86%"/);
+  assert.match(app, /notificationFiltersContent:\s*\{\s*gap:\s*7/);
+  assert.match(app, /notificationToolbar:\s*\{[\s\S]*?marginBottom:\s*8/);
+  assert.match(app, /notificationListContent:\s*\{\s*gap:\s*8/);
+  assert.match(app, /notification:[\s\S]*?alignItems:\s*"flex-start"/);
+  assert.match(app, /formatNotificationTime/);
+  assert.match(app, /Tandai dibaca/);
+});

@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: ["/", "/layanan/", "/panduan/", "/kota/", "/tempat/", "/tentang", "/mitra"],
-        disallow: ["/api/", "/backend-test/", "/setup/"],
+        disallow: ["/api/", "/backend-test/", "/setup/", "/brand"],
       },
     ],
     sitemap: absoluteUrl("/sitemap.xml"),

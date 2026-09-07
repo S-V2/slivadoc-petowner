@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -34,6 +35,7 @@ import {
   getPetFamily,
   getLostPetMode,
   getPetOwnerBootstrap,
+  getCurrentUser,
   invitePetFamily,
   revokePetFamily,
   isPetOwnerAuthenticated,
@@ -409,6 +411,8 @@ export default function PetOwnerApp() {
     }
     try {
       clearPlatformCache();
+      const identity = await getCurrentUser();
+      if (identity?.role === "official_brand") { window.location.assign("/brand"); return; }
       const data = await getPetOwnerBootstrap();
       const mapped = data.pets.map(apiPetToView);
       setAccount(data.user);
@@ -992,6 +996,7 @@ function PetOwnerLogin({
         expires_in: data.expires_in,
       });
       clearPlatformCache();
+      if (data.user?.role === "official_brand") { window.location.assign("/brand"); return; }
       await onSuccess();
       notify("Login berhasil. Selamat datang di Slivadoc.");
       close();
@@ -1372,6 +1377,7 @@ function Sidebar({
           <Icon name="user" /> Masuk ke akun
         </button>
       )}
+      <Link href="/brand" className="side-login-button">Official Brand workspace →</Link>
     </aside>
   );
 }

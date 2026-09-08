@@ -18,7 +18,9 @@ const world = readFileSync(
 );
 
 test("activity center loads booking, order, and consultation filters from the database API", () => {
-  assert.match(api, /\/api\/v1\/petowner\/activity-center\?type=/);
+  assert.match(api, /\/api\/v1\/petowner\/activities\?view=center&type=/);
+  assert.match(api, /normalizeLegacyActivity/);
+  assert.match(api, /isDetailedActivityResponse/);
   assert.match(activity, /getMobileActivityCenter\(typeFilter, stateFilter\)/);
   assert.match(activity, /id:\s*"booking"/);
   assert.match(activity, /id:\s*"order"/);

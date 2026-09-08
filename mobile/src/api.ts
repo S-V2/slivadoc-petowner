@@ -332,6 +332,7 @@ export type MobileFamilyAccess = {
 export type MobileActivity = {
   id: string;
   pet_id: string;
+  reference_id?: string;
   category: string;
   title: string;
   description: string;
@@ -415,6 +416,11 @@ export type MobileActivityCenterResponse = {
   data: MobileActivityCenterItem[];
   count: number;
   summary: Record<MobileActivityType, number>;
+};
+
+type LegacyMobileActivityResponse = {
+  data: MobileActivity[];
+  count: number;
 };
 export type MobileBootstrap = {
   user: MobileOwner;
@@ -658,13 +664,117 @@ export const getMobileServices = (options?: {
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 };
 
-export const getMobileActivityCenter = (
+function legacyActivityType(activity: MobileActivity): MobileActivityType | undefined {
+  const source = `${activity.category} ${activity.action_route}`.toLowerCase();
+  if (source.includes("booking") || source.includes("hotel") || source.includes("home_service")) return "booking";
+  if (source.includes("order") || source.includes("marketplace") || source.includes("commerce")) return "order";
+  if (source.includes("consult")) return "consultation";
+  return undefined;
+}
+
+function legacyActivityState(
+  activity: MobileActivity,
+  type: MobileActivityType,
+): Exclude<MobileActivityState, "all"> {
+  const status = activity.status.toLowerCase();
+  if (["completed", "cancelled", "no_show"].includes(status)) return "history";
+  const scheduledAt = activity.starts_at ? new Date(activity.starts_at).getTime() : Number.NaN;
+  if (
+    Number.isFinite(scheduledAt) &&
+    scheduledAt > Date.now() &&
+    (type === "booking" || ["scheduled", "pending_payment", "requested", "confirmed"].includes(status))
+  ) {
+    return "upcoming";
+  }
+  return "ongoing";
+}
+
+function legacyMetadataValue(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function legacyMetadataAmount(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function normalizeLegacyActivity(
+  activity: MobileActivity,
+): MobileActivityCenterItem | undefined {
+  const type = legacyActivityType(activity);
+  if (!type) return undefined;
+  const metadata = activity.metadata ?? {};
+  const referenceId = activity.reference_id || legacyMetadataValue(metadata, "reference_id") || activity.id;
+  const amount = legacyMetadataAmount(metadata, "total_amount") || legacyMetadataAmount(metadata, "amount");
+  return {
+    id: activity.id,
+    type,
+    reference_id: referenceId,
+    code:
+      legacyMetadataValue(metadata, "booking_code") ||
+      legacyMetadataValue(metadata, "order_number") ||
+      legacyMetadataValue(metadata, "code") ||
+      referenceId.slice(0, 8).toUpperCase(),
+    title: activity.title,
+    subtitle: activity.description,
+    status: activity.status,
+    payment_status: legacyMetadataValue(metadata, "payment_status") || "belum tersedia",
+    amount,
+    total_amount: amount,
+    state: legacyActivityState(activity, type),
+    scheduled_at: activity.starts_at,
+    occurred_at: activity.occurred_at,
+    updated_at: activity.occurred_at,
+    pet_id: activity.pet_id,
+    pet_name: legacyMetadataValue(metadata, "pet_name"),
+    service_id: legacyMetadataValue(metadata, "service_id"),
+    plan_id: legacyMetadataValue(metadata, "plan_id"),
+    business_name: legacyMetadataValue(metadata, "business_name"),
+    branch_name: legacyMetadataValue(metadata, "branch_name"),
+    notes: legacyMetadataValue(metadata, "notes"),
+  };
+}
+
+function isDetailedActivityResponse(
+  result: MobileActivityCenterResponse | LegacyMobileActivityResponse,
+): result is MobileActivityCenterResponse {
+  return Boolean(
+    "summary" in result &&
+      result.summary &&
+      typeof result.summary.booking === "number" &&
+      typeof result.summary.order === "number" &&
+      typeof result.summary.consultation === "number",
+  );
+}
+
+export const getMobileActivityCenter = async (
   type: MobileActivityType | "all" = "all",
   state: MobileActivityState = "all",
-) =>
-  platformRequest<MobileActivityCenterResponse>(
-    `/api/v1/petowner/activity-center?type=${encodeURIComponent(type)}&state=${encodeURIComponent(state)}&limit=100`,
-  ).then((result) => ({ ...result, data: uniqueById(result.data) }));
+) => {
+  const result = await platformRequest<
+    MobileActivityCenterResponse | LegacyMobileActivityResponse
+  >(
+    `/api/v1/petowner/activities?view=center&type=${encodeURIComponent(type)}&state=${encodeURIComponent(state)}&limit=100`,
+  );
+  if (isDetailedActivityResponse(result)) {
+    return { ...result, data: uniqueById(result.data) };
+  }
+
+  const normalized = uniqueById(
+    result.data
+      .map(normalizeLegacyActivity)
+      .filter((item): item is MobileActivityCenterItem => Boolean(item)),
+  );
+  const summary = normalized.reduce<Record<MobileActivityType, number>>(
+    (counts, item) => ({ ...counts, [item.type]: counts[item.type] + 1 }),
+    { booking: 0, order: 0, consultation: 0 },
+  );
+  const data = normalized.filter(
+    (item) => (type === "all" || item.type === type) && (state === "all" || item.state === state),
+  );
+  return { data, count: data.length, summary };
+};
 
 export const getMobileProducts = (options?: {
   search?: string;

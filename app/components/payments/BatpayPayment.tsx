@@ -9,6 +9,26 @@ import {
   type PaymentMethod,
 } from "../../lib/platform-api";
 
+const providerBrandPattern = /\bbat[\s-]?pay\b/gi;
+
+function paymentMethodLabel(method: PaymentMethod) {
+  if (method.method === "qris") return "QRIS";
+  return `${method.bank_code || "Bank"} Virtual Account`;
+}
+
+function paymentMethodDescription(method: PaymentMethod) {
+  if (method.method === "qris")
+    return "Pindai kode QR dengan aplikasi pembayaran pilihan Anda.";
+  return "Transfer melalui aplikasi atau kanal bank pilihan Anda.";
+}
+
+function neutralPaymentMessage(value: unknown, fallback: string) {
+  const message = value instanceof Error ? value.message : String(value || "");
+  return message.trim()
+    ? message.replace(providerBrandPattern, "penyedia pembayaran")
+    : fallback;
+}
+
 export function PaymentMethodPicker({
   value,
   onChange,
@@ -33,9 +53,10 @@ export function PaymentMethodPicker({
       .catch((error) => {
         if (active)
           setMessage(
-            error instanceof Error
-              ? error.message
-              : "Metode pembayaran belum dapat dimuat",
+            neutralPaymentMessage(
+              error,
+              "Metode pembayaran belum dapat dimuat",
+            ),
           );
       });
     return () => {
@@ -56,8 +77,8 @@ export function PaymentMethodPicker({
             >
               <span>{method.method === "qris" ? "▦" : "🏦"}</span>
               <p>
-                <b>{method.label}</b>
-                <small>{method.description}</small>
+                <b>{paymentMethodLabel(method)}</b>
+                <small>{paymentMethodDescription(method)}</small>
               </p>
               <i>{method.code === value ? "✓" : ""}</i>
             </button>

@@ -18,6 +18,25 @@ import {
 import { LocalizedText as Text, useI18n } from "../i18n";
 import { colors, shadow } from "../theme";
 
+const providerBrandPattern = /\bbat[\s-]?pay\b/gi;
+
+function paymentMethodLabel(method: MobilePaymentMethod) {
+  if (method.method === "qris") return "QRIS";
+  return `${method.bank_code || "Bank"} Virtual Account`;
+}
+
+function paymentMethodDescription(method: MobilePaymentMethod) {
+  if (method.method === "qris") return "Bayar dengan aplikasi pilihan Anda";
+  return "Transfer melalui kanal bank pilihan Anda";
+}
+
+function neutralPaymentMessage(value: unknown, fallback: string) {
+  const message = value instanceof Error ? value.message : String(value || "");
+  return message.trim()
+    ? message.replace(providerBrandPattern, "penyedia pembayaran")
+    : fallback;
+}
+
 export function MobilePaymentMethods({
   value,
   onChange,
@@ -43,9 +62,7 @@ export function MobilePaymentMethods({
         (cause) =>
           active &&
           setMessage(
-            cause instanceof Error
-              ? cause.message
-              : "Metode pembayaran belum tersedia",
+            neutralPaymentMessage(cause, "Metode pembayaran belum tersedia"),
           ),
       );
     return () => {
@@ -68,18 +85,35 @@ export function MobilePaymentMethods({
             style={[styles.method, item.code === value && styles.methodActive]}
           >
             <View style={styles.methodIcon}>
-              <Ionicons name={item.method === "qris" ? "qr-code-outline" : "business-outline"} size={18} color={colors.sky600} />
+              <Ionicons
+                name={
+                  item.method === "qris"
+                    ? "qr-code-outline"
+                    : "business-outline"
+                }
+                size={18}
+                color={colors.sky600}
+              />
             </View>
-            <Text style={styles.methodLabel}>{item.label}</Text>
+            <Text style={styles.methodLabel}>{paymentMethodLabel(item)}</Text>
             <Text numberOfLines={1} style={styles.methodNote}>
-              {item.description}
+              {paymentMethodDescription(item)}
             </Text>
-            {item.code === value ? <Ionicons name="checkmark-circle" size={17} color={colors.sky600} style={styles.check} /> : null}
+            {item.code === value ? (
+              <Ionicons
+                name="checkmark-circle"
+                size={17}
+                color={colors.sky600}
+                style={styles.check}
+              />
+            ) : null}
           </Pressable>
         ))}
       </ScrollView>
       {!methods.length ? (
-        <Text style={styles.message}>{message || "Memuat metode pembayaran…"}</Text>
+        <Text style={styles.message}>
+          {message || "Memuat metode pembayaran…"}
+        </Text>
       ) : null}
     </View>
   );
@@ -205,7 +239,9 @@ function MobileBatpayModalState({
                     ) : null}
                   </View>
                 )}
-                <Text style={styles.amount}>{formatCurrency(current.amount)}</Text>
+                <Text style={styles.amount}>
+                  {formatCurrency(current.amount)}
+                </Text>
                 <Text
                   style={
                     current.status === "failed" || current.status === "refunded"
@@ -249,7 +285,14 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   methodActive: { borderColor: colors.sky500, backgroundColor: colors.sky50 },
-  methodIcon: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 },
+  methodIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.sky50,
+  },
   methodLabel: {
     marginTop: 5,
     color: colors.navy,

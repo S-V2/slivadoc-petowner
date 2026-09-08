@@ -31,3 +31,14 @@ test("product detail supports verified-purchase reviews and bounded sheets", () 
   assert.match(api, /\/api\/v1\/petowner\/products\/\$\{productId\}\/reviews/);
   assert.match(marketplace, /maxHeight:\s*"88%"/);
 });
+
+test("marketplace keeps partner and sales metadata readable when catalogue fields are incomplete", () => {
+  assert.match(api, /"Pet Partner Slivadoc"/);
+  assert.match(api, /sold_count:\s*Math\.max\(0, productNumber\(product\.sold_count\)\)/);
+  assert.match(marketplace, /partnerById\.get\(product\.business_id\)/);
+  assert.match(marketplace, /partner\.businessName/);
+  assert.match(marketplace, /styles\.productStoreBadge/);
+  assert.match(marketplace, /\{product\.business_name\}/);
+  assert.match(marketplace, /storeChipNameActive:\s*\{\s*color:\s*colors\.navy/);
+  assert.match(marketplace, /storeChipCityActive:\s*\{\s*color:\s*colors\.text/);
+});

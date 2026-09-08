@@ -15,10 +15,11 @@ test("home Tanya Dokter opens the consultation catalogue instead of live chat", 
   assert.match(app, /result\.route === "consult"[\s\S]*openConsultation\(\)/);
 });
 
-test("Android gets a visible back control while iOS does not render it", () => {
+test("Android and iOS get a visible back control outside the home tab", () => {
   const app = read("mobile/App.tsx");
 
-  assert.match(app, /Platform\.OS === "android" && tab !== "home"/);
+  assert.match(app, /\{tab !== "home" \? \(/);
+  assert.doesNotMatch(app, /Platform\.OS === "android" && tab !== "home"/);
   assert.match(app, /accessibilityLabel="Kembali ke halaman sebelumnya"/);
   assert.match(app, /onPress=\{\(\) => goBack\(\)\}/);
 });

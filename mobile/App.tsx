@@ -209,6 +209,10 @@ function MobileApp() {
     (item: MobileService, index: number): Service => ({
       id: item.id,
       branchId: item.branch_id,
+      businessId: item.business_id,
+      businessName: item.business_name,
+      branchName: item.branch_name,
+      city: item.city,
       name: item.name,
       category: item.category,
       rating: "Baru",
@@ -556,19 +560,19 @@ function MobileApp() {
           onRefresh={() => void reloadData(true)}
         >
           <View style={styles.app}>
-            {Platform.OS === "android" && tab !== "home" ? (
-              <View style={styles.androidBackBar}>
+            {tab !== "home" ? (
+              <View style={styles.backBar}>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Kembali ke halaman sebelumnya"
                   onPress={() => goBack()}
                   style={({ pressed }) => [
-                    styles.androidBackButton,
+                    styles.backButton,
                     pressed && styles.pressed,
                   ]}
                 >
                   <Ionicons name="arrow-back" size={20} color={colors.navy} />
-                  <Text style={styles.androidBackText}>Kembali</Text>
+                  <Text style={styles.backText}>Kembali</Text>
                 </Pressable>
               </View>
             ) : null}
@@ -632,6 +636,7 @@ function MobileApp() {
                 <MarketplaceScreen
                   authenticated={Boolean(bootstrap)}
                   hasPet={hasPet}
+                  partners={services}
                   favorites={favorites}
                   refreshVersion={refreshVersion}
                   onAction={notify}
@@ -2029,7 +2034,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.canvas },
   app: { flex: 1, backgroundColor: colors.canvas },
   screenStage: { flex: 1 },
-  androidBackBar: {
+  backBar: {
     minHeight: 42,
     justifyContent: "center",
     paddingHorizontal: 12,
@@ -2037,7 +2042,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.line,
     backgroundColor: colors.canvas,
   },
-  androidBackButton: {
+  backButton: {
     minWidth: 96,
     minHeight: 40,
     alignSelf: "flex-start",
@@ -2047,7 +2052,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     borderRadius: 12,
   },
-  androidBackText: { color: colors.navy, fontSize: 12, fontWeight: "800" },
+  backText: { color: colors.navy, fontSize: 12, fontWeight: "800" },
   pressed: { opacity: 0.68, transform: [{ scale: 0.98 }] },
   tabBar: {
     position: "absolute",

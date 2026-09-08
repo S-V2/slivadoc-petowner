@@ -458,6 +458,7 @@ export type MobileBootstrap = {
 export type MobileService = {
   id: string;
   branch_id: string;
+  business_id: string;
   name: string;
   category: string;
   price: number;
@@ -489,6 +490,51 @@ export type MobileProduct = {
   review_count: number;
   sold_count: number;
 };
+
+function productText(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function productNumber(value: unknown) {
+  const number = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function normalizeMobileProduct(product: MobileProduct): MobileProduct {
+  const businessName =
+    productText(product.business_name) ||
+    productText(product.branch_name) ||
+    "Pet Partner Slivadoc";
+  const branchName = productText(product.branch_name) || businessName;
+  const stock = Math.max(0, productNumber(product.stock));
+
+  return {
+    ...product,
+    business_id:
+      productText(product.business_id) ||
+      productText(product.branch_id) ||
+      `partner:${businessName.toLowerCase().replace(/\s+/g, "-")}`,
+    business_name: businessName,
+    branch_id: productText(product.branch_id) || undefined,
+    branch_name: branchName,
+    city: productText(product.city) || "Online",
+    name: productText(product.name) || "Produk pet",
+    sku: productText(product.sku),
+    barcode: productText(product.barcode),
+    category: productText(product.category) || "Kebutuhan pet",
+    description: productText(product.description),
+    image_url: productText(product.image_url),
+    price: Math.max(0, productNumber(product.price)),
+    stock,
+    minimum_stock: Math.max(0, productNumber(product.minimum_stock)),
+    available:
+      typeof product.available === "boolean" ? product.available : stock > 0,
+    rating: Math.min(5, Math.max(0, productNumber(product.rating))),
+    review_count: Math.max(0, productNumber(product.review_count)),
+    sold_count: Math.max(0, productNumber(product.sold_count)),
+  };
+}
+
 export type MobileProductReview = {
   id: string;
   product_id: string;
@@ -787,7 +833,10 @@ export const getMobileProducts = (options?: {
   });
   return platformRequest<{ data: MobileProduct[]; count: number }>(
     `/api/v1/public/discovery/products${query.size ? `?${query}` : ""}`,
-  ).then((result) => ({ ...result, data: uniqueById(result.data) }));
+  ).then((result) => ({
+    ...result,
+    data: uniqueById(result.data.map(normalizeMobileProduct)),
+  }));
 };
 
 export const getMobileProductReviews = (productId: string) =>

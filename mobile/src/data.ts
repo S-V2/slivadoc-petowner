@@ -1,6 +1,10 @@
 export type Service = {
   id: string;
   branchId: string;
+  businessId?: string;
+  businessName?: string;
+  branchName?: string;
+  city?: string;
   name: string;
   category: string;
   rating: string;

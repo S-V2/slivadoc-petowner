@@ -33,6 +33,7 @@ import {
   MobilePaymentMethods,
 } from "../components/BatpayPayment";
 import { EmptyState, PetRequiredNotice, Pill, PrimaryButton, Screen } from "../components/ui";
+import type { Service } from "../data";
 import { colors, shadow } from "../theme";
 
 type SortMode = "recommended" | "popular" | "rating" | "price";
@@ -40,6 +41,7 @@ type SortMode = "recommended" | "popular" | "rating" | "price";
 type MarketplaceScreenProps = {
   authenticated: boolean;
   hasPet: boolean;
+  partners: Service[];
   favorites: string[];
   refreshVersion: number;
   onAction: (message: string) => void;
@@ -71,6 +73,7 @@ function productIcon(product: MobileProduct): keyof typeof Ionicons.glyphMap {
 }
 
 function compactNumber(value: number) {
+  if (!Number.isFinite(value)) return "0";
   if (value >= 1000) return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}rb`;
   return String(Math.max(0, Math.round(value)));
 }
@@ -162,9 +165,12 @@ function ProductCard({
         <Text numberOfLines={2} style={styles.productName}>
           {product.name}
         </Text>
-        <Text numberOfLines={1} style={styles.storeName}>
-          <Ionicons name="storefront-outline" size={10} /> {product.business_name}
-        </Text>
+        <View style={styles.productStoreBadge}>
+          <Ionicons name="storefront-outline" size={12} color={colors.sky600} />
+          <Text numberOfLines={1} style={styles.storeName}>
+            {product.business_name}
+          </Text>
+        </View>
         <Text style={styles.productPrice}>{money.format(product.price)}</Text>
         <View style={styles.productMeta}>
           <Ionicons name="star" size={10} color={colors.yellow} />
@@ -198,6 +204,7 @@ function ProductCard({
 export function MarketplaceScreen({
   authenticated,
   hasPet,
+  partners,
   favorites,
   refreshVersion,
   onAction,
@@ -246,27 +253,61 @@ export function MarketplaceScreen({
     queueMicrotask(() => void loadProducts());
   }, [loadProducts, refreshVersion]);
 
+  const partnerById = useMemo(() => {
+    const index = new Map<string, Service>();
+    partners.forEach((partner) => {
+      if (partner.businessId) index.set(partner.businessId, partner);
+      if (partner.branchId) index.set(partner.branchId, partner);
+    });
+    return index;
+  }, [partners]);
+  const catalogProducts = useMemo(
+    () =>
+      products.map((product) => {
+        const partner =
+          partnerById.get(product.business_id) ||
+          (product.branch_id ? partnerById.get(product.branch_id) : undefined);
+        if (!partner) return product;
+
+        const missingPartnerName = product.business_name === "Pet Partner Slivadoc";
+        return {
+          ...product,
+          business_id: partner.businessId || product.business_id,
+          business_name:
+            missingPartnerName && partner.businessName
+              ? partner.businessName
+              : product.business_name,
+          branch_name:
+            missingPartnerName && partner.branchName
+              ? partner.branchName
+              : product.branch_name,
+          city: product.city === "Online" && partner.city ? partner.city : product.city,
+        };
+      }),
+    [partnerById, products],
+  );
+
   const categories = useMemo(
-    () => ["Semua", ...new Set(products.map((item) => item.category).filter(Boolean))],
-    [products],
+    () => ["Semua", ...new Set(catalogProducts.map((item) => item.category).filter(Boolean))],
+    [catalogProducts],
   );
   const stores = useMemo(
     () => [
       { id: "Semua toko", name: "Semua toko", city: "" },
       ...Array.from(
         new Map(
-          products.map((item) => [
+          catalogProducts.map((item) => [
             item.business_id,
             { id: item.business_id, name: item.business_name, city: item.city },
           ]),
         ).values(),
       ),
     ],
-    [products],
+    [catalogProducts],
   );
   const visibleProducts = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const result = products.filter(
+    const result = catalogProducts.filter(
       (item) =>
         (category === "Semua" || item.category === category) &&
         (store === "Semua toko" || item.business_id === store) &&
@@ -281,10 +322,10 @@ export function MarketplaceScreen({
       if (sort === "price") return left.price - right.price;
       return Number(right.available) - Number(left.available) || right.review_count - left.review_count;
     });
-  }, [category, products, query, sort, store]);
+  }, [catalogProducts, category, query, sort, store]);
   const productsById = useMemo(
-    () => new Map(products.map((product) => [product.id, product])),
-    [products],
+    () => new Map(catalogProducts.map((product) => [product.id, product])),
+    [catalogProducts],
   );
   const cartItems = useMemo(
     () =>
@@ -555,6 +596,9 @@ export function MarketplaceScreen({
             const active = store === item.id;
             return (
               <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`${item.name}${item.city ? `, ${item.city}` : ""}`}
                 key={item.id}
                 onPress={() => setStore(item.id)}
                 style={[styles.storeChip, active && styles.storeChipActive]}
@@ -567,7 +611,7 @@ export function MarketplaceScreen({
                     {item.name}
                   </Text>
                   <Text numberOfLines={1} style={[styles.storeChipCity, active && styles.storeChipCityActive]}>
-                    {index ? item.city || "Pet partner" : "Lihat semuanya"}
+                    {index ? item.city || "Toko resmi" : "Lihat semuanya"}
                   </Text>
                 </View>
               </Pressable>
@@ -1063,9 +1107,9 @@ const styles = StyleSheet.create({
   storeEmoji: { fontSize: 20 },
   storeChipCopy: { minWidth: 0, flex: 1 },
   storeChipName: { color: colors.navy, fontSize: 11, fontWeight: "900" },
-  storeChipNameActive: { color: colors.sky600 },
+  storeChipNameActive: { color: colors.navy },
   storeChipCity: { marginTop: 3, color: colors.muted, fontSize: 9 },
-  storeChipCityActive: { color: colors.sky600 },
+  storeChipCityActive: { color: colors.text, fontWeight: "700" },
   categoryRow: { gap: 7, paddingVertical: 12, paddingRight: 16 },
   categoryChip: { minHeight: 32, justifyContent: "center", paddingHorizontal: 13, borderRadius: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
   categoryChipActive: { borderColor: colors.sky600, backgroundColor: colors.sky600 },
@@ -1096,7 +1140,8 @@ const styles = StyleSheet.create({
   soldOutText: { color: colors.white, fontSize: 8, fontWeight: "900" },
   productCardBody: { padding: 10 },
   productName: { minHeight: 34, color: colors.navy, fontSize: 12, lineHeight: 16, fontWeight: "800" },
-  storeName: { marginTop: 5, color: colors.muted, fontSize: 9 },
+  productStoreBadge: { minWidth: 0, minHeight: 28, flexDirection: "row", alignItems: "center", gap: 5, marginTop: 6, paddingHorizontal: 7, paddingVertical: 5, borderRadius: 9, backgroundColor: colors.sky50 },
+  storeName: { minWidth: 0, flex: 1, color: colors.navy, fontSize: 9, lineHeight: 13, fontWeight: "800" },
   productPrice: { marginTop: 7, color: colors.sky600, fontSize: 13, lineHeight: 17, fontWeight: "900" },
   productMeta: { minHeight: 16, flexDirection: "row", alignItems: "center", gap: 3, marginTop: 4 },
   productMetaText: { color: colors.muted, fontSize: 8 },

@@ -781,7 +781,7 @@ function MobileApp() {
                       <Ionicons
                         name={active ? item.activeIcon : item.icon}
                         size={22}
-                        color={active ? colors.sky600 : "#8294A5"}
+                        color={active ? colors.sky600 : colors.muted}
                       />
                       {item.id === "activity" &&
                       Boolean(bootstrap?.activities.length) ? (
@@ -1096,7 +1096,7 @@ function notificationVisual(category: string): {
   color: string;
 } {
   if (category === "health") {
-    return { icon: "pulse-outline", backgroundColor: colors.mint50, color: "#168773" };
+    return { icon: "pulse-outline", backgroundColor: colors.mint50, color: colors.mint };
   }
   if (category === "booking") {
     return { icon: "calendar-outline", backgroundColor: colors.sky50, color: colors.sky600 };
@@ -1105,10 +1105,10 @@ function notificationVisual(category: string): {
     return { icon: "ticket-outline", backgroundColor: colors.violet50, color: "#6757C9" };
   }
   if (category === "community") {
-    return { icon: "chatbubble-ellipses-outline", backgroundColor: colors.pink50, color: "#D45A91" };
+    return { icon: "chatbubble-ellipses-outline", backgroundColor: colors.pink50, color: "#A52C65" };
   }
   if (category === "points") {
-    return { icon: "sparkles", backgroundColor: colors.yellow50, color: "#A06D0F" };
+    return { icon: "sparkles", backgroundColor: colors.yellow50, color: colors.yellow };
   }
   return { icon: "notifications-outline", backgroundColor: colors.sky50, color: colors.sky600 };
 }
@@ -1305,7 +1305,7 @@ function NotificationModal({
                           {!item.read_at ? <View style={styles.unreadDot} /> : null}
                         </View>
                         <Text numberOfLines={3} style={styles.notificationNote}>{item.body}</Text>
-                        <View style={styles.notificationTimeRow}><Ionicons name="time-outline" size={11} color="#8999A9"/><Text style={styles.notificationTime}>{formatNotificationTime(item.created_at)}</Text><Text style={styles.notificationDetailHint}>Lihat detail</Text><Ionicons name="chevron-forward" size={12} color={colors.sky600}/></View>
+                        <View style={styles.notificationTimeRow}><Ionicons name="time-outline" size={11} color={colors.muted}/><Text style={styles.notificationTime}>{formatNotificationTime(item.created_at)}</Text><Text style={styles.notificationDetailHint}>Lihat detail</Text><Ionicons name="chevron-forward" size={12} color={colors.sky600}/></View>
                       </View>
                     </Pressable>
                   );
@@ -1876,7 +1876,7 @@ function BookingModal({
                     onChangeText={setNotes}
                     maxLength={1000}
                     placeholder="Ceritakan keluhan atau hal penting..."
-                    placeholderTextColor="#9CA8B6"
+                    placeholderTextColor={colors.muted}
                     style={styles.notes}
                   />
                 </View>
@@ -2081,7 +2081,7 @@ const styles = StyleSheet.create({
     borderRadius: 11,
   },
   activeTabIcon: { backgroundColor: colors.sky50 },
-  tabLabel: { color: "#8294A5", fontSize: 10, fontWeight: "700" },
+  tabLabel: { color: colors.muted, fontSize: 10, fontWeight: "700" },
   activeTabLabel: { color: colors.sky600, fontWeight: "900" },
   activityDot: {
     position: "absolute",
@@ -2180,7 +2180,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: colors.sky50,
   },
-  moreCardIconActive: { backgroundColor: colors.sky500 },
+  moreCardIconActive: { backgroundColor: colors.sky600 },
   moreCardLabel: {
     color: colors.text,
     fontSize: 10,
@@ -2293,7 +2293,7 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   notificationTimeRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
-  notificationTime: { color: "#8999A9", fontSize: 9 },
+  notificationTime: { color: colors.muted, fontSize: 9 },
   notificationDetailHint: { flex: 1, color: colors.sky600, fontSize: 9, fontWeight: "800", textAlign: "right" },
   unreadDot: {
     marginTop: 4,
@@ -2301,7 +2301,7 @@ const styles = StyleSheet.create({
     height: 7,
     flexShrink: 0,
     borderRadius: 4,
-    backgroundColor: colors.sky500,
+    backgroundColor: colors.sky600,
   },
   notificationEmpty: { minHeight: 260, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
   notificationEmptyIcon: { width: 54, height: 54, alignItems: "center", justifyContent: "center", borderRadius: 18, backgroundColor: colors.sky50 },
@@ -2324,7 +2324,7 @@ const styles = StyleSheet.create({
   notificationDetailMetaRow: { flexDirection: "row", alignItems: "center", gap: 9 },
   notificationDetailMetaLabel: { color: colors.muted, fontSize: 8, fontWeight: "700" },
   notificationDetailMetaValue: { marginTop: 2, color: colors.navy, fontSize: 10, fontWeight: "800" },
-  notificationDetailAction: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginTop: 18, borderRadius: 13, backgroundColor: colors.sky500 },
+  notificationDetailAction: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginTop: 18, borderRadius: 13, backgroundColor: colors.sky600 },
   notificationDetailActionText: { color: colors.white, fontSize: 11, fontWeight: "900" },
   notificationDetailInfo: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 10, padding: 11, borderRadius: 13, backgroundColor: colors.sky50 },
   notificationDetailInfoText: { flex: 1, color: colors.muted, fontSize: 9, lineHeight: 14 },
@@ -2554,12 +2554,12 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 15,
     borderTopRightRadius: 4,
-    backgroundColor: colors.sky500,
+    backgroundColor: colors.sky600,
   },
   sentText: { color: colors.white, fontSize: 13 },
   sentTime: {
     marginTop: 5,
-    color: "rgba(255,255,255,.76)",
+    color: "rgba(255,255,255,.9)",
     fontSize: 11,
     textAlign: "right",
   },
@@ -2596,7 +2596,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.sky500,
+    backgroundColor: colors.sky600,
   },
   bookingWrap: { maxHeight: "88%" },
   bookingSheet: {
@@ -2623,7 +2623,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.white,
   },
-  activeStep: { borderColor: colors.sky500, backgroundColor: colors.sky500 },
+  activeStep: { borderColor: colors.sky600, backgroundColor: colors.sky600 },
   stepNumber: { color: colors.muted, fontSize: 13, fontWeight: "900" },
   activeStepNumber: { color: colors.white },
   stepLabel: { color: colors.muted, fontSize: 10, fontWeight: "700" },
@@ -2665,7 +2665,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.sky500,
+    backgroundColor: colors.sky600,
   },
   selectedService: {
     minHeight: 62,
@@ -2720,7 +2720,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.white,
   },
-  activeDate: { borderColor: colors.sky500, backgroundColor: colors.sky500 },
+  activeDate: { borderColor: colors.sky600, backgroundColor: colors.sky600 },
   dateDay: { color: colors.muted, fontSize: 9 },
   dateNumber: {
     marginTop: 2,

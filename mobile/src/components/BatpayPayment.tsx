@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   amount: { color: colors.navy, fontSize: 19, fontWeight: "900" },
-  wait: { color: "#D97706", fontSize: 12, fontWeight: "800" },
+  wait: { color: colors.yellow, fontSize: 12, fontWeight: "800" },
   failed: { color: colors.red, fontSize: 12, fontWeight: "800" },
   success: {
     width: 60,
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 15,
     borderRadius: 14,
-    backgroundColor: colors.sky500,
+    backgroundColor: colors.sky600,
   },
   primaryText: { color: colors.white, fontWeight: "900" },
 });

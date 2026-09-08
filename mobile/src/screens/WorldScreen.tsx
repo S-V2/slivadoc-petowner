@@ -152,7 +152,7 @@ function FormTextField({
       <TextInput
         {...props}
         multiline={multiline}
-        placeholderTextColor="#93A2AF"
+        placeholderTextColor={colors.muted}
         style={[
           styles.formInput,
           multiline && styles.formTextarea,
@@ -1089,14 +1089,14 @@ const styles = StyleSheet.create({
     marginTop: 5,
     padding: 18,
     borderRadius: 20,
-    backgroundColor: colors.sky500,
+    backgroundColor: colors.sky600,
     ...shadow,
   },
   darkHero: { backgroundColor: "#173E61" },
   eventHero: { backgroundColor: "#7C5CAD" },
   pawDatingHero: { backgroundColor: colors.sky600 },
   heroKicker: {
-    color: "rgba(255,255,255,.78)",
+    color: "rgba(255,255,255,.9)",
     fontSize: 9,
     fontWeight: "900",
     letterSpacing: 1.1,
@@ -1113,7 +1113,7 @@ const styles = StyleSheet.create({
   heroNote: {
     maxWidth: "73%",
     marginTop: 6,
-    color: "rgba(255,255,255,.82)",
+    color: "rgba(255,255,255,.9)",
     fontSize: 11,
     lineHeight: 17,
   },
@@ -1144,7 +1144,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 11,
     borderRadius: 12,
-    backgroundColor: colors.sky500,
+    backgroundColor: colors.sky600,
   },
   createText: { color: colors.white, fontSize: 11, fontWeight: "800" },
   list: { gap: 9 },
@@ -1218,7 +1218,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 11,
-    backgroundColor: colors.sky500,
+    backgroundColor: colors.sky600,
   },
   threadCard: {
     padding: 12,

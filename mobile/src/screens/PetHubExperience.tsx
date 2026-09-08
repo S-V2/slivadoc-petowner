@@ -338,7 +338,7 @@ export function PetHubExperience({
       {loading ? <Text style={styles.emptyText}>Memuat momen terbaru…</Text> : null}
       {!loading && visibleItems.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Ionicons name={activeTab === "reels" ? "videocam-outline" : "images-outline"} size={32} color={colors.sky500} />
+          <Ionicons name={activeTab === "reels" ? "videocam-outline" : "images-outline"} size={32} color={colors.sky600} />
           <Text style={styles.emptyTitle}>{activeTab === "reels" ? "Belum ada reels" : "Feed masih sepi"}</Text>
           <Text style={styles.emptyText}>Jadi pet parent pertama yang berbagi momen di sini.</Text>
           <PrimaryButton compact label={activeTab === "reels" ? "Upload video" : "Buat posting"} onPress={() => beginComposer(activeTab === "reels" ? "reel" : "feed")} />
@@ -358,7 +358,7 @@ export function PetHubExperience({
                 <View style={styles.authorCopy}>
                   <View style={styles.authorLine}>
                     <Text numberOfLines={1} style={styles.authorName}>{item.author_name || item.channel_name || "Pet Parent"}</Text>
-                    {item.verified ? <Ionicons name="checkmark-circle" size={14} color={colors.sky500} /> : null}
+                    {item.verified ? <Ionicons name="checkmark-circle" size={14} color={colors.sky600} /> : null}
                   </View>
                   <Text style={styles.authorMeta}>{item.channel_handle ? `@${item.channel_handle} · ` : ""}{formatAge(item.created_at)}</Text>
                 </View>
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   storyImage: { width: "100%", height: "100%", borderRadius: 16, backgroundColor: colors.sky50 },
   storyAvatar: { flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: colors.sky50 },
   storyInitial: { color: colors.sky600, fontSize: 14, fontWeight: "900" },
-  storyPlus: { position: "absolute", right: -3, bottom: -3, width: 21, height: 21, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.white, borderRadius: 11, backgroundColor: colors.sky500 },
+  storyPlus: { position: "absolute", right: -3, bottom: -3, width: 21, height: 21, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.white, borderRadius: 11, backgroundColor: colors.sky600 },
   storyVideo: { position: "absolute", right: 4, bottom: 4, width: 18, height: 18, alignItems: "center", justifyContent: "center", borderRadius: 9, backgroundColor: "rgba(17,53,80,.72)" },
   storyName: { width: 68, color: colors.text, fontSize: 9, textAlign: "center" },
   tabBar: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 8, padding: 5, borderWidth: 1, borderColor: colors.line, borderRadius: 17, backgroundColor: colors.white },
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   activeTab: { backgroundColor: colors.sky50 },
   tabText: { color: colors.muted, fontSize: 12, fontWeight: "800" },
   activeTabText: { color: colors.sky600 },
-  quickCreate: { minHeight: 40, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.sky500 },
+  quickCreate: { minHeight: 40, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.sky600 },
   quickCreateText: { color: colors.white, fontSize: 11, fontWeight: "900" },
   feedList: { gap: 12, marginTop: 12 },
   postCard: { overflow: "hidden", borderWidth: 1, borderColor: colors.line, borderRadius: 20, backgroundColor: colors.white, ...shadow },
@@ -503,5 +503,5 @@ const styles = StyleSheet.create({
   commentBody: { marginTop: 2, color: colors.text, fontSize: 12, lineHeight: 17 },
   commentComposer: { flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.line },
   commentInput: { minHeight: 44, flex: 1, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 14, color: colors.text, fontSize: 12 },
-  sendButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.sky500 },
+  sendButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.sky600 },
 });

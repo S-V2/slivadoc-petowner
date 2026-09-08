@@ -161,10 +161,10 @@ export function CommunityGroups({
         <Pressable onPress={() => setScope("discover")} style={[styles.scopeTab, scope === "discover" && styles.activeScope]}><Text style={[styles.scopeText, scope === "discover" && styles.activeScopeText]}>Temukan grup</Text></Pressable>
       </View>
 
-      {loading ? <ActivityIndicator color={colors.sky500} style={styles.loader} /> : null}
+      {loading ? <ActivityIndicator color={colors.sky600} style={styles.loader} /> : null}
       {!loading && visibleGroups.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Ionicons name={scope === "mine" ? "chatbox-ellipses-outline" : "people-outline"} size={30} color={colors.sky500} />
+          <Ionicons name={scope === "mine" ? "chatbox-ellipses-outline" : "people-outline"} size={30} color={colors.sky600} />
           <Text style={styles.emptyTitle}>{scope === "mine" ? "Belum ada chat grup" : "Grup belum ditemukan"}</Text>
           <Text style={styles.emptyNote}>{scope === "mine" ? "Buat grup sendiri atau temukan komunitas yang cocok." : "Coba kata pencarian lain atau buat grup baru."}</Text>
           <PrimaryButton compact label={scope === "mine" ? "Temukan grup" : "Buat grup"} onPress={() => scope === "mine" ? setScope("discover") : hasPet ? setCreateOpen(true) : onRequirePet()} />
@@ -307,7 +307,7 @@ function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { 
 const styles = StyleSheet.create({
   guestCard: { alignItems: "center", gap: 8, marginTop: 2, padding: 24, borderWidth: 1, borderColor: colors.line, borderRadius: 20, backgroundColor: colors.white },
   guestIcon: { width: 54, height: 54, alignItems: "center", justifyContent: "center", borderRadius: 18, backgroundColor: colors.sky50 },
-  groupHero: { flexDirection: "row", alignItems: "center", gap: 11, padding: 14, borderRadius: 20, backgroundColor: colors.sky500, ...shadow },
+  groupHero: { flexDirection: "row", alignItems: "center", gap: 11, padding: 14, borderRadius: 20, backgroundColor: colors.sky600, ...shadow },
   heroIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: "rgba(255,255,255,.18)" },
   heroCopy: { minWidth: 0, flex: 1 },
   heroTitle: { color: colors.white, fontSize: 16, fontWeight: "900" },
@@ -376,6 +376,6 @@ const styles = StyleSheet.create({
   emptyIcon: { width: 52, height: 52, marginBottom: 10, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 },
   roomComposer: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 8, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.white },
   roomInput: { maxHeight: 110, minHeight: 44, flex: 1, paddingHorizontal: 13, paddingVertical: Platform.OS === "ios" ? 12 : 8, borderWidth: 1, borderColor: colors.line, borderRadius: 18, color: colors.text, fontSize: 12 },
-  send: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: colors.sky500 },
+  send: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: colors.sky600 },
   disabled: { opacity: 0.45 },
 });

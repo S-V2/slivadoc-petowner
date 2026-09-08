@@ -510,7 +510,7 @@ export function MarketplaceScreen({
           <TextInput
             accessibilityLabel="Cari produk atau toko"
             placeholder="Cari makanan, vitamin, atau toko"
-            placeholderTextColor="#94A7B7"
+            placeholderTextColor={colors.muted}
             value={query}
             onChangeText={setQuery}
             style={styles.searchInput}
@@ -522,7 +522,7 @@ export function MarketplaceScreen({
           ) : null}
         </View>
 
-        <LinearGradient colors={["#139FE8", "#58C7F7"]} style={styles.hero}>
+        <LinearGradient colors={[colors.sky600, "#0A6F9C"]} style={styles.hero}>
           <View style={styles.heroCopy}>
             <Pill tone="mint">BELANJA AMAN</Pill>
             <Text style={styles.heroTitle}>Satu keranjang,{"\n"}banyak toko pet.</Text>
@@ -560,7 +560,7 @@ export function MarketplaceScreen({
                 style={[styles.storeChip, active && styles.storeChipActive]}
               >
                 <View style={[styles.storeIcon, active && styles.storeIconActive]}>
-                  <Ionicons name={index ? "storefront-outline" : "sparkles-outline"} size={20} color={active ? colors.sky600 : "#C66A32"} />
+                  <Ionicons name={index ? "storefront-outline" : "sparkles-outline"} size={20} color={active ? colors.sky600 : "#8B4A20"} />
                 </View>
                 <View style={styles.storeChipCopy}>
                   <Text numberOfLines={1} style={[styles.storeChipName, active && styles.storeChipNameActive]}>
@@ -789,7 +789,7 @@ function ProductDetailSheet({
       >
         <ProductVisual product={product} large />
         <View style={styles.detailStoreRow}>
-          <View style={styles.detailStoreIcon}><Ionicons name="storefront-outline" size={19} color="#C66A32" /></View>
+            <View style={styles.detailStoreIcon}><Ionicons name="storefront-outline" size={19} color="#8B4A20" /></View>
           <View style={styles.detailStoreCopy}>
             <Text style={styles.detailStoreName}>{product.business_name}</Text>
             <Text style={styles.detailStoreMeta}>{product.branch_name} · {product.city || "Indonesia"}</Text>
@@ -874,7 +874,7 @@ function ProductDetailSheet({
           <TextInput
             accessibilityLabel="Komentar produk"
             placeholder="Ceritakan kualitas, kemasan, dan pengalaman pet-mu…"
-            placeholderTextColor="#94A7B7"
+            placeholderTextColor={colors.muted}
             multiline
             maxLength={1000}
             value={comment}
@@ -959,7 +959,7 @@ function CartSheet({
       ) : (
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.cartContent}>
           <View style={styles.cartNotice}>
-            <Ionicons name="shield-checkmark" size={18} color="#178671" />
+              <Ionicons name="shield-checkmark" size={18} color={colors.mint} />
             <Text style={styles.cartNoticeText}>Harga dan stok dikonfirmasi ulang oleh Slivadoc saat checkout.</Text>
           </View>
           {items.map(({ product, quantity }) => (
@@ -988,7 +988,7 @@ function CartSheet({
               <TextInput
                 autoCapitalize="characters"
                 placeholder="Contoh: PETHEMAT"
-                placeholderTextColor="#94A7B7"
+                placeholderTextColor={colors.muted}
                 value={voucher}
                 onChangeText={onVoucher}
                 style={styles.promoInput}
@@ -1001,7 +1001,7 @@ function CartSheet({
             <TextInput
               keyboardType="number-pad"
               placeholder="0"
-              placeholderTextColor="#94A7B7"
+              placeholderTextColor={colors.muted}
               value={points}
               onChangeText={onPoints}
               style={styles.pointsInput}
@@ -1068,7 +1068,7 @@ const styles = StyleSheet.create({
   storeChipCityActive: { color: colors.sky600 },
   categoryRow: { gap: 7, paddingVertical: 12, paddingRight: 16 },
   categoryChip: { minHeight: 32, justifyContent: "center", paddingHorizontal: 13, borderRadius: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
-  categoryChipActive: { borderColor: colors.sky500, backgroundColor: colors.sky500 },
+  categoryChipActive: { borderColor: colors.sky600, backgroundColor: colors.sky600 },
   categoryText: { color: colors.muted, fontSize: 10, fontWeight: "800" },
   categoryTextActive: { color: colors.white },
   catalogHeader: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 4 },
@@ -1101,7 +1101,7 @@ const styles = StyleSheet.create({
   productMeta: { minHeight: 16, flexDirection: "row", alignItems: "center", gap: 3, marginTop: 4 },
   productMetaText: { color: colors.muted, fontSize: 8 },
   metaDivider: { width: 1, height: 10, marginHorizontal: 2, backgroundColor: colors.line },
-  addButton: { height: 34, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, marginTop: 8, borderRadius: 10, backgroundColor: colors.sky500 },
+  addButton: { height: 34, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, marginTop: 8, borderRadius: 10, backgroundColor: colors.sky600 },
   addButtonText: { color: colors.white, fontSize: 10, fontWeight: "900" },
   disabledButton: { opacity: 0.42 },
   stars: { flexDirection: "row", alignItems: "center", gap: 1 },
@@ -1150,7 +1150,7 @@ const styles = StyleSheet.create({
   detailActions: { flexDirection: "row", gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.white },
   secondaryAction: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 13, borderRadius: 13, borderWidth: 1, borderColor: colors.sky500 },
   secondaryActionText: { color: colors.sky600, fontSize: 11, fontWeight: "900" },
-  primaryAction: { minHeight: 44, flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: colors.sky500 },
+  primaryAction: { minHeight: 44, flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: colors.sky600 },
   primaryActionText: { color: colors.white, fontSize: 12, fontWeight: "900" },
   cartContent: { gap: 10, padding: 16, paddingBottom: 26 },
   cartNotice: { flexDirection: "row", alignItems: "center", gap: 8, padding: 11, borderRadius: 13, backgroundColor: colors.mint50 },
@@ -1177,8 +1177,8 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   summaryLabel: { color: colors.muted, fontSize: 10 },
   summaryValue: { color: colors.text, fontSize: 10, fontWeight: "700" },
-  discountLabel: { color: "#198671", fontSize: 10 },
-  discountValue: { color: "#198671", fontSize: 10, fontWeight: "800" },
+  discountLabel: { color: colors.mint, fontSize: 10 },
+  discountValue: { color: colors.mint, fontSize: 10, fontWeight: "800" },
   summaryDivider: { height: 1, backgroundColor: colors.line },
   totalLabel: { color: colors.navy, fontSize: 11, fontWeight: "900" },
   totalValue: { color: colors.sky600, fontSize: 15, fontWeight: "900" },

@@ -175,7 +175,7 @@ export function CommunityScreen({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[colors.sky500]}
+            colors={[colors.sky600]}
             tintColor={colors.sky500}
             progressBackgroundColor={colors.white}
           />
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 13,
-    backgroundColor: colors.sky500,
+    backgroundColor: colors.sky600,
   },
   tabs: { gap: 6, paddingVertical: 12 },
   tab: {
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.white,
   },
-  activeTab: { borderColor: colors.sky500, backgroundColor: colors.sky500 },
+  activeTab: { borderColor: colors.sky600, backgroundColor: colors.sky600 },
   tabText: { color: colors.muted, fontSize: 10, fontWeight: "800" },
   activeTabText: { color: colors.white },
   prompt: {

@@ -40,9 +40,30 @@ const iconSources = await Promise.all([
   "../mobile/src/screens/HealthScreen.tsx",
   "../mobile/src/screens/HomeScreen.tsx",
   "../mobile/src/screens/MarketplaceScreen.tsx",
+  "../mobile/src/screens/PetHubExperience.tsx",
   "../mobile/src/screens/ProfileScreen.tsx",
   "../mobile/src/screens/WorldScreen.tsx",
 ].map((path) => readFile(new URL(path, import.meta.url), "utf8")));
+
+function themeColor(name) {
+  const value = theme.match(new RegExp(`${name}:\\s*"(#[0-9A-F]{6})"`, "i"))?.[1];
+  assert.ok(value, `theme color ${name} must exist`);
+  return value;
+}
+
+function luminance(hex) {
+  const channels = hex
+    .slice(1)
+    .match(/../g)
+    .map((value) => Number.parseInt(value, 16) / 255)
+    .map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+  return (0.2126 * channels[0]) + (0.7152 * channels[1]) + (0.0722 * channels[2]);
+}
+
+function contrastRatio(foreground, background) {
+  const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+  return (values[0] + 0.05) / (values[1] + 0.05);
+}
 
 test("native mobile theme keeps the compact commerce-style hierarchy", () => {
   assert.match(theme, /screenTitle:\s*22/);
@@ -57,6 +78,31 @@ test("native mobile theme preserves Slivadoc sky blue as the primary color", () 
   assert.match(theme, /sky500:\s*"#19A7F2"/);
   assert.match(theme, /canvas:\s*"#F6FBFF"/);
   assert.match(theme, /sky50:\s*"#EBF8FF"/);
+});
+
+test("mobile semantic text colors remain readable on light surfaces", () => {
+  for (const background of [themeColor("white"), themeColor("canvas")]) {
+    for (const foreground of ["navy", "text", "muted", "sky600", "mint", "violet", "red", "yellow"].map(themeColor)) {
+      assert.ok(
+        contrastRatio(foreground, background) >= 4.5,
+        `${foreground} must keep a WCAG AA contrast ratio on ${background}`,
+      );
+    }
+  }
+});
+
+test("white copy only uses high-contrast filled surfaces", () => {
+  const mobileSource = [app, ui, ...iconSources].join("\n");
+  assert.doesNotMatch(mobileSource, /backgroundColor:\s*colors\.sky500/);
+  assert.doesNotMatch(mobileSource, /color=\{colors\.sky500\}/);
+  assert.doesNotMatch(mobileSource, /placeholderTextColor="#[0-9A-F]{6}"/i);
+  assert.doesNotMatch(mobileSource, /color:\s*"rgba\(255,255,255,\.[0-7][0-9]*\)"/);
+  for (const surface of ["navy", "sky600", "mint", "violet", "red"].map(themeColor)) {
+    assert.ok(
+      contrastRatio(themeColor("white"), surface) >= 4.5,
+      `${surface} must keep white labels readable`,
+    );
+  }
 });
 
 test("home uses a compact illustrated hero and dense quick actions", () => {

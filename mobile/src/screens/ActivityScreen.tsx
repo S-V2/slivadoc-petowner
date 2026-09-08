@@ -148,7 +148,7 @@ function ActivityCard({
             <Text numberOfLines={1} style={styles.amountInline}>{money.format(item.total_amount ?? item.amount)}</Text>
           </View>
         </View>
-        <Ionicons name="chevron-forward" size={17} color="#A3AFBC" />
+        <Ionicons name="chevron-forward" size={17} color={colors.muted} />
       </Pressable>
       <View style={styles.compactFooter}>
         <View style={styles.contextInline}>

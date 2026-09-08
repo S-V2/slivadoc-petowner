@@ -116,7 +116,7 @@ function HomeSectionHeader({
   return (
     <View style={styles.sectionHeader}>
       <View style={[styles.sectionHeaderIcon, styles[`${tone}SectionIcon`]]}>
-        <Ionicons name={icon} size={17} color={tone === "blue" ? colors.sky600 : tone === "mint" ? "#168773" : "#6757C9"} />
+        <Ionicons name={icon} size={17} color={tone === "blue" ? colors.sky600 : tone === "mint" ? colors.mint : "#6757C9"} />
       </View>
       <View style={styles.sectionHeaderCopy}>
         <Text style={styles.sectionEyebrow}>{eyebrow}</Text>
@@ -211,13 +211,13 @@ function HomeSearchModal({
               value={query}
               onChangeText={setQuery}
               placeholder="Cari apa saja di Slivadoc"
-              placeholderTextColor="#8CA0B0"
+              placeholderTextColor={colors.muted}
               returnKeyType="search"
               style={styles.searchInput}
             />
             {query ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Hapus pencarian" hitSlop={8} onPress={() => setQuery("")}>
-                <Ionicons name="close-circle" size={18} color="#A4B2BD" />
+                <Ionicons name="close-circle" size={18} color={colors.muted} />
               </Pressable>
             ) : null}
           </View>
@@ -275,7 +275,7 @@ function HomeSearchModal({
                     <Text numberOfLines={1} style={styles.searchResultTitle}>{item.title}</Text>
                     <Text numberOfLines={2} style={styles.searchResultMeta}>{item.category} · {item.subtitle}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={17} color="#A1AFBA" />
+                  <Ionicons name="chevron-forward" size={17} color={colors.muted} />
                 </Pressable>
               ))}
             </View>
@@ -314,11 +314,11 @@ export function HomeScreen({
   const hotel = services.find((item) => item.category.toLowerCase().includes("hotel"));
   const firstName = ownerName?.trim().split(" ")[0];
   const primaryQuickActions = [
-    { label: "Booking", note: "Atur jadwal klinik", icon: "calendar-outline" as const, gradient: ["#0588D4", "#43C2F7"] as const, onPress: () => onBook() },
-    { label: "Tanya Dokter", note: "Pilih dokter & paket", icon: "chatbubbles-outline" as const, gradient: ["#16A98E", "#62D9C3"] as const, onPress: onOpenConsultation },
+    { label: "Booking", note: "Atur jadwal klinik", icon: "calendar-outline" as const, gradient: [colors.sky600, "#0A6F9C"] as const, onPress: () => onBook() },
+    { label: "Tanya Dokter", note: "Pilih dokter & paket", icon: "chatbubbles-outline" as const, gradient: [colors.mint, "#0D7664"] as const, onPress: onOpenConsultation },
   ];
   const secondaryQuickActions = [
-    { label: "Home Care", note: "Ke rumah", icon: "home-outline" as const, color: colors.peach50, iconColor: "#C66A32", onPress: () => homeCare ? onBook(homeCare) : onNavigate("discover") },
+    { label: "Home Care", note: "Ke rumah", icon: "home-outline" as const, color: colors.peach50, iconColor: "#8B4A20", onPress: () => homeCare ? onBook(homeCare) : onNavigate("discover") },
     { label: "Darurat", note: "24 jam", icon: "medical-outline" as const, color: colors.red50, iconColor: colors.red, onPress: () => onAction("Menghubungkan hotline darurat 24/7") },
     { label: "Pet Hotel", note: "Terpercaya", icon: "bed-outline" as const, color: colors.violet50, iconColor: "#6655C7", onPress: () => hotel ? onBook(hotel) : onNavigate("discover") },
     { label: "Sliva World", note: "Eksplorasi", icon: "planet-outline" as const, color: colors.sky50, iconColor: colors.sky600, onPress: () => onNavigate("world") },
@@ -330,7 +330,7 @@ export function HomeScreen({
         <View style={styles.homeHeader}>
           <Pressable accessibilityRole="search" accessibilityLabel="Cari di seluruh Slivadoc" onPress={() => setSearchOpen(true)} style={({ pressed }) => [styles.searchLauncher, pressed && styles.pressed]}>
             <Ionicons name="search" size={18} color={colors.sky600} />
-            <TextInput editable={false} pointerEvents="none" placeholder="Cari dokter, layanan, produk…" placeholderTextColor="#8398A9" style={styles.searchLauncherInput} />
+            <TextInput editable={false} pointerEvents="none" placeholder="Cari dokter, layanan, produk…" placeholderTextColor={colors.muted} style={styles.searchLauncherInput} />
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={onOpenNotifications} style={styles.notificationButton}>
             <Ionicons name="notifications-outline" size={20} color={colors.text} />
@@ -346,7 +346,7 @@ export function HomeScreen({
           <View style={styles.greetingSparkle}><Ionicons name="sparkles" size={17} color={colors.sky600} /></View>
         </View>
 
-        <LinearGradient colors={["#078DD8", "#23B2F3", "#8ADDF9"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+        <LinearGradient colors={[colors.sky600, "#0A6F9C", "#08725F"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
           <View style={styles.heroOrbLarge} />
           <View style={styles.heroOrbSmall} />
           <View style={styles.petBubble}>
@@ -401,7 +401,7 @@ export function HomeScreen({
 
         <View style={styles.sectionBlock}>
           <HomeSectionHeader icon="heart" eyebrow="HEALTH SNAPSHOT" title={`Kondisi ${petView.name}`} note="Pantau kesehatan tanpa ribet" action="Detail" onAction={() => onNavigate("health")} tone="blue" />
-          <LinearGradient colors={["#087FC7", "#20ADEB", "#68D2F7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.healthCard}>
+          <LinearGradient colors={["#075F91", colors.sky600, "#0A6F9C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.healthCard}>
             <View style={styles.healthGlowLarge} />
             <View style={styles.healthGlowSmall} />
             <View style={styles.healthTop}>
@@ -466,7 +466,7 @@ export function HomeScreen({
               <View style={styles.emptyCare}>
                 <View style={styles.emptyCareVisual}>
                   <View style={styles.emptyCareOrbit} />
-                  <View style={styles.emptyCareIcon}><Ionicons name="calendar" size={25} color="#168773" /></View>
+                  <View style={styles.emptyCareIcon}><Ionicons name="calendar" size={25} color={colors.mint} /></View>
                   <View style={styles.emptyCareSpark}><Ionicons name="sparkles" size={11} color="#6757C9" /></View>
                 </View>
                 <View style={styles.emptyCareCopy}>
@@ -492,14 +492,14 @@ export function HomeScreen({
                 <LinearGradient colors={serviceGradient(service.tone)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.serviceVisual}>
                   <View style={styles.serviceShine} />
                   <View style={styles.serviceVisualTop}><Pill tone={service.tone === "peach" ? "yellow" : service.tone}>{service.category}</Pill><View style={styles.serviceFavorite}><Ionicons name="heart-outline" size={14} color={colors.navy} /></View></View>
-                  <View style={styles.serviceEmojiWrap}><Ionicons name={serviceIcon(service)} size={34} color={service.tone === "mint" ? "#14836E" : service.tone === "violet" ? "#6655C7" : service.tone === "peach" ? "#C66A32" : colors.sky600} /></View>
+                  <View style={styles.serviceEmojiWrap}><Ionicons name={serviceIcon(service)} size={34} color={service.tone === "mint" ? "#14836E" : service.tone === "violet" ? "#6655C7" : service.tone === "peach" ? "#8B4A20" : colors.sky600} /></View>
                   <View style={styles.topPick}><Ionicons name="sparkles" size={10} color="#6757C9" /><Text style={styles.topPickText}>TOP PICK</Text></View>
                 </LinearGradient>
                 <View style={styles.serviceCardBody}>
                   <Text numberOfLines={1} style={styles.serviceName}>{service.name}</Text>
                   <View style={styles.serviceLocation}><Ionicons name="location-outline" size={11} color={colors.muted} /><Text numberOfLines={1} style={styles.serviceLocationText}>{service.address || "Terdekat dari kamu"}</Text></View>
                   <View style={styles.serviceMeta}>
-                    <View style={styles.ratingPill}><Ionicons name="star" size={10} color="#E59D14" /><Text style={styles.ratingText}>{service.rating}</Text></View>
+                    <View style={styles.ratingPill}><Ionicons name="star" size={10} color={colors.yellow} /><Text style={styles.ratingText}>{service.rating}</Text></View>
                     <Text style={styles.serviceMetaDot}>•</Text>
                     <Text numberOfLines={1} style={styles.serviceMetaText}>{service.distance}</Text>
                   </View>
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
   heroMoment: { maxWidth: 222, minHeight: 50, flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, padding: 8, borderWidth: 1, borderColor: "rgba(255,255,255,.42)", borderRadius: 15, backgroundColor: "rgba(255,255,255,.2)" },
   heroMomentIcon: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "rgba(255,255,255,.92)" },
   heroMomentCopy: { minWidth: 0, flex: 1 },
-  heroMomentEyebrow: { color: "rgba(255,255,255,.72)", fontSize: 7, fontWeight: "900", letterSpacing: 0.6 },
+  heroMomentEyebrow: { color: "rgba(255,255,255,.9)", fontSize: 7, fontWeight: "900", letterSpacing: 0.6 },
   heroMomentText: { marginTop: 2, color: colors.white, fontSize: 10, fontWeight: "800" },
   heroMomentEmoji: { fontSize: 15 },
   heroOrbLarge: { position: "absolute", right: -62, top: -88, width: 230, height: 230, borderRadius: 115, backgroundColor: "rgba(255,255,255,.14)" },
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
   quickFeatureEmoji: { fontSize: 21 },
   quickFeatureArrow: { width: 24, height: 24, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "rgba(255,255,255,.18)", transform: [{ rotate: "45deg" }] },
   quickFeatureLabel: { color: colors.white, fontSize: typography.body, fontWeight: "900" },
-  quickFeatureNote: { marginTop: 2, color: "rgba(255,255,255,.78)", fontSize: 9 },
+  quickFeatureNote: { marginTop: 2, color: "rgba(255,255,255,.9)", fontSize: 9 },
   quickMiniRow: { flexDirection: "row", gap: 6, marginTop: 8 },
   quickMiniCard: { minWidth: 0, flex: 1, minHeight: 88, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderRadius: 14, backgroundColor: colors.white },
   quickMiniIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 13 },
@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
   activePetPulse: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#BFFFEF" },
   activePetLabelText: { color: colors.white, fontSize: 8, fontWeight: "900", letterSpacing: 0.5 },
   petName: { color: colors.white, fontSize: 16, lineHeight: 20, fontWeight: "900" },
-  petMeta: { color: "rgba(255,255,255,.82)", fontSize: 10 },
+  petMeta: { color: "rgba(255,255,255,.9)", fontSize: 10 },
   petSwitchButton: { minHeight: 34, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, borderWidth: 1, borderColor: "rgba(255,255,255,.38)", borderRadius: 11, backgroundColor: "rgba(255,255,255,.14)" },
   petSwitchText: { color: colors.white, fontSize: 10, fontWeight: "800" },
   healthOverview: { zIndex: 1, minWidth: 0, flexDirection: "row", gap: 8, marginTop: 12 },
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
   scoreValue: { color: colors.navy, fontSize: 18, lineHeight: 22, fontWeight: "900" },
   scoreLabel: { color: colors.muted, fontSize: 8, fontWeight: "700" },
   healthStatus: { marginTop: 5, color: colors.white, fontSize: 10, fontWeight: "800" },
-  updated: { marginTop: 1, color: "rgba(255,255,255,.72)", fontSize: 8 },
+  updated: { marginTop: 1, color: "rgba(255,255,255,.9)", fontSize: 8 },
   metricStack: { minWidth: 0, flex: 1, gap: 7 },
   metric: { minHeight: 55, flexDirection: "row", alignItems: "center", gap: 9, padding: 9, borderWidth: 1, borderColor: "rgba(255,255,255,.62)", borderRadius: 15, backgroundColor: "rgba(255,255,255,.93)" },
   metricIcon: { width: 33, height: 33, alignItems: "center", justifyContent: "center", borderRadius: 11 },
@@ -610,8 +610,8 @@ const styles = StyleSheet.create({
   insightIcon: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: colors.sky50 },
   insightCopy: { minWidth: 0, flex: 1, gap: 2 },
   insightTitle: { color: "#315E7C", fontSize: 11, fontWeight: "800" },
-  insightText: { color: "#66869A", fontSize: 10, lineHeight: 14 },
-  insightArrow: { width: 26, height: 26, alignItems: "center", justifyContent: "center", borderRadius: 9, backgroundColor: colors.sky500 },
+  insightText: { color: colors.muted, fontSize: 10, lineHeight: 14 },
+  insightArrow: { width: 26, height: 26, alignItems: "center", justifyContent: "center", borderRadius: 9, backgroundColor: colors.sky600 },
   careCard: { position: "relative", overflow: "hidden", padding: 13, borderWidth: 1, borderColor: "#D5F3EB", borderRadius: 22, shadowColor: "#238A7A", shadowOpacity: 0.08, shadowRadius: 13, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
   careGlow: { position: "absolute", right: -42, top: -58, width: 135, height: 135, borderRadius: 68, backgroundColor: "rgba(38,190,161,.08)" },
   careRow: { zIndex: 1, minHeight: 76, flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 5 },
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
   careCtaCopy: { minWidth: 0, flex: 1 },
   careCtaTitle: { color: colors.navy, fontSize: 11, fontWeight: "900" },
   careCtaNote: { marginTop: 1, color: colors.muted, fontSize: 9 },
-  careCtaArrow: { width: 30, height: 30, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: colors.sky500 },
+  careCtaArrow: { width: 30, height: 30, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: colors.sky600 },
   serviceScroll: { gap: 11, paddingRight: 16, paddingBottom: 7 },
   serviceCard: { width: 188, overflow: "hidden", borderWidth: 1, borderColor: colors.line, borderRadius: 20, backgroundColor: colors.white, shadowColor: "#396E91", shadowOpacity: 0.1, shadowRadius: 13, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
   serviceVisual: { position: "relative", height: 112, overflow: "hidden", alignItems: "center", justifyContent: "center" },
@@ -662,11 +662,11 @@ const styles = StyleSheet.create({
   serviceMeta: { minWidth: 0, flexDirection: "row", alignItems: "center", gap: 4, marginTop: 7 },
   ratingPill: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.yellow50 },
   ratingText: { color: "#9B6B11", fontSize: 9, fontWeight: "900" },
-  serviceMetaDot: { color: "#B2BEC7", fontSize: 9 },
+  serviceMetaDot: { color: colors.muted, fontSize: 9 },
   serviceMetaText: { flexShrink: 1, color: colors.muted, fontSize: 9 },
   serviceFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 5, marginTop: 8 },
   servicePrice: { minWidth: 0, flex: 1, color: colors.sky600, fontSize: 11, fontWeight: "900" },
-  bookPill: { minHeight: 29, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, borderRadius: 10, backgroundColor: colors.sky500 },
+  bookPill: { minHeight: 29, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, borderRadius: 10, backgroundColor: colors.sky600 },
   bookPillText: { color: colors.white, fontSize: 9, fontWeight: "900" },
   pressed: { opacity: 0.7, transform: [{ scale: 0.985 }] },
   searchBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(14,32,55,.42)" },
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
   searchInput: { minWidth: 0, flex: 1, height: 40, padding: 0, color: colors.text, fontSize: typography.input },
   searchCategories: { gap: 6, paddingHorizontal: spacing.lg, paddingVertical: 10, backgroundColor: colors.white },
   searchCategory: { height: 32, alignItems: "center", justifyContent: "center", paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, backgroundColor: colors.white },
-  searchCategoryActive: { borderColor: colors.sky500, backgroundColor: colors.sky500 },
+  searchCategoryActive: { borderColor: colors.sky600, backgroundColor: colors.sky600 },
   searchCategoryText: { color: colors.muted, fontSize: 11, fontWeight: "700" },
   searchCategoryTextActive: { color: colors.white },
   searchBody: { flex: 1 },

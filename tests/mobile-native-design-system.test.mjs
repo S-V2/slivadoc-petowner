@@ -105,7 +105,17 @@ test("android start replaces stale project Metro and clears its cache", () => {
   );
   assert.match(expoStarter, /findStaleExpoProcesses/);
   assert.match(expoStarter, /process\.kill\(pid, "SIGTERM"\)/);
-  assert.match(expoStarter, /\["start", `--\$\{platform\}`, "--clear"/);
+  assert.match(expoStarter, /\["start", "--android", "--clear"/);
+});
+
+test("ios start bypasses Expo AppleScript activation and opens through simctl", () => {
+  assert.equal(
+    mobilePackage.scripts.ios,
+    "node ./scripts/start-expo.mjs ios",
+  );
+  assert.match(expoStarter, /spawnSync\("open", \["-a", "Simulator"\]/);
+  assert.match(expoStarter, /\["simctl", "openurl", "booted", projectUrl\]/);
+  assert.match(expoStarter, /platform === "ios"[\s\S]*?\["start", "--clear"/);
 });
 
 test("home header prioritizes global search and never renders location copy", () => {

@@ -11,7 +11,7 @@
     "preandroid": "node ./scripts/ensure-dependencies.mjs",
     "android": "node ./scripts/start-expo.mjs android",
     "preios": "node ./scripts/ensure-dependencies.mjs",
-    "ios": "expo start --ios",
+    "ios": "node ./scripts/start-expo.mjs ios",
     "typecheck": "tsc --noEmit",
     "doctor": "npx expo-doctor",
     "validate:production-env": "node ./scripts/validate-production-env.mjs",

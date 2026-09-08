@@ -63,16 +63,124 @@ if (staleProcesses.length > 0) {
   await new Promise((resolve) => setTimeout(resolve, 650));
 }
 
+function prepareIOSSimulator() {
+  if (process.platform !== "darwin") {
+    console.error("iOS Simulator hanya dapat dijalankan dari macOS.");
+    process.exit(1);
+  }
+
+  const xcode = spawnSync("xcrun", ["simctl", "list", "devices"], {
+    encoding: "utf8",
+  });
+  if (xcode.status !== 0) {
+    console.error(
+      "Xcode command line tools belum siap. Jalankan `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`, lalu buka Xcode sekali untuk menyetujui lisensi.",
+    );
+    process.exit(1);
+  }
+
+  const simulator = spawnSync("open", ["-a", "Simulator"], {
+    encoding: "utf8",
+  });
+  if (simulator.status !== 0) {
+    console.error(
+      `Simulator gagal dibuka: ${simulator.stderr?.trim() || "pastikan Xcode dan iOS Simulator sudah terpasang"}`,
+    );
+    process.exit(1);
+  }
+}
+
+function hasBootedSimulator() {
+  const result = spawnSync(
+    "xcrun",
+    ["simctl", "list", "devices", "booted", "--json"],
+    { encoding: "utf8" },
+  );
+  if (result.status !== 0 || !result.stdout) return false;
+  try {
+    const runtimes = Object.values(JSON.parse(result.stdout).devices ?? {});
+    return runtimes.some((devices) =>
+      devices.some((device) => device.state === "Booted"),
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function waitForBootedSimulator(timeoutMs = 45_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (hasBootedSimulator()) return true;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return false;
+}
+
+async function openExpoInSimulator(projectUrl) {
+  if (!(await waitForBootedSimulator())) {
+    console.error(
+      "Simulator belum selesai boot. Pilih device dari Simulator > File > Open Simulator, lalu jalankan ulang `npm run ios`.",
+    );
+    return;
+  }
+
+  const result = spawnSync(
+    "xcrun",
+    ["simctl", "openurl", "booted", projectUrl],
+    { encoding: "utf8" },
+  );
+  if (result.status === 0) {
+    console.log(`[mobile] Project dibuka di iOS Simulator: ${projectUrl}`);
+    return;
+  }
+
+  console.error(
+    `[mobile] Expo Go belum dapat membuka URL otomatis. Buka Expo Go di Simulator dan masukkan URL ini: ${projectUrl}`,
+  );
+}
+
+if (platform === "ios") prepareIOSSimulator();
+
 console.log(`[mobile] Membuka ${platform} dengan cache Metro baru...`);
+const expoArguments =
+  platform === "ios"
+    ? ["start", "--clear", ...process.argv.slice(3)]
+    : ["start", "--android", "--clear", ...process.argv.slice(3)];
 const expo = spawn(
   expoBinary,
-  ["start", `--${platform}`, "--clear", ...process.argv.slice(3)],
+  expoArguments,
   {
     cwd: mobileDirectory,
     env: process.env,
-    stdio: "inherit",
+    stdio: platform === "ios" ? ["inherit", "pipe", "pipe"] : "inherit",
   },
 );
+
+if (platform === "ios") {
+  let output = "";
+  let projectOpened = false;
+  const forwardOutput = (stream, target) => {
+    stream?.on("data", (chunk) => {
+      target.write(chunk);
+      if (projectOpened) return;
+      output = `${output}${chunk}`.replace(
+        // Strip ANSI control codes before looking for the Expo URL.
+        /\u001B\[[0-?]*[ -\/]*[@-~]/g,
+        "",
+      );
+      const match = output.match(/\bexps?:\/\/[^\s]+/);
+      if (!match) {
+        output = output.slice(-2_000);
+        return;
+      }
+      projectOpened = true;
+      const projectUrl = match[0].replace(/[),.;]+$/, "");
+      void openExpoInSimulator(projectUrl);
+    });
+  };
+  forwardOutput(expo.stdout, process.stdout);
+  forwardOutput(expo.stderr, process.stderr);
+}
 
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => expo.kill(signal));

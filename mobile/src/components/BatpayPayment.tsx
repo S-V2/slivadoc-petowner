@@ -79,7 +79,7 @@ export function MobilePaymentMethods({
         ))}
       </ScrollView>
       {!methods.length ? (
-        <Text style={styles.message}>{message || "Memuat metode BatPay…"}</Text>
+        <Text style={styles.message}>{message || "Memuat metode pembayaran…"}</Text>
       ) : null}
     </View>
   );
@@ -173,7 +173,7 @@ function MobileBatpayModalState({
             ) : (
               <View style={styles.center}>
                 <Text style={styles.kicker}>
-                  BATPAY ·{" "}
+                  PEMBAYARAN ·{" "}
                   {current.method === "qris"
                     ? "QRIS"
                     : `${current.bank_code || "BANK"} VA`}
@@ -190,7 +190,7 @@ function MobileBatpayModalState({
                   // React Native Image uses accessibilityLabel rather than HTML alt.
                   // eslint-disable-next-line jsx-a11y/alt-text
                   <Image
-                    accessibilityLabel="QRIS pembayaran BatPay"
+                    accessibilityLabel="Kode QRIS pembayaran"
                     source={{ uri: current.qr_url }}
                     style={styles.qr}
                   />

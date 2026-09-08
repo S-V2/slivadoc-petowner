@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     color: colors.text,
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "600",
   },
   methodRow: { gap: 8, paddingRight: 8 },
   method: {
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
     color: colors.navy,
     fontSize: 11,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   methodNote: { marginTop: 3, color: colors.muted, fontSize: 10 },
   check: {
@@ -311,14 +311,14 @@ const styles = StyleSheet.create({
   kicker: {
     color: colors.sky600,
     fontSize: 9,
-    fontWeight: "900",
+    fontWeight: "700",
     letterSpacing: 1,
   },
   title: {
     color: colors.navy,
     fontSize: 20,
     lineHeight: 25,
-    fontWeight: "900",
+    fontWeight: "700",
     textAlign: "center",
   },
   note: {
@@ -351,13 +351,13 @@ const styles = StyleSheet.create({
   vaNumber: {
     color: colors.sky600,
     fontSize: 19,
-    fontWeight: "900",
+    fontWeight: "700",
     letterSpacing: 1,
     textAlign: "center",
   },
-  amount: { color: colors.navy, fontSize: 19, fontWeight: "900" },
-  wait: { color: colors.yellow, fontSize: 12, fontWeight: "800" },
-  failed: { color: colors.red, fontSize: 12, fontWeight: "800" },
+  amount: { color: colors.navy, fontSize: 19, fontWeight: "700" },
+  wait: { color: colors.yellow, fontSize: 12, fontWeight: "600" },
+  failed: { color: colors.red, fontSize: 12, fontWeight: "600" },
   success: {
     width: 60,
     height: 60,
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     backgroundColor: colors.mint,
   },
-  successText: { color: colors.white, fontSize: 30, fontWeight: "900" },
+  successText: { color: colors.white, fontSize: 30, fontWeight: "700" },
   primary: {
     width: "100%",
     minHeight: 44,
@@ -376,5 +376,5 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.sky600,
   },
-  primaryText: { color: colors.white, fontWeight: "900" },
+  primaryText: { color: colors.white, fontWeight: "700" },
 });

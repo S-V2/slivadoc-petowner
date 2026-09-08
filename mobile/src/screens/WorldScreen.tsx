@@ -1069,7 +1069,7 @@ const styles = StyleSheet.create({
   },
   activeMode: { borderColor: colors.sky400, backgroundColor: colors.sky50 },
   modeIcon: { fontSize: 20 },
-  modeLabel: { color: colors.muted, fontSize: 10, fontWeight: "800" },
+  modeLabel: { color: colors.muted, fontSize: 10, fontWeight: "600" },
   activeModeLabel: { color: colors.sky600 },
   hero: {
     position: "relative",
@@ -1088,7 +1088,7 @@ const styles = StyleSheet.create({
   heroKicker: {
     color: "rgba(255,255,255,.9)",
     fontSize: 9,
-    fontWeight: "900",
+    fontWeight: "700",
     letterSpacing: 1.1,
   },
   heroTitle: {
@@ -1097,7 +1097,7 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 23,
     lineHeight: 27,
-    fontWeight: "900",
+    fontWeight: "700",
     letterSpacing: -0.6,
   },
   heroNote: {
@@ -1118,14 +1118,14 @@ const styles = StyleSheet.create({
   eyebrow: {
     color: colors.muted,
     fontSize: 9,
-    fontWeight: "900",
+    fontWeight: "700",
     letterSpacing: 1,
   },
   sectionTitle: {
     marginTop: 3,
     color: colors.navy,
     fontSize: 17,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   create: {
     minHeight: 38,
@@ -1136,7 +1136,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.sky600,
   },
-  createText: { color: colors.white, fontSize: 11, fontWeight: "800" },
+  createText: { color: colors.white, fontSize: 11, fontWeight: "600" },
   list: { gap: 12 },
   card: {
     overflow: "hidden",
@@ -1167,7 +1167,7 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     backgroundColor: colors.red,
   },
-  liveText: { color: colors.white, fontSize: 8, fontWeight: "900" },
+  liveText: { color: colors.white, fontSize: 8, fontWeight: "600" },
   verified: {
     position: "absolute",
     left: 8,
@@ -1177,15 +1177,15 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     backgroundColor: "rgba(255,255,255,.94)",
   },
-  verifiedText: { color: "#8B5A18", fontSize: 8, fontWeight: "900" },
+  verifiedText: { color: "#8B5A18", fontSize: 8, fontWeight: "600" },
   cardCopy: { minWidth: 0, flex: 1, padding: 11 },
-  cardKicker: { color: colors.sky600, fontSize: 9, fontWeight: "800" },
+  cardKicker: { color: colors.sky600, fontSize: 9, fontWeight: "600" },
   cardTitle: {
     marginTop: 4,
     color: colors.navy,
     fontSize: 13,
     lineHeight: 17,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   cardNote: { marginTop: 4, color: colors.muted, fontSize: 10, lineHeight: 15 },
   cardFooter: {
@@ -1200,7 +1200,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.sky600,
     fontSize: 10,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   arrow: {
     width: 31,
@@ -1228,7 +1228,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.mint50,
   },
   authorCopy: { minWidth: 0, flex: 1 },
-  authorName: { color: colors.navy, fontSize: 12, fontWeight: "900" },
+  authorName: { color: colors.navy, fontSize: 12, fontWeight: "700" },
   authorHandle: { marginTop: 2, color: colors.muted, fontSize: 9 },
   threadBody: {
     marginVertical: 10,
@@ -1297,7 +1297,7 @@ const styles = StyleSheet.create({
     marginTop: 13,
     color: colors.sky600,
     fontSize: 9,
-    fontWeight: "900",
+    fontWeight: "700",
     textTransform: "uppercase",
   },
   sheetTitle: {
@@ -1305,7 +1305,7 @@ const styles = StyleSheet.create({
     color: colors.navy,
     fontSize: 21,
     lineHeight: 26,
-    fontWeight: "900",
+    fontWeight: "700",
     letterSpacing: -0.4,
   },
   sheetNote: {
@@ -1333,7 +1333,7 @@ const styles = StyleSheet.create({
     color: colors.navy,
     fontSize: 11,
     lineHeight: 16,
-    fontWeight: "800",
+    fontWeight: "600",
   },
   welfareNote: {
     marginBottom: 14,
@@ -1342,7 +1342,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#EDF8F4",
   },
   welfareTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  welfareTitle: { color: "#25695F", fontSize: 12, fontWeight: "900" },
+  welfareTitle: { color: "#25695F", fontSize: 12, fontWeight: "700" },
   welfareText: { marginTop: 5, color: "#5F756F", fontSize: 11, lineHeight: 17 },
   formSection: {
     gap: 9,
@@ -1353,14 +1353,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.canvas,
   },
-  formTitle: { color: colors.navy, fontSize: 15, fontWeight: "900" },
+  formTitle: { color: colors.navy, fontSize: 15, fontWeight: "700" },
   formNote: { color: colors.muted, fontSize: 10, lineHeight: 15 },
   formField: { gap: 6 },
   formLabel: {
     color: colors.text,
     fontSize: 11,
     lineHeight: 18,
-    fontWeight: "800",
+    fontWeight: "600",
   },
   formInput: {
     minHeight: 44,
@@ -1393,7 +1393,7 @@ const styles = StyleSheet.create({
     borderColor: colors.sky500,
     backgroundColor: colors.sky50,
   },
-  choiceText: { color: colors.muted, fontSize: 12, fontWeight: "800" },
+  choiceText: { color: colors.muted, fontSize: 12, fontWeight: "600" },
   choiceTextActive: { color: colors.sky600 },
   petSummary: {
     minHeight: 62,
@@ -1419,7 +1419,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     color: colors.navy,
     fontSize: 14,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   requirements: { gap: 7, marginTop: 3 },
   requirement: {
@@ -1442,7 +1442,7 @@ const styles = StyleSheet.create({
     color: colors.navy,
     fontSize: 21,
     lineHeight: 26,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   input: {
     minHeight: 160,

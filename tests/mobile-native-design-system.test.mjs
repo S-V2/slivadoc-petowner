@@ -80,6 +80,13 @@ test("native mobile theme preserves Slivadoc sky blue as the primary color", () 
   assert.match(theme, /sky50:\s*"#EBF8FF"/);
 });
 
+test("mobile typography keeps a soft hierarchy without extra-heavy weights", () => {
+  const mobileSource = [app, ui, ...iconSources].join("\n");
+  assert.doesNotMatch(mobileSource, /fontWeight:\s*"(?:800|900)"/);
+  assert.match(ui, /sectionHeading:[^\n]*fontWeight:\s*"600"/);
+  assert.match(home, /heroTitle:[^\n]*fontWeight:\s*"700"/);
+});
+
 test("mobile semantic text colors remain readable on light surfaces", () => {
   for (const background of [themeColor("white"), themeColor("canvas")]) {
     for (const foreground of ["navy", "text", "muted", "sky600", "mint", "violet", "red", "yellow"].map(themeColor)) {

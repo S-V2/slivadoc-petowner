@@ -24,10 +24,10 @@ export const colors = {
 
 export const shadow = {
   shadowColor: "#2879A7",
-  shadowOpacity: 0.09,
+  shadowOpacity: 0.065,
   shadowRadius: 16,
-  shadowOffset: { width: 0, height: 7 },
-  elevation: 3,
+  shadowOffset: { width: 0, height: 6 },
+  elevation: 2,
 };
 
 export const typography = {

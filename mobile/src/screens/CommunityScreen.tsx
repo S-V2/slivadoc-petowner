@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 7,
   },
-  title: { color: colors.navy, fontSize: 22, lineHeight: 27, fontWeight: "900" },
+  title: { color: colors.navy, fontSize: 22, lineHeight: 27, fontWeight: "700" },
   subtitle: { marginTop: 2, color: colors.muted, fontSize: 11, lineHeight: 16 },
   online: { color: colors.mint },
   offline: { color: colors.muted },
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   activeTab: { borderColor: colors.sky600, backgroundColor: colors.sky600 },
-  tabText: { color: colors.muted, fontSize: 10, fontWeight: "800" },
+  tabText: { color: colors.muted, fontSize: 10, fontWeight: "600" },
   activeTabText: { color: colors.white },
   prompt: {
     minHeight: 56,
@@ -603,7 +603,7 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     backgroundColor: colors.sky50,
   },
-  userText: { color: colors.sky600, fontSize: 11, fontWeight: "900" },
+  userText: { color: colors.sky600, fontSize: 11, fontWeight: "700" },
   promptText: { flex: 1, color: colors.muted, fontSize: 11, lineHeight: 16 },
   post: {
     marginTop: 10,
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.mint50,
   },
   authorCopy: { minWidth: 0, flex: 1 },
-  author: { color: colors.navy, fontSize: 12, fontWeight: "900" },
+  author: { color: colors.navy, fontSize: 12, fontWeight: "700" },
   meta: { marginTop: 2, color: colors.muted, fontSize: 9, lineHeight: 14 },
   tag: {
     maxWidth: 82,
@@ -633,7 +633,7 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     backgroundColor: colors.sky50,
   },
-  tagText: { color: colors.sky600, fontSize: 9, fontWeight: "800" },
+  tagText: { color: colors.sky600, fontSize: 9, fontWeight: "600" },
   body: {
     marginVertical: 10,
     color: colors.text,
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
     marginTop: 9,
     color: colors.sky600,
     fontSize: 11,
-    fontWeight: "900",
+    fontWeight: "700",
     letterSpacing: 1,
   },
   actions: {
@@ -686,7 +686,7 @@ const styles = StyleSheet.create({
   composerKicker: {
     color: colors.muted,
     fontSize: 9,
-    fontWeight: "900",
+    fontWeight: "700",
     letterSpacing: 1,
   },
   composerTitle: {
@@ -694,7 +694,7 @@ const styles = StyleSheet.create({
     color: colors.navy,
     fontSize: 22,
     lineHeight: 27,
-    fontWeight: "900",
+    fontWeight: "700",
   },
   close: {
     width: 44,
@@ -761,5 +761,5 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     backgroundColor: colors.mint50,
   },
-  toolText: { color: colors.text, fontSize: 13, fontWeight: "800" },
+  toolText: { color: colors.text, fontSize: 13, fontWeight: "600" },
 });

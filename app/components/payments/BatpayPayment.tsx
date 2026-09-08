@@ -65,7 +65,7 @@ export function PaymentMethodPicker({
         </div>
       ) : (
         <p className="batpay-method-message">
-          {message || "Memuat metode BatPay…"}
+          {message || "Memuat metode pembayaran…"}
         </p>
       )}
     </fieldset>
@@ -167,7 +167,7 @@ function BatpayPaymentState({
   return (
     <section className="batpay-result pending">
       <small>
-        BATPAY ·{" "}
+        PEMBAYARAN ·{" "}
         {current.method === "qris"
           ? "QRIS"
           : `${current.bank_code || "BANK"} VIRTUAL ACCOUNT`}
@@ -187,7 +187,7 @@ function BatpayPaymentState({
         current.qr_url ? (
           <NextImage
             src={current.qr_url}
-            alt="QRIS pembayaran BatPay"
+            alt="Kode QRIS pembayaran"
             width={320}
             height={320}
             unoptimized

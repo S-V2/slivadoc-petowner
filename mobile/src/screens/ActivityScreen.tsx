@@ -18,7 +18,7 @@ import {
   type MobileActivityState,
   type MobileActivityType,
 } from "../api";
-import { BoundedBottomSheet, Card, EmptyState, Pill, PrimaryButton, Screen } from "../components/ui";
+import { BoundedBottomSheet, Card, EmptyState, PetRequiredNotice, Pill, PrimaryButton, Screen } from "../components/ui";
 import { colors, shadow, typography } from "../theme";
 
 type TypeFilter = MobileActivityType | "all";
@@ -26,10 +26,12 @@ type PillTone = "blue" | "mint" | "yellow" | "violet" | "red";
 
 type ActivityScreenProps = {
   authenticated: boolean;
+  hasPet: boolean;
   refreshVersion: number;
   onAction: (message: string) => void;
   onOpenNotifications: () => void;
   onLogin: () => void;
+  onRequirePet: () => void;
   onCreateBooking: () => void;
   onCreateOrder: () => void;
   onCreateConsultation: () => void;
@@ -325,10 +327,12 @@ function ActivityDetailSheet({
 
 export function ActivityScreen({
   authenticated,
+  hasPet,
   refreshVersion,
   onAction,
   onOpenNotifications,
   onLogin,
+  onRequirePet,
   onCreateBooking,
   onCreateOrder,
   onCreateConsultation,
@@ -423,6 +427,8 @@ export function ActivityScreen({
             <View style={styles.notificationDot} />
           </Pressable>
         </View>
+
+        {!hasPet ? <PetRequiredNotice onAddPet={onRequirePet} /> : null}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeFilters}>
           {typeOptions.map((option) => {

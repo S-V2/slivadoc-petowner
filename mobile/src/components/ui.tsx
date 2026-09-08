@@ -156,6 +156,32 @@ export function EmptyState({ icon, title, note, action, onAction }: { icon: keyo
   return <View style={styles.empty}><AppIcon name={icon} size={28} containerSize={58} /><Text style={styles.emptyTitle}>{title}</Text><Text style={styles.emptyNote}>{note}</Text><PrimaryButton compact label={action} onPress={onAction} /></View>;
 }
 
+export function PetRequiredNotice({ onAddPet }: { onAddPet: () => void }) {
+  return (
+    <View style={styles.petRequiredNotice} accessibilityRole="summary">
+      <AppIcon name="lock-closed-outline" tone="violet" size={18} containerSize={40} />
+      <View style={styles.petRequiredCopy}>
+        <Text style={styles.petRequiredTitle}>Mode lihat saja</Text>
+        <Text style={styles.petRequiredText}>
+          Tambahkan profil pet untuk bertransaksi dan ikut berinteraksi.
+        </Text>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Tambah profil pet"
+        hitSlop={8}
+        onPress={onAddPet}
+        style={({ pressed }) => [
+          styles.petRequiredAction,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Text style={styles.petRequiredActionText}>Tambah pet</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export function BoundedBottomSheet({
   visible,
   onClose,
@@ -234,6 +260,12 @@ const styles = StyleSheet.create({
   empty: { minHeight: 260, alignItems: "center", justifyContent: "center", padding: 24 },
   emptyTitle: { marginTop: 10, color: colors.navy, fontSize: typography.sectionTitle, lineHeight: 22, fontWeight: "800" },
   emptyNote: { maxWidth: 280, marginTop: 5, marginBottom: 14, color: colors.muted, fontSize: typography.body, lineHeight: 19, textAlign: "center" },
+  petRequiredNotice: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12, padding: 12, borderWidth: 1, borderColor: "#DDD7FF", borderRadius: radius.lg, backgroundColor: "#F8F6FF" },
+  petRequiredCopy: { minWidth: 0, flex: 1 },
+  petRequiredTitle: { color: colors.navy, fontSize: 12, lineHeight: 16, fontWeight: "800" },
+  petRequiredText: { marginTop: 2, color: colors.muted, fontSize: 10, lineHeight: 14 },
+  petRequiredAction: { minHeight: 34, alignItems: "center", justifyContent: "center", paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.white },
+  petRequiredActionText: { color: colors.sky600, fontSize: 10, fontWeight: "800" },
   sheetRoot: { flex: 1 },
   sheetBackdrop: {
     flex: 1,

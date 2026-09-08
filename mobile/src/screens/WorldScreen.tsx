@@ -37,6 +37,7 @@ import {
 } from "../api";
 import { colors, shadow } from "../theme";
 import {
+  PetRequiredNotice,
   PrimaryButton,
   Screen,
   TopHeader,
@@ -169,7 +170,9 @@ export function WorldScreen({
   owner,
   petName,
   pet,
+  hasPet,
   onLogin,
+  onRequirePet,
   intent,
 }: {
   refreshVersion: number;
@@ -178,7 +181,9 @@ export function WorldScreen({
   owner?: MobileOwner;
   petName?: string;
   pet?: WorldPet;
+  hasPet: boolean;
   onLogin: () => void;
+  onRequirePet: () => void;
   intent?: { token: number; mode: "consult"; itemId?: string };
 }) {
   const [mode, setMode] = useState<Mode>(intent?.mode ?? "academy");
@@ -280,6 +285,10 @@ export function WorldScreen({
       !(mode === "pethub" && selected.playback_url)
     ) {
       onLogin();
+      return;
+    }
+    if (!hasPet && mode !== "petspot" && mode !== "pethub") {
+      onRequirePet();
       return;
     }
     if (
@@ -494,6 +503,7 @@ export function WorldScreen({
           subtitle="Seluruh dunia pet dalam satu aplikasi"
           onNotification={onOpenNotifications}
         />
+        {!hasPet && owner ? <PetRequiredNotice onAddPet={onRequirePet} /> : null}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -520,7 +530,9 @@ export function WorldScreen({
         <PetHubExperience
           refreshVersion={refreshVersion}
           owner={owner}
+          hasPet={hasPet}
           onLogin={onLogin}
+          onRequirePet={onRequirePet}
           onAction={onAction}
         />
       </Screen>
@@ -534,6 +546,7 @@ export function WorldScreen({
           subtitle="Seluruh dunia pet dalam satu aplikasi"
           onNotification={onOpenNotifications}
         />
+        {!hasPet && owner ? <PetRequiredNotice onAddPet={onRequirePet} /> : null}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}

@@ -38,7 +38,9 @@ type ComposerMode = "story" | "feed" | "reel";
 type Props = {
   refreshVersion: number;
   owner?: MobileOwner;
+  hasPet: boolean;
   onLogin: () => void;
+  onRequirePet: () => void;
   onAction: (message: string) => void;
 };
 
@@ -89,7 +91,9 @@ function InlineVideo({ uri, style }: { uri: string; style: StyleProp<ViewStyle> 
 export function PetHubExperience({
   refreshVersion,
   owner,
+  hasPet,
   onLogin,
+  onRequirePet,
   onAction,
 }: Props) {
   const [activeTab, setActiveTab] = useState<"feed" | "reels">("feed");
@@ -139,6 +143,10 @@ export function PetHubExperience({
       onLogin();
       return;
     }
+    if (!hasPet) {
+      onRequirePet();
+      return;
+    }
     setAsset(undefined);
     setCaption("");
     setComposerMode(mode);
@@ -172,6 +180,10 @@ export function PetHubExperience({
 
   const publish = async () => {
     if (!owner || !composerMode || !asset) return;
+    if (!hasPet) {
+      onRequirePet();
+      return;
+    }
     if (composerMode !== "story" && caption.trim().length < 3) {
       onAction("Tambahkan caption minimal 3 karakter");
       return;
@@ -215,6 +227,10 @@ export function PetHubExperience({
       onLogin();
       return;
     }
+    if (!hasPet) {
+      onRequirePet();
+      return;
+    }
     try {
       const result = await reactMobilePetHubPost(item.id);
       setLiked((current) =>
@@ -241,6 +257,10 @@ export function PetHubExperience({
     if (!commentPost || comment.trim().length < 1) return;
     if (!owner) {
       onLogin();
+      return;
+    }
+    if (!hasPet) {
+      onRequirePet();
       return;
     }
     setCommentBusy(true);
@@ -356,7 +376,7 @@ export function PetHubExperience({
                   <Pressable accessibilityRole="button" accessibilityLabel="Buka komentar" onPress={() => void openComments(item)} style={styles.actionButton}><Ionicons name="chatbubble-outline" size={21} color={colors.navy} /></Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel="Bagikan posting" onPress={() => void Share.share({ message: `${item.author_name || "Pet Parent"}: ${item.content || "Momen dari PetHub Slivadoc"}${url ? `\n${url}` : ""}` })} style={styles.actionButton}><Ionicons name="paper-plane-outline" size={21} color={colors.navy} /></Pressable>
                 </View>
-                <Pressable accessibilityRole="button" accessibilityLabel="Simpan posting" onPress={() => setSaved((current) => current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id])} style={styles.actionButton}><Ionicons name={saved.includes(item.id) ? "bookmark" : "bookmark-outline"} size={21} color={colors.navy} /></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="Simpan posting" onPress={() => hasPet ? setSaved((current) => current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id]) : onRequirePet()} style={styles.actionButton}><Ionicons name={saved.includes(item.id) ? "bookmark" : "bookmark-outline"} size={21} color={colors.navy} /></Pressable>
               </View>
               <Text style={styles.countText}>{(item.like_count || 0) + (itemLiked ? 1 : 0)} suka</Text>
               {item.content ? <Text style={styles.caption}><Text style={styles.captionAuthor}>{item.author_name || "Pet Parent"} </Text>{item.content}</Text> : null}
@@ -399,7 +419,7 @@ export function PetHubExperience({
           <ScrollView keyboardShouldPersistTaps="handled" style={styles.commentList}>
             {comments.length ? comments.map((item) => <View key={item.id} style={styles.commentItem}><View style={styles.commentAvatar}><Text style={styles.authorInitial}>{initials(item.author_name)}</Text></View><View style={styles.authorCopy}><Text style={styles.commentAuthor}>{item.author_name}</Text><Text style={styles.commentBody}>{item.content}</Text><Text style={styles.authorMeta}>{formatAge(item.created_at)}</Text></View></View>) : <Text style={styles.emptyText}>Belum ada komentar. Mulai obrolan yang baik.</Text>}
           </ScrollView>
-          <View style={styles.commentComposer}><TextInput value={comment} onChangeText={setComment} editable={!commentBusy} placeholder={owner ? "Tambahkan komentar…" : "Login untuk berkomentar"} placeholderTextColor={colors.muted} style={styles.commentInput} /><Pressable disabled={commentBusy || !comment.trim()} onPress={() => void sendComment()} style={styles.sendButton}><Ionicons name="arrow-up" size={18} color={colors.white} /></Pressable></View>
+          <View style={styles.commentComposer}><TextInput value={comment} onChangeText={setComment} editable={hasPet && !commentBusy} placeholder={!owner ? "Login untuk berkomentar" : hasPet ? "Tambahkan komentar…" : "Tambah pet untuk berkomentar"} placeholderTextColor={colors.muted} style={styles.commentInput} /><Pressable disabled={commentBusy || (hasPet && !comment.trim())} onPress={() => hasPet ? void sendComment() : onRequirePet()} style={styles.sendButton}><Ionicons name={hasPet ? "arrow-up" : "lock-closed"} size={18} color={colors.white} /></Pressable></View>
         </View>
       </BoundedBottomSheet>
     </>

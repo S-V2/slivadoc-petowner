@@ -257,6 +257,7 @@ function MobileApp() {
   }));
   const pet = pets[0];
   const petId = pet?.id;
+  const hasPet = pets.length > 0;
 
   const notify = useCallback((message: string) => setToast(message), []);
   useEffect(() => {
@@ -441,6 +442,15 @@ function MobileApp() {
     notify("Login diperlukan untuk fitur akun");
     return false;
   };
+  const requirePet = () => {
+    if (!requireLogin()) return false;
+    if (hasPet) return true;
+    notify(
+      "Tambahkan profil pet terlebih dahulu. Akunmu sedang dalam mode lihat saja.",
+    );
+    navigateTo("profile");
+    return false;
+  };
   const openSupportChat = () => {
     if (!requireLogin()) return;
     setChatContext("support");
@@ -451,7 +461,7 @@ function MobileApp() {
       navigateTo("discover");
       return;
     }
-    if (!requireLogin()) return;
+    if (!requirePet()) return;
     setSelectedService(service);
     setBookingOpen(true);
   };
@@ -600,7 +610,7 @@ function MobileApp() {
                   services={services}
                   favorites={favorites}
                   onToggleFavorite={async (id) => {
-                    if (!requireLogin()) return;
+                    if (!requirePet()) return;
                     try {
                       const result = await toggleMobileFavorite(id);
                       setFavorites((current) =>
@@ -621,6 +631,7 @@ function MobileApp() {
               {tab === "marketplace" ? (
                 <MarketplaceScreen
                   authenticated={Boolean(bootstrap)}
+                  hasPet={hasPet}
                   favorites={favorites}
                   refreshVersion={refreshVersion}
                   onAction={notify}
@@ -628,8 +639,11 @@ function MobileApp() {
                   onRequireLogin={() => {
                     requireLogin();
                   }}
+                  onRequirePet={() => {
+                    requirePet();
+                  }}
                   onToggleFavorite={async (id) => {
-                    if (!requireLogin()) return;
+                    if (!requirePet()) return;
                     try {
                       const result = await toggleMobileFavorite(id, "product");
                       setFavorites((current) =>
@@ -656,7 +670,11 @@ function MobileApp() {
                   owner={bootstrap?.user}
                   petName={pet?.name}
                   pet={pet}
+                  hasPet={hasPet}
                   onLogin={() => setLoginOpen(true)}
+                  onRequirePet={() => {
+                    requirePet();
+                  }}
                   intent={worldIntent}
                 />
               ) : null}
@@ -667,12 +685,28 @@ function MobileApp() {
                   onAction={notify}
                   onOpenNotifications={() => setNotificationsOpen(true)}
                   onLogin={() => setLoginOpen(true)}
-                  onCreateBooking={() => navigateTo("discover")}
-                  onCreateOrder={() => openMarketplace()}
-                  onCreateConsultation={() => openConsultation()}
-                  onRebook={rebookService}
-                  onReorder={reorderProducts}
-                  onReconsult={openConsultation}
+                  hasPet={hasPet}
+                  onRequirePet={() => {
+                    requirePet();
+                  }}
+                  onCreateBooking={() => {
+                    if (requirePet()) navigateTo("discover");
+                  }}
+                  onCreateOrder={() => {
+                    if (requirePet()) openMarketplace();
+                  }}
+                  onCreateConsultation={() => {
+                    if (requirePet()) openConsultation();
+                  }}
+                  onRebook={(serviceId) => {
+                    if (requirePet()) rebookService(serviceId);
+                  }}
+                  onReorder={(items) => {
+                    if (requirePet()) reorderProducts(items);
+                  }}
+                  onReconsult={(itemId) => {
+                    if (requirePet()) openConsultation(itemId);
+                  }}
                   onOpenProduct={openMarketplace}
                 />
               ) : null}
@@ -693,7 +727,11 @@ function MobileApp() {
                   onOpenNotifications={() => setNotificationsOpen(true)}
                   owner={bootstrap?.user}
                   pet={pet}
+                  hasPet={hasPet}
                   onLogin={() => setLoginOpen(true)}
+                  onRequirePet={() => {
+                    requirePet();
+                  }}
                 />
               ) : null}
               {tab === "profile" ? (

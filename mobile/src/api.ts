@@ -56,6 +56,29 @@ const SECURE_REFRESH_KEY = "slivadoc_mobile_refresh_token";
 let platformAccessToken = "";
 let platformRefreshToken = "";
 let refreshPromise: Promise<string> | null = null;
+let mobileOwnerHasPet: boolean | undefined;
+
+export const PET_PROFILE_REQUIRED_MESSAGE =
+  "Tambahkan profil pet terlebih dahulu. Tanpa pet, akun hanya dapat melihat konten.";
+
+const petProtectedMutationPatterns = [
+  /^\/api\/v1\/petowner\/(?:bookings|orders|favorites\/toggle|products\/[^/]+\/reviews|petship|fundraisers|reminders)(?:\/|$)/,
+  /^\/api\/v1\/community\//,
+  /^\/api\/v1\/pethub\//,
+  /^\/api\/v1\/consultations(?:\/|$)/,
+  /^\/api\/v1\/adoptions\//,
+  /^\/api\/v1\/academy\/enrollments$/,
+  /^\/api\/v1\/events\/[^/]+\/registrations$/,
+  /^\/api\/v1\/pet-document-requests$/,
+  /^\/api\/v1\/pawdating\//,
+  /^\/api\/v1\/payment-intents$/,
+];
+
+export function mobileMutationRequiresPet(path: string, method = "GET") {
+  if (method.toUpperCase() === "GET") return false;
+  const pathname = path.split("?", 1)[0] ?? path;
+  return petProtectedMutationPatterns.some((pattern) => pattern.test(pathname));
+}
 
 export async function restorePlatformSession(): Promise<boolean> {
   try {
@@ -109,6 +132,7 @@ export function hasPlatformSession() {
 export async function clearMobileSession() {
   platformAccessToken = "";
   platformRefreshToken = "";
+  mobileOwnerHasPet = undefined;
   realtime.auth = { token: "" };
   mobileCache.clear();
   mobileInFlight.clear();
@@ -209,6 +233,12 @@ async function platformRequest<T>(
   retry = true,
 ): Promise<T> {
   const method = String(init?.method ?? "GET").toUpperCase();
+  if (
+    mobileOwnerHasPet === false &&
+    mobileMutationRequiresPet(path, method)
+  ) {
+    throw new Error(PET_PROFILE_REQUIRED_MESSAGE);
+  }
   const key = `${path}:${platformAccessToken.slice(-12)}`;
   if (method === "GET") {
     const cached = mobileCache.get(key);
@@ -604,9 +634,11 @@ export const getMobileBootstrap = async () => {
   const result = await platformRequest<MobileBootstrap>(
     "/api/v1/petowner/bootstrap",
   );
+  const pets = uniqueById(result.pets);
+  mobileOwnerHasPet = pets.length > 0;
   return {
     ...result,
-    pets: uniqueById(result.pets),
+    pets,
     notifications: uniqueById(result.notifications),
     activities: uniqueById(result.activities),
   };

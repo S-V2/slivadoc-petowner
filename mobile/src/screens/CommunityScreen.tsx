@@ -28,6 +28,7 @@ import type { PetView } from "../data";
 import { colors, shadow } from "../theme";
 import {
   BoundedBottomSheet,
+  PetRequiredNotice,
   PrimaryButton,
   TopHeader,
   useAppSurface,
@@ -40,7 +41,9 @@ type Props = {
   onOpenNotifications: () => void;
   owner?: MobileOwner;
   pet?: PetView;
+  hasPet: boolean;
   onLogin: () => void;
+  onRequirePet: () => void;
 };
 
 export function CommunityScreen({
@@ -49,7 +52,9 @@ export function CommunityScreen({
   onOpenNotifications,
   owner,
   pet,
+  hasPet,
   onLogin,
+  onRequirePet,
 }: Props) {
   const { bottomInset, refreshing, onRefresh } = useAppSurface();
   const [posts, setPosts] = useState<MobileCommunityPost[]>([]);
@@ -97,6 +102,10 @@ export function CommunityScreen({
       onLogin();
       return;
     }
+    if (!hasPet) {
+      onRequirePet();
+      return;
+    }
     try {
       const updated = await reactMobileCommunityPost(post.id);
       setPosts((current) =>
@@ -125,6 +134,10 @@ export function CommunityScreen({
     if (!selected || comment.trim().length < 2) return;
     if (!owner) {
       onLogin();
+      return;
+    }
+    if (!hasPet) {
+      onRequirePet();
       return;
     }
     setCommentBusy(true);
@@ -177,6 +190,9 @@ export function CommunityScreen({
           subtitle="Slivadoc Community"
           onNotification={onOpenNotifications}
         />
+        {!hasPet && owner ? (
+          <PetRequiredNotice onAddPet={onRequirePet} />
+        ) : null}
         <View style={styles.titleRow}>
           <View>
           <Text style={styles.title}>Komunitas seru</Text>
@@ -188,7 +204,9 @@ export function CommunityScreen({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Buat posting"
-              onPress={() => (owner ? setComposer(true) : onLogin())}
+              onPress={() =>
+                owner ? (hasPet ? setComposer(true) : onRequirePet()) : onLogin()
+              }
               style={styles.create}
             >
               <Ionicons name="add" size={20} color={colors.white} />
@@ -222,13 +240,17 @@ export function CommunityScreen({
         {activeTab === "Grup" ? (
           <CommunityGroups
             owner={owner}
+            hasPet={hasPet}
             refreshVersion={refreshVersion}
             onLogin={onLogin}
+            onRequirePet={onRequirePet}
             onAction={onAction}
           />
         ) : (
         <><Pressable
-          onPress={() => (owner ? setComposer(true) : onLogin())}
+          onPress={() =>
+            owner ? (hasPet ? setComposer(true) : onRequirePet()) : onLogin()
+          }
           style={styles.prompt}
         >
           <View style={styles.user}>

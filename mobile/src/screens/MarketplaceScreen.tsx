@@ -32,18 +32,20 @@ import {
   MobileBatpayModal,
   MobilePaymentMethods,
 } from "../components/BatpayPayment";
-import { EmptyState, Pill, PrimaryButton, Screen } from "../components/ui";
+import { EmptyState, PetRequiredNotice, Pill, PrimaryButton, Screen } from "../components/ui";
 import { colors, shadow } from "../theme";
 
 type SortMode = "recommended" | "popular" | "rating" | "price";
 
 type MarketplaceScreenProps = {
   authenticated: boolean;
+  hasPet: boolean;
   favorites: string[];
   refreshVersion: number;
   onAction: (message: string) => void;
   onOpenNotifications: () => void;
   onRequireLogin: () => void;
+  onRequirePet: () => void;
   onToggleFavorite: (id: string) => Promise<void> | void;
   intent?: {
     token: number;
@@ -195,11 +197,13 @@ function ProductCard({
 
 export function MarketplaceScreen({
   authenticated,
+  hasPet,
   favorites,
   refreshVersion,
   onAction,
   onOpenNotifications,
   onRequireLogin,
+  onRequirePet,
   onToggleFavorite,
   intent,
 }: MarketplaceScreenProps) {
@@ -312,10 +316,14 @@ export function MarketplaceScreen({
   const addToCart = useCallback(
     (product: MobileProduct) => {
       if (!product.available) return;
+      if (!hasPet) {
+        onRequirePet();
+        return;
+      }
       setQuantity(product, (cart[product.id] ?? 0) + 1);
       onAction(`${product.name} masuk keranjang`);
     },
-    [cart, onAction, setQuantity],
+    [cart, hasPet, onAction, onRequirePet, setQuantity],
   );
 
   const loadReviews = useCallback(async (product: MobileProduct) => {
@@ -390,6 +398,10 @@ export function MarketplaceScreen({
       onRequireLogin();
       return;
     }
+    if (!hasPet) {
+      onRequirePet();
+      return;
+    }
     setQuoteBusy(true);
     try {
       setQuote(await quoteMobileOrder(orderInput));
@@ -404,6 +416,10 @@ export function MarketplaceScreen({
   const checkout = async () => {
     if (!authenticated) {
       onRequireLogin();
+      return;
+    }
+    if (!hasPet) {
+      onRequirePet();
       return;
     }
     if (!cartItems.length) return;
@@ -429,6 +445,10 @@ export function MarketplaceScreen({
     if (!selected) return;
     if (!authenticated) {
       onRequireLogin();
+      return;
+    }
+    if (!hasPet) {
+      onRequirePet();
       return;
     }
     if (reviewComment.trim().length < 10) {
@@ -482,6 +502,8 @@ export function MarketplaceScreen({
             ) : null}
           </Pressable>
         </View>
+
+        {!hasPet ? <PetRequiredNotice onAddPet={onRequirePet} /> : null}
 
         <View style={styles.searchBox}>
           <Ionicons name="search" size={18} color={colors.sky600} />

@@ -30,8 +30,10 @@ import { colors, shadow } from "../theme";
 
 type Props = {
   owner?: MobileOwner;
+  hasPet: boolean;
   refreshVersion: number;
   onLogin: () => void;
+  onRequirePet: () => void;
   onAction: (message: string) => void;
 };
 
@@ -53,8 +55,10 @@ const messageTime = (value?: string) => {
 
 export function CommunityGroups({
   owner,
+  hasPet,
   refreshVersion,
   onLogin,
+  onRequirePet,
   onAction,
 }: Props) {
   const [scope, setScope] = useState<"mine" | "discover">("mine");
@@ -108,6 +112,10 @@ export function CommunityGroups({
       onLogin();
       return;
     }
+    if (!hasPet) {
+      onRequirePet();
+      return;
+    }
     setJoining(group.id);
     try {
       const result = await joinMobileCommunityGroup(group.id);
@@ -140,7 +148,7 @@ export function CommunityGroups({
           <Text style={styles.heroTitle}>Obrolan grup</Text>
           <Text style={styles.heroNote}>Chat santai bersama pet parent. Tanpa telepon dan video call.</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Buat grup" onPress={() => setCreateOpen(true)} style={styles.heroAdd}><Ionicons name="add" size={21} color={colors.sky600} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Buat grup" onPress={() => hasPet ? setCreateOpen(true) : onRequirePet()} style={styles.heroAdd}><Ionicons name={hasPet ? "add" : "lock-closed-outline"} size={21} color={colors.sky600} /></Pressable>
       </View>
 
       <View style={styles.searchWrap}>
@@ -159,7 +167,7 @@ export function CommunityGroups({
           <Ionicons name={scope === "mine" ? "chatbox-ellipses-outline" : "people-outline"} size={30} color={colors.sky500} />
           <Text style={styles.emptyTitle}>{scope === "mine" ? "Belum ada chat grup" : "Grup belum ditemukan"}</Text>
           <Text style={styles.emptyNote}>{scope === "mine" ? "Buat grup sendiri atau temukan komunitas yang cocok." : "Coba kata pencarian lain atau buat grup baru."}</Text>
-          <PrimaryButton compact label={scope === "mine" ? "Temukan grup" : "Buat grup"} onPress={() => scope === "mine" ? setScope("discover") : setCreateOpen(true)} />
+          <PrimaryButton compact label={scope === "mine" ? "Temukan grup" : "Buat grup"} onPress={() => scope === "mine" ? setScope("discover") : hasPet ? setCreateOpen(true) : onRequirePet()} />
         </View>
       ) : null}
 
@@ -184,7 +192,7 @@ export function CommunityGroups({
       </View>
 
       <CreateGroupSheet visible={createOpen} onClose={() => setCreateOpen(false)} onCreated={async (message) => { setCreateOpen(false); setScope("mine"); await load(); onAction(message); }} onAction={onAction} />
-      <GroupRoom group={room} owner={owner} onClose={() => { setRoom(undefined); void load(); }} onAction={onAction} />
+      <GroupRoom group={room} owner={owner} hasPet={hasPet} onClose={() => { setRoom(undefined); void load(); }} onRequirePet={onRequirePet} onAction={onAction} />
     </>
   );
 }
@@ -230,7 +238,7 @@ function CreateGroupSheet({ visible, onClose, onCreated, onAction }: { visible: 
   );
 }
 
-function GroupRoom({ group, owner, onClose, onAction }: { group?: MobileCommunityGroup; owner: MobileOwner; onClose: () => void; onAction: (message: string) => void }) {
+function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { group?: MobileCommunityGroup; owner: MobileOwner; hasPet: boolean; onClose: () => void; onRequirePet: () => void; onAction: (message: string) => void }) {
   const [messages, setMessages] = useState<MobileCommunityGroupMessage[]>([]);
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -255,6 +263,10 @@ function GroupRoom({ group, owner, onClose, onAction }: { group?: MobileCommunit
 
   const send = async () => {
     if (!group || !body.trim()) return;
+    if (!hasPet) {
+      onRequirePet();
+      return;
+    }
     setSending(true);
     try {
       await sendMobileCommunityGroupMessage(group.id, body.trim());
@@ -283,8 +295,8 @@ function GroupRoom({ group, owner, onClose, onAction }: { group?: MobileCommunit
             {messages.length ? messages.map((message) => <View key={message.id} style={[styles.bubbleWrap, message.mine && styles.myBubbleWrap]}><View style={[styles.bubble, message.mine && styles.myBubble]}>{!message.mine ? <Text style={styles.senderName}>{message.sender_name}</Text> : null}<Text style={styles.messageBody}>{message.body}</Text><Text style={styles.messageTime}>{messageTime(message.created_at)}{message.mine ? "  ✓✓" : ""}</Text></View></View>) : <View style={styles.roomEmpty}><View style={styles.emptyIcon}><Ionicons name="chatbubbles-outline" size={24} color={colors.sky600}/></View><Text style={styles.emptyTitle}>Mulai percakapan</Text><Text style={styles.emptyNote}>Sapa member grup dengan pesan pertama yang ramah.</Text></View>}
           </ScrollView>
           <View style={styles.roomComposer}>
-            <TextInput value={body} onChangeText={setBody} editable={!sending} multiline maxLength={2000} placeholder={`Pesan sebagai ${owner.full_name.split(" ")[0]}…`} placeholderTextColor={colors.muted} style={styles.roomInput} />
-            <Pressable accessibilityRole="button" accessibilityLabel="Kirim pesan" disabled={sending || !body.trim()} onPress={() => void send()} style={[styles.send, (!body.trim() || sending) && styles.disabled]}><Ionicons name="send" size={18} color={colors.white} /></Pressable>
+            <TextInput value={body} onChangeText={setBody} editable={hasPet && !sending} multiline maxLength={2000} placeholder={hasPet ? `Pesan sebagai ${owner.full_name.split(" ")[0]}…` : "Mode lihat saja — tambahkan pet untuk membalas"} placeholderTextColor={colors.muted} style={styles.roomInput} />
+            <Pressable accessibilityRole="button" accessibilityLabel={hasPet ? "Kirim pesan" : "Tambah profil pet"} disabled={sending || (hasPet && !body.trim())} onPress={() => hasPet ? void send() : onRequirePet()} style={[styles.send, (!body.trim() || sending) && hasPet && styles.disabled]}><Ionicons name={hasPet ? "send" : "lock-closed"} size={18} color={colors.white} /></Pressable>
           </View>
         </> : null}
       </SafeAreaView>

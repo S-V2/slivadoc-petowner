@@ -9,6 +9,37 @@ if (platform !== "android" && platform !== "ios") {
   process.exit(1);
 }
 
+const forwardedArguments = process.argv.slice(3);
+
+function explicitPort(argumentsList) {
+  const portIndex = argumentsList.findIndex((item) => item === "--port");
+  if (portIndex >= 0) return argumentsList[portIndex + 1];
+  return argumentsList
+    .find((item) => item.startsWith("--port="))
+    ?.slice("--port=".length);
+}
+
+const portEnvironmentKey =
+  platform === "android" ? "SLIVADOC_ANDROID_PORT" : "SLIVADOC_IOS_PORT";
+const hasExplicitPort = forwardedArguments.some(
+  (item) => item === "--port" || item.startsWith("--port="),
+);
+const explicitPortValue = explicitPort(forwardedArguments);
+const requestedPort = hasExplicitPort
+  ? explicitPortValue
+  : process.env[portEnvironmentKey] ||
+    (platform === "android" ? "8082" : "8081");
+const port = Number(requestedPort);
+
+if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+  console.error(
+    `Port Metro tidak valid: ${requestedPort || "kosong"}. Gunakan angka 1-65535.`,
+  );
+  process.exit(1);
+}
+
+const portArguments = hasExplicitPort ? [] : ["--port", String(port)];
+
 const mobileDirectory = dirname(dirname(fileURLToPath(import.meta.url)));
 const expoBinary = join(
   mobileDirectory,
@@ -141,20 +172,24 @@ async function openExpoInSimulator(projectUrl) {
 
 if (platform === "ios") prepareIOSSimulator();
 
-console.log(`[mobile] Membuka ${platform} dengan cache Metro baru...`);
+console.log(
+  `[mobile] Membuka ${platform} dengan cache Metro baru di port ${port}...`,
+);
 const expoArguments =
   platform === "ios"
-    ? ["start", "--clear", ...process.argv.slice(3)]
-    : ["start", "--android", "--clear", ...process.argv.slice(3)];
-const expo = spawn(
-  expoBinary,
-  expoArguments,
-  {
-    cwd: mobileDirectory,
-    env: process.env,
-    stdio: platform === "ios" ? ["inherit", "pipe", "pipe"] : "inherit",
-  },
-);
+    ? ["start", "--clear", ...portArguments, ...forwardedArguments]
+    : [
+        "start",
+        "--android",
+        "--clear",
+        ...portArguments,
+        ...forwardedArguments,
+      ];
+const expo = spawn(expoBinary, expoArguments, {
+  cwd: mobileDirectory,
+  env: process.env,
+  stdio: platform === "ios" ? ["inherit", "pipe", "pipe"] : "inherit",
+});
 
 if (platform === "ios") {
   let output = "";

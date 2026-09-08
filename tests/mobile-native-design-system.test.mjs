@@ -18,6 +18,9 @@ const app = await readFile(new URL("../mobile/App.tsx", import.meta.url), "utf8"
 const mobilePackage = JSON.parse(
   await readFile(new URL("../mobile/package.json", import.meta.url), "utf8"),
 );
+const rootPackage = JSON.parse(
+  await readFile(new URL("../package.json", import.meta.url), "utf8"),
+);
 const expoStarter = await readFile(
   new URL("../mobile/scripts/start-expo.mjs", import.meta.url),
   "utf8",
@@ -149,6 +152,10 @@ test("home care sections use lively layered cards instead of rigid panels", () =
 
 test("android start replaces stale project Metro and clears its cache", () => {
   assert.equal(
+    rootPackage.scripts.android,
+    "npm --prefix mobile run android --",
+  );
+  assert.equal(
     mobilePackage.scripts.android,
     "node ./scripts/start-expo.mjs android",
   );
@@ -158,14 +165,15 @@ test("android start replaces stale project Metro and clears its cache", () => {
   );
   assert.match(expoStarter, /findStaleExpoProcesses/);
   assert.match(expoStarter, /process\.kill\(pid, "SIGTERM"\)/);
-  assert.match(expoStarter, /\["start", "--android", "--clear"/);
+  assert.match(expoStarter, /\[\s*"start",\s*"--android",\s*"--clear"/);
+  assert.match(expoStarter, /platform === "android" \? "8082" : "8081"/);
+  assert.match(expoStarter, /SLIVADOC_ANDROID_PORT/);
+  assert.match(expoStarter, /hasExplicitPort/);
 });
 
 test("ios start bypasses Expo AppleScript activation and opens through simctl", () => {
-  assert.equal(
-    mobilePackage.scripts.ios,
-    "node ./scripts/start-expo.mjs ios",
-  );
+  assert.equal(rootPackage.scripts.ios, "npm --prefix mobile run ios --");
+  assert.equal(mobilePackage.scripts.ios, "node ./scripts/start-expo.mjs ios");
   assert.match(expoStarter, /spawnSync\("open", \["-a", "Simulator"\]/);
   assert.match(expoStarter, /\["simctl", "openurl", "booted", projectUrl\]/);
   assert.match(expoStarter, /platform === "ios"[\s\S]*?\["start", "--clear"/);

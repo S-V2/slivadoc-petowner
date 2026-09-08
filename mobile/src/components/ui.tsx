@@ -17,6 +17,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, radius, shadow, spacing, typography } from "../theme";
 
+export type AppIconTone = "sky" | "mint" | "violet" | "peach" | "red" | "neutral";
+
+const iconPalettes: Record<AppIconTone, { backgroundColor: string; color: string }> = {
+  sky: { backgroundColor: colors.sky50, color: colors.sky600 },
+  mint: { backgroundColor: colors.mint50, color: "#14836E" },
+  violet: { backgroundColor: colors.violet50, color: "#6655C7" },
+  peach: { backgroundColor: colors.peach50, color: "#C66A32" },
+  red: { backgroundColor: colors.red50, color: colors.red },
+  neutral: { backgroundColor: colors.canvas, color: colors.text },
+};
+
 type AppSurfaceContextValue = {
   bottomInset: number;
   refreshing: boolean;
@@ -28,7 +39,6 @@ const AppSurfaceContext = createContext<AppSurfaceContextValue>({
   refreshing: false,
   onRefresh: () => undefined,
 });
-
 export function AppSurfaceProvider({ children, bottomInset, refreshing, onRefresh }: PropsWithChildren<AppSurfaceContextValue>) {
   return <AppSurfaceContext.Provider value={{ bottomInset, refreshing, onRefresh }}>{children}</AppSurfaceContext.Provider>;
 }
@@ -107,12 +117,43 @@ export function SoftButton({ label, icon, onPress, style }: { label: string; ico
   );
 }
 
+export function AppIcon({
+  name,
+  tone = "sky",
+  size = 20,
+  containerSize = 42,
+  inverted = false,
+}: {
+  name: keyof typeof Ionicons.glyphMap;
+  tone?: AppIconTone;
+  size?: number;
+  containerSize?: number;
+  inverted?: boolean;
+}) {
+  const palette = iconPalettes[tone];
+  return (
+    <View
+      style={[
+        styles.appIcon,
+        {
+          width: containerSize,
+          height: containerSize,
+          borderRadius: Math.round(containerSize * 0.34),
+          backgroundColor: inverted ? palette.color : palette.backgroundColor,
+        },
+      ]}
+    >
+      <Ionicons name={name} size={size} color={inverted ? colors.white : palette.color} />
+    </View>
+  );
+}
+
 export function Pill({ children, tone = "blue" }: { children: ReactNode; tone?: "blue" | "mint" | "yellow" | "violet" | "red" }) {
   return <View style={[styles.pill, styles[`${tone}Pill`]]}><Text style={[styles.pillText, styles[`${tone}PillText`]]}>{children}</Text></View>;
 }
 
-export function EmptyState({ icon, title, note, action, onAction }: { icon: string; title: string; note: string; action: string; onAction: () => void }) {
-  return <View style={styles.empty}><Text style={styles.emptyIcon}>{icon}</Text><Text style={styles.emptyTitle}>{title}</Text><Text style={styles.emptyNote}>{note}</Text><PrimaryButton compact label={action} onPress={onAction} /></View>;
+export function EmptyState({ icon, title, note, action, onAction }: { icon: keyof typeof Ionicons.glyphMap; title: string; note: string; action: string; onAction: () => void }) {
+  return <View style={styles.empty}><AppIcon name={icon} size={28} containerSize={58} /><Text style={styles.emptyTitle}>{title}</Text><Text style={styles.emptyNote}>{note}</Text><PrimaryButton compact label={action} onPress={onAction} /></View>;
 }
 
 export function BoundedBottomSheet({
@@ -181,6 +222,7 @@ const styles = StyleSheet.create({
   lightButtonText: { color: colors.sky600 },
   softButton: { minHeight: 40, paddingHorizontal: 13, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.sky50 },
   softButtonText: { color: colors.sky600, fontSize: typography.control, fontWeight: "800" },
+  appIcon: { alignItems: "center", justifyContent: "center" },
   pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
   pill: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 5, borderRadius: radius.pill },
   pillText: { fontSize: 9, fontWeight: "800", letterSpacing: 0.15 },
@@ -190,7 +232,6 @@ const styles = StyleSheet.create({
   violetPill: { backgroundColor: colors.violet50 }, violetPillText: { color: "#6655C7" },
   redPill: { backgroundColor: colors.red50 }, redPillText: { color: colors.red },
   empty: { minHeight: 260, alignItems: "center", justifyContent: "center", padding: 24 },
-  emptyIcon: { fontSize: 44 },
   emptyTitle: { marginTop: 10, color: colors.navy, fontSize: typography.sectionTitle, lineHeight: 22, fontWeight: "800" },
   emptyNote: { maxWidth: 280, marginTop: 5, marginBottom: 14, color: colors.muted, fontSize: typography.body, lineHeight: 19, textAlign: "center" },
   sheetRoot: { flex: 1 },

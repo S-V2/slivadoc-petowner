@@ -81,6 +81,21 @@ function serviceGradient(tone: Service["tone"]): [string, string] {
   return ["#DDF3FF", "#F3FBFF"];
 }
 
+function serviceIcon(service: Pick<Service, "category" | "name">): keyof typeof Ionicons.glyphMap {
+  const value = `${service.category} ${service.name}`.toLowerCase();
+  if (/home|rumah/.test(value)) return "home-outline";
+  if (/hotel|boarding|penitipan/.test(value)) return "bed-outline";
+  if (/groom|mandi/.test(value)) return "cut-outline";
+  if (/vaks|klinik|health|dokter|medis/.test(value)) return "medical-outline";
+  return "paw-outline";
+}
+
+function activityIcon(category: string): keyof typeof Ionicons.glyphMap {
+  if (category === "health") return "medical-outline";
+  if (category === "booking") return "calendar-outline";
+  return "clipboard-outline";
+}
+
 function HomeSectionHeader({
   icon,
   eyebrow,
@@ -266,7 +281,7 @@ function HomeSearchModal({
             </View>
           ) : (
             <View style={styles.searchState}>
-              <Text style={styles.searchEmptyEmoji}>{failed ? "📡" : "🔎"}</Text>
+              <View style={styles.searchEmptyIcon}><Ionicons name={failed ? "cloud-offline-outline" : "search-outline"} size={28} color={colors.sky600} /></View>
               <Text style={styles.searchStateTitle}>{failed ? "Pencarian belum tersambung" : "Belum ada yang cocok"}</Text>
               <Text style={styles.searchStateText}>{failed ? "Coba lagi sebentar atau gunakan fitur populer." : "Coba kata kunci atau kategori lain."}</Text>
             </View>
@@ -292,21 +307,21 @@ export function HomeScreen({
   activities,
 }: Props) {
   const [searchOpen, setSearchOpen] = useState(false);
-  const petView = pet ?? { id: "", name: "pet kamu", breed: "Login untuk melihat profil", age: "—", weight: "—", icon: "🐾", score: 0, allergies: "" };
+  const petView = pet ?? { id: "", name: "pet kamu", breed: "Login untuk melihat profil", age: "—", weight: "—", icon: "", score: 0, allergies: "" };
   const featuredActivities = activities.slice(0, 3);
   const healthStatus = petView.score >= 80 ? "Kondisi prima" : petView.score >= 60 ? "Tetap terpantau" : pet ? "Lengkapi datanya" : "Mulai profil pet";
   const homeCare = services.find((item) => item.category.toLowerCase().includes("home"));
   const hotel = services.find((item) => item.category.toLowerCase().includes("hotel"));
   const firstName = ownerName?.trim().split(" ")[0];
   const primaryQuickActions = [
-    { label: "Booking", note: "Atur jadwal klinik", emoji: "📅", gradient: ["#0588D4", "#43C2F7"] as const, onPress: () => onBook() },
-    { label: "Tanya Dokter", note: "Pilih dokter & paket", emoji: "👩🏻‍⚕️", gradient: ["#16A98E", "#62D9C3"] as const, onPress: onOpenConsultation },
+    { label: "Booking", note: "Atur jadwal klinik", icon: "calendar-outline" as const, gradient: ["#0588D4", "#43C2F7"] as const, onPress: () => onBook() },
+    { label: "Tanya Dokter", note: "Pilih dokter & paket", icon: "chatbubbles-outline" as const, gradient: ["#16A98E", "#62D9C3"] as const, onPress: onOpenConsultation },
   ];
   const secondaryQuickActions = [
-    { label: "Home Care", note: "Ke rumah", emoji: "🏠", color: colors.peach50, onPress: () => homeCare ? onBook(homeCare) : onNavigate("discover") },
-    { label: "Darurat", note: "24 jam", emoji: "🚑", color: colors.red50, onPress: () => onAction("Menghubungkan hotline darurat 24/7") },
-    { label: "Pet Hotel", note: "Terpercaya", emoji: "🏡", color: colors.violet50, onPress: () => hotel ? onBook(hotel) : onNavigate("discover") },
-    { label: "Sliva World", note: "Eksplorasi", emoji: "🌐", color: colors.sky50, onPress: () => onNavigate("world") },
+    { label: "Home Care", note: "Ke rumah", icon: "home-outline" as const, color: colors.peach50, iconColor: "#C66A32", onPress: () => homeCare ? onBook(homeCare) : onNavigate("discover") },
+    { label: "Darurat", note: "24 jam", icon: "medical-outline" as const, color: colors.red50, iconColor: colors.red, onPress: () => onAction("Menghubungkan hotline darurat 24/7") },
+    { label: "Pet Hotel", note: "Terpercaya", icon: "bed-outline" as const, color: colors.violet50, iconColor: "#6655C7", onPress: () => hotel ? onBook(hotel) : onNavigate("discover") },
+    { label: "Sliva World", note: "Eksplorasi", icon: "planet-outline" as const, color: colors.sky50, iconColor: colors.sky600, onPress: () => onNavigate("world") },
   ];
 
   return (
@@ -325,7 +340,7 @@ export function HomeScreen({
 
         <View style={styles.greetingRow}>
           <View style={styles.greetingCopy}>
-            <Text style={styles.greeting}>{firstName ? `Hai, ${firstName}! 👋` : "Hai, Pet Parent! 👋"}</Text>
+            <Text style={styles.greeting}>{firstName ? `Hai, ${firstName}!` : "Hai, Pet Parent!"}</Text>
             <Text numberOfLines={2} style={styles.greetingNote}>{firstName ? "Yuk, cek kebutuhan pet-mu hari ini." : "Semua kebutuhan pet jadi lebih gampang."}</Text>
           </View>
           <View style={styles.greetingSparkle}><Ionicons name="sparkles" size={17} color={colors.sky600} /></View>
@@ -335,8 +350,8 @@ export function HomeScreen({
           <View style={styles.heroOrbLarge} />
           <View style={styles.heroOrbSmall} />
           <View style={styles.petBubble}>
-            <Text style={styles.petBubbleDog}>🐕</Text>
-            <Text style={styles.petBubbleCat}>🐈</Text>
+            <View style={styles.petBubbleDog}><Ionicons name="paw" size={31} color={colors.white} /></View>
+            <View style={styles.petBubbleCat}><Ionicons name="heart" size={22} color={colors.white} /></View>
             <Text style={styles.petBubbleSparkle}>✦</Text>
           </View>
           <View style={styles.heroContent}>
@@ -349,7 +364,7 @@ export function HomeScreen({
                 <Text style={styles.heroMomentEyebrow}>IDE HARI INI</Text>
                 <Text numberOfLines={1} style={styles.heroMomentText}>10 menit quality time</Text>
               </View>
-              <Text style={styles.heroMomentEmoji}>💙</Text>
+              <Ionicons name="sparkles" size={15} color={colors.white} />
             </View>
           </View>
         </LinearGradient>
@@ -366,7 +381,7 @@ export function HomeScreen({
             {primaryQuickActions.map((item) => (
               <Pressable key={item.label} accessibilityRole="button" onPress={item.onPress} style={({ pressed }) => [styles.quickFeaturePressable, pressed && styles.pressed]}>
                 <LinearGradient colors={item.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.quickFeatureCard}>
-                  <View style={styles.quickFeatureTop}><View style={styles.quickFeatureIcon}><Text style={styles.quickFeatureEmoji}>{item.emoji}</Text></View><View style={styles.quickFeatureArrow}><Ionicons name="arrow-up" size={13} color={colors.white} /></View></View>
+                  <View style={styles.quickFeatureTop}><View style={styles.quickFeatureIcon}><Ionicons name={item.icon} size={20} color={colors.sky600} /></View><View style={styles.quickFeatureArrow}><Ionicons name="arrow-up" size={13} color={colors.white} /></View></View>
                   <Text style={styles.quickFeatureLabel}>{item.label}</Text>
                   <Text style={styles.quickFeatureNote}>{item.note}</Text>
                 </LinearGradient>
@@ -376,7 +391,7 @@ export function HomeScreen({
           <View style={styles.quickMiniRow}>
             {secondaryQuickActions.map((item) => (
               <Pressable key={item.label} accessibilityRole="button" onPress={item.onPress} style={({ pressed }) => [styles.quickMiniCard, pressed && styles.pressed]}>
-                <View style={[styles.quickMiniIcon, { backgroundColor: item.color }]}><Text style={styles.quickMiniEmoji}>{item.emoji}</Text></View>
+                <View style={[styles.quickMiniIcon, { backgroundColor: item.color }]}><Ionicons name={item.icon} size={20} color={item.iconColor} /></View>
                 <Text numberOfLines={2} style={styles.quickMiniLabel}>{item.label}</Text>
                 <Text numberOfLines={1} style={styles.quickMiniNote}>{item.note}</Text>
               </Pressable>
@@ -390,7 +405,7 @@ export function HomeScreen({
             <View style={styles.healthGlowLarge} />
             <View style={styles.healthGlowSmall} />
             <View style={styles.healthTop}>
-              <View style={styles.petAvatar}><Text style={styles.petAvatarEmoji}>{petView.icon}</Text><View style={styles.checkDot}><Ionicons name="checkmark" size={10} color={colors.white} /></View></View>
+              <View style={styles.petAvatar}><Ionicons name="paw" size={26} color={colors.sky600} /><View style={styles.checkDot}><Ionicons name="checkmark" size={10} color={colors.white} /></View></View>
               <View style={styles.healthCopy}>
                 <View style={styles.activePetLabel}><View style={styles.activePetPulse} /><Text style={styles.activePetLabelText}>PET AKTIF</Text></View>
                 <Text numberOfLines={1} style={styles.petName}>{petView.name}</Text>
@@ -436,7 +451,7 @@ export function HomeScreen({
             {featuredActivities.map((item, index) => (
               <Pressable key={item.id} onPress={() => onAction(`Detail ${item.title}`)} style={[styles.careRow, index < featuredActivities.length - 1 && styles.careDivider]}>
                 <View style={styles.careTimeline}>
-                  <View style={[styles.careIcon, item.category === "health" ? styles.mint : item.category === "booking" ? styles.violet : styles.blue]}><Text style={styles.careEmoji}>{item.category === "health" ? "🩺" : item.category === "booking" ? "📅" : "📋"}</Text></View>
+                  <View style={[styles.careIcon, item.category === "health" ? styles.mint : item.category === "booking" ? styles.violet : styles.blue]}><Ionicons name={activityIcon(item.category)} size={19} color={item.category === "health" ? "#14836E" : item.category === "booking" ? "#6655C7" : colors.sky600} /></View>
                   {index < featuredActivities.length - 1 ? <View style={styles.careLine} /> : null}
                 </View>
                 <View style={styles.careCopy}>
@@ -477,7 +492,7 @@ export function HomeScreen({
                 <LinearGradient colors={serviceGradient(service.tone)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.serviceVisual}>
                   <View style={styles.serviceShine} />
                   <View style={styles.serviceVisualTop}><Pill tone={service.tone === "peach" ? "yellow" : service.tone}>{service.category}</Pill><View style={styles.serviceFavorite}><Ionicons name="heart-outline" size={14} color={colors.navy} /></View></View>
-                  <View style={styles.serviceEmojiWrap}><Text style={styles.serviceEmoji}>{service.icon}</Text></View>
+                  <View style={styles.serviceEmojiWrap}><Ionicons name={serviceIcon(service)} size={34} color={service.tone === "mint" ? "#14836E" : service.tone === "violet" ? "#6655C7" : service.tone === "peach" ? "#C66A32" : colors.sky600} /></View>
                   <View style={styles.topPick}><Ionicons name="sparkles" size={10} color="#6757C9" /><Text style={styles.topPickText}>TOP PICK</Text></View>
                 </LinearGradient>
                 <View style={styles.serviceCardBody}>
@@ -525,8 +540,8 @@ const styles = StyleSheet.create({
   heroOrbLarge: { position: "absolute", right: -62, top: -88, width: 230, height: 230, borderRadius: 115, backgroundColor: "rgba(255,255,255,.14)" },
   heroOrbSmall: { position: "absolute", right: 48, bottom: -62, width: 125, height: 125, borderRadius: 63, backgroundColor: "rgba(255,255,255,.1)" },
   petBubble: { position: "absolute", zIndex: 1, right: 12, bottom: 18, width: 98, height: 108, borderWidth: 1, borderColor: "rgba(255,255,255,.42)", borderRadius: 44, backgroundColor: "rgba(255,255,255,.22)", transform: [{ rotate: "5deg" }] },
-  petBubbleDog: { position: "absolute", left: 11, bottom: 16, fontSize: 44 },
-  petBubbleCat: { position: "absolute", left: 45, bottom: 37, fontSize: 37 },
+  petBubbleDog: { position: "absolute", left: 10, bottom: 15, width: 48, height: 48, alignItems: "center", justifyContent: "center", borderRadius: 17, backgroundColor: "rgba(255,255,255,.18)" },
+  petBubbleCat: { position: "absolute", right: 8, top: 20, width: 39, height: 39, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: "rgba(255,255,255,.18)" },
   petBubbleSparkle: { position: "absolute", right: 9, top: 12, color: colors.white, fontSize: 19, fontWeight: "900" },
   quickPanel: { marginTop: 14, padding: 12, overflow: "hidden", borderWidth: 1, borderColor: colors.sky100, borderRadius: 22, backgroundColor: "#F9FDFF", ...shadow },
   quickHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
@@ -680,7 +695,7 @@ const styles = StyleSheet.create({
   searchState: { flex: 1, minHeight: 310, alignItems: "center", justifyContent: "center", gap: 8 },
   searchStateTitle: { color: colors.navy, fontSize: typography.cardTitle, fontWeight: "800" },
   searchStateText: { maxWidth: 270, color: colors.muted, fontSize: typography.label, lineHeight: 17, textAlign: "center" },
-  searchEmptyEmoji: { fontSize: 35 },
+  searchEmptyIcon: { width: 58, height: 58, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: colors.sky50 },
   searchResults: { gap: 8 },
   searchResult: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: radius.md, backgroundColor: colors.white, ...shadow },
   searchResultIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: colors.sky50 },

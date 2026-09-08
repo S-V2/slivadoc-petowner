@@ -58,15 +58,14 @@ const money = new Intl.NumberFormat("id-ID", {
   maximumFractionDigits: 0,
 });
 
-function productEmoji(product: MobileProduct) {
+function productIcon(product: MobileProduct): keyof typeof Ionicons.glyphMap {
   const value = `${product.category} ${product.name}`.toLowerCase();
-  if (/food|makan|feed|snack/.test(value)) return "🥫";
-  if (/vitamin|obat|health|kesehatan/.test(value)) return "💊";
-  if (/shampoo|groom|mandi/.test(value)) return "🧴";
-  if (/toy|mainan/.test(value)) return "🧸";
-  if (/cat|kucing/.test(value)) return "🐈";
-  if (/dog|anjing/.test(value)) return "🐕";
-  return "🐾";
+  if (/food|makan|feed|snack/.test(value)) return "nutrition-outline";
+  if (/vitamin|obat|health|kesehatan/.test(value)) return "medical-outline";
+  if (/shampoo|groom|mandi/.test(value)) return "water-outline";
+  if (/toy|mainan/.test(value)) return "game-controller-outline";
+  if (/cat|kucing|dog|anjing/.test(value)) return "paw-outline";
+  return "cube-outline";
 }
 
 function compactNumber(value: number) {
@@ -107,9 +106,7 @@ function ProductVisual({ product, large = false }: { product: MobileProduct; lar
       style={[styles.productFallback, large && styles.productFallbackLarge]}
     >
       <View style={styles.fallbackBubble} />
-      <Text style={[styles.productEmoji, large && styles.productEmojiLarge]}>
-        {productEmoji(product)}
-      </Text>
+      <Ionicons name={productIcon(product)} size={large ? 66 : 40} color={colors.sky600} />
       <Text style={styles.fallbackLabel}>{product.category}</Text>
     </LinearGradient>
   );
@@ -513,9 +510,9 @@ export function MarketplaceScreen({
           </View>
           <View style={styles.heroArt}>
             <View style={styles.heroOrb} />
-            <Text style={styles.heroEmoji}>🛍️</Text>
+            <Ionicons name="bag-handle" size={58} color={colors.white} style={styles.heroEmoji} />
             <View style={styles.heroPaw}>
-              <Text>🐾</Text>
+              <Ionicons name="paw" size={19} color={colors.sky600} />
             </View>
           </View>
         </LinearGradient>
@@ -541,7 +538,7 @@ export function MarketplaceScreen({
                 style={[styles.storeChip, active && styles.storeChipActive]}
               >
                 <View style={[styles.storeIcon, active && styles.storeIconActive]}>
-                  <Text style={styles.storeEmoji}>{index ? "🏪" : "✨"}</Text>
+                  <Ionicons name={index ? "storefront-outline" : "sparkles-outline"} size={20} color={active ? colors.sky600 : "#C66A32"} />
                 </View>
                 <View style={styles.storeChipCopy}>
                   <Text numberOfLines={1} style={[styles.storeChipName, active && styles.storeChipNameActive]}>
@@ -623,7 +620,7 @@ export function MarketplaceScreen({
           </View>
         ) : (
           <EmptyState
-            icon="🔎"
+            icon="search-outline"
             title="Produk belum ditemukan"
             note="Coba kata kunci, kategori, atau toko lain."
             action="Reset pencarian"
@@ -770,7 +767,7 @@ function ProductDetailSheet({
       >
         <ProductVisual product={product} large />
         <View style={styles.detailStoreRow}>
-          <View style={styles.detailStoreIcon}><Text>🏪</Text></View>
+          <View style={styles.detailStoreIcon}><Ionicons name="storefront-outline" size={19} color="#C66A32" /></View>
           <View style={styles.detailStoreCopy}>
             <Text style={styles.detailStoreName}>{product.business_name}</Text>
             <Text style={styles.detailStoreMeta}>{product.branch_name} · {product.city || "Indonesia"}</Text>
@@ -803,7 +800,7 @@ function ProductDetailSheet({
         {reviewsLoading ? <ActivityIndicator style={styles.reviewLoader} color={colors.sky600} /> : null}
         {!reviewsLoading && !reviews.length ? (
           <View style={styles.emptyReviews}>
-            <Text style={styles.emptyReviewsEmoji}>💬</Text>
+            <Ionicons name="chatbubble-ellipses-outline" size={23} color={colors.sky600} />
             <View style={styles.emptyReviewsCopy}>
               <Text style={styles.emptyReviewsTitle}>Jadi reviewer pertama</Text>
               <Text style={styles.emptyReviewsNote}>Ulasan jujur membantu pet parent lain memilih.</Text>
@@ -931,7 +928,7 @@ function CartSheet({
     <SheetFrame visible={visible} title={`Keranjang (${items.length})`} eyebrow="CHECKOUT AMAN" onClose={onClose}>
       {!items.length ? (
         <EmptyState
-          icon="🛍️"
+          icon="bag-handle-outline"
           title="Keranjang masih kosong"
           note="Tambahkan produk favorit pet-mu dulu, ya."
           action="Mulai belanja"
@@ -945,7 +942,7 @@ function CartSheet({
           </View>
           {items.map(({ product, quantity }) => (
             <View key={product.id} style={styles.cartItem}>
-              <View style={styles.cartThumb}><Text style={styles.cartEmoji}>{productEmoji(product)}</Text></View>
+              <View style={styles.cartThumb}><Ionicons name={productIcon(product)} size={27} color={colors.sky600} /></View>
               <View style={styles.cartItemCopy}>
                 <Text numberOfLines={2} style={styles.cartItemName}>{product.name}</Text>
                 <Text numberOfLines={1} style={styles.cartItemStore}>{product.business_name}</Text>

@@ -45,3 +45,15 @@ test("new booking opens all services while reorder and reconsult keep their data
   assert.match(marketplace, /setCart\(restored\)/);
   assert.match(world, /items\.consult\.find\(\(item\) => item\.id === intent\.itemId\)/);
 });
+
+test("activity center stays compact while preserving contextual creation", () => {
+  assert.doesNotMatch(activity, /function ActivitySummary/);
+  assert.doesNotMatch(activity, /function NewAction/);
+  assert.match(activity, /typeCount/);
+  assert.match(activity, /activityToolbar/);
+  assert.match(activity, /label="Buat baru"/);
+  assert.match(activity, /maxHeight="68%"/);
+  assert.match(activity, /Booking layanan/);
+  assert.match(activity, /Belanja produk/);
+  assert.match(activity, /Konsultasi dokter/);
+});

@@ -5,6 +5,15 @@ import { colors, shadow } from "../theme";
 import { Pill, PrimaryButton, Screen, TopHeader } from "../components/ui";
 import { useMemo, useState } from "react";
 
+function serviceIcon(service: Pick<Service, "category" | "name">): keyof typeof Ionicons.glyphMap {
+  const value = `${service.category} ${service.name}`.toLowerCase();
+  if (/home|rumah/.test(value)) return "home-outline";
+  if (/hotel|boarding|penitipan/.test(value)) return "bed-outline";
+  if (/groom|mandi/.test(value)) return "cut-outline";
+  if (/vaks|klinik|health|dokter|medis/.test(value)) return "medical-outline";
+  return "paw-outline";
+}
+
 export function DiscoverScreen({ onBook, onAction, onOpenNotifications,services,favorites,onToggleFavorite }: { onBook: (service: Service) => void; onAction: (message: string) => void; onOpenNotifications: () => void;services:Service[];favorites:string[];onToggleFavorite:(id:string)=>void }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Semua");
@@ -29,7 +38,7 @@ export function DiscoverScreen({ onBook, onAction, onOpenNotifications,services,
           return (
             <Pressable key={service.id} onPress={() => onBook(service)} style={({ pressed }) => [styles.serviceCard, pressed && styles.pressed]}>
               <View style={[styles.serviceVisual, service.tone === "mint" ? styles.mint : service.tone === "violet" ? styles.violet : service.tone === "peach" ? styles.peach : styles.blue]}>
-                <Text style={styles.serviceEmoji}>{service.icon}</Text><Pill>{service.category}</Pill>
+                <Ionicons name={serviceIcon(service)} size={38} color={service.tone === "mint" ? "#14836E" : service.tone === "violet" ? "#6655C7" : service.tone === "peach" ? "#C66A32" : colors.sky600} /><Pill>{service.category}</Pill>
                 <Pressable hitSlop={10} onPress={(event) => { event.stopPropagation();onToggleFavorite(service.id) }} style={styles.favorite}><Ionicons name={favorite ? "heart" : "heart-outline"} size={18} color={favorite ? colors.red : colors.text} /></Pressable>
               </View>
               <View style={styles.serviceBody}>
@@ -42,7 +51,7 @@ export function DiscoverScreen({ onBook, onAction, onOpenNotifications,services,
           );
         })}
       </View>
-      {results.length === 0 ? <View style={styles.empty}><Text style={styles.emptyEmoji}>🔎</Text><Text style={styles.emptyTitle}>Belum ditemukan</Text><Text style={styles.emptyNote}>Coba gunakan kategori atau kata kunci lain.</Text><PrimaryButton compact label="Reset pencarian" onPress={() => { setQuery(""); setCategory("Semua"); }} /></View> : null}
+      {results.length === 0 ? <View style={styles.empty}><View style={styles.emptyIcon}><Ionicons name="search-outline" size={28} color={colors.sky600} /></View><Text style={styles.emptyTitle}>Belum ditemukan</Text><Text style={styles.emptyNote}>Coba gunakan kategori atau kata kunci lain.</Text><PrimaryButton compact label="Reset pencarian" onPress={() => { setQuery(""); setCategory("Semua"); }} /></View> : null}
     </Screen>
   );
 }
@@ -58,9 +67,9 @@ const styles = StyleSheet.create({
   activeCategory: { borderColor: colors.sky500, backgroundColor: colors.sky500 }, categoryText: { color: colors.muted, fontSize: 11, fontWeight: "700" }, activeCategoryText: { color: colors.white },
   resultHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }, resultCount: { color: colors.muted, fontSize: 11 }, resultStrong: { color: colors.text, fontWeight: "800" }, sort: { color: colors.sky600, fontSize: 11, fontWeight: "700" },
   results: { gap: 10 }, serviceCard: { minHeight: 166, overflow: "hidden", flexDirection: "row", borderRadius: 17, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, ...shadow }, pressed: { opacity: .75, transform: [{ scale: .99 }] },
-  serviceVisual: { position: "relative", width: 105, alignItems: "center", justifyContent: "center" }, serviceEmoji: { fontSize: 43 }, blue: { backgroundColor: colors.sky100 }, mint: { backgroundColor: colors.mint50 }, violet: { backgroundColor: colors.violet50 }, peach: { backgroundColor: colors.peach50 }, favorite: { position: "absolute", top: 9, right: 9, width: 31, height: 31, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,.92)" },
+  serviceVisual: { position: "relative", width: 105, alignItems: "center", justifyContent: "center" }, blue: { backgroundColor: colors.sky100 }, mint: { backgroundColor: colors.mint50 }, violet: { backgroundColor: colors.violet50 }, peach: { backgroundColor: colors.peach50 }, favorite: { position: "absolute", top: 9, right: 9, width: 31, height: 31, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,.92)" },
   serviceBody: { minWidth: 0, flex: 1, padding: 12 }, serviceTitleRow: { flexDirection: "row", gap: 7 }, serviceTitleCopy: { minWidth: 0, flex: 1 }, serviceName: { color: colors.navy, fontSize: 14, lineHeight: 18, fontWeight: "900" }, serviceLocation: { marginTop: 3, color: colors.muted, fontSize: 10, lineHeight: 14 }, rating: { height: 27, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2, paddingHorizontal: 7, borderRadius: 9, backgroundColor: colors.yellow50 }, ratingText: { color: "#A57417", fontSize: 10, fontWeight: "800" },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 7 }, tagText: { overflow: "hidden", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 7, color: colors.sky600, backgroundColor: colors.sky50, fontSize: 8, fontWeight: "700" }, status: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 7 }, liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.mint }, statusText: { color: "#19866F", fontSize: 9, fontWeight: "700" },
   serviceFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.line }, priceLabel: { color: colors.muted, fontSize: 8 }, price: { marginTop: 2, color: colors.navy, fontSize: 11, fontWeight: "800" },
-  empty: { minHeight: 230, alignItems: "center", justifyContent: "center" }, emptyEmoji: { fontSize: 40 }, emptyTitle: { marginTop: 8, color: colors.navy, fontSize: 17, fontWeight: "800" }, emptyNote: { marginTop: 4, marginBottom: 13, color: colors.muted, fontSize: 12 },
+  empty: { minHeight: 230, alignItems: "center", justifyContent: "center" }, emptyIcon: { width: 58, height: 58, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: colors.sky50 }, emptyTitle: { marginTop: 8, color: colors.navy, fontSize: 17, fontWeight: "800" }, emptyNote: { marginTop: 4, marginBottom: 13, color: colors.muted, fontSize: 12 },
 });

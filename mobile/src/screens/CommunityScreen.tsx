@@ -179,7 +179,7 @@ export function CommunityScreen({
         />
         <View style={styles.titleRow}>
           <View>
-          <Text style={styles.title}>Komunitas seru 🐾</Text>
+          <Text style={styles.title}>Komunitas seru</Text>
             <Text style={styles.subtitle}>
               <Text style={styles.online}>● </Text>Komunitas pet parent aktif
             </Text>

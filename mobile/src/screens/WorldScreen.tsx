@@ -88,15 +88,15 @@ const emptyDocumentForm = (): DocumentForm => ({
   departureAt: "",
   transportType: "flight",
 });
-const modes: Array<{ id: Mode; label: string; icon: string }> = [
-  { id: "pawdating", label: "PAW Dating", icon: "♡" },
-  { id: "academy", label: "Academy", icon: "🎓" },
-  { id: "events", label: "Event", icon: "🎟️" },
-  { id: "petspot", label: "PetSpot", icon: "📍" },
-  { id: "pethub", label: "PetHub", icon: "▶️" },
-  { id: "consult", label: "Konsultasi", icon: "🩺" },
-  { id: "adoption", label: "Adopsi", icon: "♡" },
-  { id: "documents", label: "Dokumen", icon: "▤" },
+const modes: Array<{ id: Mode; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+  { id: "pawdating", label: "PAW Dating", icon: "heart-circle-outline" },
+  { id: "academy", label: "Academy", icon: "school-outline" },
+  { id: "events", label: "Event", icon: "ticket-outline" },
+  { id: "petspot", label: "PetSpot", icon: "navigate-circle-outline" },
+  { id: "pethub", label: "PetHub", icon: "play-circle-outline" },
+  { id: "consult", label: "Konsultasi", icon: "medical-outline" },
+  { id: "adoption", label: "Adopsi", icon: "home-outline" },
+  { id: "documents", label: "Dokumen", icon: "document-text-outline" },
 ];
 const emptyWorld = (): Record<Mode, WorldItem[]> => ({
   pawdating: [],
@@ -122,20 +122,20 @@ const when = (value?: string) =>
       }).format(new Date(value))
     : "Segera";
 
-const worldEmoji = (mode: Mode, item?: WorldItem | null) => {
-  if (mode === "pawdating") return item?.species === "cat" ? "🐈" : "🐕";
-  if (mode === "academy") return "🎓";
-  if (mode === "events") return "🎟️";
+const worldIcon = (mode: Mode, item?: WorldItem | null): keyof typeof Ionicons.glyphMap => {
+  if (mode === "pawdating") return "heart-circle-outline";
+  if (mode === "academy") return "school-outline";
+  if (mode === "events") return "ticket-outline";
   if (mode === "petspot")
     return item?.category === "cafe"
-      ? "☕"
+      ? "cafe-outline"
       : item?.category === "mall"
-        ? "🏬"
-        : "🌳";
-  if (mode === "consult") return "🩺";
-  if (mode === "adoption") return item?.species === "cat" ? "🐈" : "🐕";
-  if (mode === "documents") return "📄";
-  return "▶️";
+        ? "business-outline"
+        : "leaf-outline";
+  if (mode === "consult") return "medical-outline";
+  if (mode === "adoption") return "home-outline";
+  if (mode === "documents") return "document-text-outline";
+  return "play-circle-outline";
 };
 
 function FormTextField({
@@ -435,55 +435,55 @@ export function WorldScreen({
   };
   const heroCopy: Record<
     Mode,
-    { kicker: string; title: string; note: string; emoji: string }
+    { kicker: string; title: string; note: string; icon: keyof typeof Ionicons.glyphMap }
   > = {
     pawdating: {
       kicker: "RESPONSIBLE PET MATCHMAKING",
       title: "Pasangan tepat, kesehatan jelas.",
       note: "Filter level, genetik, silsilah, karakter, usia, dan jarak dengan verifikasi dokter.",
-      emoji: "🐕♡🐕",
+      icon: "heart-circle-outline",
     },
     academy: {
       kicker: "PET TRAINING & ACADEMY",
       title: "Belajar dan bertumbuh bersama.",
       note: "Trainer terverifikasi, kurikulum terukur, dan progres digital.",
-      emoji: "🐕‍🦺",
+      icon: "school-outline",
     },
     events: {
       kicker: "PET EVENT DI KOTAMU",
       title: "Isi kalender pet-mu.",
       note: "Festival, workshop, meet-up, dan fun race pilihan.",
-      emoji: "🎪",
+      icon: "ticket-outline",
     },
     petspot: {
       kicker: "PET FRIENDLY DISCOVERY",
       title: `Ke mana hari ini bersama ${petName || "pet-mu"}?`,
       note: "Cafe, mall, taman, dan playground yang pet friendly.",
-      emoji: "🌳",
+      icon: "leaf-outline",
     },
     pethub: {
       kicker: "PETHUB LIVE & THREAD",
       title: "Satu layar untuk dunia pet.",
       note: "Live streaming, story, komentar, channel, dan pet thread.",
-      emoji: "▶️",
+      icon: "play-circle-outline",
     },
     consult: {
       kicker: "VIRTUAL VET",
       title: "Dokter sedekat layar kamu.",
       note: "Chat, voice, video call, bundling, dan medical record.",
-      emoji: "🩺",
+      icon: "medical-outline",
     },
     adoption: {
       kicker: "RESPONSIBLE ADOPTION",
       title: "Rumah baru. Awal baru.",
       note: "Screening, health check, meet & greet, dan pendampingan.",
-      emoji: "🐕",
+      icon: "home-outline",
     },
     documents: {
       kicker: "PET DOCUMENTS",
       title: "Urus dokumen tanpa bingung.",
       note: "Akte, surat sehat, karantina, pesawat, dan kapal.",
-      emoji: "▤",
+      icon: "document-text-outline",
     },
   };
   if (mode === "pethub") {
@@ -505,7 +505,7 @@ export function WorldScreen({
               onPress={() => setMode(item.id)}
               style={[styles.mode, mode === item.id && styles.activeMode]}
             >
-              <Text style={styles.modeIcon}>{item.icon}</Text>
+              <Ionicons name={item.icon} size={20} color={mode === item.id ? colors.sky600 : colors.muted} />
               <Text
                 style={[
                   styles.modeLabel,
@@ -545,7 +545,7 @@ export function WorldScreen({
               onPress={() => setMode(item.id)}
               style={[styles.mode, mode === item.id && styles.activeMode]}
             >
-              <Text style={styles.modeIcon}>{item.icon}</Text>
+              <Ionicons name={item.icon} size={20} color={mode === item.id ? colors.sky600 : colors.muted} />
               <Text
                 style={[
                   styles.modeLabel,
@@ -567,7 +567,7 @@ export function WorldScreen({
           <Text style={styles.heroKicker}>{heroCopy[mode].kicker}</Text>
           <Text style={styles.heroTitle}>{heroCopy[mode].title}</Text>
           <Text style={styles.heroNote}>{heroCopy[mode].note}</Text>
-          <Text style={styles.heroEmoji}>{heroCopy[mode].emoji}</Text>
+          <Ionicons name={heroCopy[mode].icon} size={56} color="rgba(255,255,255,.88)" style={styles.heroEmoji} />
         </View>
         {loading ? (
           <Text style={styles.cardNote}>Memuat informasi terbaru…</Text>
@@ -619,9 +619,7 @@ export function WorldScreen({
                     index % 3 === 2 && styles.visualViolet,
                   ]}
                 >
-                  <Text style={styles.visualEmoji}>
-                    {worldEmoji(mode, item)}
-                  </Text>
+                  <Ionicons name={worldIcon(mode, item)} size={38} color={colors.sky600} />
                   {mode === "pawdating" ? (
                     <View style={styles.verified}>
                       <Text style={styles.verifiedText}>
@@ -724,9 +722,7 @@ export function WorldScreen({
                   contentContainerStyle={styles.sheetContent}
                 >
                   <View style={styles.sheetHero}>
-                    <Text style={styles.sheetHeroText}>
-                      {worldEmoji(mode, selected)}
-                    </Text>
+                    <Ionicons name={worldIcon(mode, selected)} size={48} color={colors.sky600} />
                   </View>
                   <Text style={styles.sheetKicker}>
                     {mode === "pawdating"
@@ -774,9 +770,7 @@ export function WorldScreen({
                   </View>
                   {mode === "pawdating" ? (
                     <View style={styles.welfareNote}>
-                      <Text style={styles.welfareTitle}>
-                        🛡️ Welfare check aktif
-                      </Text>
+                      <View style={styles.welfareTitleRow}><Ionicons name="shield-checkmark-outline" size={17} color={colors.sky600}/><Text style={styles.welfareTitle}>Welfare check aktif</Text></View>
                       <Text style={styles.welfareText}>
                         Sistem memblokir pairing tidak aman, data kedaluwarsa,
                         dan indikasi kekerabatan. Pemeriksaan pra-breeding tetap
@@ -913,7 +907,7 @@ export function WorldScreen({
                     <View style={styles.formSection}>
                       <Text style={styles.formTitle}>Data permohonan</Text>
                       <View style={styles.petSummary}>
-                        <Text style={styles.petSummaryIcon}>🐾</Text>
+                        <Ionicons name="paw-outline" size={22} color={colors.sky600}/>
                         <View style={styles.petSummaryCopy}>
                           <Text style={styles.formLabel}>PET</Text>
                           <Text style={styles.petSummaryName}>
@@ -1344,6 +1338,7 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     backgroundColor: "#EDF8F4",
   },
+  welfareTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   welfareTitle: { color: "#25695F", fontSize: 12, fontWeight: "900" },
   welfareText: { marginTop: 5, color: "#5F756F", fontSize: 11, lineHeight: 17 },
   formSection: {

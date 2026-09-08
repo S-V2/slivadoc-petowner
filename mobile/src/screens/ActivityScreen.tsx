@@ -18,7 +18,7 @@ import {
   type MobileActivityState,
   type MobileActivityType,
 } from "../api";
-import { Card, EmptyState, Pill, PrimaryButton, Screen, SoftButton } from "../components/ui";
+import { BoundedBottomSheet, Card, EmptyState, Pill, PrimaryButton, Screen } from "../components/ui";
 import { colors, shadow, typography } from "../theme";
 
 type TypeFilter = MobileActivityType | "all";
@@ -114,82 +114,6 @@ function repeatLabel(item: MobileActivityCenterItem) {
   return "Konsultasi ulang";
 }
 
-function ActivitySummary({
-  active,
-  count,
-  icon,
-  label,
-  onPress,
-  tone,
-}: {
-  active: boolean;
-  count: number;
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-  tone: "blue" | "violet" | "mint";
-}) {
-  const palette =
-    tone === "violet"
-      ? { background: colors.violet50, foreground: "#6655C7" }
-      : tone === "mint"
-        ? { background: colors.mint50, foreground: "#14836E" }
-        : { background: colors.sky50, foreground: colors.sky600 };
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.summaryCard,
-        active && { borderColor: palette.foreground },
-        pressed && styles.pressed,
-      ]}
-    >
-      <View style={[styles.summaryIcon, { backgroundColor: palette.background }]}>
-        <Ionicons name={icon} size={17} color={palette.foreground} />
-      </View>
-      <Text style={styles.summaryCount}>{count}</Text>
-      <Text numberOfLines={1} style={styles.summaryLabel}>{label}</Text>
-    </Pressable>
-  );
-}
-
-function NewAction({
-  icon,
-  label,
-  note,
-  onPress,
-  tone,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  note: string;
-  onPress: () => void;
-  tone: "blue" | "violet" | "mint";
-}) {
-  const palette =
-    tone === "violet"
-      ? { background: colors.violet50, foreground: "#6655C7" }
-      : tone === "mint"
-        ? { background: colors.mint50, foreground: "#14836E" }
-        : { background: colors.sky50, foreground: colors.sky600 };
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.newAction, pressed && styles.pressed]}
-    >
-      <View style={[styles.newActionIcon, { backgroundColor: palette.background }]}>
-        <Ionicons name={icon} size={20} color={palette.foreground} />
-      </View>
-      <Text style={styles.newActionLabel}>{label}</Text>
-      <Text numberOfLines={2} style={styles.newActionNote}>{note}</Text>
-      <Ionicons name="arrow-forward" size={15} color={palette.foreground} />
-    </Pressable>
-  );
-}
-
 function ActivityCard({
   item,
   onDetail,
@@ -204,38 +128,68 @@ function ActivityCard({
   const when = item.scheduled_at || item.occurred_at;
   return (
     <Card style={styles.activityCard}>
-      <View style={styles.activityTop}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Lihat detail ${item.title}`} onPress={onDetail} style={({ pressed }) => [styles.activityTop, pressed && styles.pressed]}>
         <View style={[styles.activityIcon, { backgroundColor: presentation.surface }]}>
           <Ionicons name={presentation.icon} size={21} color={presentation.color} />
         </View>
         <View style={styles.activityCopy}>
           <View style={styles.activityMetaRow}>
-            <Text style={[styles.activityType, { color: presentation.color }]}>{presentation.label}</Text>
-            <Text style={styles.activityCode}>{item.code}</Text>
+            <Text style={[styles.activityType, { color: presentation.color }]}>{presentation.label} · {item.code}</Text>
+            <Pill tone={status.tone}>{status.label}</Pill>
           </View>
-          <Text numberOfLines={2} style={styles.activityTitle}>{item.title}</Text>
-          <Text numberOfLines={2} style={styles.activitySubtitle}>{item.subtitle}</Text>
+          <Text numberOfLines={1} style={styles.activityTitle}>{item.title}</Text>
+          <Text numberOfLines={1} style={styles.activitySubtitle}>{item.subtitle}</Text>
+          <View style={styles.compactMeta}>
+            <Ionicons name="time-outline" size={13} color={colors.muted} />
+            <Text numberOfLines={1} style={styles.dateInlineText}>{formatDate(when)}</Text>
+            <Text style={styles.metaDivider}>•</Text>
+            <Text numberOfLines={1} style={styles.amountInline}>{money.format(item.total_amount ?? item.amount)}</Text>
+          </View>
         </View>
-      </View>
-      <View style={styles.activityInfoRow}>
-        <Pill tone={status.tone}>{status.label}</Pill>
-        <View style={styles.dateInline}>
-          <Ionicons name="time-outline" size={13} color={colors.muted} />
-          <Text numberOfLines={1} style={styles.dateInlineText}>{formatDate(when)}</Text>
+        <Ionicons name="chevron-forward" size={17} color="#A3AFBC" />
+      </Pressable>
+      <View style={styles.compactFooter}>
+        <View style={styles.contextInline}>
+          <Ionicons name={item.type === "order" ? "cube-outline" : "paw-outline"} size={14} color={presentation.color} />
+          <Text numberOfLines={1} style={styles.activityHint}>{item.type === "order" && item.item_count ? `${item.item_count} produk` : item.pet_name || "Pet kamu"}</Text>
         </View>
-      </View>
-      {item.type === "order" && item.item_count ? (
-        <Text style={styles.activityHint}>{item.item_count} produk · {money.format(item.total_amount ?? item.amount)}</Text>
-      ) : item.pet_name ? (
-        <Text style={styles.activityHint}>🐾 {item.pet_name} · {money.format(item.amount)}</Text>
-      ) : (
-        <Text style={styles.activityHint}>{money.format(item.amount)}</Text>
-      )}
-      <View style={styles.cardActions}>
-        <SoftButton label="Lihat detail" icon="receipt-outline" onPress={onDetail} style={styles.actionFlex} />
-        <PrimaryButton compact label={repeatLabel(item)} icon="refresh-outline" onPress={onRepeat} style={styles.actionFlex} />
+        <Pressable accessibilityRole="button" onPress={onRepeat} style={({ pressed }) => [styles.repeatButton, pressed && styles.pressed]}>
+          <Ionicons name="refresh-outline" size={14} color={colors.sky600} />
+          <Text style={styles.repeatText}>{repeatLabel(item)}</Text>
+        </Pressable>
       </View>
     </Card>
+  );
+}
+
+function CreateActivitySheet({ visible, onClose, onBooking, onOrder, onConsultation }: {
+  visible: boolean;
+  onClose: () => void;
+  onBooking: () => void;
+  onOrder: () => void;
+  onConsultation: () => void;
+}) {
+  const actions = [
+    { label: "Booking layanan", note: "Pilih layanan dari seluruh klinik dan petshop", icon: "calendar-outline" as const, tone: colors.sky600, surface: colors.sky50, action: onBooking },
+    { label: "Belanja produk", note: "Cari kebutuhan pet dari marketplace Slivadoc", icon: "bag-handle-outline" as const, tone: "#6655C7", surface: colors.violet50, action: onOrder },
+    { label: "Konsultasi dokter", note: "Pilih dokter dan paket konsultasi yang sesuai", icon: "chatbubbles-outline" as const, tone: "#14836E", surface: colors.mint50, action: onConsultation },
+  ];
+  return (
+    <BoundedBottomSheet visible={visible} onClose={onClose} maxHeight="68%">
+      <View style={styles.createSheetHeader}>
+        <View><Text style={styles.sectionEyebrow}>AKTIVITAS BARU</Text><Text style={styles.createSheetTitle}>Mau melakukan apa?</Text></View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Tutup pilihan aktivitas" onPress={onClose} style={styles.sheetClose}><Ionicons name="close" size={21} color={colors.text} /></Pressable>
+      </View>
+      <ScrollView contentContainerStyle={styles.createSheetContent} showsVerticalScrollIndicator={false}>
+        {actions.map((item) => (
+          <Pressable key={item.label} accessibilityRole="button" onPress={() => { onClose(); item.action(); }} style={({ pressed }) => [styles.createChoice, pressed && styles.pressed]}>
+            <View style={[styles.createChoiceIcon, { backgroundColor: item.surface }]}><Ionicons name={item.icon} size={21} color={item.tone} /></View>
+            <View style={styles.createChoiceCopy}><Text style={styles.createChoiceTitle}>{item.label}</Text><Text style={styles.createChoiceNote}>{item.note}</Text></View>
+            <Ionicons name="arrow-forward" size={18} color={item.tone} />
+          </Pressable>
+        ))}
+      </ScrollView>
+    </BoundedBottomSheet>
   );
 }
 
@@ -388,6 +342,7 @@ export function ActivityScreen({
   const [activities, setActivities] = useState<MobileActivityCenterItem[]>([]);
   const [summary, setSummary] = useState({ booking: 0, order: 0, consultation: 0 });
   const [selected, setSelected] = useState<MobileActivityCenterItem>();
+  const [createOpen, setCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const requestSequence = useRef(0);
 
@@ -429,8 +384,11 @@ export function ActivityScreen({
   const createForFilter = () => {
     if (typeFilter === "order") return onCreateOrder();
     if (typeFilter === "consultation") return onCreateConsultation();
-    return onCreateBooking();
+    if (typeFilter === "booking") return onCreateBooking();
+    setCreateOpen(true);
   };
+
+  const typeCount = (type: TypeFilter) => type === "all" ? summary.booking + summary.order + summary.consultation : summary[type];
 
   if (!authenticated) {
     return (
@@ -445,7 +403,7 @@ export function ActivityScreen({
           </Pressable>
         </View>
         <Card style={styles.loginCard}>
-          <EmptyState icon="🐾" title="Masuk untuk melihat aktivitas" note="Booking, belanja, dan konsultasi tersimpan aman di akunmu." action="Masuk ke akun" onAction={onLogin} />
+          <EmptyState icon="paw-outline" title="Masuk untuk melihat aktivitas" note="Booking, belanja, dan konsultasi tersimpan aman di akunmu." action="Masuk ke akun" onAction={onLogin} />
         </Card>
       </Screen>
     );
@@ -466,12 +424,6 @@ export function ActivityScreen({
           </Pressable>
         </View>
 
-        <View style={styles.summaryRow}>
-          <ActivitySummary active={typeFilter === "booking"} count={summary.booking} icon="calendar-outline" label="Booking" onPress={() => setTypeFilter("booking")} tone="blue" />
-          <ActivitySummary active={typeFilter === "order"} count={summary.order} icon="bag-handle-outline" label="Belanja" onPress={() => setTypeFilter("order")} tone="violet" />
-          <ActivitySummary active={typeFilter === "consultation"} count={summary.consultation} icon="chatbubbles-outline" label="Konsultasi" onPress={() => setTypeFilter("consultation")} tone="mint" />
-        </View>
-
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeFilters}>
           {typeOptions.map((option) => {
             const active = option.id === typeFilter;
@@ -485,6 +437,7 @@ export function ActivityScreen({
               >
                 <Ionicons name={option.icon} size={14} color={active ? colors.white : colors.sky600} />
                 <Text style={[styles.typeChipText, active && styles.typeChipTextActive]}>{option.label}</Text>
+                <View style={[styles.typeCount, active && styles.typeCountActive]}><Text style={[styles.typeCountText, active && styles.typeCountTextActive]}>{typeCount(option.id)}</Text></View>
               </Pressable>
             );
           })}
@@ -507,36 +460,15 @@ export function ActivityScreen({
           })}
         </View>
 
-        {typeFilter === "all" ? (
-          <View style={styles.newSection}>
-            <View style={styles.sectionHeadingRow}>
-              <View>
-                <Text style={styles.sectionEyebrow}>MULAI AKTIVITAS</Text>
-                <Text style={styles.sectionTitle}>Mau melakukan apa?</Text>
-              </View>
-              <View style={styles.liveBadge}><View style={styles.liveDot} /><Text style={styles.liveText}>Terhubung</Text></View>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.newActions}>
-              <NewAction icon="calendar-outline" label="Booking baru" note="Pilih layanan dari semua partner" onPress={onCreateBooking} tone="blue" />
-              <NewAction icon="bag-handle-outline" label="Belanja lagi" note="Cari produk dari seluruh toko" onPress={onCreateOrder} tone="violet" />
-              <NewAction icon="chatbubbles-outline" label="Tanya dokter" note="Pilih dokter dan paket konsultasi" onPress={onCreateConsultation} tone="mint" />
-            </ScrollView>
-          </View>
-        ) : (
+        <View style={styles.activityToolbar}>
+          <View><Text style={styles.sectionEyebrow}>DATA AKUNMU</Text><Text style={styles.sectionTitle}>{activities.length} aktivitas</Text></View>
           <PrimaryButton
-            label={typeFilter === "order" ? "Buat pesanan baru" : typeFilter === "consultation" ? "Konsultasi baru" : "Booking layanan baru"}
+            compact
+            label="Buat baru"
             icon="add"
             onPress={createForFilter}
-            style={styles.createButton}
+            style={styles.createCompactButton}
           />
-        )}
-
-        <View style={styles.sectionHeadingRow}>
-          <View>
-            <Text style={styles.sectionEyebrow}>DATA AKUNMU</Text>
-            <Text style={styles.sectionTitle}>Daftar aktivitas</Text>
-          </View>
-          <Text style={styles.resultCount}>{activities.length} aktivitas</Text>
         </View>
 
         {loading ? (
@@ -553,7 +485,7 @@ export function ActivityScreen({
         ) : (
           <Card style={styles.emptyCard}>
             <EmptyState
-              icon={typeFilter === "order" ? "🛍️" : typeFilter === "consultation" ? "🩺" : "📅"}
+              icon={typeFilter === "order" ? "bag-handle-outline" : typeFilter === "consultation" ? "chatbubbles-outline" : "calendar-outline"}
               title="Belum ada aktivitas"
               note="Filter ini masih kosong. Mulai aktivitas baru dan progresnya akan tampil otomatis di sini."
               action="Buat aktivitas baru"
@@ -571,6 +503,7 @@ export function ActivityScreen({
         }}
         onRepeat={() => selected && repeat(selected)}
       />
+      <CreateActivitySheet visible={createOpen} onClose={() => setCreateOpen(false)} onBooking={onCreateBooking} onOrder={onCreateOrder} onConsultation={onCreateConsultation} />
     </>
   );
 }
@@ -584,55 +517,56 @@ const styles = StyleSheet.create({
   headerSubtitle: { marginTop: 3, color: colors.muted, fontSize: 11, lineHeight: 16 },
   headerButton: { position: "relative", width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, ...shadow },
   notificationDot: { position: "absolute", right: 8, top: 8, width: 7, height: 7, borderRadius: 4, borderWidth: 1.5, borderColor: colors.white, backgroundColor: colors.red },
-  summaryRow: { flexDirection: "row", gap: 8, marginTop: 8 },
-  summaryCard: { minWidth: 0, flex: 1, padding: 10, borderWidth: 1, borderColor: colors.line, borderRadius: 16, backgroundColor: colors.white, ...shadow },
-  summaryIcon: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  summaryCount: { marginTop: 7, color: colors.navy, fontSize: 18, lineHeight: 21, fontWeight: "900" },
-  summaryLabel: { marginTop: 1, color: colors.muted, fontSize: 9, fontWeight: "700" },
-  typeFilters: { gap: 7, paddingTop: 14, paddingBottom: 10 },
+  typeFilters: { gap: 7, paddingTop: 10, paddingBottom: 10 },
   typeChip: { height: 36, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 18, backgroundColor: colors.white },
   typeChipActive: { borderColor: colors.sky600, backgroundColor: colors.sky600 },
   typeChipText: { color: colors.text, fontSize: 11, fontWeight: "800" },
   typeChipTextActive: { color: colors.white },
+  typeCount: { minWidth: 20, height: 20, paddingHorizontal: 5, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: colors.sky50 },
+  typeCountActive: { backgroundColor: "rgba(255,255,255,.2)" },
+  typeCountText: { color: colors.sky600, fontSize: 9, fontWeight: "900" },
+  typeCountTextActive: { color: colors.white },
   stateTabs: { height: 42, flexDirection: "row", gap: 3, padding: 3, borderWidth: 1, borderColor: colors.line, borderRadius: 14, backgroundColor: colors.white },
   stateTab: { flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 11 },
   stateTabActive: { backgroundColor: colors.sky50 },
   stateTabText: { color: colors.muted, fontSize: 10, fontWeight: "700" },
   stateTabTextActive: { color: colors.sky600, fontWeight: "900" },
-  newSection: { marginTop: 18 },
   sectionHeadingRow: { minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 18, marginBottom: 9 },
   sectionEyebrow: { color: colors.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1.1 },
   sectionTitle: { marginTop: 2, color: colors.navy, fontSize: typography.sectionTitle, lineHeight: 22, fontWeight: "900" },
-  liveBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 12, backgroundColor: colors.mint50 },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.mint },
-  liveText: { color: "#14836E", fontSize: 9, fontWeight: "800" },
-  newActions: { gap: 8, paddingRight: 2 },
-  newAction: { width: 139, minHeight: 130, padding: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 17, backgroundColor: colors.white, ...shadow },
-  newActionIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  newActionLabel: { marginTop: 9, color: colors.navy, fontSize: 13, fontWeight: "900" },
-  newActionNote: { minHeight: 30, marginTop: 3, marginBottom: 4, color: colors.muted, fontSize: 9, lineHeight: 14 },
-  createButton: { marginTop: 16 },
-  resultCount: { color: colors.sky600, fontSize: 10, fontWeight: "800" },
+  activityToolbar: { minHeight: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 13, marginBottom: 9 },
+  createCompactButton: { minWidth: 112 },
   activityList: { gap: 10 },
-  activityCard: { padding: 12 },
-  activityTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  activityCard: { overflow: "hidden", padding: 12 },
+  activityTop: { flexDirection: "row", alignItems: "center", gap: 10 },
   activityIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   activityCopy: { minWidth: 0, flex: 1 },
-  activityMetaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  activityMetaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 6 },
   activityType: { fontSize: 9, fontWeight: "900", letterSpacing: 0.7, textTransform: "uppercase" },
   activityCode: { flexShrink: 1, color: colors.muted, fontSize: 9, fontWeight: "700" },
-  activityTitle: { marginTop: 4, color: colors.navy, fontSize: 14, lineHeight: 18, fontWeight: "900" },
-  activitySubtitle: { marginTop: 2, color: colors.muted, fontSize: 10, lineHeight: 15 },
-  activityInfoRow: { minWidth: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 11 },
-  dateInline: { minWidth: 0, flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 4 },
+  activityTitle: { marginTop: 4, color: colors.navy, fontSize: 13, lineHeight: 18, fontWeight: "900" },
+  activitySubtitle: { marginTop: 1, color: colors.muted, fontSize: 10, lineHeight: 15 },
+  compactMeta: { minWidth: 0, flexDirection: "row", alignItems: "center", gap: 4, marginTop: 5 },
   dateInlineText: { flexShrink: 1, color: colors.muted, fontSize: 9 },
-  activityHint: { marginTop: 8, color: colors.text, fontSize: 10, fontWeight: "700" },
-  cardActions: { flexDirection: "row", gap: 7, marginTop: 11, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.line },
-  actionFlex: { minWidth: 0, flex: 1 },
+  metaDivider: { color: colors.muted, fontSize: 9 },
+  amountInline: { color: colors.text, fontSize: 9, fontWeight: "800" },
+  compactFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 10, paddingTop: 9, borderTopWidth: 1, borderTopColor: colors.line },
+  contextInline: { minWidth: 0, flex: 1, flexDirection: "row", alignItems: "center", gap: 5 },
+  activityHint: { flexShrink: 1, color: colors.text, fontSize: 10, fontWeight: "700" },
+  repeatButton: { minHeight: 34, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.sky50 },
+  repeatText: { color: colors.sky600, fontSize: 10, fontWeight: "900" },
   loadingState: { minHeight: 180, alignItems: "center", justifyContent: "center", gap: 9 },
   loadingText: { color: colors.muted, fontSize: 11 },
   emptyCard: { overflow: "hidden" },
   loginCard: { marginTop: 20, overflow: "hidden" },
+  createSheetHeader: { minHeight: 68, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.line },
+  createSheetTitle: { marginTop: 2, color: colors.navy, fontSize: 18, fontWeight: "900" },
+  createSheetContent: { gap: 8, padding: 16, paddingBottom: 24 },
+  createChoice: { flexDirection: "row", alignItems: "center", gap: 11, minHeight: 76, padding: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 17, backgroundColor: colors.white },
+  createChoiceIcon: { width: 45, height: 45, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  createChoiceCopy: { minWidth: 0, flex: 1 },
+  createChoiceTitle: { color: colors.navy, fontSize: 13, fontWeight: "900" },
+  createChoiceNote: { marginTop: 3, color: colors.muted, fontSize: 10, lineHeight: 15 },
   pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
   backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(10,38,58,.38)" },
   sheetSafeArea: { width: "100%", maxHeight: "88%" },

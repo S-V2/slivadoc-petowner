@@ -22,6 +22,27 @@ const expoStarter = await readFile(
   new URL("../mobile/scripts/start-expo.mjs", import.meta.url),
   "utf8",
 );
+const ui = await readFile(
+  new URL("../mobile/src/components/ui.tsx", import.meta.url),
+  "utf8",
+);
+const activity = await readFile(
+  new URL("../mobile/src/screens/ActivityScreen.tsx", import.meta.url),
+  "utf8",
+);
+const iconSources = await Promise.all([
+  "../mobile/src/components/BatpayPayment.tsx",
+  "../mobile/src/components/SlivaCareModal.tsx",
+  "../mobile/src/screens/ActivityScreen.tsx",
+  "../mobile/src/screens/CommunityGroups.tsx",
+  "../mobile/src/screens/CommunityScreen.tsx",
+  "../mobile/src/screens/DiscoverScreen.tsx",
+  "../mobile/src/screens/HealthScreen.tsx",
+  "../mobile/src/screens/HomeScreen.tsx",
+  "../mobile/src/screens/MarketplaceScreen.tsx",
+  "../mobile/src/screens/ProfileScreen.tsx",
+  "../mobile/src/screens/WorldScreen.tsx",
+].map((path) => readFile(new URL(path, import.meta.url), "utf8")));
 
 test("native mobile theme keeps the compact commerce-style hierarchy", () => {
   assert.match(theme, /screenTitle:\s*22/);
@@ -121,4 +142,16 @@ test("notification sheet uses compact controls and top-aligned cards", () => {
   assert.match(app, /notification:[\s\S]*?alignItems:\s*"flex-start"/);
   assert.match(app, /formatNotificationTime/);
   assert.match(app, /Tandai dibaca/);
+});
+
+test("native UI exposes a reusable modern icon surface", () => {
+  assert.match(ui, /export function AppIcon/);
+  assert.match(ui, /AppIconTone/);
+  assert.match(ui, /Ionicons name=\{name\}/);
+  assert.match(activity, /BoundedBottomSheet/);
+});
+
+test("primary mobile experiences use vector icons instead of functional emoji", () => {
+  const emoji = /[\u{1F300}-\u{1FAFF}]/u;
+  for (const source of iconSources) assert.doesNotMatch(source, emoji);
 });

@@ -280,7 +280,7 @@ function GroupRoom({ group, owner, onClose, onAction }: { group?: MobileCommunit
           </View>
           <ScrollView ref={scrollRef} onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.messages}>
             <View style={styles.encryptionNote}><Ionicons name="lock-closed" size={11} color="#8B7123" /><Text style={styles.encryptionText}>Percakapan tersimpan aman di Slivadoc. Jangan bagikan data kontak pribadi.</Text></View>
-            {messages.length ? messages.map((message) => <View key={message.id} style={[styles.bubbleWrap, message.mine && styles.myBubbleWrap]}><View style={[styles.bubble, message.mine && styles.myBubble]}>{!message.mine ? <Text style={styles.senderName}>{message.sender_name}</Text> : null}<Text style={styles.messageBody}>{message.body}</Text><Text style={styles.messageTime}>{messageTime(message.created_at)}{message.mine ? "  ✓✓" : ""}</Text></View></View>) : <View style={styles.roomEmpty}><Text style={styles.emptyTitle}>Mulai percakapan 👋</Text><Text style={styles.emptyNote}>Sapa member grup dengan pesan pertama yang ramah.</Text></View>}
+            {messages.length ? messages.map((message) => <View key={message.id} style={[styles.bubbleWrap, message.mine && styles.myBubbleWrap]}><View style={[styles.bubble, message.mine && styles.myBubble]}>{!message.mine ? <Text style={styles.senderName}>{message.sender_name}</Text> : null}<Text style={styles.messageBody}>{message.body}</Text><Text style={styles.messageTime}>{messageTime(message.created_at)}{message.mine ? "  ✓✓" : ""}</Text></View></View>) : <View style={styles.roomEmpty}><View style={styles.emptyIcon}><Ionicons name="chatbubbles-outline" size={24} color={colors.sky600}/></View><Text style={styles.emptyTitle}>Mulai percakapan</Text><Text style={styles.emptyNote}>Sapa member grup dengan pesan pertama yang ramah.</Text></View>}
           </ScrollView>
           <View style={styles.roomComposer}>
             <TextInput value={body} onChangeText={setBody} editable={!sending} multiline maxLength={2000} placeholder={`Pesan sebagai ${owner.full_name.split(" ")[0]}…`} placeholderTextColor={colors.muted} style={styles.roomInput} />
@@ -361,6 +361,7 @@ const styles = StyleSheet.create({
   messageBody: { color: colors.text, fontSize: 12, lineHeight: 18 },
   messageTime: { marginTop: 2, color: colors.muted, fontSize: 8, textAlign: "right" },
   roomEmpty: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80 },
+  emptyIcon: { width: 52, height: 52, marginBottom: 10, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 },
   roomComposer: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 8, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.white },
   roomInput: { maxHeight: 110, minHeight: 44, flex: 1, paddingHorizontal: 13, paddingVertical: Platform.OS === "ios" ? 12 : 8, borderWidth: 1, borderColor: colors.line, borderRadius: 18, color: colors.text, fontSize: 12 },
   send: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: colors.sky500 },

@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import {
   getMobilePaymentIntent,
   getMobilePaymentMethods,
@@ -66,14 +67,14 @@ export function MobilePaymentMethods({
             key={item.code}
             style={[styles.method, item.code === value && styles.methodActive]}
           >
-            <Text style={styles.methodIcon}>
-              {item.method === "qris" ? "▦" : "🏦"}
-            </Text>
+            <View style={styles.methodIcon}>
+              <Ionicons name={item.method === "qris" ? "qr-code-outline" : "business-outline"} size={18} color={colors.sky600} />
+            </View>
             <Text style={styles.methodLabel}>{item.label}</Text>
             <Text numberOfLines={1} style={styles.methodNote}>
               {item.description}
             </Text>
-            {item.code === value ? <Text style={styles.check}>✓</Text> : null}
+            {item.code === value ? <Ionicons name="checkmark-circle" size={17} color={colors.sky600} style={styles.check} /> : null}
           </Pressable>
         ))}
       </ScrollView>
@@ -149,12 +150,12 @@ function MobileBatpayModalState({
               onPress={onClose}
               style={styles.close}
             >
-              <Text>×</Text>
+              <Ionicons name="close" size={21} color={colors.text} />
             </Pressable>
             {current.status === "paid" ? (
               <View style={styles.center}>
                 <View style={styles.success}>
-                  <Text style={styles.successText}>✓</Text>
+                  <Ionicons name="checkmark" size={28} color={colors.white} />
                 </View>
                 <Text style={styles.title}>Pembayaran berhasil</Text>
                 <Text style={styles.note}>
@@ -252,7 +253,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   methodActive: { borderColor: colors.sky500, backgroundColor: colors.sky50 },
-  methodIcon: { fontSize: 17 },
+  methodIcon: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 },
   methodLabel: {
     marginTop: 5,
     color: colors.navy,
@@ -264,8 +265,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 9,
     top: 9,
-    color: colors.sky600,
-    fontWeight: "900",
   },
   message: {
     padding: 12,

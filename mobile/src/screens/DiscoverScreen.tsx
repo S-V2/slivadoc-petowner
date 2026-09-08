@@ -1,8 +1,9 @@
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Service } from "../data";
 import { colors, shadow } from "../theme";
 import { Pill, PrimaryButton, Screen, TopHeader } from "../components/ui";
+import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../i18n";
 import { useMemo, useState } from "react";
 
 function serviceIcon(service: Pick<Service, "category" | "name">): keyof typeof Ionicons.glyphMap {
@@ -59,14 +60,14 @@ export function DiscoverScreen({ onBook, onAction, onOpenNotifications,services,
 const styles = StyleSheet.create({
   title: { maxWidth: 310, marginTop: 8, color: colors.navy, fontSize: 22, lineHeight: 27, fontWeight: "900", letterSpacing: -0.35 },
   subtitle: { marginTop: 4, color: colors.muted, fontSize: 12, lineHeight: 17 },
-  searchBox: { height: 44, flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14, paddingLeft: 13, paddingRight: 5, borderRadius: 14, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, ...shadow },
+  searchBox: { height: 46, flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14, paddingLeft: 13, paddingRight: 5, borderRadius: 16, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, ...shadow },
   searchInput: { flex: 1, height: "100%", color: colors.text, fontSize: 13 },
   filterButton: { width: 34, height: 34, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky600 },
   categories: { gap: 6, paddingVertical: 12, paddingRight: 14 },
   category: { minHeight: 32, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.line, alignItems: "center", justifyContent: "center", backgroundColor: colors.white },
   activeCategory: { borderColor: colors.sky600, backgroundColor: colors.sky600 }, categoryText: { color: colors.muted, fontSize: 11, fontWeight: "700" }, activeCategoryText: { color: colors.white },
   resultHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }, resultCount: { color: colors.muted, fontSize: 11 }, resultStrong: { color: colors.text, fontWeight: "800" }, sort: { color: colors.sky600, fontSize: 11, fontWeight: "700" },
-  results: { gap: 10 }, serviceCard: { minHeight: 166, overflow: "hidden", flexDirection: "row", borderRadius: 17, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, ...shadow }, pressed: { opacity: .75, transform: [{ scale: .99 }] },
+  results: { gap: 12 }, serviceCard: { minHeight: 166, overflow: "hidden", flexDirection: "row", borderRadius: 22, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, ...shadow }, pressed: { opacity: .9, transform: [{ scale: .985 }] },
   serviceVisual: { position: "relative", width: 105, alignItems: "center", justifyContent: "center" }, blue: { backgroundColor: colors.sky100 }, mint: { backgroundColor: colors.mint50 }, violet: { backgroundColor: colors.violet50 }, peach: { backgroundColor: colors.peach50 }, favorite: { position: "absolute", top: 9, right: 9, width: 31, height: 31, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,.92)" },
   serviceBody: { minWidth: 0, flex: 1, padding: 12 }, serviceTitleRow: { flexDirection: "row", gap: 7 }, serviceTitleCopy: { minWidth: 0, flex: 1 }, serviceName: { color: colors.navy, fontSize: 14, lineHeight: 18, fontWeight: "900" }, serviceLocation: { marginTop: 3, color: colors.muted, fontSize: 10, lineHeight: 14 }, rating: { height: 27, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2, paddingHorizontal: 7, borderRadius: 9, backgroundColor: colors.yellow50 }, ratingText: { color: colors.yellow, fontSize: 10, fontWeight: "800" },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 7 }, tagText: { overflow: "hidden", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 7, color: colors.sky600, backgroundColor: colors.sky50, fontSize: 8, fontWeight: "700" }, status: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 7 }, liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.mint }, statusText: { color: colors.mint, fontSize: 9, fontWeight: "700" },

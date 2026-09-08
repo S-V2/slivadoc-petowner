@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,6 +18,7 @@ import {
   type MobileActivityType,
 } from "../api";
 import { BoundedBottomSheet, Card, EmptyState, PetRequiredNotice, Pill, PrimaryButton, Screen } from "../components/ui";
+import { LocalizedText as Text, useI18n } from "../i18n";
 import { colors, shadow, typography } from "../theme";
 
 type TypeFilter = MobileActivityType | "all";
@@ -59,21 +59,12 @@ const stateOptions: Array<{ id: MobileActivityState; label: string }> = [
   { id: "history", label: "Riwayat" },
 ];
 
-const money = new Intl.NumberFormat("id-ID", {
-  style: "currency",
-  currency: "IDR",
-  maximumFractionDigits: 0,
-});
-
-const dateTime = new Intl.DateTimeFormat("id-ID", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-function formatDate(value?: string | null) {
+function formatActivityDate(value: string | null | undefined, locale: string) {
   if (!value) return "Belum dijadwalkan";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? "Belum dijadwalkan" : dateTime.format(parsed);
+  return Number.isNaN(parsed.getTime())
+    ? "Belum dijadwalkan"
+    : new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(parsed);
 }
 
 function typePresentation(type: MobileActivityType) {
@@ -125,6 +116,7 @@ function ActivityCard({
   onDetail: () => void;
   onRepeat: () => void;
 }) {
+  const { formatCurrency, locale } = useI18n();
   const presentation = typePresentation(item.type);
   const status = statusPresentation(item.status);
   const when = item.scheduled_at || item.occurred_at;
@@ -143,9 +135,9 @@ function ActivityCard({
           <Text numberOfLines={1} style={styles.activitySubtitle}>{item.subtitle}</Text>
           <View style={styles.compactMeta}>
             <Ionicons name="time-outline" size={13} color={colors.muted} />
-            <Text numberOfLines={1} style={styles.dateInlineText}>{formatDate(when)}</Text>
+            <Text numberOfLines={1} style={styles.dateInlineText}>{formatActivityDate(when, locale)}</Text>
             <Text style={styles.metaDivider}>•</Text>
-            <Text numberOfLines={1} style={styles.amountInline}>{money.format(item.total_amount ?? item.amount)}</Text>
+            <Text numberOfLines={1} style={styles.amountInline}>{formatCurrency(item.total_amount ?? item.amount)}</Text>
           </View>
         </View>
         <Ionicons name="chevron-forward" size={17} color={colors.muted} />
@@ -219,6 +211,7 @@ function ActivityDetailSheet({
   onOpenProduct: (productId: string) => void;
   onRepeat: () => void;
 }) {
+  const { formatCurrency, locale } = useI18n();
   if (!item) return null;
   const presentation = typePresentation(item.type);
   const status = statusPresentation(item.status);
@@ -245,13 +238,13 @@ function ActivityDetailSheet({
                 <Pill tone={status.tone}>{status.label}</Pill>
                 <Text style={styles.detailTitle}>{item.title}</Text>
                 <Text style={styles.detailSubtitle}>{item.subtitle}</Text>
-                <Text style={styles.detailAmount}>{money.format(item.total_amount ?? item.amount)}</Text>
+                <Text style={styles.detailAmount}>{formatCurrency(item.total_amount ?? item.amount)}</Text>
               </View>
 
               {item.type === "booking" ? (
                 <View style={styles.detailSection}>
                   <Text style={styles.detailSectionTitle}>Informasi booking</Text>
-                  <DetailRow icon="calendar-outline" label="Jadwal" value={formatDate(item.scheduled_at)} />
+                  <DetailRow icon="calendar-outline" label="Jadwal" value={formatActivityDate(item.scheduled_at, locale)} />
                   <DetailRow icon="time-outline" label="Durasi" value={item.service_duration_minutes ? `${item.service_duration_minutes} menit` : undefined} />
                   <DetailRow icon="paw-outline" label="Pet" value={item.pet_name} />
                   <DetailRow icon="storefront-outline" label="Klinik / petshop" value={[item.business_name, item.branch_name].filter(Boolean).join(" · ")} />
@@ -271,7 +264,7 @@ function ActivityDetailSheet({
                       <View style={styles.productCopy}>
                         <Text numberOfLines={2} style={styles.productName}>{product.name}</Text>
                         <Text style={styles.productStore}>{product.business_name} · {product.quantity} item</Text>
-                        <Text style={styles.productPrice}>{money.format(product.line_total)}</Text>
+                        <Text style={styles.productPrice}>{formatCurrency(product.line_total)}</Text>
                       </View>
                       <Pressable
                         accessibilityRole="button"
@@ -284,11 +277,11 @@ function ActivityDetailSheet({
                     </View>
                   ))}
                   <View style={styles.priceBreakdown}>
-                    <View style={styles.priceLine}><Text style={styles.priceLabel}>Subtotal</Text><Text style={styles.priceValue}>{money.format(item.subtotal ?? 0)}</Text></View>
-                    <View style={styles.priceLine}><Text style={styles.priceLabel}>Biaya platform</Text><Text style={styles.priceValue}>{money.format(item.platform_fee ?? 0)}</Text></View>
-                    {item.discount_amount ? <View style={styles.priceLine}><Text style={styles.priceDiscountLabel}>Voucher {item.voucher_code || "promo"}</Text><Text style={styles.priceDiscountValue}>−{money.format(item.discount_amount)}</Text></View> : null}
-                    {item.points_discount ? <View style={styles.priceLine}><Text style={styles.priceDiscountLabel}>{item.points_redeemed ?? 0} Sliva Points</Text><Text style={styles.priceDiscountValue}>−{money.format(item.points_discount)}</Text></View> : null}
-                    <View style={[styles.priceLine, styles.priceTotal]}><Text style={styles.priceTotalLabel}>Total</Text><Text style={styles.priceTotalValue}>{money.format(item.total_amount ?? item.amount)}</Text></View>
+                    <View style={styles.priceLine}><Text style={styles.priceLabel}>Subtotal</Text><Text style={styles.priceValue}>{formatCurrency(item.subtotal ?? 0)}</Text></View>
+                    <View style={styles.priceLine}><Text style={styles.priceLabel}>Biaya platform</Text><Text style={styles.priceValue}>{formatCurrency(item.platform_fee ?? 0)}</Text></View>
+                    {item.discount_amount ? <View style={styles.priceLine}><Text style={styles.priceDiscountLabel}>Voucher {item.voucher_code || "promo"}</Text><Text style={styles.priceDiscountValue}>−{formatCurrency(item.discount_amount)}</Text></View> : null}
+                    {item.points_discount ? <View style={styles.priceLine}><Text style={styles.priceDiscountLabel}>{item.points_redeemed ?? 0} Sliva Points</Text><Text style={styles.priceDiscountValue}>−{formatCurrency(item.points_discount)}</Text></View> : null}
+                    <View style={[styles.priceLine, styles.priceTotal]}><Text style={styles.priceTotalLabel}>Total</Text><Text style={styles.priceTotalValue}>{formatCurrency(item.total_amount ?? item.amount)}</Text></View>
                   </View>
                 </View>
               ) : null}
@@ -298,7 +291,7 @@ function ActivityDetailSheet({
                   <Text style={styles.detailSectionTitle}>Informasi konsultasi</Text>
                   <DetailRow icon="person-outline" label="Dokter hewan" value={item.doctor_name ? `drh. ${item.doctor_name}` : undefined} />
                   <DetailRow icon="chatbubble-ellipses-outline" label="Paket & mode" value={[item.plan_name, item.mode].filter(Boolean).join(" · ")} />
-                  <DetailRow icon="calendar-outline" label="Jadwal" value={formatDate(item.scheduled_at)} />
+                  <DetailRow icon="calendar-outline" label="Jadwal" value={formatActivityDate(item.scheduled_at, locale)} />
                   <DetailRow icon="time-outline" label="Durasi" value={item.duration_minutes ? `${item.duration_minutes} menit` : undefined} />
                   <DetailRow icon="paw-outline" label="Pet" value={item.pet_name} />
                   <DetailRow icon="medical-outline" label="Keluhan" value={item.complaint} />
@@ -313,9 +306,9 @@ function ActivityDetailSheet({
                   <Text style={styles.paymentLabel}>Status pembayaran</Text>
                   <Text style={styles.paymentValue}>{item.payment_status.replaceAll("_", " ")}</Text>
                 </View>
-                <Text style={styles.paymentAmount}>{money.format(item.amount)}</Text>
+                <Text style={styles.paymentAmount}>{formatCurrency(item.amount)}</Text>
               </View>
-              <Text style={styles.createdAt}>Dibuat {formatDate(item.occurred_at)}</Text>
+              <Text style={styles.createdAt}>Dibuat {formatActivityDate(item.occurred_at, locale)}</Text>
               <PrimaryButton label={repeatLabel(item)} icon="refresh-outline" onPress={onRepeat} />
             </ScrollView>
           </Pressable>
@@ -542,8 +535,8 @@ const styles = StyleSheet.create({
   sectionTitle: { marginTop: 2, color: colors.navy, fontSize: typography.sectionTitle, lineHeight: 22, fontWeight: "900" },
   activityToolbar: { minHeight: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 13, marginBottom: 9 },
   createCompactButton: { minWidth: 112 },
-  activityList: { gap: 10 },
-  activityCard: { overflow: "hidden", padding: 12 },
+  activityList: { gap: 12 },
+  activityCard: { overflow: "hidden", padding: 13, borderColor: colors.sky100, borderRadius: 22 },
   activityTop: { flexDirection: "row", alignItems: "center", gap: 10 },
   activityIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   activityCopy: { minWidth: 0, flex: 1 },
@@ -573,7 +566,7 @@ const styles = StyleSheet.create({
   createChoiceCopy: { minWidth: 0, flex: 1 },
   createChoiceTitle: { color: colors.navy, fontSize: 13, fontWeight: "900" },
   createChoiceNote: { marginTop: 3, color: colors.muted, fontSize: 10, lineHeight: 15 },
-  pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
   backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(10,38,58,.38)" },
   sheetSafeArea: { width: "100%", maxHeight: "88%" },
   sheet: { overflow: "hidden", maxHeight: "100%", borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.white, ...shadow },

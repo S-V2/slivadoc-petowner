@@ -9,8 +9,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,6 +24,7 @@ import {
   type MobileOwner,
 } from "../api";
 import { BoundedBottomSheet, PrimaryButton } from "../components/ui";
+import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
 import { colors, shadow } from "../theme";
 
 type Props = {
@@ -45,9 +44,9 @@ const initials = (value: string) =>
     .join("")
     .toUpperCase();
 
-const messageTime = (value?: string) => {
+const messageTime = (value: string | undefined, locale: string) => {
   if (!value) return "";
-  return new Intl.DateTimeFormat("id-ID", {
+  return new Intl.DateTimeFormat(locale, {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
@@ -61,6 +60,7 @@ export function CommunityGroups({
   onRequirePet,
   onAction,
 }: Props) {
+  const { locale } = useI18n();
   const [scope, setScope] = useState<"mine" | "discover">("mine");
   const [groups, setGroups] = useState<MobileCommunityGroup[]>([]);
   const [loading, setLoading] = useState(false);
@@ -178,7 +178,7 @@ export function CommunityGroups({
             <View style={styles.groupCopy}>
               <View style={styles.groupNameRow}>
                 <Text numberOfLines={1} style={styles.groupName}>{group.name}</Text>
-                <Text style={styles.groupTime}>{messageTime(group.last_message_at)}</Text>
+                <Text style={styles.groupTime}>{messageTime(group.last_message_at, locale)}</Text>
               </View>
               <Text numberOfLines={1} style={styles.lastMessage}>{group.last_message ? `${group.last_sender_name ? `${group.last_sender_name}: ` : ""}${group.last_message}` : `${group.member_count} member · ${group.city || group.category}`}</Text>
               <View style={styles.groupMetaRow}>
@@ -239,6 +239,7 @@ function CreateGroupSheet({ visible, onClose, onCreated, onAction }: { visible: 
 }
 
 function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { group?: MobileCommunityGroup; owner: MobileOwner; hasPet: boolean; onClose: () => void; onRequirePet: () => void; onAction: (message: string) => void }) {
+  const { locale } = useI18n();
   const [messages, setMessages] = useState<MobileCommunityGroupMessage[]>([]);
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -292,7 +293,7 @@ function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { 
           </View>
           <ScrollView ref={scrollRef} onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.messages}>
             <View style={styles.encryptionNote}><Ionicons name="lock-closed" size={11} color="#8B7123" /><Text style={styles.encryptionText}>Percakapan tersimpan aman di Slivadoc. Jangan bagikan data kontak pribadi.</Text></View>
-            {messages.length ? messages.map((message) => <View key={message.id} style={[styles.bubbleWrap, message.mine && styles.myBubbleWrap]}><View style={[styles.bubble, message.mine && styles.myBubble]}>{!message.mine ? <Text style={styles.senderName}>{message.sender_name}</Text> : null}<Text style={styles.messageBody}>{message.body}</Text><Text style={styles.messageTime}>{messageTime(message.created_at)}{message.mine ? "  ✓✓" : ""}</Text></View></View>) : <View style={styles.roomEmpty}><View style={styles.emptyIcon}><Ionicons name="chatbubbles-outline" size={24} color={colors.sky600}/></View><Text style={styles.emptyTitle}>Mulai percakapan</Text><Text style={styles.emptyNote}>Sapa member grup dengan pesan pertama yang ramah.</Text></View>}
+            {messages.length ? messages.map((message) => <View key={message.id} style={[styles.bubbleWrap, message.mine && styles.myBubbleWrap]}><View style={[styles.bubble, message.mine && styles.myBubble]}>{!message.mine ? <Text style={styles.senderName}>{message.sender_name}</Text> : null}<Text style={styles.messageBody}>{message.body}</Text><Text style={styles.messageTime}>{messageTime(message.created_at, locale)}{message.mine ? "  ✓✓" : ""}</Text></View></View>) : <View style={styles.roomEmpty}><View style={styles.emptyIcon}><Ionicons name="chatbubbles-outline" size={24} color={colors.sky600}/></View><Text style={styles.emptyTitle}>Mulai percakapan</Text><Text style={styles.emptyNote}>Sapa member grup dengan pesan pertama yang ramah.</Text></View>}
           </ScrollView>
           <View style={styles.roomComposer}>
             <TextInput value={body} onChangeText={setBody} editable={hasPet && !sending} multiline maxLength={2000} placeholder={hasPet ? `Pesan sebagai ${owner.full_name.split(" ")[0]}…` : "Mode lihat saja — tambahkan pet untuk membalas"} placeholderTextColor={colors.muted} style={styles.roomInput} />
@@ -305,15 +306,15 @@ function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { 
 }
 
 const styles = StyleSheet.create({
-  guestCard: { alignItems: "center", gap: 8, marginTop: 2, padding: 24, borderWidth: 1, borderColor: colors.line, borderRadius: 20, backgroundColor: colors.white },
+  guestCard: { alignItems: "center", gap: 8, marginTop: 2, padding: 24, borderWidth: 1, borderColor: colors.sky100, borderRadius: 22, backgroundColor: colors.white, ...shadow },
   guestIcon: { width: 54, height: 54, alignItems: "center", justifyContent: "center", borderRadius: 18, backgroundColor: colors.sky50 },
-  groupHero: { flexDirection: "row", alignItems: "center", gap: 11, padding: 14, borderRadius: 20, backgroundColor: colors.sky600, ...shadow },
+  groupHero: { flexDirection: "row", alignItems: "center", gap: 11, padding: 15, borderRadius: 23, backgroundColor: colors.sky600, ...shadow },
   heroIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: "rgba(255,255,255,.18)" },
   heroCopy: { minWidth: 0, flex: 1 },
   heroTitle: { color: colors.white, fontSize: 16, fontWeight: "900" },
   heroNote: { marginTop: 2, color: "rgba(255,255,255,.84)", fontSize: 10, lineHeight: 14 },
   heroAdd: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: colors.white },
-  searchWrap: { minHeight: 45, flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 15, backgroundColor: colors.white },
+  searchWrap: { minHeight: 46, flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: 17, backgroundColor: colors.white, ...shadow },
   searchInput: { minWidth: 0, flex: 1, color: colors.text, fontSize: 12 },
   scopeTabs: { flexDirection: "row", gap: 7, marginTop: 9 },
   scopeTab: { minHeight: 36, flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: colors.white },
@@ -322,7 +323,7 @@ const styles = StyleSheet.create({
   activeScopeText: { color: colors.sky600 },
   loader: { marginVertical: 24 },
   groupList: { marginTop: 4 },
-  groupRow: { minHeight: 78, flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
+  groupRow: { minHeight: 82, flexDirection: "row", alignItems: "center", gap: 11, marginBottom: 9, padding: 10, borderWidth: 1, borderColor: colors.sky100, borderRadius: 18, backgroundColor: colors.white, ...shadow },
   groupAvatar: { width: 54, height: 54, borderRadius: 19, backgroundColor: colors.sky50 },
   groupInitial: { alignItems: "center", justifyContent: "center" },
   groupInitialText: { color: colors.sky600, fontSize: 13, fontWeight: "900" },
@@ -336,10 +337,10 @@ const styles = StyleSheet.create({
   ownerText: { color: "#13856F", fontSize: 9, fontWeight: "800" },
   joinButton: { minHeight: 34, justifyContent: "center", paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.sky50 },
   joinText: { color: colors.sky600, fontSize: 10, fontWeight: "900" },
-  emptyCard: { alignItems: "center", gap: 7, marginTop: 12, padding: 22, borderWidth: 1, borderColor: colors.line, borderRadius: 19, backgroundColor: colors.white },
+  emptyCard: { alignItems: "center", gap: 7, marginTop: 12, padding: 22, borderWidth: 1, borderColor: colors.sky100, borderRadius: 22, backgroundColor: colors.white, ...shadow },
   emptyTitle: { color: colors.navy, fontSize: 15, fontWeight: "900", textAlign: "center" },
   emptyNote: { maxWidth: 290, color: colors.muted, fontSize: 11, lineHeight: 16, textAlign: "center" },
-  pressed: { opacity: 0.7 },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
   sheetContent: { paddingHorizontal: 16, paddingBottom: 14 },
   sheetHeader: { minHeight: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sheetKicker: { color: colors.sky600, fontSize: 9, fontWeight: "900", letterSpacing: 1 },

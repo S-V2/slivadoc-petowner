@@ -5,8 +5,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,6 +18,7 @@ import {
 import type { PetView, Service } from "../data";
 import { colors, radius, shadow, spacing, typography } from "../theme";
 import { Pill, Screen } from "../components/ui";
+import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
 
 type Props = {
   onAction: (message: string) => void;
@@ -306,6 +305,7 @@ export function HomeScreen({
   services,
   activities,
 }: Props) {
+  const { formatDate } = useI18n();
   const [searchOpen, setSearchOpen] = useState(false);
   const petView = pet ?? { id: "", name: "pet kamu", breed: "Login untuk melihat profil", age: "—", weight: "—", icon: "", score: 0, allergies: "" };
   const featuredActivities = activities.slice(0, 3);
@@ -423,7 +423,7 @@ export function HomeScreen({
                   <Text style={styles.scoreLabel}>/ 100</Text>
                 </View>
                 <Text style={styles.healthStatus}>{healthStatus}</Text>
-                <Text numberOfLines={1} style={styles.updated}>{petView.lastUpdated ? `Update ${new Date(petView.lastUpdated).toLocaleDateString("id-ID")}` : "Belum ada rekam medis"}</Text>
+                <Text numberOfLines={1} style={styles.updated}>{petView.lastUpdated ? `Update ${formatDate(petView.lastUpdated)}` : "Belum ada rekam medis"}</Text>
               </View>
               <View style={styles.metricStack}>
                 <View style={styles.metric}>
@@ -455,7 +455,7 @@ export function HomeScreen({
                   {index < featuredActivities.length - 1 ? <View style={styles.careLine} /> : null}
                 </View>
                 <View style={styles.careCopy}>
-                  <View style={styles.careTimePill}><Ionicons name="time-outline" size={11} color="#14836E" /><Text style={styles.careTime}>{new Date(item.starts_at || item.occurred_at).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</Text></View>
+                  <View style={styles.careTimePill}><Ionicons name="time-outline" size={11} color="#14836E" /><Text style={styles.careTime}>{formatDate(item.starts_at || item.occurred_at, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</Text></View>
                   <Text numberOfLines={1} style={styles.careTitle}>{item.title}</Text>
                   <Text numberOfLines={2} style={styles.careNote}>{item.description}</Text>
                 </View>
@@ -518,9 +518,9 @@ export function HomeScreen({
 const styles = StyleSheet.create({
   screenContent: { paddingTop: spacing.xs },
   homeHeader: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 9 },
-  searchLauncher: { minWidth: 0, flex: 1, height: 42, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.white, ...shadow },
+  searchLauncher: { minWidth: 0, flex: 1, height: 44, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: radius.md, backgroundColor: colors.white, ...shadow },
   searchLauncherInput: { minWidth: 0, flex: 1, height: 40, padding: 0, color: colors.text, fontSize: typography.body },
-  notificationButton: { position: "relative", width: 42, height: 42, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.white },
+  notificationButton: { position: "relative", width: 44, height: 44, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.sky100, borderRadius: radius.md, backgroundColor: colors.white, ...shadow },
   notificationDot: { position: "absolute", right: 8, top: 7, width: 7, height: 7, borderRadius: 4, borderWidth: 1.5, borderColor: colors.white, backgroundColor: colors.red },
   greetingRow: { minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10, marginBottom: 12 },
   greetingCopy: { minWidth: 0, flex: 1 },
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
   quickBadgeText: { color: colors.sky600, fontSize: 9, fontWeight: "800" },
   quickFeatureRow: { flexDirection: "row", gap: 8, marginTop: 11 },
   quickFeaturePressable: { minWidth: 0, flex: 1 },
-  quickFeatureCard: { minHeight: 104, justifyContent: "flex-end", overflow: "hidden", padding: 11, borderRadius: 17 },
+  quickFeatureCard: { minHeight: 104, justifyContent: "flex-end", overflow: "hidden", padding: 12, borderRadius: 20 },
   quickFeatureTop: { position: "absolute", top: 10, left: 10, right: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   quickFeatureIcon: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "rgba(255,255,255,.92)" },
   quickFeatureEmoji: { fontSize: 21 },
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
   quickFeatureLabel: { color: colors.white, fontSize: typography.body, fontWeight: "900" },
   quickFeatureNote: { marginTop: 2, color: "rgba(255,255,255,.9)", fontSize: 9 },
   quickMiniRow: { flexDirection: "row", gap: 6, marginTop: 8 },
-  quickMiniCard: { minWidth: 0, flex: 1, minHeight: 88, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderRadius: 14, backgroundColor: colors.white },
+  quickMiniCard: { minWidth: 0, flex: 1, minHeight: 88, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderWidth: 1, borderColor: colors.sky100, borderRadius: 17, backgroundColor: colors.white },
   quickMiniIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 13 },
   quickMiniEmoji: { fontSize: 20 },
   quickMiniLabel: { minHeight: 25, marginTop: 5, color: colors.navy, fontSize: 9, lineHeight: 11, fontWeight: "800", textAlign: "center" },
@@ -646,7 +646,7 @@ const styles = StyleSheet.create({
   careCtaNote: { marginTop: 1, color: colors.muted, fontSize: 9 },
   careCtaArrow: { width: 30, height: 30, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: colors.sky600 },
   serviceScroll: { gap: 11, paddingRight: 16, paddingBottom: 7 },
-  serviceCard: { width: 188, overflow: "hidden", borderWidth: 1, borderColor: colors.line, borderRadius: 20, backgroundColor: colors.white, shadowColor: "#396E91", shadowOpacity: 0.1, shadowRadius: 13, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
+  serviceCard: { width: 188, overflow: "hidden", borderWidth: 1, borderColor: colors.sky100, borderRadius: 22, backgroundColor: colors.white, shadowColor: "#396E91", shadowOpacity: 0.1, shadowRadius: 15, shadowOffset: { width: 0, height: 7 }, elevation: 3 },
   serviceVisual: { position: "relative", height: 112, overflow: "hidden", alignItems: "center", justifyContent: "center" },
   serviceVisualTop: { position: "absolute", zIndex: 2, left: 9, right: 9, top: 9, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   serviceFavorite: { width: 28, height: 28, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,.72)", borderRadius: 10, backgroundColor: "rgba(255,255,255,.76)" },
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
   servicePrice: { minWidth: 0, flex: 1, color: colors.sky600, fontSize: 11, fontWeight: "900" },
   bookPill: { minHeight: 29, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, borderRadius: 10, backgroundColor: colors.sky600 },
   bookPillText: { color: colors.white, fontSize: 9, fontWeight: "900" },
-  pressed: { opacity: 0.7, transform: [{ scale: 0.985 }] },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
   searchBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(14,32,55,.42)" },
   searchSheet: { width: "100%", height: "86%", overflow: "hidden", borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: colors.canvas },
   searchSheetSafe: { flex: 1 },

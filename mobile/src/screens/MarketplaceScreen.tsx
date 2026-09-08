@@ -10,8 +10,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -34,6 +32,7 @@ import {
 } from "../components/BatpayPayment";
 import { EmptyState, PetRequiredNotice, Pill, PrimaryButton, Screen } from "../components/ui";
 import type { Service } from "../data";
+import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
 import { colors, shadow } from "../theme";
 
 type SortMode = "recommended" | "popular" | "rating" | "price";
@@ -55,12 +54,6 @@ type MarketplaceScreenProps = {
     items?: Array<{ product_id: string; quantity: number }>;
   };
 };
-
-const money = new Intl.NumberFormat("id-ID", {
-  style: "currency",
-  currency: "IDR",
-  maximumFractionDigits: 0,
-});
 
 function productIcon(product: MobileProduct): keyof typeof Ionicons.glyphMap {
   const value = `${product.category} ${product.name}`.toLowerCase();
@@ -130,6 +123,7 @@ function ProductCard({
   onAdd: () => void;
   onFavorite: () => void;
 }) {
+  const { formatCurrency } = useI18n();
   return (
     <Pressable
       accessibilityRole="button"
@@ -171,31 +165,35 @@ function ProductCard({
             {product.business_name}
           </Text>
         </View>
-        <Text style={styles.productPrice}>{money.format(product.price)}</Text>
-        <View style={styles.productMeta}>
-          <Ionicons name="star" size={10} color={colors.yellow} />
-          <Text style={styles.productMetaText}>
-            {product.review_count ? product.rating.toFixed(1) : "Baru"}
-          </Text>
-          <View style={styles.metaDivider} />
-          <Text style={styles.productMetaText}>{compactNumber(product.sold_count)} terjual</Text>
+        <View style={styles.productCommerceRow}>
+          <View style={styles.productCommerceCopy}>
+            <Text style={styles.productPrice}>{formatCurrency(product.price)}</Text>
+            <View style={styles.productMeta}>
+              <Ionicons name="star" size={10} color={colors.yellow} />
+              <Text style={styles.productMetaText}>
+                {product.review_count ? product.rating.toFixed(1) : "Baru"}
+              </Text>
+              <View style={styles.metaDivider} />
+              <Text style={styles.productMetaText}>{compactNumber(product.sold_count)} terjual</Text>
+            </View>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            disabled={!product.available}
+            onPress={(event) => {
+              event.stopPropagation();
+              onAdd();
+            }}
+            style={({ pressed }) => [
+              styles.addButton,
+              !product.available && styles.disabledButton,
+              pressed && product.available && styles.pressed,
+            ]}
+          >
+            <Ionicons name="bag-add-outline" size={16} color={colors.white} />
+            <Text style={styles.addButtonText}>Tambah</Text>
+          </Pressable>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          disabled={!product.available}
-          onPress={(event) => {
-            event.stopPropagation();
-            onAdd();
-          }}
-          style={({ pressed }) => [
-            styles.addButton,
-            !product.available && styles.disabledButton,
-            pressed && product.available && styles.pressed,
-          ]}
-        >
-          <Ionicons name="add" size={15} color={colors.white} />
-          <Text style={styles.addButtonText}>Keranjang</Text>
-        </Pressable>
       </View>
     </Pressable>
   );
@@ -823,6 +821,7 @@ function ProductDetailSheet({
   onBuy: () => void;
   onSubmitReview: () => void;
 }) {
+  const { formatCurrency, formatDate } = useI18n();
   if (!product) return null;
   return (
     <SheetFrame visible title={product.name} eyebrow="DETAIL PRODUK" onClose={onClose}>
@@ -840,7 +839,7 @@ function ProductDetailSheet({
           </View>
           <Pill tone="mint">Terverifikasi</Pill>
         </View>
-        <Text style={styles.detailPrice}>{money.format(product.price)}</Text>
+        <Text style={styles.detailPrice}>{formatCurrency(product.price)}</Text>
         <View style={styles.detailMetaRow}>
           <Stars value={product.rating} />
           <Text style={styles.detailMetaText}>
@@ -886,7 +885,7 @@ function ProductDetailSheet({
               <Stars value={review.rating} size={11} />
               <Text style={styles.reviewComment}>{review.comment}</Text>
               <Text style={styles.reviewDate}>
-                {new Date(review.updated_at || review.created_at).toLocaleDateString("id-ID", {
+                {formatDate(review.updated_at || review.created_at, {
                   day: "numeric",
                   month: "short",
                   year: "numeric",
@@ -990,6 +989,7 @@ function CartSheet({
   onQuote: () => void;
   onCheckout: () => void;
 }) {
+  const { formatCurrency } = useI18n();
   return (
     <SheetFrame visible={visible} title={`Keranjang (${items.length})`} eyebrow="CHECKOUT AMAN" onClose={onClose}>
       {!items.length ? (
@@ -1012,7 +1012,7 @@ function CartSheet({
               <View style={styles.cartItemCopy}>
                 <Text numberOfLines={2} style={styles.cartItemName}>{product.name}</Text>
                 <Text numberOfLines={1} style={styles.cartItemStore}>{product.business_name}</Text>
-                <Text style={styles.cartItemPrice}>{money.format(product.price)}</Text>
+                <Text style={styles.cartItemPrice}>{formatCurrency(product.price)}</Text>
               </View>
               <View style={styles.stepper}>
                 <Pressable accessibilityLabel="Kurangi jumlah" onPress={() => onQuantity(product, quantity - 1)} style={styles.stepperButton}>
@@ -1056,12 +1056,12 @@ function CartSheet({
           <MobilePaymentMethods value={paymentMethod} onChange={onPaymentMethod} disabled={checkoutBusy} />
 
           <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Subtotal</Text><Text style={styles.summaryValue}>{money.format(quote?.subtotal ?? subtotal)}</Text></View>
-            <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Biaya platform</Text><Text style={styles.summaryValue}>{money.format(quote?.platform_fee ?? 0)}</Text></View>
-            {quote?.voucher_discount ? <View style={styles.summaryRow}><Text style={styles.discountLabel}>Diskon voucher</Text><Text style={styles.discountValue}>−{money.format(quote.voucher_discount)}</Text></View> : null}
-            {quote?.points_discount ? <View style={styles.summaryRow}><Text style={styles.discountLabel}>Sliva Points</Text><Text style={styles.discountValue}>−{money.format(quote.points_discount)}</Text></View> : null}
+            <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Subtotal</Text><Text style={styles.summaryValue}>{formatCurrency(quote?.subtotal ?? subtotal)}</Text></View>
+            <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Biaya platform</Text><Text style={styles.summaryValue}>{formatCurrency(quote?.platform_fee ?? 0)}</Text></View>
+            {quote?.voucher_discount ? <View style={styles.summaryRow}><Text style={styles.discountLabel}>Diskon voucher</Text><Text style={styles.discountValue}>−{formatCurrency(quote.voucher_discount)}</Text></View> : null}
+            {quote?.points_discount ? <View style={styles.summaryRow}><Text style={styles.discountLabel}>Sliva Points</Text><Text style={styles.discountValue}>−{formatCurrency(quote.points_discount)}</Text></View> : null}
             <View style={styles.summaryDivider} />
-            <View style={styles.summaryRow}><Text style={styles.totalLabel}>Total pembayaran</Text><Text style={styles.totalValue}>{money.format(quote?.total_amount ?? subtotal)}</Text></View>
+            <View style={styles.summaryRow}><Text style={styles.totalLabel}>Total pembayaran</Text><Text style={styles.totalValue}>{formatCurrency(quote?.total_amount ?? subtotal)}</Text></View>
           </View>
           <PrimaryButton
             disabled={checkoutBusy}
@@ -1123,10 +1123,10 @@ const styles = StyleSheet.create({
   sortTextActive: { color: colors.white },
   loadingState: { minHeight: 240, alignItems: "center", justifyContent: "center", gap: 10 },
   loadingText: { color: colors.muted, fontSize: 11 },
-  productGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 },
-  productCard: { width: "48.7%", overflow: "hidden", borderRadius: 17, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, ...shadow },
-  pressed: { opacity: 0.75, transform: [{ scale: 0.988 }] },
-  productVisualWrap: { position: "relative", height: 128 },
+  productGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 14 },
+  productCard: { width: "48.5%", overflow: "hidden", borderRadius: 22, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, ...shadow },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
+  productVisualWrap: { position: "relative", height: 122 },
   productImage: { width: "100%", height: "100%" },
   productImageLarge: { height: 230, borderRadius: 18 },
   productFallback: { width: "100%", height: "100%", overflow: "hidden", alignItems: "center", justifyContent: "center" },
@@ -1135,19 +1135,21 @@ const styles = StyleSheet.create({
   productEmoji: { fontSize: 43 },
   productEmojiLarge: { fontSize: 72 },
   fallbackLabel: { position: "absolute", left: 9, bottom: 8, maxWidth: "82%", paddingHorizontal: 7, paddingVertical: 4, borderRadius: 7, color: colors.sky600, backgroundColor: "rgba(255,255,255,.88)", fontSize: 8, fontWeight: "900" },
-  favoriteButton: { position: "absolute", right: 8, top: 8, width: 32, height: 32, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,.94)" },
+  favoriteButton: { position: "absolute", right: 9, top: 9, width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: "rgba(216,241,255,.9)", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,.96)", ...shadow },
   soldOutBadge: { position: "absolute", left: 8, top: 8, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 7, backgroundColor: "rgba(21,59,91,.82)" },
   soldOutText: { color: colors.white, fontSize: 8, fontWeight: "900" },
-  productCardBody: { padding: 10 },
-  productName: { minHeight: 34, color: colors.navy, fontSize: 12, lineHeight: 16, fontWeight: "800" },
-  productStoreBadge: { minWidth: 0, minHeight: 28, flexDirection: "row", alignItems: "center", gap: 5, marginTop: 6, paddingHorizontal: 7, paddingVertical: 5, borderRadius: 9, backgroundColor: colors.sky50 },
+  productCardBody: { padding: 11 },
+  productName: { minHeight: 36, color: colors.navy, fontSize: 13, lineHeight: 18, fontWeight: "900", letterSpacing: -0.15 },
+  productStoreBadge: { minWidth: 0, minHeight: 27, flexDirection: "row", alignItems: "center", gap: 5, marginTop: 6, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 10, backgroundColor: colors.sky50 },
   storeName: { minWidth: 0, flex: 1, color: colors.navy, fontSize: 9, lineHeight: 13, fontWeight: "800" },
-  productPrice: { marginTop: 7, color: colors.sky600, fontSize: 13, lineHeight: 17, fontWeight: "900" },
-  productMeta: { minHeight: 16, flexDirection: "row", alignItems: "center", gap: 3, marginTop: 4 },
+  productCommerceRow: { minWidth: 0, flexDirection: "row", alignItems: "flex-end", gap: 7, marginTop: 9 },
+  productCommerceCopy: { minWidth: 0, flex: 1 },
+  productPrice: { color: colors.sky600, fontSize: 14, lineHeight: 18, fontWeight: "900" },
+  productMeta: { minHeight: 15, flexDirection: "row", alignItems: "center", gap: 3, marginTop: 3 },
   productMetaText: { color: colors.muted, fontSize: 8 },
   metaDivider: { width: 1, height: 10, marginHorizontal: 2, backgroundColor: colors.line },
-  addButton: { height: 34, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, marginTop: 8, borderRadius: 10, backgroundColor: colors.sky600 },
-  addButtonText: { color: colors.white, fontSize: 10, fontWeight: "900" },
+  addButton: { minWidth: 68, height: 38, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingHorizontal: 9, borderRadius: 13, backgroundColor: colors.sky600 },
+  addButtonText: { color: colors.white, fontSize: 9, fontWeight: "900" },
   disabledButton: { opacity: 0.42 },
   stars: { flexDirection: "row", alignItems: "center", gap: 1 },
   modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(13,35,54,.45)" },

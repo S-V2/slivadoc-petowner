@@ -7,8 +7,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   type TextInputProps,
   View,
 } from "react-native";
@@ -35,6 +33,7 @@ import {
   type MobilePaymentIntent,
   type WorldItem,
 } from "../api";
+import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
 import { colors, shadow } from "../theme";
 import {
   PetRequiredNotice,
@@ -109,20 +108,6 @@ const emptyWorld = (): Record<Mode, WorldItem[]> => ({
   adoption: [],
   documents: [],
 });
-const money = (value?: number) =>
-  new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(value ?? 0);
-const when = (value?: string) =>
-  value
-    ? new Intl.DateTimeFormat("id-ID", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }).format(new Date(value))
-    : "Segera";
-
 const worldIcon = (mode: Mode, item?: WorldItem | null): keyof typeof Ionicons.glyphMap => {
   if (mode === "pawdating") return "heart-circle-outline";
   if (mode === "academy") return "school-outline";
@@ -186,6 +171,11 @@ export function WorldScreen({
   onRequirePet: () => void;
   intent?: { token: number; mode: "consult"; itemId?: string };
 }) {
+  const { formatCurrency, formatDate, formatNumber } = useI18n();
+  const money = (value?: number) => formatCurrency(value ?? 0);
+  const when = (value?: string) => value
+    ? formatDate(value, { dateStyle: "medium", timeStyle: "short" })
+    : "Segera";
   const [mode, setMode] = useState<Mode>(intent?.mode ?? "academy");
   const [items, setItems] = useState<Record<Mode, WorldItem[]>>(emptyWorld);
   const [selected, setSelected] = useState<WorldItem | null>(null);
@@ -661,7 +651,7 @@ export function WorldScreen({
                                 ? `${item.city || "Lokasi belum tersedia"} · ${item.health_status || "Health check"}`
                                 : mode === "documents"
                                   ? `${item.processing_days ?? "—"} hari kerja`
-                                  : `${item.viewer_count?.toLocaleString("id-ID") ?? 0} menonton`}
+                                  : `${formatNumber(item.viewer_count ?? 0)} menonton`}
                   </Text>
                   <Text style={styles.cardTitle}>
                     {item.title || item.name}
@@ -1073,8 +1063,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 5,
     borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 14,
+    borderColor: colors.sky100,
+    borderRadius: 17,
     backgroundColor: colors.white,
   },
   activeMode: { borderColor: colors.sky400, backgroundColor: colors.sky50 },
@@ -1088,7 +1078,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 5,
     padding: 18,
-    borderRadius: 20,
+    borderRadius: 23,
     backgroundColor: colors.sky600,
     ...shadow,
   },
@@ -1147,14 +1137,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sky600,
   },
   createText: { color: colors.white, fontSize: 11, fontWeight: "800" },
-  list: { gap: 9 },
+  list: { gap: 12 },
   card: {
     overflow: "hidden",
     flexDirection: "row",
     minHeight: 132,
     borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 17,
+    borderColor: colors.sky100,
+    borderRadius: 22,
     backgroundColor: colors.white,
     ...shadow,
   },
@@ -1223,8 +1213,8 @@ const styles = StyleSheet.create({
   threadCard: {
     padding: 12,
     borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 17,
+    borderColor: colors.sky100,
+    borderRadius: 22,
     backgroundColor: colors.white,
     ...shadow,
   },

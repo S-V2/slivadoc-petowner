@@ -10,8 +10,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -69,6 +67,7 @@ import {
   MobilePaymentMethods,
 } from "./src/components/BatpayPayment";
 import slivadocLogo from "./assets/slivadoc-logo.png";
+import { LanguageProvider, LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "./src/i18n";
 
 type Tab =
   | "home"
@@ -164,13 +163,16 @@ const searchRouteTabs: Record<string, Tab> = {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <MobileApp />
+      <LanguageProvider>
+        <MobileApp />
+      </LanguageProvider>
     </SafeAreaProvider>
   );
 }
 
 function MobileApp() {
   const insets = useSafeAreaInsets();
+  const { formatCurrency } = useI18n();
   const [tab, setTab] = useState<Tab>("home");
   const [moreOpen, setMoreOpen] = useState(false);
   const [toast, setToast] = useState("");
@@ -221,11 +223,7 @@ function MobileApp() {
         Number.isFinite(item.distance_km)
           ? `${item.distance_km.toFixed(1)} km`
           : item.city,
-      price: new Intl.NumberFormat("id-ID", {
-        style: "currency",
-        currency: "IDR",
-        maximumFractionDigits: 0,
-      }).format(item.price),
+      price: formatCurrency(item.price),
       status: "Tersedia untuk booking",
       icon: item.category.toLowerCase().includes("groom")
         ? "🛁"
@@ -238,7 +236,7 @@ function MobileApp() {
       priceValue: item.price,
       address: `${item.branch_name} · ${item.address}`,
     }),
-    [],
+    [formatCurrency],
   );
   const pets: PetView[] = (bootstrap?.pets ?? []).map((item) => ({
     id: item.id,
@@ -1118,8 +1116,8 @@ function notificationVisual(category: string): {
   return { icon: "notifications-outline", backgroundColor: colors.sky50, color: colors.sky600 };
 }
 
-function formatNotificationTime(value: string) {
-  return new Date(value).toLocaleString("id-ID", {
+function formatNotificationTime(value: string, locale: string) {
+  return new Date(value).toLocaleString(locale, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -1223,6 +1221,7 @@ function NotificationModal({
   onReadAll: () => void | Promise<void>;
   onOpenTarget: (item: MobileNotification) => void;
 }) {
+  const { locale } = useI18n();
   const [category, setCategory] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const categories = [...new Set(items.map((item) => item.category))];
@@ -1273,7 +1272,7 @@ function NotificationModal({
                     </View>
                     <Text style={styles.notificationDetailTitle}>{selected.title}</Text>
                     <Text style={styles.notificationDetailBody}>{selected.body}</Text>
-                    <View style={styles.notificationDetailMeta}><View style={styles.notificationDetailMetaRow}><Ionicons name="time-outline" size={15} color={colors.muted}/><View><Text style={styles.notificationDetailMetaLabel}>Diterima</Text><Text style={styles.notificationDetailMetaValue}>{formatNotificationTime(selected.created_at)}</Text></View></View><View style={styles.notificationDetailMetaRow}><Ionicons name="pricetag-outline" size={15} color={colors.muted}/><View><Text style={styles.notificationDetailMetaLabel}>Kategori</Text><Text style={styles.notificationDetailMetaValue}>{notificationCategoryLabel(selected.category)}</Text></View></View></View>
+                    <View style={styles.notificationDetailMeta}><View style={styles.notificationDetailMetaRow}><Ionicons name="time-outline" size={15} color={colors.muted}/><View><Text style={styles.notificationDetailMetaLabel}>Diterima</Text><Text style={styles.notificationDetailMetaValue}>{formatNotificationTime(selected.created_at, locale)}</Text></View></View><View style={styles.notificationDetailMetaRow}><Ionicons name="pricetag-outline" size={15} color={colors.muted}/><View><Text style={styles.notificationDetailMetaLabel}>Kategori</Text><Text style={styles.notificationDetailMetaValue}>{notificationCategoryLabel(selected.category)}</Text></View></View></View>
                     {selected.action_route ? <Pressable accessibilityRole="button" onPress={() => onOpenTarget(selected)} style={({ pressed }) => [styles.notificationDetailAction, pressed && styles.pressed]}><Text style={styles.notificationDetailActionText}>Buka halaman terkait</Text><Ionicons name="arrow-forward" size={16} color={colors.white}/></Pressable> : null}
                   </View>;
                 })()}
@@ -1310,7 +1309,7 @@ function NotificationModal({
                           {!item.read_at ? <View style={styles.unreadDot} /> : null}
                         </View>
                         <Text numberOfLines={3} style={styles.notificationNote}>{item.body}</Text>
-                        <View style={styles.notificationTimeRow}><Ionicons name="time-outline" size={11} color={colors.muted}/><Text style={styles.notificationTime}>{formatNotificationTime(item.created_at)}</Text><Text style={styles.notificationDetailHint}>Lihat detail</Text><Ionicons name="chevron-forward" size={12} color={colors.sky600}/></View>
+                        <View style={styles.notificationTimeRow}><Ionicons name="time-outline" size={11} color={colors.muted}/><Text style={styles.notificationTime}>{formatNotificationTime(item.created_at, locale)}</Text><Text style={styles.notificationDetailHint}>Lihat detail</Text><Ionicons name="chevron-forward" size={12} color={colors.sky600}/></View>
                       </View>
                     </Pressable>
                   );
@@ -1687,6 +1686,7 @@ function BookingModal({
     payment_method: string;
   }) => void | Promise<void>;
 }) {
+  const { formatDate } = useI18n();
   const [step, setStep] = useState(1);
   const toDate = (value: Date) =>
     `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
@@ -1824,9 +1824,7 @@ function BookingModal({
                               date === value && styles.activeDateText,
                             ]}
                           >
-                            {item
-                              .toLocaleDateString("id-ID", { weekday: "short" })
-                              .toUpperCase()}
+                            {formatDate(item, { weekday: "short" }).toUpperCase()}
                           </Text>
                           <Text
                             style={[
@@ -1842,9 +1840,7 @@ function BookingModal({
                               date === value && styles.activeDateText,
                             ]}
                           >
-                            {item.toLocaleDateString("id-ID", {
-                              month: "short",
-                            })}
+                            {formatDate(item, { month: "short" })}
                           </Text>
                         </Pressable>
                       );
@@ -1908,7 +1904,7 @@ function BookingModal({
                     <SummaryLine label="Layanan" value={service.name} />
                     <SummaryLine
                       label="Jadwal"
-                      value={`${new Date(`${date}T12:00:00`).toLocaleDateString("id-ID")} • ${time} WIB`}
+                      value={`${formatDate(new Date(`${date}T12:00:00`))} • ${time} WIB`}
                     />
                     <SummaryLine
                       label="Total pembayaran"

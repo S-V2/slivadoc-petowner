@@ -7,7 +7,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
   View,
   type PressableProps,
   type StyleProp,
@@ -15,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { LocalizedText as Text } from "../i18n";
 import { colors, radius, shadow, spacing, typography } from "../theme";
 
 export type AppIconTone = "sky" | "mint" | "violet" | "peach" | "red" | "neutral";
@@ -65,7 +65,7 @@ export function Screen({ children, contentStyle }: PropsWithChildren<{ contentSt
 export function TopHeader({ title, subtitle, onNotification }: { title: string; subtitle: string; onNotification: () => void }) {
   return (
     <View style={styles.topHeader}>
-      <View style={styles.locationIcon}><Ionicons name="location" size={17} color={colors.sky600} /></View>
+      <View style={styles.brandIcon}><Ionicons name="sparkles" size={17} color={colors.sky600} /></View>
       <View style={styles.topHeaderCopy}>
         <Text style={styles.topKicker}>{subtitle}</Text>
         <Text style={styles.topTitle} numberOfLines={1}>{title}</Text>
@@ -229,27 +229,27 @@ export function BoundedBottomSheet({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
   screenContent: { paddingHorizontal: spacing.lg },
-  topHeader: { minHeight: 62, flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 7 },
-  locationIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.sky50, alignItems: "center", justifyContent: "center" },
+  topHeader: { minHeight: 66, flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 9 },
+  brandIcon: { width: 40, height: 40, borderRadius: 15, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.sky50, alignItems: "center", justifyContent: "center" },
   topHeaderCopy: { flex: 1, gap: 2 },
   topKicker: { color: colors.muted, fontSize: 11, lineHeight: 15, fontWeight: "600" },
   topTitle: { color: colors.navy, fontSize: typography.cardTitle, lineHeight: 20, fontWeight: "800" },
-  iconButton: { position: "relative", width: 40, height: 40, borderRadius: 13, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
+  iconButton: { position: "relative", width: 40, height: 40, borderRadius: 15, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, alignItems: "center", justifyContent: "center", ...shadow },
   notificationDot: { position: "absolute", right: 8, top: 7, width: 7, height: 7, borderRadius: 4, borderWidth: 1.5, borderColor: colors.white, backgroundColor: colors.red },
-  sectionTitle: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginTop: spacing.xl, marginBottom: 10 },
+  sectionTitle: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginTop: 22, marginBottom: 11 },
   eyebrow: { color: colors.muted, fontSize: 9, fontWeight: "800", letterSpacing: 1, marginBottom: 3 },
   sectionHeading: { color: colors.navy, fontSize: typography.sectionTitle, lineHeight: 22, fontWeight: "800", letterSpacing: -0.2 },
   sectionAction: { color: colors.sky600, fontSize: 11, fontWeight: "800", paddingBottom: 2 },
-  card: { borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, ...shadow },
+  card: { borderRadius: radius.lg, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, ...shadow },
   primaryButton: { minHeight: 44, paddingHorizontal: 15, borderRadius: radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: colors.sky600, ...shadow },
   compactButton: { minHeight: 40, borderRadius: 12, paddingHorizontal: 13 },
   primaryButtonText: { color: colors.white, fontSize: typography.control, fontWeight: "800" },
   lightButton: { backgroundColor: colors.white, shadowOpacity: 0 },
   lightButtonText: { color: colors.sky600 },
-  softButton: { minHeight: 40, paddingHorizontal: 13, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.sky50 },
+  softButton: { minHeight: 40, paddingHorizontal: 13, borderWidth: 1, borderColor: colors.sky100, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.sky50 },
   softButtonText: { color: colors.sky600, fontSize: typography.control, fontWeight: "800" },
   appIcon: { alignItems: "center", justifyContent: "center" },
-  pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
   pill: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 5, borderRadius: radius.pill },
   pillText: { fontSize: 9, fontWeight: "800", letterSpacing: 0.15 },
   bluePill: { backgroundColor: colors.sky50 }, bluePillText: { color: colors.sky600 },
@@ -274,9 +274,12 @@ const styles = StyleSheet.create({
   },
   sheet: {
     overflow: "hidden",
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    backgroundColor: colors.white,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: colors.sky100,
+    backgroundColor: "#FCFEFF",
   },
   sheetSafe: { minHeight: 120, backgroundColor: colors.white },
   sheetHandle: {

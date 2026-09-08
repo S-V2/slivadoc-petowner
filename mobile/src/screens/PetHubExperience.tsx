@@ -7,8 +7,6 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  Text,
-  TextInput,
   View,
   type StyleProp,
   type ViewStyle,
@@ -30,6 +28,7 @@ import {
   type MobilePetHubComment,
   type WorldItem,
 } from "../api";
+import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
 import { BoundedBottomSheet, PrimaryButton } from "../components/ui";
 import { colors, shadow } from "../theme";
 
@@ -52,12 +51,12 @@ const initials = (value?: string) =>
     .join("")
     .toUpperCase();
 
-const formatAge = (value?: string) => {
+const formatAge = (value: string | undefined, language: "id" | "en" | "zh") => {
   if (!value) return "baru saja";
   const minutes = Math.max(1, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
-  if (minutes < 60) return `${minutes}m`;
-  if (minutes < 1440) return `${Math.floor(minutes / 60)}j`;
-  return `${Math.floor(minutes / 1440)}h`;
+  if (minutes < 60) return language === "zh" ? `${minutes}分钟` : `${minutes}m`;
+  if (minutes < 1440) return language === "zh" ? `${Math.floor(minutes / 60)}小时` : language === "id" ? `${Math.floor(minutes / 60)}j` : `${Math.floor(minutes / 60)}h`;
+  return language === "zh" ? `${Math.floor(minutes / 1440)}天` : language === "id" ? `${Math.floor(minutes / 1440)}h` : `${Math.floor(minutes / 1440)}d`;
 };
 
 const mediaURL = (item: WorldItem) => item.media_url || item.photo_url || "";
@@ -96,6 +95,7 @@ export function PetHubExperience({
   onRequirePet,
   onAction,
 }: Props) {
+  const { language, t } = useI18n();
   const [activeTab, setActiveTab] = useState<"feed" | "reels">("feed");
   const [stories, setStories] = useState<WorldItem[]>([]);
   const [feed, setFeed] = useState<WorldItem[]>([]);
@@ -360,7 +360,7 @@ export function PetHubExperience({
                     <Text numberOfLines={1} style={styles.authorName}>{item.author_name || item.channel_name || "Pet Parent"}</Text>
                     {item.verified ? <Ionicons name="checkmark-circle" size={14} color={colors.sky600} /> : null}
                   </View>
-                  <Text style={styles.authorMeta}>{item.channel_handle ? `@${item.channel_handle} · ` : ""}{formatAge(item.created_at)}</Text>
+                  <Text style={styles.authorMeta}>{item.channel_handle ? `@${item.channel_handle} · ` : ""}{formatAge(item.created_at, language)}</Text>
                 </View>
                 <Ionicons name="ellipsis-horizontal" size={19} color={colors.muted} />
               </View>
@@ -374,7 +374,7 @@ export function PetHubExperience({
                 <View style={styles.primaryActions}>
                   <Pressable accessibilityRole="button" accessibilityLabel="Sukai posting" onPress={() => void toggleLike(item)} style={styles.actionButton}><Ionicons name={itemLiked ? "heart" : "heart-outline"} size={23} color={itemLiked ? colors.red : colors.navy} /></Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel="Buka komentar" onPress={() => void openComments(item)} style={styles.actionButton}><Ionicons name="chatbubble-outline" size={21} color={colors.navy} /></Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel="Bagikan posting" onPress={() => void Share.share({ message: `${item.author_name || "Pet Parent"}: ${item.content || "Momen dari PetHub Slivadoc"}${url ? `\n${url}` : ""}` })} style={styles.actionButton}><Ionicons name="paper-plane-outline" size={21} color={colors.navy} /></Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Bagikan posting" onPress={() => void Share.share({ message: `${item.author_name || t("Pet Parent")}: ${item.content || t("Momen dari PetHub Slivadoc")}${url ? `\n${url}` : ""}` })} style={styles.actionButton}><Ionicons name="paper-plane-outline" size={21} color={colors.navy} /></Pressable>
                 </View>
                 <Pressable accessibilityRole="button" accessibilityLabel="Simpan posting" onPress={() => hasPet ? setSaved((current) => current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id]) : onRequirePet()} style={styles.actionButton}><Ionicons name={saved.includes(item.id) ? "bookmark" : "bookmark-outline"} size={21} color={colors.navy} /></Pressable>
               </View>
@@ -405,7 +405,7 @@ export function PetHubExperience({
 
       <BoundedBottomSheet visible={Boolean(story)} onClose={() => setStory(undefined)} maxHeight="84%">
         {story ? <View style={styles.storyViewer}>
-          <View style={styles.postHeader}><View style={styles.authorAvatar}><Text style={styles.authorInitial}>{initials(story.author_name)}</Text></View><View style={styles.authorCopy}><Text style={styles.authorName}>{story.author_name || "Pet Parent"}</Text><Text style={styles.authorMeta}>Story · {formatAge(story.created_at)}</Text></View><Pressable onPress={() => setStory(undefined)}><Ionicons name="close" size={22} color={colors.navy} /></Pressable></View>
+          <View style={styles.postHeader}><View style={styles.authorAvatar}><Text style={styles.authorInitial}>{initials(story.author_name)}</Text></View><View style={styles.authorCopy}><Text style={styles.authorName}>{story.author_name || "Pet Parent"}</Text><Text style={styles.authorMeta}>Story · {formatAge(story.created_at, language)}</Text></View><Pressable onPress={() => setStory(undefined)}><Ionicons name="close" size={22} color={colors.navy} /></Pressable></View>
           <View style={styles.storyViewerMedia}>
             {isVideo(story) ? <InlineVideo uri={mediaURL(story)} style={styles.storyViewerImage} /> : mediaURL(story) ? <Image accessibilityLabel={`Story ${story.author_name || "pet parent"}`} source={{ uri: mediaURL(story) }} style={styles.storyViewerImage} /> : <View style={[styles.storyViewerImage, styles.videoFallback]}><Ionicons name="images" size={46} color={colors.white} /></View>}
           </View>
@@ -417,7 +417,7 @@ export function PetHubExperience({
         <View style={styles.commentsSheet}>
           <View style={styles.sheetHeader}><Text style={styles.sheetTitle}>Komentar</Text><Pressable onPress={() => setCommentPost(undefined)} style={styles.sheetClose}><Ionicons name="close" size={21} color={colors.navy} /></Pressable></View>
           <ScrollView keyboardShouldPersistTaps="handled" style={styles.commentList}>
-            {comments.length ? comments.map((item) => <View key={item.id} style={styles.commentItem}><View style={styles.commentAvatar}><Text style={styles.authorInitial}>{initials(item.author_name)}</Text></View><View style={styles.authorCopy}><Text style={styles.commentAuthor}>{item.author_name}</Text><Text style={styles.commentBody}>{item.content}</Text><Text style={styles.authorMeta}>{formatAge(item.created_at)}</Text></View></View>) : <Text style={styles.emptyText}>Belum ada komentar. Mulai obrolan yang baik.</Text>}
+            {comments.length ? comments.map((item) => <View key={item.id} style={styles.commentItem}><View style={styles.commentAvatar}><Text style={styles.authorInitial}>{initials(item.author_name)}</Text></View><View style={styles.authorCopy}><Text style={styles.commentAuthor}>{item.author_name}</Text><Text style={styles.commentBody}>{item.content}</Text><Text style={styles.authorMeta}>{formatAge(item.created_at, language)}</Text></View></View>) : <Text style={styles.emptyText}>Belum ada komentar. Mulai obrolan yang baik.</Text>}
           </ScrollView>
           <View style={styles.commentComposer}><TextInput value={comment} onChangeText={setComment} editable={hasPet && !commentBusy} placeholder={!owner ? "Login untuk berkomentar" : hasPet ? "Tambahkan komentar…" : "Tambah pet untuk berkomentar"} placeholderTextColor={colors.muted} style={styles.commentInput} /><Pressable disabled={commentBusy || (hasPet && !comment.trim())} onPress={() => hasPet ? void sendComment() : onRequirePet()} style={styles.sendButton}><Ionicons name={hasPet ? "arrow-up" : "lock-closed"} size={18} color={colors.white} /></Pressable></View>
         </View>
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
   brand: { color: colors.navy, fontSize: 24, lineHeight: 29, fontWeight: "900", letterSpacing: -0.7 },
   brandNote: { marginTop: 1, color: colors.muted, fontSize: 11 },
   brandActions: { flexDirection: "row", gap: 8 },
-  iconButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.line, borderRadius: 14, backgroundColor: colors.white },
+  iconButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.sky100, borderRadius: 15, backgroundColor: colors.white, ...shadow },
   storyRow: { gap: 12, paddingVertical: 14, paddingRight: 16 },
   storyItem: { width: 68, alignItems: "center", gap: 5 },
   storyRing: { width: 62, height: 62, padding: 3, borderWidth: 2, borderColor: colors.sky500, borderRadius: 22, backgroundColor: colors.white },
@@ -442,15 +442,15 @@ const styles = StyleSheet.create({
   storyPlus: { position: "absolute", right: -3, bottom: -3, width: 21, height: 21, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.white, borderRadius: 11, backgroundColor: colors.sky600 },
   storyVideo: { position: "absolute", right: 4, bottom: 4, width: 18, height: 18, alignItems: "center", justifyContent: "center", borderRadius: 9, backgroundColor: "rgba(17,53,80,.72)" },
   storyName: { width: 68, color: colors.text, fontSize: 9, textAlign: "center" },
-  tabBar: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 8, padding: 5, borderWidth: 1, borderColor: colors.line, borderRadius: 17, backgroundColor: colors.white },
+  tabBar: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 8, padding: 5, borderWidth: 1, borderColor: colors.sky100, borderRadius: 19, backgroundColor: colors.white, ...shadow },
   tab: { minHeight: 40, flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 12 },
   activeTab: { backgroundColor: colors.sky50 },
   tabText: { color: colors.muted, fontSize: 12, fontWeight: "800" },
   activeTabText: { color: colors.sky600 },
   quickCreate: { minHeight: 40, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.sky600 },
   quickCreateText: { color: colors.white, fontSize: 11, fontWeight: "900" },
-  feedList: { gap: 12, marginTop: 12 },
-  postCard: { overflow: "hidden", borderWidth: 1, borderColor: colors.line, borderRadius: 20, backgroundColor: colors.white, ...shadow },
+  feedList: { gap: 14, marginTop: 14 },
+  postCard: { overflow: "hidden", borderWidth: 1, borderColor: colors.sky100, borderRadius: 23, backgroundColor: colors.white, ...shadow },
   reelCard: { backgroundColor: "#102E45", borderColor: "#20455F" },
   postHeader: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 12 },
   authorAvatar: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: colors.sky50 },
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
   caption: { paddingHorizontal: 12, paddingTop: 5, color: colors.text, fontSize: 12, lineHeight: 18 },
   captionAuthor: { color: colors.navy, fontWeight: "900" },
   commentLink: { padding: 12, paddingTop: 5, color: colors.muted, fontSize: 10 },
-  emptyCard: { alignItems: "center", gap: 7, marginTop: 12, padding: 24, borderWidth: 1, borderColor: colors.line, borderRadius: 20, backgroundColor: colors.white },
+  emptyCard: { alignItems: "center", gap: 7, marginTop: 12, padding: 24, borderWidth: 1, borderColor: colors.sky100, borderRadius: 22, backgroundColor: colors.white, ...shadow },
   emptyTitle: { color: colors.navy, fontSize: 15, fontWeight: "900" },
   emptyText: { marginVertical: 12, color: colors.muted, fontSize: 11, lineHeight: 16, textAlign: "center" },
   sheetContent: { paddingHorizontal: 16, paddingBottom: 14 },

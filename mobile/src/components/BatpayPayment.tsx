@@ -5,7 +5,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,6 +15,7 @@ import {
   type MobilePaymentIntent,
   type MobilePaymentMethod,
 } from "../api";
+import { LocalizedText as Text, useI18n } from "../i18n";
 import { colors, shadow } from "../theme";
 
 export function MobilePaymentMethods({
@@ -114,6 +114,7 @@ function MobileBatpayModalState({
   onClose: () => void;
   onPaid: () => void;
 }) {
+  const { formatCurrency } = useI18n();
   const [current, setCurrent] = useState(payment);
   const notified = useRef(false);
   const currentID = current.id;
@@ -204,13 +205,7 @@ function MobileBatpayModalState({
                     ) : null}
                   </View>
                 )}
-                <Text style={styles.amount}>
-                  {new Intl.NumberFormat("id-ID", {
-                    style: "currency",
-                    currency: "IDR",
-                    maximumFractionDigits: 0,
-                  }).format(current.amount)}
-                </Text>
+                <Text style={styles.amount}>{formatCurrency(current.amount)}</Text>
                 <Text
                   style={
                     current.status === "failed" || current.status === "refunded"
@@ -248,9 +243,10 @@ const styles = StyleSheet.create({
     minHeight: 74,
     padding: 9,
     borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 14,
+    borderColor: colors.sky100,
+    borderRadius: 18,
     backgroundColor: colors.white,
+    ...shadow,
   },
   methodActive: { borderColor: colors.sky500, backgroundColor: colors.sky50 },
   methodIcon: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 },
@@ -284,6 +280,9 @@ const styles = StyleSheet.create({
     padding: 18,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: colors.sky100,
     backgroundColor: colors.white,
     ...shadow,
   },
@@ -305,8 +304,8 @@ const styles = StyleSheet.create({
     height: 38,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
-    backgroundColor: colors.canvas,
+    borderRadius: 14,
+    backgroundColor: colors.sky50,
   },
   center: { alignItems: "center", gap: 8, paddingTop: 24 },
   kicker: {
@@ -333,8 +332,8 @@ const styles = StyleSheet.create({
     height: 205,
     marginVertical: 8,
     borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 14,
+    borderColor: colors.sky100,
+    borderRadius: 18,
     backgroundColor: colors.white,
   },
   va: {

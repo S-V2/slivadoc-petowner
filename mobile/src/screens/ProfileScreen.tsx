@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, BackHandler, Modal, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, BackHandler, Modal, Pressable, StyleSheet, Switch, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -11,7 +11,8 @@ import {
   type MobileOwner,
   type MobilePet,
 } from "../api";
-import { Card, Pill, Screen, SectionTitle, SoftButton, TopHeader } from "../components/ui";
+import { BoundedBottomSheet, Card, Pill, Screen, SectionTitle, SoftButton, TopHeader } from "../components/ui";
+import { languageOptions, LocalizedText as Text, LocalizedTextInput as TextInput, useI18n, type AppLanguage } from "../i18n";
 import { colors, shadow, typography } from "../theme";
 
 type ProfilePage = "main" | "family" | "security";
@@ -60,8 +61,11 @@ function maskPhone(value: string) {
 }
 
 export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, owner, pets, petCount, activityCount, points, rewardFormula, onLogin, onLogout }: ProfileProps) {
+  const { formatDate, formatNumber, language } = useI18n();
   const [page, setPage] = useState<ProfilePage>("main");
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [languageOpen, setLanguageOpen] = useState(false);
+  const currentLanguage = languageOptions.find((item) => item.code === language) ?? languageOptions[0]!;
 
   useEffect(() => {
     if (page === "main") return;
@@ -73,7 +77,7 @@ export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, ow
   }, [page]);
 
   if (!owner) {
-    return <Screen><TopHeader title="Akun" subtitle="Pet Parent Slivadoc" onNotification={onOpenNotifications}/><Card style={styles.guestCard}><View style={styles.guestRow}><View style={styles.guestAvatar}><Ionicons name="person-outline" size={25} color={colors.sky600}/></View><View style={styles.guestCopy}><Text style={styles.name}>Yuk, masuk dulu!</Text><Text style={styles.meta}>Simpan profil, kesehatan, dan aktivitas pet dalam satu akun.</Text></View></View><SoftButton label="Masuk sebagai Pet Owner" icon="log-in-outline" onPress={onLogin}/></Card></Screen>;
+    return <><Screen><TopHeader title="Akun" subtitle="Pet Parent Slivadoc" onNotification={onOpenNotifications}/><Card style={styles.guestCard}><View style={styles.guestRow}><View style={styles.guestAvatar}><Ionicons name="person-outline" size={25} color={colors.sky600}/></View><View style={styles.guestCopy}><Text style={styles.name}>Yuk, masuk dulu!</Text><Text style={styles.meta}>Simpan profil, kesehatan, dan aktivitas pet dalam satu akun.</Text></View></View><SoftButton label="Masuk sebagai Pet Owner" icon="log-in-outline" onPress={onLogin}/></Card><SectionTitle eyebrow="PREFERENSI" title="Pengaturan akun"/><Card style={styles.settings}><Setting icon="language-outline" title="Bahasa aplikasi" note={currentLanguage.nativeLabel} onPress={() => setLanguageOpen(true)} last/></Card></Screen><LanguageSheet visible={languageOpen} onClose={() => setLanguageOpen(false)} onAction={onAction}/></>;
   }
   if (page === "family") {
     return <FamilyAccessScreen pets={pets} onBack={() => setPage("main")} onAction={onAction} onOpenNotifications={onOpenNotifications}/>;
@@ -86,7 +90,7 @@ export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, ow
   const emailVerified = isEmailVerified(owner);
   const phoneVerified = isPhoneVerified(owner);
   const memberSince = new Date(owner.member_since);
-  const memberLabel = Number.isNaN(memberSince.valueOf()) ? "pet parent" : `sejak ${memberSince.toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`;
+  const memberLabel = Number.isNaN(memberSince.valueOf()) ? "pet parent" : `sejak ${formatDate(memberSince, { month: "long", year: "numeric" })}`;
 
   return <>
     <Screen>
@@ -94,17 +98,18 @@ export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, ow
       <Card style={styles.profileCard}>
         <LinearGradient colors={[colors.sky600, "#0A6F9C", colors.violet]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cover}><Text style={styles.coverText}>PET PARENT CLUB ✦</Text></LinearGradient>
         <View style={styles.profileRow}><View style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View><View style={styles.profileCopy}><Text style={styles.name}>{owner.full_name}</Text><Text style={styles.meta} numberOfLines={2}>{owner.email} · {memberLabel}</Text><Pill tone="mint">✓ AKUN AKTIF</Pill></View><Pressable accessibilityRole="button" accessibilityLabel="Edit profil" onPress={() => onAction("Edit profil tersedia melalui data akun Slivadoc")} style={({ pressed }) => [styles.edit, pressed && styles.pressed]}><Ionicons name="create-outline" size={16} color={colors.sky600}/></Pressable></View>
-        <View style={styles.stats}><Stat value={String(petCount)} label="Hewan"/><Stat value={String(activityCount)} label="Aktivitas"/><Stat value={points.toLocaleString("id-ID")} label="Points"/><Stat value={points > 0 ? "Member" : "Regular"} label="Status" last/></View>
+        <View style={styles.stats}><Stat value={String(petCount)} label="Hewan"/><Stat value={String(activityCount)} label="Aktivitas"/><Stat value={formatNumber(points)} label="Points"/><Stat value={points > 0 ? "Member" : "Regular"} label="Status" last/></View>
       </Card>
 
       <SectionTitle eyebrow="SLIVA POINT" title="Saldo dan aturan klaim"/>
       <LinearGradient colors={[colors.sky600, "#0A6F9C", colors.violet]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.memberCard}>
-        <View style={styles.memberTop}><View style={styles.shield}><Text style={styles.shieldText}>✦</Text></View><View style={styles.memberCopy}><Text style={styles.memberName}>{points.toLocaleString("id-ID")} Sliva Points</Text><Text style={styles.memberNote}>{points ? "Tersedia untuk klaim sesuai syarat" : "Belum ada transaksi lunas"}</Text></View><Pill tone="mint">AKTIF</Pill></View>
-        <View style={styles.benefits}>{(rewardFormula?.payment_methods ?? []).map((method) => <Benefit key={method.method} text={method.mode === "fixed" ? `${method.label}: ${method.fixed_points.toLocaleString("id-ID")} poin/transaksi` : `${method.label}: ${method.points_per_unit.toLocaleString("id-ID")} poin per Rp${method.divisor.toLocaleString("id-ID")}`}/>)}<Benefit text={`Nilai poin Rp${(rewardFormula?.point_value_rupiah ?? 0).toLocaleString("id-ID")} · hold ${rewardFormula?.settlement_hold_days ?? 0} hari`}/><Benefit text="Refund otomatis membatalkan poin terkait"/></View>
+        <View style={styles.memberTop}><View style={styles.shield}><Text style={styles.shieldText}>✦</Text></View><View style={styles.memberCopy}><Text style={styles.memberName}>{formatNumber(points)} Sliva Points</Text><Text style={styles.memberNote}>{points ? "Tersedia untuk klaim sesuai syarat" : "Belum ada transaksi lunas"}</Text></View><Pill tone="mint">AKTIF</Pill></View>
+        <View style={styles.benefits}>{(rewardFormula?.payment_methods ?? []).map((method) => <Benefit key={method.method} text={method.mode === "fixed" ? `${method.label}: ${formatNumber(method.fixed_points)} poin/transaksi` : `${method.label}: ${formatNumber(method.points_per_unit)} poin per Rp${formatNumber(method.divisor)}`}/>)}<Benefit text={`Nilai poin Rp${formatNumber(rewardFormula?.point_value_rupiah ?? 0)} · hold ${rewardFormula?.settlement_hold_days ?? 0} hari`}/><Benefit text="Refund otomatis membatalkan poin terkait"/></View>
       </LinearGradient>
 
       <SectionTitle eyebrow="PREFERENSI" title="Pengaturan akun"/>
       <Card style={styles.settings}>
+        <Setting icon="language-outline" title="Bahasa aplikasi" note={currentLanguage.nativeLabel} onPress={() => setLanguageOpen(true)}/>
         <Setting icon="notifications-outline" title="Notifikasi" note="Buka daftar, status baca, dan detail update" onPress={onOpenNotifications}/>
         <Setting icon="people-outline" title="Keluarga & akses" note="Undang anggota dan atur izin setiap pet" onPress={() => setPage("family")}/>
         <Setting icon="shield-checkmark-outline" title="Privasi & keamanan" note="Verifikasi, privasi data, dan sesi perangkat" onPress={() => setPage("security")}/>
@@ -119,7 +124,18 @@ export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, ow
       <Text style={styles.version}>Slivadoc Pet Owner Mobile</Text>
     </Screen>
     <LogoutConfirm visible={logoutConfirmOpen} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={() => { setLogoutConfirmOpen(false); void onLogout(); }}/>
+    <LanguageSheet visible={languageOpen} onClose={() => setLanguageOpen(false)} onAction={onAction}/>
   </>;
+}
+
+function LanguageSheet({ visible, onClose, onAction }: { visible: boolean; onClose: () => void; onAction: (message: string) => void }) {
+  const { language, setLanguage } = useI18n();
+  const chooseLanguage = async (nextLanguage: AppLanguage) => {
+    await setLanguage(nextLanguage);
+    onClose();
+    onAction("Bahasa berhasil diubah");
+  };
+  return <BoundedBottomSheet visible={visible} onClose={onClose} maxHeight="72%"><View style={styles.languageSheet}><View style={styles.languageHeader}><View style={styles.languageIcon}><Ionicons name="language-outline" size={22} color={colors.sky600}/></View><View style={styles.languageHeaderCopy}><Text style={styles.languageEyebrow}>PILIH BAHASA</Text><Text style={styles.languageTitle}>Bahasa aplikasi</Text><Text style={styles.languageNote}>Pilih bahasa yang nyaman untuk seluruh aplikasi</Text></View></View><View style={styles.languageList}>{languageOptions.map((option) => { const active = option.code === language; return <Pressable key={option.code} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => void chooseLanguage(option.code)} style={({ pressed }) => [styles.languageOption, active && styles.languageOptionActive, pressed && styles.pressed]}><Text style={styles.languageFlag}>{option.flag}</Text><View style={styles.languageCopy}><Text style={[styles.languageName, active && styles.languageNameActive]}>{option.label}</Text><Text style={styles.languageNative}>{option.nativeLabel}</Text></View><View style={[styles.languageCheck, active && styles.languageCheckActive]}>{active ? <Ionicons name="checkmark" size={15} color={colors.white}/> : null}</View></Pressable>; })}</View></View></BoundedBottomSheet>;
 }
 
 function FamilyAccessScreen({ pets, onBack, onAction, onOpenNotifications }: { pets: MobilePet[]; onBack: () => void; onAction: (message: string) => void; onOpenNotifications: () => void }) {
@@ -244,14 +260,15 @@ function ConfirmModal({ visible, eyebrow, title, note, cancelLabel, confirmLabel
 function LogoutConfirm({ visible, onCancel, onConfirm }: { visible: boolean; onCancel: () => void; onConfirm: () => void }) { return <ConfirmModal visible={visible} eyebrow="KONFIRMASI KELUAR" title="Keluar dari akun?" note="Sesi Slivadoc di perangkat ini akan diakhiri. Data dan profil pet kamu tetap aman." cancelLabel="Tetap masuk" confirmLabel="Ya, keluar" onCancel={onCancel} onConfirm={onConfirm}/>; }
 
 const styles = StyleSheet.create({
-  pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] }, disabled: { opacity: 0.58 }, noBorder: { borderBottomWidth: 0 },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] }, disabled: { opacity: 0.58 }, noBorder: { borderBottomWidth: 0 },
   guestCard: { marginTop: 10, padding: 14 }, guestRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }, guestAvatar: { width: 50, height: 50, alignItems: "center", justifyContent: "center", borderRadius: 17, backgroundColor: colors.sky50 }, guestCopy: { minWidth: 0, flex: 1 },
   profileCard: { marginTop: 8, overflow: "hidden" }, cover: { height: 68, padding: 13 }, coverText: { color: "rgba(255,255,255,.9)", fontSize: 9, fontWeight: "900", letterSpacing: 1 }, profileRow: { flexDirection: "row", alignItems: "center", marginTop: -28, paddingHorizontal: 13, paddingBottom: 12 }, avatar: { width: 64, height: 64, borderRadius: 21, borderWidth: 4, borderColor: colors.white, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky100 }, avatarText: { color: colors.sky600, fontSize: 20, fontWeight: "900" }, profileCopy: { minWidth: 0, flex: 1, marginLeft: 9, paddingTop: 26, alignItems: "flex-start" }, name: { color: colors.navy, fontSize: typography.cardTitle, lineHeight: 20, fontWeight: "900" }, meta: { marginTop: 2, marginBottom: 5, color: colors.muted, fontSize: typography.caption, lineHeight: 14 }, edit: { marginTop: 26, width: 32, height: 32, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 }, stats: { flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.line }, stat: { flex: 1, paddingVertical: 9, borderRightWidth: 1, borderRightColor: colors.line, alignItems: "center" }, statLast: { borderRightWidth: 0 }, statValue: { color: colors.navy, fontSize: 12, fontWeight: "900" }, statLabel: { marginTop: 2, color: colors.muted, fontSize: 8 },
-  memberCard: { padding: 14, borderRadius: 18, ...shadow }, memberTop: { flexDirection: "row", alignItems: "center", gap: 8 }, shield: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,.18)" }, shieldText: { color: colors.white }, memberCopy: { minWidth: 0, flex: 1 }, memberName: { color: colors.white, fontSize: 13, fontWeight: "900" }, memberNote: { marginTop: 2, color: "rgba(255,255,255,.9)", fontSize: 9 }, benefits: { gap: 6, marginTop: 10 }, benefit: { flexDirection: "row", alignItems: "center", gap: 6 }, benefitCheck: { width: 17, height: 17, borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: colors.white }, benefitText: { flex: 1, color: "rgba(255,255,255,.9)", fontSize: 10, lineHeight: 14 },
+  memberCard: { padding: 14, borderRadius: 22, ...shadow }, memberTop: { flexDirection: "row", alignItems: "center", gap: 8 }, shield: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,.18)" }, shieldText: { color: colors.white }, memberCopy: { minWidth: 0, flex: 1 }, memberName: { color: colors.white, fontSize: 13, fontWeight: "900" }, memberNote: { marginTop: 2, color: "rgba(255,255,255,.9)", fontSize: 9 }, benefits: { gap: 6, marginTop: 10 }, benefit: { flexDirection: "row", alignItems: "center", gap: 6 }, benefitCheck: { width: 17, height: 17, borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: colors.white }, benefitText: { flex: 1, color: "rgba(255,255,255,.9)", fontSize: 10, lineHeight: 14 },
   settings: { paddingHorizontal: 11 }, setting: { minHeight: 60, flexDirection: "row", alignItems: "center", gap: 9, borderBottomWidth: 1, borderBottomColor: colors.line }, settingIcon: { width: 35, height: 35, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 }, settingCopy: { minWidth: 0, flex: 1 }, settingTitle: { color: colors.navy, fontSize: 12, fontWeight: "800" }, settingNote: { marginTop: 2, color: colors.muted, fontSize: 9, lineHeight: 13 },
   verificationBadge: { maxWidth: 104, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 5, borderRadius: 9 }, verificationBadgeOn: { backgroundColor: colors.sky50 }, verificationBadgeOff: { backgroundColor: colors.yellow50 }, verificationBadgeCompact: { paddingHorizontal: 5 }, verificationBadgeText: { fontSize: 8, fontWeight: "900" }, verificationTextOn: { color: colors.sky600 }, verificationTextOff: { color: colors.yellow },
-  supportCard: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: 18, backgroundColor: colors.white, ...shadow }, supportIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 15 }, supportCopy: { minWidth: 0, flex: 1 }, supportTitle: { color: colors.navy, fontSize: 13, fontWeight: "900" }, supportNote: { marginTop: 3, color: colors.muted, fontSize: 10, lineHeight: 14 }, supportArrow: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: colors.sky50 },
-  logoutButton: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 10, marginTop: 14, padding: 12, borderWidth: 1, borderColor: "#FFD5DD", borderRadius: 17, backgroundColor: colors.red50 }, logoutIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: colors.white }, logoutCopy: { minWidth: 0, flex: 1 }, logoutTitle: { color: colors.red, fontSize: 12, fontWeight: "900" }, logoutNote: { marginTop: 3, color: "#82535C", fontSize: 9 }, version: { marginTop: 11, color: colors.muted, fontSize: 9, textAlign: "center" },
+  supportCard: { minHeight: 74, flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: 22, backgroundColor: colors.white, ...shadow }, supportIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 15 }, supportCopy: { minWidth: 0, flex: 1 }, supportTitle: { color: colors.navy, fontSize: 13, fontWeight: "900" }, supportNote: { marginTop: 3, color: colors.muted, fontSize: 10, lineHeight: 14 }, supportArrow: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: colors.sky50 },
+  languageSheet: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 18 }, languageHeader: { flexDirection: "row", alignItems: "center", gap: 11, paddingBottom: 14 }, languageIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: colors.sky50 }, languageHeaderCopy: { minWidth: 0, flex: 1 }, languageEyebrow: { color: colors.sky600, fontSize: 9, lineHeight: 13, fontWeight: "900", letterSpacing: 1 }, languageTitle: { marginTop: 2, color: colors.navy, fontSize: 17, lineHeight: 22, fontWeight: "900" }, languageNote: { marginTop: 3, color: colors.muted, fontSize: 10, lineHeight: 14 }, languageList: { gap: 9 }, languageOption: { minHeight: 66, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: 20, backgroundColor: colors.white, ...shadow }, languageOptionActive: { borderColor: colors.sky400, backgroundColor: colors.sky50 }, languageFlag: { fontSize: 25 }, languageCopy: { minWidth: 0, flex: 1 }, languageName: { color: colors.navy, fontSize: 12, fontWeight: "900" }, languageNameActive: { color: colors.sky600 }, languageNative: { marginTop: 3, color: colors.muted, fontSize: 9 }, languageCheck: { width: 26, height: 26, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.sky100, borderRadius: 13, backgroundColor: colors.white }, languageCheckActive: { borderColor: colors.sky600, backgroundColor: colors.sky600 },
+  logoutButton: { minHeight: 70, flexDirection: "row", alignItems: "center", gap: 10, marginTop: 14, padding: 12, borderWidth: 1, borderColor: "#FFD5DD", borderRadius: 20, backgroundColor: colors.red50 }, logoutIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: colors.white }, logoutCopy: { minWidth: 0, flex: 1 }, logoutTitle: { color: colors.red, fontSize: 12, fontWeight: "900" }, logoutNote: { marginTop: 3, color: "#82535C", fontSize: 9 }, version: { marginTop: 11, color: colors.muted, fontSize: 9, textAlign: "center" },
   detailHeader: { minHeight: 64, flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 7 }, detailHeaderCopy: { minWidth: 0, flex: 1 }, detailEyebrow: { color: colors.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1 }, detailTitle: { marginTop: 3, color: colors.navy, fontSize: typography.cardTitle, lineHeight: 20, fontWeight: "900" }, headerButton: { position: "relative", width: 40, height: 40, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.line, borderRadius: 13, backgroundColor: colors.white }, headerNotificationDot: { position: "absolute", top: 7, right: 8, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.red },
   detailHero: { flexDirection: "row", alignItems: "center", gap: 11, padding: 14, borderWidth: 1, borderColor: colors.sky100, borderRadius: 19 }, detailHeroIcon: { width: 48, height: 48, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "rgba(255,255,255,.82)" }, detailHeroCopy: { minWidth: 0, flex: 1 }, detailHeroTitle: { color: colors.navy, fontSize: 14, lineHeight: 19, fontWeight: "900" }, detailHeroNote: { marginTop: 4, color: colors.muted, fontSize: 10, lineHeight: 15 },
   petSelector: { flexDirection: "row", flexWrap: "wrap", gap: 8 }, petChip: { minHeight: 42, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.line, borderRadius: 13, backgroundColor: colors.white }, petChipActive: { borderColor: colors.sky400, backgroundColor: colors.sky50 }, petChipEmoji: { fontSize: 17 }, petChipText: { color: colors.text, fontSize: 11, fontWeight: "800" }, petChipTextActive: { color: colors.sky600 },

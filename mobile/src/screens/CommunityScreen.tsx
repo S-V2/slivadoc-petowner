@@ -6,8 +6,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -25,6 +23,7 @@ import {
   type MobileOwner,
 } from "../api";
 import type { PetView } from "../data";
+import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
 import { colors, shadow } from "../theme";
 import {
   BoundedBottomSheet,
@@ -56,6 +55,7 @@ export function CommunityScreen({
   onLogin,
   onRequirePet,
 }: Props) {
+  const { formatDate } = useI18n();
   const { bottomInset, refreshing, onRefresh } = useAppSurface();
   const [posts, setPosts] = useState<MobileCommunityPost[]>([]);
   const [composer, setComposer] = useState(false);
@@ -276,7 +276,7 @@ export function CommunityScreen({
                   <Text style={styles.author}>{post.author_name}</Text>
                   <Text style={styles.meta}>
                     {post.pet_name || post.group_name || "Slivadoc Community"} ·{" "}
-                    {new Date(post.created_at).toLocaleString("id-ID")}
+                    {formatDate(post.created_at, { dateStyle: "medium", timeStyle: "short" })}
                   </Text>
                 </View>
                 <View style={styles.tag}>
@@ -383,7 +383,7 @@ export function CommunityScreen({
                       <Text style={styles.author}>{item.author_name}</Text>
                       <Text style={styles.body}>{item.body}</Text>
                       <Text style={styles.meta}>
-                        {new Date(item.created_at).toLocaleString("id-ID")}
+                        {formatDate(item.created_at, { dateStyle: "medium", timeStyle: "short" })}
                       </Text>
                     </View>
                   </View>
@@ -590,8 +590,8 @@ const styles = StyleSheet.create({
     gap: 9,
     padding: 10,
     borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 16,
+    borderColor: colors.sky100,
+    borderRadius: 20,
     backgroundColor: colors.white,
     ...shadow,
   },
@@ -609,8 +609,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
     padding: 12,
     borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 17,
+    borderColor: colors.sky100,
+    borderRadius: 22,
     backgroundColor: colors.white,
     ...shadow,
   },

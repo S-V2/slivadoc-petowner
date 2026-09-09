@@ -22,6 +22,44 @@
   min-width: 0;
 }
 
+.petowner-login,
+.petowner-login .login-brand,
+.petowner-login .login-form,
+.petowner-login .login-form > label,
+.petowner-login .password-input,
+.petowner-login .legal-consents,
+.petowner-login .legal-consents label,
+.petowner-login .legal-consents label > span {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.petowner-login .login-brand {
+  padding-right: 44px;
+}
+
+.petowner-login .legal-consents label {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  width: 100%;
+}
+
+.petowner-login .login-form .legal-consents input[type="checkbox"] {
+  width: 18px !important;
+  min-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 2px 0 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+.petowner-login .legal-consents label > span,
+.petowner-login .legal-consents button {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 860px) {
   :root {
     --canvas: #F6FBFF;
@@ -1164,6 +1202,12 @@
 }
 
 @media (max-width: 580px) {
+  .topbar {
+    gap: 8px;
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-left: max(12px, env(safe-area-inset-left));
+  }
+
   .mobile-more-sheet,
   .discover-filter-panel,
   .comments-sheet,

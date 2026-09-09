@@ -1206,11 +1206,37 @@ textarea {
 
   .shop-product-body > button {
     min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 14px;
     border: 0;
-    border-radius: 11px;
+    border-radius: 12px;
     color: var(--white);
     background: var(--sky-600);
     font-size: var(--type-control);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.18s ease, transform 0.18s ease;
+  }
+
+  .shop-product-body > button:hover:not(:disabled) {
+    background: var(--sky-500);
+    transform: translateY(-1px);
+  }
+
+  .shop-product-body > button:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+
+  .shop-product-body > button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .shop-product-body > button svg {
+    flex-shrink: 0;
   }
 
   .health-native-hero {

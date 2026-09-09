@@ -4237,7 +4237,7 @@ function ProfileView({
   const [edit, setEdit] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   return (
-    <div className="profile-native">
+    <div className="profile-native profile-workspace">
       <header className="native-screen-header">
         <div>
           <span>AKUN & KELUARGA</span>
@@ -4245,122 +4245,128 @@ function ProfileView({
         </div>
       </header>
 
-      <section className="profile-main-card profile-native-card">
-        <div className="profile-cover">
-          <span>PET PARENT CLUB ✦</span>
-        </div>
-        <div className="profile-person">
-          <div className="profile-photo">{initials}</div>
-          <div>
-            <h2>{account.full_name}</h2>
-            <p>{account.email} · {account.phone || "Nomor telepon belum diisi"}</p>
-            <span className="gold-member">✓ AKUN AKTIF</span>
+      <div className="profile-identity-col">
+        <section className="profile-main-card profile-native-card">
+          <div className="profile-cover">
+            <span>PET PARENT CLUB ✦</span>
           </div>
+          <div className="profile-person">
+            <div className="profile-photo">{initials}</div>
+            <div>
+              <h2>{account.full_name}</h2>
+              <p>{account.email} · {account.phone || "Nomor telepon belum diisi"}</p>
+              <span className="gold-member">✓ AKUN AKTIF</span>
+            </div>
+            <button
+              className="native-header-icon"
+              type="button"
+              aria-label="Edit profil"
+              onClick={() => setEdit(true)}
+            >
+              <Icon name="edit" size={16} />
+            </button>
+          </div>
+          <div className="profile-stats">
+            <span>
+              <b>{petCount}</b>
+              <small>Hewan</small>
+            </span>
+            <span>
+              <b>{points.toLocaleString("id-ID")}</b>
+              <small>Points</small>
+            </span>
+            <span>
+              <b>{points > 0 ? "Member" : "Regular"}</b>
+              <small>Status</small>
+            </span>
+            <span>
+              <b>Aktif</b>
+              <small>Sinkron</small>
+            </span>
+          </div>
+        </section>
+
+        <section className="profile-native-points">
+          <header>
+            <span>SLIVA POINT</span>
+            <h3>Saldo dan aturan klaim</h3>
+          </header>
+          <div>
+            <span><Icon name="sparkle" size={19} /></span>
+            <p>
+              <b>{points.toLocaleString("id-ID")} Sliva Points</b>
+              <small>
+                {points
+                  ? "Tersedia untuk klaim sesuai syarat"
+                  : "Belum ada transaksi lunas"}
+              </small>
+            </p>
+            <i>AKTIF</i>
+          </div>
+          <ul>
+            {(rewardFormula.rules?.length
+              ? rewardFormula.rules
+              : [rewardFormulaText(rewardFormula)])
+              .slice(0, 3)
+              .map((rule) => (
+                <li key={rule}>
+                  <Icon name="check" size={12} /> {rule}
+                </li>
+              ))}
+          </ul>
+        </section>
+
+        <div className="profile-actions-stack">
           <button
-            className="native-header-icon"
+            className="profile-native-support"
             type="button"
-            aria-label="Edit profil"
-            onClick={() => setEdit(true)}
+            onClick={() => notify("SlivaCare siap membantu kebutuhan pet-mu.")}
           >
-            <Icon name="edit" size={16} />
+            <span><Icon name="chat" size={20} /></span>
+            <p><b>Chat Customer Support</b><small>Hubungi tim Slivadoc langsung dari aplikasi.</small></p>
+            <Icon name="arrow" size={16} />
+          </button>
+
+          <button
+            className="profile-native-logout"
+            type="button"
+            onClick={() => setConfirmLogout(true)}
+          >
+            <span><Icon name="logout" size={20} /></span>
+            <p><b>Keluar dari akun</b><small>Akhiri sesi hanya di perangkat ini.</small></p>
+            <Icon name="chevron" size={17} />
           </button>
         </div>
-        <div className="profile-stats">
-          <span>
-            <b>{petCount}</b>
-            <small>Hewan</small>
-          </span>
-          <span>
-            <b>{points.toLocaleString("id-ID")}</b>
-            <small>Points</small>
-          </span>
-          <span>
-            <b>{points > 0 ? "Member" : "Regular"}</b>
-            <small>Status</small>
-          </span>
-          <span>
-            <b>Aktif</b>
-            <small>Sinkron</small>
-          </span>
-        </div>
-      </section>
+      </div>
 
-      <section className="profile-native-points">
-        <header>
-          <span>SLIVA POINT</span>
-          <h3>Saldo dan aturan klaim</h3>
-        </header>
-        <div>
-          <span><Icon name="sparkle" size={19} /></span>
-          <p>
-            <b>{points.toLocaleString("id-ID")} Sliva Points</b>
-            <small>
-              {points
-                ? "Tersedia untuk klaim sesuai syarat"
-                : "Belum ada transaksi lunas"}
-            </small>
-          </p>
-          <i>AKTIF</i>
-        </div>
-        <ul>
-          {(rewardFormula.rules?.length
-            ? rewardFormula.rules
-            : [rewardFormulaText(rewardFormula)])
-            .slice(0, 3)
-            .map((rule) => (
-              <li key={rule}>
-                <Icon name="check" size={12} /> {rule}
-              </li>
-            ))}
-        </ul>
-      </section>
-
-      <section className="panel profile-native-settings">
-        <header>
-          <span>PREFERENSI</span>
-          <h3>Pengaturan akun</h3>
-        </header>
-        <button type="button" onClick={() => setEdit(true)}>
-          <span><Icon name="user" size={19} /></span>
-          <p><b>Profil pet parent</b><small>{account.full_name}</small></p>
-          <Icon name="chevron" size={17} />
-        </button>
-        <button type="button" onClick={() => notify("Notifikasi Slivadoc tersedia di ikon lonceng.")}>
-          <span><Icon name="bell" size={19} /></span>
-          <p><b>Notifikasi</b><small>Buka daftar dan detail update</small></p>
-          <Icon name="chevron" size={17} />
-        </button>
-        <button type="button" onClick={() => notify(`Email login: ${account.email}`)}>
-          <span><Icon name="shield" size={19} /></span>
-          <p><b>Privasi & keamanan</b><small>Verifikasi dan sesi perangkat</small></p>
-          <Icon name="chevron" size={17} />
-        </button>
-        <button type="button" onClick={() => notify(`${petCount} profil pet terhubung ke akun ini.`)}>
-          <span><Icon name="users" size={19} /></span>
-          <p><b>Keluarga & akses</b><small>Kelola orang tepercaya untuk pet</small></p>
-          <Icon name="chevron" size={17} />
-        </button>
-      </section>
-
-      <button
-        className="profile-native-support"
-        type="button"
-        onClick={() => notify("SlivaCare siap membantu kebutuhan pet-mu.")}
-      >
-        <span><Icon name="chat" size={20} /></span>
-        <p><b>Chat Customer Support</b><small>Hubungi tim Slivadoc langsung dari aplikasi.</small></p>
-        <Icon name="arrow" size={16} />
-      </button>
-
-      <button
-        className="profile-native-logout"
-        type="button"
-        onClick={() => setConfirmLogout(true)}
-      >
-        <span><Icon name="logout" size={20} /></span>
-        <p><b>Keluar dari akun</b><small>Akhiri sesi hanya di perangkat ini.</small></p>
-        <Icon name="chevron" size={17} />
-      </button>
+      <aside className="profile-settings-col">
+        <section className="panel profile-native-settings">
+          <header>
+            <span>PREFERENSI</span>
+            <h3>Pengaturan akun</h3>
+          </header>
+          <button type="button" onClick={() => setEdit(true)}>
+            <span><Icon name="user" size={19} /></span>
+            <p><b>Profil pet parent</b><small>{account.full_name}</small></p>
+            <Icon name="chevron" size={17} />
+          </button>
+          <button type="button" onClick={() => notify("Notifikasi Slivadoc tersedia di ikon lonceng.")}>
+            <span><Icon name="bell" size={19} /></span>
+            <p><b>Notifikasi</b><small>Buka daftar dan detail update</small></p>
+            <Icon name="chevron" size={17} />
+          </button>
+          <button type="button" onClick={() => notify(`Email login: ${account.email}`)}>
+            <span><Icon name="shield" size={19} /></span>
+            <p><b>Privasi & keamanan</b><small>Verifikasi dan sesi perangkat</small></p>
+            <Icon name="chevron" size={17} />
+          </button>
+          <button type="button" onClick={() => notify(`${petCount} profil pet terhubung ke akun ini.`)}>
+            <span><Icon name="users" size={19} /></span>
+            <p><b>Keluarga & akses</b><small>Kelola orang tepercaya untuk pet</small></p>
+            <Icon name="chevron" size={17} />
+          </button>
+        </section>
+      </aside>
 
       {edit && (
         <ProfileEditModal

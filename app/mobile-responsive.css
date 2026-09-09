@@ -1348,6 +1348,19 @@
     display: grid;
     gap: 14px;
   }
+  .profile-identity-col,
+  .profile-settings-col,
+  .profile-actions-stack {
+    display: contents;
+  }
+
+  .profile-workspace > .native-screen-header { order: 1; }
+  .profile-main-card { order: 2; }
+  .profile-native-points { order: 3; }
+  .profile-native-settings { order: 4; }
+  .profile-native-support { order: 5; }
+  .profile-native-logout { order: 6; }
+
 
   .native-screen-header,
   .shop-native-section-header,

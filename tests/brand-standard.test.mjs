@@ -38,8 +38,9 @@ test("Pet Owner mengunci loading brand dan skala tipografi responsif", async () 
   assert.match(component, /\/brand\/slivadoc-logo\.png/);
   assert.match(loading, /<BrandLogo markOnly priority/);
   assert.match(layout, /slivadoc-favicon\.png/);
-  assert.match(css, /--type-page-title:\s*32px/);
-  assert.match(css, /--type-page-title:\s*24px/);
+  assert.match(css, /--type-page-title:\s*22px/);
+  assert.match(css, /--sky-500:\s*#19A7F2/i);
+  assert.match(css, /--navy:\s*#153B5B/i);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(mobile, /assets\/slivadoc-logo\.png/);
   assert.match(mobile, /Menyiapkan Slivadoc/);

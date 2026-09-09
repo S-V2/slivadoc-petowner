@@ -18,18 +18,24 @@ test("shared mobile cascade is loaded after the home feature stylesheet", () => 
   assert.ok(mobileIndex > homeIndex);
 });
 
-test("home provides a compact hero and app-style quick actions", () => {
-  assert.match(component, /className="home-hero-trust"/);
-  assert.match(component, /className="home-quick-section"/);
-  assert.match(homeCss, /grid-template-rows:\s*repeat\(2, 82px\)/);
-  assert.match(homeCss, /grid-auto-flow:\s*column/);
-  assert.match(homeCss, /\.home-layout \.hero-card,[\s\S]*?min-height:\s*278px/);
+test("home follows the native daily-moment and quick-action composition", () => {
+  assert.match(component, /className="home-greeting"/);
+  assert.match(component, /className="home-daily-hero"/);
+  assert.match(component, /DAILY PET MOMENT/);
+  assert.match(component, /className="home-quick-feature-row"/);
+  assert.match(component, /className="home-quick-mini-grid"/);
+  assert.match(homeCss, /\.home-daily-hero\s*\{[\s\S]*?min-height:\s*220px/);
+  assert.match(homeCss, /\.home-quick-feature-row\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(homeCss, /\.home-quick-mini-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
 });
 
-test("home mobile cards use compact type instead of inherited body size", () => {
-  assert.match(homeCss, /\.service-card-body > p[\s\S]*?font-size:\s*11px\s*!important/);
-  assert.match(homeCss, /\.service-title b\s*\{[\s\S]*?font-size:\s*13px/);
-  assert.match(homeCss, /\.panel-heading h3\s*\{[\s\S]*?font-size:\s*16px/);
+test("home health snapshot uses native filled-sky card and service dimensions", () => {
+  assert.match(component, /className="home-health-card"/);
+  assert.match(component, /className="home-pet-switch"/);
+  assert.match(component, /className="home-care-card"/);
+  assert.match(homeCss, /\.home-health-card\s*\{[\s\S]*?background:\s*linear-gradient\(135deg, #075F91, var\(--sky-600\), #0A6F9C\)/);
+  assert.match(homeCss, /\.home-service-visual\s*\{[\s\S]*?height:\s*112px/);
+  assert.match(homeCss, /\.home-service-card\s*\{[\s\S]*?min-width:\s*188px/);
 });
 
 test("desktop SEO discovery does not create a mobile gap below the app", () => {
@@ -43,10 +49,10 @@ test("desktop SEO discovery does not create a mobile gap below the app", () => {
 test("empty home data cannot recreate a tall blank card", () => {
   assert.match(
     homeCss,
-    /\.timeline-list \.empty-state\.compact\s*\{[\s\S]*?min-height:\s*88px/,
+    /\.home-care-empty\s*\{[\s\S]*?min-height:\s*88px/,
   );
   assert.match(
     homeCss,
-    /\.service-row \.empty-state\.compact\s*\{[\s\S]*?min-height:\s*108px/,
+    /\.home-service-row > \.empty-state\.compact\s*\{[\s\S]*?min-height:\s*108px/,
   );
 });

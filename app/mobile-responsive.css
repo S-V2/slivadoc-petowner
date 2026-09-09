@@ -2484,6 +2484,7 @@
   .profile-person > div:nth-child(2) {
     min-width: 0;
     flex: 1;
+    padding-top: 10px;
   }
 
   .profile-person h2 {

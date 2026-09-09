@@ -1303,18 +1303,135 @@ textarea {
   }
 
   .profile-native-points {
-    padding: 18px;
+    overflow: hidden;
+    padding: 20px;
+    border-radius: 22px;
     color: var(--white);
-    background: linear-gradient(135deg, var(--sky-600), #0A6F9C, var(--violet));
+    background: linear-gradient(135deg, var(--sky-600), #0A6F9C 52%, var(--violet));
+    box-shadow: var(--shadow);
+  }
+
+  .profile-native-points header {
+    display: grid;
+    gap: 3px;
+  }
+
+  .profile-native-points header span,
+  .profile-native-points > header > span {
+    color: rgba(255, 255, 255, 0.82) !important;
+    font-size: 10px !important;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .profile-native-points h3,
+  .profile-native-points header h3,
+  .profile-native-points > header > h3 {
+    margin: 2px 0 0;
+    color: var(--white) !important;
+    font-size: var(--type-card-title) !important;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .profile-native-points > div {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .profile-native-points > div > span {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 14px;
+    color: var(--sky-600);
+    background: var(--white);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .profile-native-points p {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    gap: 2px;
+    margin: 0;
   }
 
   .profile-native-points p b {
-    color: var(--white);
+    overflow: hidden;
+    color: var(--white) !important;
+    font-size: 15px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .profile-native-points p small,
+  .profile-native-points p small {
+    color: rgba(255, 255, 255, 0.84) !important;
+    font-size: 11px !important;
+  }
+
+  .profile-native-points > div > i {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 9px;
+    border-radius: 8px;
+    color: var(--mint);
+    background: var(--mint-50);
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .profile-native-points ul {
+    display: grid;
+    gap: 8px;
+    margin: 16px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
   .profile-native-points li {
-    color: rgba(255, 255, 255, 0.82);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-size: 11px !important;
+    line-height: 1.45;
+  }
+
+  .profile-native-points li svg {
+    color: rgba(255, 255, 255, 0.9);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .profile-person > div:nth-child(2) {
+    padding-top: 14px;
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .profile-person h2 {
+    margin: 0;
+    color: var(--navy);
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .profile-person p {
+    margin: 2px 0 6px;
+    color: var(--muted);
+    font-size: 11px;
   }
 
   .profile-native-settings {

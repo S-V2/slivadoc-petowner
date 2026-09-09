@@ -159,6 +159,8 @@ jobs:
     needs: verify-web
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -293,6 +295,7 @@ jobs:
 
       # Pushes the exact bytes that were just smoke-tested. No rebuild.
       - name: Push
+        id: push
         if: github.event_name != 'pull_request'
         run: |
           set -euo pipefail
@@ -301,12 +304,18 @@ jobs:
           DIGEST="$(docker image inspect "${WEB_IMAGE}:${GITHUB_SHA}" \
                      --format '{{index .RepoDigests 0}}')"
           echo "pushed ${DIGEST}" | tee -a "$GITHUB_STEP_SUMMARY"
+          SHA_DIGEST="@${DIGEST#*@}"
+          echo "digest=${SHA_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "Repin PETOWNER_WEB_REF in the VM .env to ${SHA_DIGEST}" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
 
   api:
     name: Build, smoke and push slivadoc-petowner-api
     needs: verify-api
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -397,6 +406,7 @@ jobs:
           severity: CRITICAL,HIGH
 
       - name: Push
+        id: push
         if: github.event_name != 'pull_request'
         run: |
           set -euo pipefail
@@ -405,3 +415,53 @@ jobs:
           DIGEST="$(docker image inspect "${API_IMAGE}:${GITHUB_SHA}" \
                      --format '{{index .RepoDigests 0}}')"
           echo "pushed ${DIGEST}" | tee -a "$GITHUB_STEP_SUMMARY"
+          SHA_DIGEST="@${DIGEST#*@}"
+          echo "digest=${SHA_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "Repin PETOWNER_API_REF in the VM .env to ${SHA_DIGEST}" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy to VM
+    needs: [web, api]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Deploy to production VM
+        env:
+          SSH_HOST: ${{ secrets.VM_SSH_HOST }}
+          SSH_USER: ${{ secrets.VM_SSH_USER }}
+          SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          WEB_DIGEST: ${{ needs.web.outputs.digest }}
+          API_DIGEST: ${{ needs.api.outputs.digest }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SSH_HOST:-}" ] || [ -z "${SSH_KEY:-}" ]; then
+            echo "::error::VM_SSH_HOST or VM_SSH_KEY secret is not set"
+            exit 1
+          fi
+
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          SSH_CMD="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o BatchMode=yes ${SSH_USER:-ubuntu}@${SSH_HOST}"
+
+          echo "Deploying slivadoc-petowner web (${WEB_DIGEST}) and api (${API_DIGEST}) to ${SSH_HOST}..."
+          $SSH_CMD bash <<EOF
+            set -euo pipefail
+            cd /opt/slivadoc
+
+            # 1. Update pins in .env
+            sed -i.bak -E "s|^PETOWNER_WEB_REF=.*|PETOWNER_WEB_REF=${WEB_DIGEST}|" .env
+            sed -i.bak -E "s|^PETOWNER_API_REF=.*|PETOWNER_API_REF=${API_DIGEST}|" .env
+
+            # 2. Pull updated images and recreate containers
+            docker compose pull petowner-web petowner-api
+            docker compose up -d --force-recreate petowner-web petowner-api
+
+            # 3. Verify running containers match .env specification
+            ./scripts/verify-pins.sh
+          EOF
+          echo "Deployment successful."

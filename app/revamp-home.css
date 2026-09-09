@@ -1,4 +1,8 @@
-/* Slivadoc Pet Owner home experience — mirrors mobile/src/screens/HomeScreen.tsx. */
+/* Slivadoc Pet Owner home experience - mirrors mobile/src/screens/HomeScreen.tsx. */
+
+.page-heading--home {
+  display: none !important;
+}
 
 .home-layout {
   display: grid;
@@ -71,6 +75,18 @@
   background: linear-gradient(135deg, var(--sky-600), #0A6F9C 56%, var(--mint));
   box-shadow: var(--shadow);
 }
+.home-daily-hero-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 70% center;
+  opacity: 0.22;
+  mix-blend-mode: luminosity;
+  pointer-events: none;
+}
+
 
 .home-daily-copy {
   position: relative;
@@ -1133,6 +1149,116 @@
   font-weight: 600;
 }
 
+@media (min-width: 981px) {
+  .home-layout.home-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .home-main-col {
+    display: grid;
+    gap: 22px;
+    min-width: 0;
+  }
+
+  .home-pet-rail,
+  .home-pet-rail.home-health-and-care {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 18px !important;
+    position: sticky;
+    top: 86px;
+  }
+
+  .home-health-section,
+  .home-care-section {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .home-rail-dock {
+    display: block;
+  }
+}
+
+@media (max-width: 980px) {
+  .home-layout.home-workspace {
+    display: grid;
+    gap: 14px;
+  }
+
+  .home-main-col,
+  .home-pet-rail {
+    display: contents;
+  }
+
+  .home-greeting { order: 1; }
+  .home-daily-hero { order: 2; }
+  .home-quick-panel { order: 3; }
+  .home-health-section { order: 4; }
+  .home-care-section { order: 5; }
+  .home-services-section { order: 6; }
+  .home-campaign { order: 7; }
+  .home-rail-dock { display: none; }
+}
+
+.home-rail-dock-action {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 15px;
+  border: 1px solid var(--sky-100);
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--white) 0%, var(--sky-50) 100%);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.home-rail-dock-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(40, 121, 167, 0.12);
+}
+
+.home-rail-dock-action > span {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--sky-600);
+  background: var(--sky-100);
+  flex-shrink: 0;
+}
+
+.home-rail-dock-action > div {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.home-rail-dock-action b {
+  display: block;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.home-rail-dock-action small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.home-rail-dock-action svg {
+  color: var(--sky-600);
+  flex-shrink: 0;
+}
+
 @media (max-width: 1040px) {
   .home-health-and-care {
     grid-template-columns: 1fr;
@@ -1143,6 +1269,7 @@
   .app-home-seo {
     display: none;
   }
+
 
   .page-content:has(.home-layout) {
     padding-bottom: calc(92px + env(safe-area-inset-bottom));

@@ -302,9 +302,9 @@ export default function PetOwnerApp() {
       name: "pet kamu",
       type: "Other",
       breed: "Profil belum ditambahkan",
-      age: "—",
-      weight: "—",
-      gender: "—",
+      age: "-",
+      weight: "-",
+      gender: "-",
       color: "#8aa5b7",
       avatar: "🐾",
       healthScore: 0,
@@ -618,6 +618,7 @@ export default function PetOwnerApp() {
         account={account}
         authenticated={authenticated}
         onLogin={() => setLoginOpen(true)}
+        selectedPet={selectedPet}
       />
 
       <main className="main-shell">
@@ -1304,6 +1305,7 @@ function Sidebar({
   account,
   authenticated,
   onLogin,
+  selectedPet,
 }: {
   activeView: AppView;
   setActiveView: (view: AppView) => void;
@@ -1311,10 +1313,28 @@ function Sidebar({
   account: PetOwnerBootstrap["user"] | null;
   authenticated: boolean;
   onLogin: () => void;
+  selectedPet?: Pet;
 }) {
   return (
     <aside className="sidebar">
       <Logo />
+      {selectedPet && (
+        <button
+          type="button"
+          className="sidebar-pet-badge"
+          onClick={() => setActiveView("health")}
+          aria-label={`Profil kesehatan ${selectedPet.name}`}
+        >
+          <span className="sidebar-pet-avatar">{selectedPet.avatar}</span>
+          <div className="sidebar-pet-meta">
+            <b>{selectedPet.name}</b>
+            <small>{selectedPet.breed}</small>
+          </div>
+          <span className="sidebar-pet-score">
+            <Icon name="heart" size={11} /> {selectedPet.healthScore}
+          </span>
+        </button>
+      )}
       <p className="nav-eyebrow">MENU UTAMA</p>
       <nav className="side-nav" aria-label="Navigasi utama">
         {navItems
@@ -1762,101 +1782,194 @@ function HomeView({
   ];
 
   return (
-    <div className="home-layout">
-      <section className="home-greeting" aria-label="Sapaan">
-        <div>
-          <h2>{firstName ? `Hai, ${firstName}!` : "Hai, Pet Parent!"}</h2>
-          <p>
-            {firstName
-              ? "Yuk, cek kebutuhan pet-mu hari ini."
-              : "Semua kebutuhan pet jadi lebih gampang."}
-          </p>
-        </div>
-        <span className="home-greeting-sparkle" aria-hidden="true">
-          <Icon name="sparkle" size={18} />
-        </span>
-      </section>
-
-      <section className="home-daily-hero">
-        <span className="home-hero-orb home-hero-orb--large" aria-hidden="true" />
-        <span className="home-hero-orb home-hero-orb--small" aria-hidden="true" />
-        <div className="home-daily-copy">
-          <span className="home-daily-pill">DAILY PET MOMENT</span>
-          <h2>Bikin hari mereka lebih happy.</h2>
-          <p>
-            Mulai dari momen kecil untuk {selectedPet.name} yang lebih sehat
-            dan ceria.
-          </p>
-          <div className="home-daily-moment">
-            <span>
-              <Icon name="heart" size={16} />
-            </span>
-            <div>
-              <small>IDE HARI INI</small>
-              <b>10 menit quality time</b>
-            </div>
-            <Icon name="sparkle" size={15} />
-          </div>
-        </div>
-        <div className="home-pet-bubble" aria-hidden="true">
-          <span className="home-pet-bubble-paw">
-            <Icon name="paw" size={31} />
-          </span>
-          <span className="home-pet-bubble-heart">
-            <Icon name="heart" size={22} />
-          </span>
-          <i>✦</i>
-        </div>
-      </section>
-
-      <section className="home-quick-panel" aria-labelledby="quick-title">
-        <header className="home-section-heading">
+    <div className="home-layout home-workspace">
+      <div className="home-main-col">
+        <section className="home-greeting" aria-label="Sapaan">
           <div>
-            <h2 id="quick-title">Layanan cepat</h2>
-            <p>Semua yang pet-mu butuhkan, sekali tap</p>
+            <h2>{firstName ? `Hai, ${firstName}!` : "Hai, Pet Parent!"}</h2>
+            <p>
+              {firstName
+                ? "Yuk, cek kebutuhan pet-mu hari ini."
+                : "Semua kebutuhan pet jadi lebih gampang."}
+            </p>
           </div>
-          <span className="home-quick-count">
-            <Icon name="sparkle" size={12} /> 6 pilihan
+          <span className="home-greeting-sparkle" aria-hidden="true">
+            <Icon name="sparkle" size={18} />
           </span>
-        </header>
-        <div className="home-quick-feature-row">
-          {featuredActions.map((item) => (
-            <button
-              className={`home-quick-feature home-quick-feature--${item.tone}`}
-              type="button"
-              key={item.label}
-              onClick={item.action}
-            >
-              <span className="home-quick-feature-icon">
-                <Icon name={item.icon} size={20} />
-              </span>
-              <span className="home-quick-feature-arrow">
-                <Icon name="arrow" size={13} />
-              </span>
-              <b>{item.label}</b>
-              <small>{item.note}</small>
-            </button>
-          ))}
-        </div>
-        <div className="home-quick-mini-grid">
-          {miniActions.map((item) => (
-            <button
-              className="home-quick-mini"
-              type="button"
-              key={item.label}
-              onClick={item.action}
-            >
-              <span className={`home-quick-mini-icon home-quick-mini-icon--${item.tone}`}>
-                <Icon name={item.icon} size={20} />
-              </span>
-              <b>{item.label}</b>
-              <small>{item.note}</small>
-            </button>
-          ))}
-        </div>
-      </section>
+        </section>
 
-      <div className="home-health-and-care">
+        <section className="home-daily-hero">
+          <Image
+            className="home-daily-hero-bg"
+            src="/slivadoc-pet-hero.png"
+            alt=""
+            fill
+            priority
+            unoptimized
+            sizes="(max-width: 980px) 100vw, 65vw"
+          />
+          <span className="home-hero-orb home-hero-orb--large" aria-hidden="true" />
+          <span className="home-hero-orb home-hero-orb--small" aria-hidden="true" />
+          <div className="home-daily-copy">
+            <span className="home-daily-pill">DAILY PET MOMENT</span>
+            <h2>Bikin hari mereka lebih happy.</h2>
+            <p>
+              Mulai dari momen kecil untuk {selectedPet.name} yang lebih sehat
+              dan ceria.
+            </p>
+            <div className="home-daily-moment">
+              <span>
+                <Icon name="heart" size={16} />
+              </span>
+              <div>
+                <small>IDE HARI INI</small>
+                <b>10 menit quality time</b>
+              </div>
+              <Icon name="sparkle" size={15} />
+            </div>
+          </div>
+          <div className="home-pet-bubble" aria-hidden="true">
+            <span className="home-pet-bubble-paw">
+              <Icon name="paw" size={31} />
+            </span>
+            <span className="home-pet-bubble-heart">
+              <Icon name="heart" size={22} />
+            </span>
+            <i>✦</i>
+          </div>
+        </section>
+
+        <section className="home-quick-panel" aria-labelledby="quick-title">
+          <header className="home-section-heading">
+            <div>
+              <h2 id="quick-title">Layanan cepat</h2>
+              <p>Semua yang pet-mu butuhkan, sekali tap</p>
+            </div>
+            <span className="home-quick-count">
+              <Icon name="sparkle" size={12} /> 6 pilihan
+            </span>
+          </header>
+          <div className="home-quick-feature-row">
+            {featuredActions.map((item) => (
+              <button
+                className={`home-quick-feature home-quick-feature--${item.tone}`}
+                type="button"
+                key={item.label}
+                onClick={item.action}
+              >
+                <span className="home-quick-feature-icon">
+                  <Icon name={item.icon} size={20} />
+                </span>
+                <span className="home-quick-feature-arrow">
+                  <Icon name="arrow" size={13} />
+                </span>
+                <b>{item.label}</b>
+                <small>{item.note}</small>
+              </button>
+            ))}
+          </div>
+          <div className="home-quick-mini-grid">
+            {miniActions.map((item) => (
+              <button
+                className="home-quick-mini"
+                type="button"
+                key={item.label}
+                onClick={item.action}
+              >
+                <span className={`home-quick-mini-icon home-quick-mini-icon--${item.tone}`}>
+                  <Icon name={item.icon} size={20} />
+                </span>
+                <b>{item.label}</b>
+                <small>{item.note}</small>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="home-services-section">
+          <header className="home-section-heading home-section-heading--action">
+            <div>
+              <span className="home-section-eyebrow">REKOMENDASI</span>
+              <h2>Pilihan untuk {selectedPet.name}</h2>
+              <p>Favorit pet parent di sekitarmu</p>
+            </div>
+            <button type="button" onClick={() => setActiveView("discover")}>
+              Jelajahi <Icon name="arrow" size={14} />
+            </button>
+          </header>
+          <div className="home-service-row">
+            {services.slice(0, 6).map((service) => (
+              <article className="home-service-card" key={service.id}>
+                <div className={`home-service-visual ${service.accent}`}>
+                  <span>{service.type}</span>
+                  <button type="button" aria-label={`Simpan ${service.name}`}>
+                    <Icon name="heart" size={14} />
+                  </button>
+                  <i>{service.emoji}</i>
+                </div>
+                <div>
+                  <b>{service.name}</b>
+                  <small>
+                    <Icon name="map" size={11} /> {service.address}
+                  </small>
+                  <p>
+                    <span>
+                      <Icon name="star" size={10} /> {service.rating}
+                    </span>
+                    · {service.distance}
+                  </p>
+                  <footer>
+                    <strong>{service.price}</strong>
+                    <button type="button" onClick={() => openBooking(service)}>
+                      Pilih <Icon name="arrow" size={12} />
+                    </button>
+                  </footer>
+                </div>
+              </article>
+            ))}
+            {services.length === 0 && (
+              <div className="empty-state compact">
+                Belum ada layanan yang tersedia di area ini.
+              </div>
+            )}
+          </div>
+        </section>
+
+        {campaign && (
+          <section
+            className="public-campaign-banner home-campaign"
+            style={{
+              backgroundImage: `linear-gradient(90deg,rgba(5,104,159,.94),rgba(8,114,95,.78)),url(${campaign.banner_url})`,
+            }}
+          >
+            <div>
+              <span>REKOMENDASI SLIVADOC</span>
+              <h2>{campaign.name}</h2>
+              <p>{campaign.objective}</p>
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveView(
+                    (
+                      {
+                        events: "events",
+                        pethub: "pethub",
+                        petspot: "petspot",
+                        community: "community",
+                        home: "discover",
+                      } as Partial<Record<string, AppView>>
+                    )[campaign.placement] ?? "discover",
+                  )
+                }
+              >
+                Lihat selengkapnya <Icon name="chevron" size={15} />
+              </button>
+            </div>
+          </section>
+        )}
+      </div>
+
+      <aside className="home-pet-rail home-health-and-care" aria-label="Ringkasan kesehatan dan jadwal">
         <section className="home-health-section">
           <header className="home-section-heading home-section-heading--action">
             <div>
@@ -1994,7 +2107,7 @@ function HomeView({
                       ).toLocaleDateString("id-ID", {
                         day: "numeric",
                         month: "short",
-                      })}
+                       })}
                     </small>
                     <b>{care.title}</b>
                     <span>{care.description}</span>
@@ -2035,89 +2148,22 @@ function HomeView({
             </button>
           </div>
         </section>
-      </div>
 
-      <section className="home-services-section">
-        <header className="home-section-heading home-section-heading--action">
-          <div>
-            <span className="home-section-eyebrow">REKOMENDASI</span>
-            <h2>Pilihan untuk {selectedPet.name}</h2>
-            <p>Favorit pet parent di sekitarmu</p>
-          </div>
-          <button type="button" onClick={() => setActiveView("discover")}>
-            Jelajahi <Icon name="arrow" size={14} />
-          </button>
-        </header>
-        <div className="home-service-row">
-          {services.slice(0, 6).map((service) => (
-            <article className="home-service-card" key={service.id}>
-              <div className={`home-service-visual ${service.accent}`}>
-                <span>{service.type}</span>
-                <button type="button" aria-label={`Simpan ${service.name}`}>
-                  <Icon name="heart" size={14} />
-                </button>
-                <i>{service.emoji}</i>
-              </div>
-              <div>
-                <b>{service.name}</b>
-                <small>
-                  <Icon name="map" size={11} /> {service.address}
-                </small>
-                <p>
-                  <span>
-                    <Icon name="star" size={10} /> {service.rating}
-                  </span>
-                  · {service.distance}
-                </p>
-                <footer>
-                  <strong>{service.price}</strong>
-                  <button type="button" onClick={() => openBooking(service)}>
-                    Pilih <Icon name="arrow" size={12} />
-                  </button>
-                </footer>
-              </div>
-            </article>
-          ))}
-          {services.length === 0 && (
-            <div className="empty-state compact">
-              Belum ada layanan yang tersedia di area ini.
+        <div className="home-rail-dock">
+          <button
+            type="button"
+            className="home-rail-dock-action"
+            onClick={() => setChatOpen(true)}
+          >
+            <span><Icon name="chat" size={18} /></span>
+            <div>
+              <b>Tanya Dokter Hewan 24/7</b>
+              <small>Konsultasi online cepat dan ramah</small>
             </div>
-          )}
+            <Icon name="arrow" size={14} />
+          </button>
         </div>
-      </section>
-
-      {campaign && (
-        <section
-          className="public-campaign-banner home-campaign"
-          style={{
-            backgroundImage: `linear-gradient(90deg,rgba(5,104,159,.94),rgba(8,114,95,.78)),url(${campaign.banner_url})`,
-          }}
-        >
-          <div>
-            <span>REKOMENDASI SLIVADOC</span>
-            <h2>{campaign.name}</h2>
-            <p>{campaign.objective}</p>
-            <button
-              type="button"
-              onClick={() =>
-                setActiveView(
-                  (
-                    {
-                      events: "events",
-                      pethub: "pethub",
-                      petspot: "petspot",
-                      community: "community",
-                      home: "discover",
-                    } as Partial<Record<string, AppView>>
-                  )[campaign.placement] ?? "discover",
-                )
-              }
-            >
-              Lihat selengkapnya <Icon name="chevron" size={15} />
-            </button>
-          </div>
-        </section>
-      )}
+      </aside>
     </div>
   );
 }
@@ -3067,7 +3113,7 @@ function DiscoverView({
                   <span>
                     <Icon name="star" size={12} />
                     <b>
-                      {service.rating > 0 ? service.rating.toFixed(1) : "—"}
+                      {service.rating > 0 ? service.rating.toFixed(1) : "-"}
                     </b>
                   </span>
                   <small>

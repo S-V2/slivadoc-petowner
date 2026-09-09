@@ -329,6 +329,12 @@
     background: var(--sky-50);
   }
 
+  .panel .full-soft-button,
+  .compact-panel .full-soft-button,
+  .right-stack .full-soft-button {
+    margin-top: 16px;
+  }
+
   .panel,
   .service-result-card,
   .booking-card,

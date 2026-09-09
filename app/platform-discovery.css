@@ -56,3 +56,351 @@
     white-space: nowrap;
   }
 }
+
+/* Native screen proportions for Academy, Events, PetSpot, PetHub, and Care. */
+.universe-nav {
+  gap: 5px;
+  margin: 0 0 16px;
+  padding: 6px;
+  border-color: var(--sky-100);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.universe-nav > span {
+  color: var(--muted);
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+
+.universe-nav button,
+.world-toolbar button,
+.hub-tabs button {
+  min-height: 36px;
+  border-radius: 11px;
+  color: var(--muted);
+  font-size: var(--type-control);
+  font-weight: 600;
+}
+
+.universe-nav button.active,
+.world-toolbar button.active,
+.hub-tabs button.active {
+  border-color: var(--sky-100);
+  color: var(--sky-600);
+  background: var(--sky-50);
+}
+
+.world-hero,
+.event-banner,
+.care-hero,
+.adoption-hero,
+.document-hero {
+  min-height: 220px;
+  padding: 22px;
+  border-radius: 22px;
+}
+
+.world-hero {
+  background: linear-gradient(135deg, var(--sky-600), #0A6F9C, var(--mint));
+}
+
+.event-banner {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  background: linear-gradient(135deg, var(--violet), #745ECA, var(--sky-600));
+}
+
+.care-hero {
+  background: linear-gradient(135deg, var(--sky-600), #0A6F9C, var(--mint));
+}
+
+.adoption-hero {
+  background: linear-gradient(135deg, var(--violet), #745ECA, var(--red));
+}
+
+.document-hero {
+  background: linear-gradient(135deg, var(--sky-600), #0A6F9C, var(--violet));
+}
+
+.world-hero::after,
+.event-banner::after {
+  display: none;
+}
+
+.world-hero h2,
+.event-banner h2,
+.petspot-head h2,
+.pethub-head h2,
+.care-hero h2,
+.adoption-hero h2,
+.document-hero h2 {
+  font-size: var(--type-page-title);
+  font-weight: 700;
+  line-height: 1.24;
+  letter-spacing: -0.025em;
+}
+
+.world-hero p,
+.event-banner p,
+.petspot-head p,
+.pethub-head p,
+.care-hero p,
+.adoption-hero p,
+.document-hero p {
+  font-size: var(--type-body);
+  line-height: 1.5;
+}
+
+.world-hero > div > span,
+.event-banner > div > span,
+.petspot-head > div > span,
+.pethub-head > div > span,
+.care-hero span,
+.adoption-hero span,
+.document-hero span {
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+
+.hero-stat,
+.event-capacity {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.event-banner-date {
+  width: 66px;
+  height: 74px;
+  border-radius: 16px;
+  color: var(--violet);
+  box-shadow: var(--shadow);
+}
+
+.event-banner-date b {
+  font-size: var(--type-page-title);
+}
+
+.petspot-head,
+.pethub-head {
+  min-height: 144px;
+  padding: 20px 22px;
+  border: 1px solid var(--sky-100);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+}
+
+.petspot-head {
+  background: linear-gradient(135deg, var(--mint-50), var(--sky-50));
+}
+
+.pethub-head {
+  background: linear-gradient(135deg, var(--sky-600), #0A6F9C, var(--violet));
+}
+
+.petspot-head > button,
+.pethub-head > button,
+.petspot-search > button {
+  min-height: 40px;
+  border-radius: 12px;
+  font-size: var(--type-control);
+  font-weight: 600;
+}
+
+.petspot-head > button,
+.petspot-search > button {
+  background: var(--sky-600);
+}
+
+.academy-grid,
+.event-grid,
+.doctor-grid,
+.adoption-grid,
+.document-product-grid {
+  gap: 12px;
+}
+
+.academy-card,
+.event-card,
+.doctor-card,
+.adoption-card,
+.document-card,
+.document-product-card,
+.spot-list > button,
+.stream-strip > button {
+  border-color: var(--sky-100);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+}
+
+.academy-card-body,
+.event-card > div:last-child,
+.doctor-card > div:last-child,
+.adoption-card > div:last-child,
+.document-card > div:last-child {
+  padding: 14px;
+}
+
+.academy-card h3,
+.event-card h3,
+.doctor-card h3,
+.adoption-card h3,
+.document-card h3,
+.document-product-card h3,
+.spot-list b,
+.stream-card-title {
+  color: var(--navy);
+  font-size: var(--type-card-title);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.academy-card p,
+.event-card p,
+.doctor-card p,
+.adoption-card p,
+.document-card p,
+.document-product-card p,
+.spot-list small {
+  color: var(--muted);
+  font-size: var(--type-body);
+  line-height: 1.45;
+}
+
+.academy-visual,
+.event-cover,
+.doctor-photo,
+.document-product-icon {
+  min-height: 112px;
+}
+
+.doctor-card {
+  overflow: hidden;
+}
+
+.doctor-photo {
+  background: var(--sky-50);
+}
+
+.doctor-photo > span {
+  font-size: 42px;
+}
+
+.care-trust,
+.adoption-steps {
+  gap: 7px;
+}
+
+.care-trust span,
+.adoption-steps span {
+  min-height: 32px;
+  padding: 0 9px;
+  border-color: var(--sky-100);
+  border-radius: 10px;
+  color: var(--sky-600);
+  background: var(--sky-50);
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+
+.section-title-world h2 {
+  font-size: var(--type-section-title);
+  font-weight: 600;
+}
+
+.section-title-world > div > span {
+  color: var(--muted);
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+
+.petspot-search,
+.adoption-filter-panel {
+  border-color: var(--sky-100);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.petspot-query,
+.adoption-search,
+.adoption-filter-panel select,
+.petspot-radius select {
+  border-color: var(--sky-100);
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--white);
+  font-size: var(--type-control);
+}
+
+.story-strip > button > span {
+  outline-color: var(--violet);
+  background: linear-gradient(135deg, var(--violet), var(--sky-500));
+}
+
+@media (max-width: 860px) {
+  .world-hero,
+  .event-banner,
+  .care-hero,
+  .adoption-hero,
+  .document-hero {
+    min-height: 220px !important;
+    padding: 18px !important;
+  }
+
+  .world-hero > div:first-child,
+  .care-hero > div,
+  .adoption-hero > div,
+  .document-hero > div {
+    max-width: 280px;
+  }
+
+  .world-hero h2,
+  .event-banner h2,
+  .petspot-head h2,
+  .pethub-head h2,
+  .care-hero h2,
+  .adoption-hero h2,
+  .document-hero h2 {
+    font-size: var(--type-page-title) !important;
+  }
+
+  .event-banner-date,
+  .hero-stat,
+  .event-capacity,
+  .care-hero aside,
+  .adoption-hero aside,
+  .document-hero aside {
+    display: none;
+  }
+
+  .academy-grid,
+  .event-grid,
+  .doctor-grid,
+  .adoption-grid,
+  .document-product-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .doctor-card {
+    grid-template-columns: 105px minmax(0, 1fr);
+  }
+
+  .doctor-photo {
+    min-height: 178px;
+  }
+
+  .petspot-head,
+  .pethub-head {
+    min-height: 128px;
+    padding: 18px;
+  }
+
+  .petspot-layout,
+  .pethub-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .petspot-map {
+    min-height: 220px;
+  }
+}

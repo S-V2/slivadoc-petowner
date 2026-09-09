@@ -111,7 +111,7 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
   { id: "discover", label: "Jelajahi", icon: "search" },
   { id: "bookings", label: "Aktivitas", icon: "calendar" },
   { id: "health", label: "Kesehatan", icon: "heart" },
-  { id: "shop", label: "Pet Shop", icon: "bag" },
+  { id: "shop", label: "Belanja", icon: "bag" },
   { id: "favorites", label: "Favorit Saya", icon: "heart" },
   { id: "community", label: "Komunitas", icon: "users" },
   { id: "academy", label: "Pet Academy", icon: "sparkle" },
@@ -657,6 +657,7 @@ export default function PetOwnerApp() {
               notify={notify}
               services={serviceCatalog}
               activities={activities}
+              ownerName={account?.full_name}
             />
           )}
           {activeView === "pets" && (
@@ -1673,6 +1674,7 @@ function HomeView({
   notify,
   services,
   activities,
+  ownerName,
 }: {
   selectedPet: Pet;
   setActiveView: (view: AppView) => void;
@@ -1681,6 +1683,7 @@ function HomeView({
   notify: Notify;
   services: Service[];
   activities: ActivityItem[];
+  ownerName?: string;
 }) {
   const [campaign, setCampaign] = useState<PublicCampaign | null>(null);
   useEffect(() => {
@@ -1688,149 +1691,406 @@ function HomeView({
       .then((response) => setCampaign(response.data[0] ?? null))
       .catch(() => setCampaign(null));
   }, []);
-  const quickActions: {
+
+  const firstName = ownerName?.trim().split(/\s+/)[0];
+  const featuredActivities = activities.slice(0, 3);
+  const homeCare = services.find((item) => item.type === "Home Care");
+  const petHotel = services.find((item) => item.type === "Pet Hotel");
+  const healthStatus =
+    selectedPet.healthScore >= 80
+      ? "Kondisi prima"
+      : selectedPet.healthScore >= 60
+        ? "Tetap terpantau"
+        : "Lengkapi datanya";
+  const featuredActions: Array<{
     label: string;
     note: string;
-    icon: string;
-    color: string;
+    icon: IconName;
+    tone: "booking" | "consult";
     action: () => void;
-  }[] = [
+  }> = [
     {
-      label: "Buat Booking",
-      note: "Klinik & grooming",
-      icon: "📅",
-      color: "blue",
+      label: "Booking",
+      note: "Atur jadwal klinik",
+      icon: "calendar",
+      tone: "booking",
       action: () => openBooking(),
     },
     {
       label: "Tanya Dokter",
-      note: "Chat atau video",
-      icon: "👩🏻‍⚕️",
-      color: "mint",
+      note: "Pilih dokter & paket",
+      icon: "chat",
+      tone: "consult",
       action: () => setChatOpen(true),
     },
+  ];
+  const miniActions: Array<{
+    label: string;
+    note: string;
+    icon: IconName;
+    tone: "peach" | "red" | "violet" | "sky";
+    action: () => void;
+  }> = [
     {
-      label: "Home Service",
-      note: "Dokter ke rumah",
-      icon: "🏠",
-      color: "peach",
-      action: () => {
-        const service = services.find((item) => item.type === "Home Care");
-        if (service) openBooking(service);
-        else setActiveView("discover");
-      },
+      label: "Home Care",
+      note: "Ke rumah",
+      icon: "home",
+      tone: "peach",
+      action: () => (homeCare ? openBooking(homeCare) : setActiveView("discover")),
     },
     {
-      label: "Darurat 24/7",
-      note: "Bantuan cepat",
-      icon: "🚑",
-      color: "red",
+      label: "Darurat",
+      note: "24 jam",
+      icon: "heart",
+      tone: "red",
       action: () => notify("Menghubungkan ke hotline darurat 24/7"),
     },
     {
-      label: "Beli Produk",
-      note: "Same day delivery",
-      icon: "🛍️",
-      color: "violet",
-      action: () => setActiveView("shop"),
-    },
-    {
       label: "Pet Hotel",
-      note: "Titip dengan aman",
-      icon: "🏡",
-      color: "yellow",
-      action: () => {
-        const service = services.find((item) => item.type === "Pet Hotel");
-        if (service) openBooking(service);
-        else setActiveView("discover");
-      },
+      note: "Terpercaya",
+      icon: "paw",
+      tone: "violet",
+      action: () => (petHotel ? openBooking(petHotel) : setActiveView("discover")),
     },
     {
-      label: "Pet Academy",
-      note: "Training & kelas",
-      icon: "🎓",
-      color: "mint",
+      label: "Sliva World",
+      note: "Eksplorasi",
+      icon: "sparkle",
+      tone: "sky",
       action: () => setActiveView("academy"),
-    },
-    {
-      label: "Pet Event",
-      note: "Event di kotamu",
-      icon: "🎟️",
-      color: "peach",
-      action: () => setActiveView("events"),
-    },
-    {
-      label: "PetSpot",
-      note: "Tempat pet friendly",
-      icon: "📍",
-      color: "blue",
-      action: () => setActiveView("petspot"),
-    },
-    {
-      label: "PetHub Live",
-      note: "Live & pet thread",
-      icon: "▶️",
-      color: "violet",
-      action: () => setActiveView("pethub"),
     },
   ];
 
   return (
     <div className="home-layout">
-      <section className="hero-card">
-        <Image
-          className="hero-image"
-          src="/slivadoc-pet-hero.png"
-          alt="Pet owner bersama anjing golden retriever dan kucing abu-abu"
-          fill
-          priority
-          unoptimized
-          sizes="(max-width: 900px) 100vw, 70vw"
-        />
-        <div className="hero-overlay" />
-        <div className="hero-copy">
-          <span className="soft-badge">
-            <Icon name="shield" size={14} /> TERLINDUNGI SLIVACARE+
-          </span>
-          <h2>Satu aplikasi untuk seluruh kebahagiaan mereka.</h2>
+      <section className="home-greeting" aria-label="Sapaan">
+        <div>
+          <h2>{firstName ? `Hai, ${firstName}!` : "Hai, Pet Parent!"}</h2>
           <p>
-            Rawat, pantau, dan dapatkan bantuan profesional kapan pun{" "}
-            {selectedPet.name} membutuhkannya.
+            {firstName
+              ? "Yuk, cek kebutuhan pet-mu hari ini."
+              : "Semua kebutuhan pet jadi lebih gampang."}
           </p>
-          <div className="hero-actions">
+        </div>
+        <span className="home-greeting-sparkle" aria-hidden="true">
+          <Icon name="sparkle" size={18} />
+        </span>
+      </section>
+
+      <section className="home-daily-hero">
+        <span className="home-hero-orb home-hero-orb--large" aria-hidden="true" />
+        <span className="home-hero-orb home-hero-orb--small" aria-hidden="true" />
+        <div className="home-daily-copy">
+          <span className="home-daily-pill">DAILY PET MOMENT</span>
+          <h2>Bikin hari mereka lebih happy.</h2>
+          <p>
+            Mulai dari momen kecil untuk {selectedPet.name} yang lebih sehat
+            dan ceria.
+          </p>
+          <div className="home-daily-moment">
+            <span>
+              <Icon name="heart" size={16} />
+            </span>
+            <div>
+              <small>IDE HARI INI</small>
+              <b>10 menit quality time</b>
+            </div>
+            <Icon name="sparkle" size={15} />
+          </div>
+        </div>
+        <div className="home-pet-bubble" aria-hidden="true">
+          <span className="home-pet-bubble-paw">
+            <Icon name="paw" size={31} />
+          </span>
+          <span className="home-pet-bubble-heart">
+            <Icon name="heart" size={22} />
+          </span>
+          <i>✦</i>
+        </div>
+      </section>
+
+      <section className="home-quick-panel" aria-labelledby="quick-title">
+        <header className="home-section-heading">
+          <div>
+            <h2 id="quick-title">Layanan cepat</h2>
+            <p>Semua yang pet-mu butuhkan, sekali tap</p>
+          </div>
+          <span className="home-quick-count">
+            <Icon name="sparkle" size={12} /> 6 pilihan
+          </span>
+        </header>
+        <div className="home-quick-feature-row">
+          {featuredActions.map((item) => (
             <button
-              className="primary-button"
+              className={`home-quick-feature home-quick-feature--${item.tone}`}
               type="button"
-              onClick={() => openBooking()}
+              key={item.label}
+              onClick={item.action}
             >
-              <Icon name="calendar" size={17} /> Buat booking
+              <span className="home-quick-feature-icon">
+                <Icon name={item.icon} size={20} />
+              </span>
+              <span className="home-quick-feature-arrow">
+                <Icon name="arrow" size={13} />
+              </span>
+              <b>{item.label}</b>
+              <small>{item.note}</small>
             </button>
+          ))}
+        </div>
+        <div className="home-quick-mini-grid">
+          {miniActions.map((item) => (
             <button
-              className="ghost-button"
+              className="home-quick-mini"
               type="button"
-              onClick={() => setChatOpen(true)}
+              key={item.label}
+              onClick={item.action}
             >
-              <Icon name="chat" size={17} /> Tanya dokter
+              <span className={`home-quick-mini-icon home-quick-mini-icon--${item.tone}`}>
+                <Icon name={item.icon} size={20} />
+              </span>
+              <b>{item.label}</b>
+              <small>{item.note}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="home-health-and-care">
+        <section className="home-health-section">
+          <header className="home-section-heading home-section-heading--action">
+            <div>
+              <span className="home-section-eyebrow">HEALTH SNAPSHOT</span>
+              <h2>Kondisi {selectedPet.name}</h2>
+              <p>Pantau kesehatan tanpa ribet</p>
+            </div>
+            <button type="button" onClick={() => setActiveView("health")}>
+              Detail <Icon name="arrow" size={14} />
+            </button>
+          </header>
+          <div className="home-health-card">
+            <span className="home-health-glow home-health-glow--large" aria-hidden="true" />
+            <span className="home-health-glow home-health-glow--small" aria-hidden="true" />
+            <div className="home-health-top">
+              <span className="home-health-avatar">
+                {selectedPet.avatar}
+                <i>
+                  <Icon name="check" size={10} />
+                </i>
+              </span>
+              <div className="home-health-pet">
+                <small>
+                  <i /> PET AKTIF
+                </small>
+                <b>{selectedPet.name}</b>
+                <span>
+                  {selectedPet.breed} • {selectedPet.age}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="home-pet-switch"
+                onClick={() => setActiveView("pets")}
+              >
+                Ganti <Icon name="arrow" size={12} />
+              </button>
+            </div>
+            <div className="home-health-overview">
+              <div className="home-health-score">
+                <div>
+                  <b>{selectedPet.healthScore}</b>
+                  <small>/ 100</small>
+                </div>
+                <strong>{healthStatus}</strong>
+                <span>{selectedPet.nextCare || "Belum ada rekam medis"}</span>
+              </div>
+              <div className="home-health-metrics">
+                <div>
+                  <span className="home-health-metric-icon home-health-metric-icon--mint">
+                    ⚖
+                  </span>
+                  <small>Berat badan</small>
+                  <b>{selectedPet.weight}</b>
+                </div>
+                <div>
+                  <span className="home-health-metric-icon home-health-metric-icon--violet">
+                    <Icon name="heart" size={14} />
+                  </span>
+                  <small>Aktivitas</small>
+                  <b>{activities.length} catatan</b>
+                </div>
+              </div>
+            </div>
+            <button
+              className="home-health-insight"
+              type="button"
+              onClick={() => setActiveView("bookings")}
+            >
+              <span>
+                <Icon name="sparkle" size={16} />
+              </span>
+              <div>
+                <b>Insight untuk {selectedPet.name}</b>
+                <small>
+                  {activities[0]?.description ||
+                    "Belum ada aktivitas kesehatan terjadwal."}
+                </small>
+              </div>
+              <i>
+                <Icon name="arrow" size={14} />
+              </i>
             </button>
           </div>
-          <div className="home-hero-trust" aria-label="Ringkasan layanan">
-            <span>
-              <Icon name="shield" size={13} />
-              <b>{selectedPet.healthScore}/100</b> kondisi {selectedPet.name}
-            </span>
-            <span>
-              <Icon name="clock" size={13} />
-              <b>24/7</b> SlivaCare
-            </span>
+        </section>
+
+        <section className="home-care-section">
+          <header className="home-section-heading home-section-heading--action">
+            <div>
+              <span className="home-section-eyebrow">CARE PLAN</span>
+              <h2>Perawatan terdekat</h2>
+              <p>Biar jadwal nggak kelewat</p>
+            </div>
+            <button type="button" onClick={() => setActiveView("bookings")}>
+              Semua <Icon name="arrow" size={14} />
+            </button>
+          </header>
+          <div className="home-care-card">
+            {featuredActivities.length ? (
+              featuredActivities.map((care, index) => (
+                <button
+                  className="home-care-row"
+                  type="button"
+                  key={care.id}
+                  onClick={() => setActiveView("bookings")}
+                >
+                  <span className="home-care-timeline">
+                    <i
+                      className={
+                        care.category === "consultation"
+                          ? "home-care-icon home-care-icon--violet"
+                          : care.category === "health"
+                            ? "home-care-icon home-care-icon--mint"
+                            : "home-care-icon"
+                      }
+                    >
+                      <Icon
+                        name={
+                          care.category === "consultation"
+                            ? "chat"
+                            : care.category === "booking"
+                              ? "calendar"
+                              : "paw"
+                        }
+                        size={18}
+                      />
+                    </i>
+                    {index < featuredActivities.length - 1 && <em />}
+                  </span>
+                  <span className="home-care-copy">
+                    <small>
+                      <Icon name="clock" size={11} />
+                      {new Date(
+                        care.starts_at || care.occurred_at,
+                      ).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </small>
+                    <b>{care.title}</b>
+                    <span>{care.description}</span>
+                  </span>
+                  <Icon name="chevron" size={15} />
+                </button>
+              ))
+            ) : (
+              <div className="empty-state compact home-care-empty">
+                <span>
+                  <Icon name="calendar" size={25} />
+                </span>
+                <div>
+                  <b>Jadwal masih santai</b>
+                  <p>Booking perawatan pertama dan kami bantu ingatkan.</p>
+                </div>
+              </div>
+            )}
+            <button
+              className="home-care-cta"
+              type="button"
+              onClick={() => setActiveView("bookings")}
+            >
+              <span>
+                <Icon name="calendar" size={16} />
+              </span>
+              <div>
+                <b>
+                  {featuredActivities.length
+                    ? "Lihat semua aktivitas"
+                    : "Buat care plan pertama"}
+                </b>
+                <small>Semua jadwal pet dalam satu tempat</small>
+              </div>
+              <i>
+                <Icon name="arrow" size={14} />
+              </i>
+            </button>
           </div>
+        </section>
+      </div>
+
+      <section className="home-services-section">
+        <header className="home-section-heading home-section-heading--action">
+          <div>
+            <span className="home-section-eyebrow">REKOMENDASI</span>
+            <h2>Pilihan untuk {selectedPet.name}</h2>
+            <p>Favorit pet parent di sekitarmu</p>
+          </div>
+          <button type="button" onClick={() => setActiveView("discover")}>
+            Jelajahi <Icon name="arrow" size={14} />
+          </button>
+        </header>
+        <div className="home-service-row">
+          {services.slice(0, 6).map((service) => (
+            <article className="home-service-card" key={service.id}>
+              <div className={`home-service-visual ${service.accent}`}>
+                <span>{service.type}</span>
+                <button type="button" aria-label={`Simpan ${service.name}`}>
+                  <Icon name="heart" size={14} />
+                </button>
+                <i>{service.emoji}</i>
+              </div>
+              <div>
+                <b>{service.name}</b>
+                <small>
+                  <Icon name="map" size={11} /> {service.address}
+                </small>
+                <p>
+                  <span>
+                    <Icon name="star" size={10} /> {service.rating}
+                  </span>
+                  · {service.distance}
+                </p>
+                <footer>
+                  <strong>{service.price}</strong>
+                  <button type="button" onClick={() => openBooking(service)}>
+                    Pilih <Icon name="arrow" size={12} />
+                  </button>
+                </footer>
+              </div>
+            </article>
+          ))}
+          {services.length === 0 && (
+            <div className="empty-state compact">
+              Belum ada layanan yang tersedia di area ini.
+            </div>
+          )}
         </div>
       </section>
 
       {campaign && (
         <section
-          className="public-campaign-banner"
+          className="public-campaign-banner home-campaign"
           style={{
-            backgroundImage: `linear-gradient(90deg,rgba(5,32,52,.94),rgba(5,32,52,.35)),url(${campaign.banner_url})`,
+            backgroundImage: `linear-gradient(90deg,rgba(5,104,159,.94),rgba(8,114,95,.78)),url(${campaign.banner_url})`,
           }}
         >
           <div>
@@ -1858,236 +2118,6 @@ function HomeView({
           </div>
         </section>
       )}
-
-      <section className="home-quick-section" aria-labelledby="quick-title">
-        <header className="home-section-heading">
-          <div>
-            <span className="section-eyebrow">AKSES CEPAT</span>
-            <h2 id="quick-title">Butuh apa hari ini?</h2>
-          </div>
-          <span className="home-swipe-hint">Geser untuk lainnya</span>
-        </header>
-        <div className="quick-grid" aria-label="Akses cepat">
-          {quickActions.map((item) => (
-            <button
-              className="quick-card"
-              type="button"
-              key={item.label}
-              onClick={item.action}
-            >
-              <span className={`quick-icon ${item.color}`}>{item.icon}</span>
-              <span>
-                <b>{item.label}</b>
-                <small>{item.note}</small>
-              </span>
-              <Icon name="chevron" size={16} />
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <div className="dashboard-grid">
-        <section className="panel health-snapshot">
-          <div className="panel-heading">
-            <div>
-              <span className="section-eyebrow">HEALTH SNAPSHOT</span>
-              <h3>Kondisi {selectedPet.name}</h3>
-            </div>
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => setActiveView("health")}
-            >
-              Lihat detail <Icon name="arrow" size={15} />
-            </button>
-          </div>
-          <div className="pet-health-main">
-            <div className="pet-large-avatar">
-              {selectedPet.avatar}
-              <i className="online-mark">
-                <Icon name="check" size={11} />
-              </i>
-            </div>
-            <div className="pet-health-copy">
-              <b>{selectedPet.name}</b>
-              <span>
-                {selectedPet.breed} • {selectedPet.age}
-              </span>
-              <small>{selectedPet.nextCare}</small>
-            </div>
-            <div
-              className="health-score"
-              style={
-                {
-                  "--score": `${selectedPet.healthScore * 3.6}deg`,
-                } as React.CSSProperties
-              }
-            >
-              <div>
-                <b>{selectedPet.healthScore}</b>
-                <small>/100</small>
-              </div>
-            </div>
-          </div>
-          <div className="metric-row">
-            <div>
-              <span>⚖️</span>
-              <small>Berat badan</small>
-              <b>{selectedPet.weight}</b>
-              <em className="good">Profil pet</em>
-            </div>
-            <div>
-              <span>🪪</span>
-              <small>Microchip</small>
-              <b>{selectedPet.microchip}</b>
-              <em>Identitas pet</em>
-            </div>
-            <div>
-              <span>🩺</span>
-              <small>Catatan medis</small>
-              <b>{selectedPet.nextCare}</b>
-              <em className="good">Tersinkron</em>
-            </div>
-          </div>
-          <div className="health-alert">
-            <span>💡</span>
-            <p>
-              <b>Data kesehatan {selectedPet.name}</b>
-              <small>
-                Nilai, profil, dan riwayat di halaman ini berasal dari akun pet
-                yang sedang dipilih.
-              </small>
-            </p>
-            <button type="button" onClick={() => setActiveView("health")}>
-              Buka kesehatan
-            </button>
-          </div>
-        </section>
-
-        <section className="panel care-panel">
-          <div className="panel-heading">
-            <div>
-              <span className="section-eyebrow">CARE PLAN</span>
-              <h3>Perawatan terdekat</h3>
-            </div>
-            <button
-              className="round-button"
-              type="button"
-              onClick={() => notify("Pengingat baru ditambahkan")}
-            >
-              <Icon name="plus" size={18} />
-            </button>
-          </div>
-          <div className="timeline-list">
-            {activities.slice(0, 4).map((care, index) => (
-              <div className="timeline-item" key={care.id}>
-                <div className={`timeline-date ${index === 0 ? "today" : ""}`}>
-                  <b>
-                    {new Date(
-                      care.starts_at || care.occurred_at,
-                    ).toLocaleDateString("id-ID", { day: "2-digit" })}
-                  </b>
-                  <small>
-                    {new Date(
-                      care.starts_at || care.occurred_at,
-                    ).toLocaleDateString("id-ID", { month: "short" })}
-                  </small>
-                </div>
-                <div className="timeline-icon blue">
-                  {care.category === "booking"
-                    ? "📅"
-                    : care.category === "consultation"
-                      ? "💬"
-                      : care.category === "order"
-                        ? "📦"
-                        : "🐾"}
-                </div>
-                <div className="timeline-copy">
-                  <b>{care.title}</b>
-                  <span>{care.description}</span>
-                  <small>
-                    <Icon name="clock" size={13} />{" "}
-                    {new Date(
-                      care.starts_at || care.occurred_at,
-                    ).toLocaleTimeString("id-ID", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </small>
-                </div>
-                <button
-                  type="button"
-                  className="more-button"
-                  onClick={() => setActiveView("bookings")}
-                >
-                  <Icon name="chevron" />
-                </button>
-              </div>
-            ))}
-            {activities.length === 0 && (
-              <div className="empty-state compact">
-                Belum ada perawatan atau transaksi pada akun ini.
-              </div>
-            )}
-          </div>
-          <button
-            className="full-soft-button"
-            type="button"
-            onClick={() => setActiveView("bookings")}
-          >
-            Lihat semua aktivitas <Icon name="arrow" size={16} />
-          </button>
-        </section>
-      </div>
-
-      <section className="panel nearby-panel">
-        <div className="panel-heading">
-          <div>
-            <span className="section-eyebrow">REKOMENDASI DI SEKITARMU</span>
-            <h3>Layanan pilihan untuk {selectedPet.name}</h3>
-          </div>
-          <button
-            type="button"
-            className="link-button"
-            onClick={() => setActiveView("discover")}
-          >
-            Lihat semua <Icon name="arrow" size={15} />
-          </button>
-        </div>
-        <div className="service-row">
-          {services.slice(0, 4).map((service) => (
-            <article className="service-mini-card" key={service.id}>
-              <div className={`service-cover ${service.accent}`}>
-                <span>{service.emoji}</span>
-                <em>{service.type}</em>
-              </div>
-              <div className="service-card-body">
-                <div className="service-title">
-                  <b>{service.name}</b>
-                  <span>
-                    <Icon name="star" size={13} /> {service.rating}
-                  </span>
-                </div>
-                <p>
-                  <Icon name="map" size={13} /> {service.distance} •{" "}
-                  {service.status}
-                </p>
-                <div>
-                  <strong>{service.price}</strong>
-                  <button type="button" onClick={() => openBooking(service)}>
-                    Pilih
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
-          {services.length === 0 && (
-            <div className="empty-state compact">
-              Belum ada layanan yang tersedia di area ini.
-            </div>
-          )}
-        </div>
-      </section>
     </div>
   );
 }
@@ -2946,27 +2976,25 @@ function DiscoverView({
     setSort("recommended");
   };
   return (
-    <div>
-      <section className="discover-search-card">
+    <div className="discover-native">
+      <header className="native-screen-header">
         <div>
-          <span className="soft-badge white">
-            <Icon name="map" size={14} /> SEMUA LOKASI
-          </span>
-          <h2>Apa yang dibutuhkan hewanmu hari ini?</h2>
-          <p>
-            Dokter, grooming, penitipan, dan home service yang telah
-            diverifikasi Slivadoc.
-          </p>
+          <span>JELAJAHI LAYANAN</span>
+          <h2>Mau manjain pet-mu dengan apa? ✨</h2>
+          <p>Temukan layanan terverifikasi di dekatmu.</p>
         </div>
+      </header>
+      <section className="discover-search-card">
         <label>
           <Icon name="search" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Cari nama klinik atau layanan"
+            placeholder="Cari klinik atau layanan"
           />
           <button
             type="button"
+            aria-label="Cari layanan"
             onClick={() =>
               notify(`Menampilkan hasil untuk “${query || "semua layanan"}”`)
             }
@@ -3195,6 +3223,7 @@ function BookingsView({
   rewardFormula: RewardFormula;
 }) {
   const [tab, setTab] = useState("Mendatang");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [detail, setDetail] = useState<ActivityItem | null>(null);
   const upcoming = activities.filter(
     (item) => item.starts_at && new Date(item.starts_at) > new Date(),
@@ -3205,41 +3234,78 @@ function BookingsView({
   const history = activities.filter(
     (item) => !upcoming.includes(item) && !live.includes(item),
   );
-  const visible =
+  const stateItems =
     tab === "Mendatang" ? upcoming : tab === "Berlangsung" ? live : history;
+  const visible =
+    typeFilter === "all"
+      ? stateItems
+      : stateItems.filter((item) => item.category === typeFilter);
+  const typeOptions: Array<{ id: string; label: string; icon: IconName }> = [
+    { id: "all", label: "Semua", icon: "sparkle" },
+    { id: "booking", label: "Booking", icon: "calendar" },
+    { id: "order", label: "Belanja", icon: "bag" },
+    { id: "consultation", label: "Konsultasi", icon: "chat" },
+  ];
+
   return (
-    <div>
-      <div className="activity-summary-grid">
-        <SummaryCard
-          icon="📅"
-          value={String(upcoming.length)}
-          label="Booking mendatang"
-          tone="blue"
-          onClick={() => setTab("Mendatang")}
-        />
-        <SummaryCard
-          icon="📦"
-          value={String(
-            live.filter((item) => item.category === "order").length,
-          )}
-          label="Pesanan dalam proses"
-          tone="violet"
-          onClick={() => setTab("Berlangsung")}
-        />
-        <SummaryCard
-          icon="💬"
-          value={String(
-            live.filter((item) => item.category === "consultation").length,
-          )}
-          label="Konsultasi aktif"
-          tone="mint"
-          onClick={() => setTab("Berlangsung")}
-        />
-        <SummaryCard
-          icon="✦"
-          value={points.toLocaleString("id-ID")}
-          label="Sliva Points"
-          tone="yellow"
+    <div className="activity-native">
+      <header className="native-screen-header">
+        <div>
+          <span>PUSAT AKTIVITAS</span>
+          <h2>Semua perjalanan pet-mu</h2>
+          <p>Pantau transaksi dan ulangi aktivitas dalam sekali tap.</p>
+        </div>
+      </header>
+
+      <div className="activity-type-filters" role="tablist" aria-label="Jenis aktivitas">
+        {typeOptions.map((item) => {
+          const active = typeFilter === item.id;
+          const count =
+            item.id === "all"
+              ? activities.length
+              : activities.filter((activity) => activity.category === item.id).length;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={active ? "active" : ""}
+              aria-selected={active}
+              onClick={() => setTypeFilter(item.id)}
+            >
+              <Icon name={item.icon} size={15} />
+              <span>{item.label}</span>
+              <i>{count}</i>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="activity-state-tabs" role="tablist" aria-label="Status aktivitas">
+        {[
+          ["Mendatang", upcoming.length],
+          ["Berlangsung", live.length],
+          ["Riwayat", history.length],
+        ].map(([label, count]) => (
+          <button
+            type="button"
+            key={String(label)}
+            className={tab === label ? "active" : ""}
+            aria-selected={tab === label}
+            onClick={() => setTab(String(label))}
+          >
+            {label} <span>{count}</span>
+          </button>
+        ))}
+      </div>
+
+      <header className="activity-native-toolbar">
+        <div>
+          <span>DATA AKUNMU</span>
+          <h3>{visible.length} aktivitas</h3>
+        </div>
+        <button
+          className="activity-points"
+          type="button"
           onClick={() =>
             notify(
               points
@@ -3247,106 +3313,106 @@ function BookingsView({
                 : "Belum ada transaksi terbayar, jadi Sliva Point masih 0.",
             )
           }
-        />
-      </div>
-      <div className="tabs">
-        <button
-          className={tab === "Mendatang" ? "active" : ""}
-          onClick={() => setTab("Mendatang")}
         >
-          Mendatang <span>{upcoming.length}</span>
+          ✦ {points.toLocaleString("id-ID")}
         </button>
-        <button
-          className={tab === "Berlangsung" ? "active" : ""}
-          onClick={() => setTab("Berlangsung")}
-        >
-          Berlangsung <span>{live.length}</span>
+        <button className="primary-button small" type="button" onClick={() => openBooking()}>
+          <Icon name="plus" size={15} /> Buat baru
         </button>
-        <button
-          className={tab === "Riwayat" ? "active" : ""}
-          onClick={() => setTab("Riwayat")}
-        >
-          Riwayat <span>{history.length}</span>
-        </button>
-      </div>
-      <div className="booking-list">
+      </header>
+
+      <div className="activity-native-list">
         {visible.length ? (
           visible.map((item) => (
-            <article className="booking-card" key={item.id}>
-              <div className="booking-icon blue">
-                {item.category === "booking"
-                  ? "📅"
-                  : item.category === "consultation"
-                    ? "💬"
+            <article className="activity-native-card" key={item.id}>
+              <button
+                className="activity-native-main"
+                type="button"
+                onClick={() => setDetail(item)}
+              >
+                <span className={`activity-native-icon activity-native-icon--${
+                  item.category === "consultation"
+                    ? "mint"
                     : item.category === "order"
-                      ? "📦"
-                      : "🐾"}
-              </div>
-              <div className="booking-copy">
-                <div>
-                  <span className="status-badge confirmed">{item.status}</span>
-                  <small>{item.category.toUpperCase()}</small>
-                </div>
-                <h3>{item.title}</h3>
-                <p>{item.description}</p>
-                <span className="pet-inline">
-                  {item.starts_at
-                    ? new Date(item.starts_at).toLocaleString("id-ID")
-                    : new Date(item.occurred_at).toLocaleString("id-ID")}
+                      ? "violet"
+                      : "sky"
+                }`}>
+                  <Icon
+                    name={
+                      item.category === "booking"
+                        ? "calendar"
+                        : item.category === "consultation"
+                          ? "chat"
+                          : item.category === "order"
+                            ? "bag"
+                            : "paw"
+                    }
+                    size={21}
+                  />
                 </span>
-              </div>
-              <div className="booking-actions">
-                {item.metadata?.latitude && (
+                <span className="activity-native-copy">
+                  <span className="activity-native-meta">
+                    <small>{item.category.replaceAll("_", " ")}</small>
+                    <i>{item.status.replaceAll("_", " ")}</i>
+                  </span>
+                  <b>{item.title}</b>
+                  <span>{item.description}</span>
+                  <small className="activity-native-date">
+                    <Icon name="clock" size={13} />
+                    {new Date(item.starts_at || item.occurred_at).toLocaleString("id-ID")}
+                  </small>
+                </span>
+                <Icon name="chevron" size={17} />
+              </button>
+              <footer>
+                <span>
+                  <Icon name={item.category === "order" ? "bag" : "paw"} size={14} />
+                  {item.category === "order" ? "Pesanan pet" : "Pet kamu"}
+                </span>
+                {item.metadata?.latitude ? (
                   <a
-                    className="secondary-button small"
                     href={`https://www.google.com/maps/dir/?api=1&destination=${item.metadata.latitude},${item.metadata.longitude}`}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    <Icon name="map" size={15} /> Petunjuk arah
+                    <Icon name="map" size={14} /> Arah
                   </a>
-                )}
-                <button
-                  className="primary-button small"
-                  onClick={() => setDetail(item)}
-                >
-                  {item.action_label || "Lihat detail"}
+                ) : null}
+                <button type="button" onClick={() => setDetail(item)}>
+                  <Icon name="arrow" size={14} />{" "}
+                  {item.category === "order"
+                    ? "Beli lagi"
+                    : item.category === "consultation"
+                      ? "Konsultasi ulang"
+                      : "Booking lagi"}
                 </button>
-              </div>
+              </footer>
             </article>
           ))
         ) : (
-          <div className="empty-state">
-            <span>🗓️</span>
+          <div className="empty-state activity-native-empty">
+            <span><Icon name={typeFilter === "order" ? "bag" : typeFilter === "consultation" ? "chat" : "calendar"} size={28} /></span>
             <h3>Belum ada aktivitas</h3>
-            <p>
-              Data akan muncul setelah booking, konsultasi, atau transaksi
-              dibuat.
-            </p>
+            <p>Filter ini masih kosong. Mulai aktivitas baru dan progresnya akan tampil otomatis di sini.</p>
+            <button className="primary-button small" type="button" onClick={() => openBooking()}>
+              Buat aktivitas baru
+            </button>
           </div>
         )}
       </div>
-      <div className="activity-bottom-banner">
+
+      <section className="activity-native-cta">
         <div>
-          <span>⚡</span>
+          <span><Icon name="sparkle" size={17} /></span>
           <p>
             <b>Butuh layanan lain?</b>
-            <small>
-              Booking dokter, grooming, home care, atau hotel dalam beberapa
-              langkah.
-            </small>
+            <small>Booking dokter, grooming, home care, atau hotel dalam beberapa langkah.</small>
           </p>
         </div>
-        <button className="primary-button" onClick={() => openBooking()}>
-          Buat booking baru
-        </button>
-        <button
-          className="ghost-text"
-          onClick={() => setActiveView("discover")}
-        >
+        <button className="secondary-button" type="button" onClick={() => setActiveView("discover")}>
           Jelajahi layanan
         </button>
-      </div>
+      </section>
       {detail && <ActivityDetail item={detail} close={() => setDetail(null)} />}
     </div>
   );
@@ -3354,6 +3420,7 @@ function BookingsView({
 
 function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
   const [tab, setTab] = useState("all");
+  const [screen, setScreen] = useState<"summary" | "records">("summary");
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<MedicalRecord | null>(null);
@@ -3402,20 +3469,23 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
       : records.filter((record) =>
           record.record_type.toLowerCase().includes(tab),
         );
-  function download() {
-    downloadPetMedicalPDF(pet, records);
-  }
   return (
-    <div className="health-page">
-      <section className="health-hero-panel">
+    <div className="health-native">
+      <header className="native-screen-header">
+        <div>
+          <span>PUSAT KESEHATAN</span>
+          <h2>Digital health record</h2>
+        </div>
+      </header>
+
+      <section className="health-hero-panel health-native-hero">
+        <span className="health-native-glow" aria-hidden="true" />
         <div className="health-pet">
           <span>{pet.avatar}</span>
           <div>
-            <small>PROFIL KESEHATAN TERSINKRON</small>
+            <small>HEALTH PROFILE ✦</small>
             <h2>{pet.name}</h2>
-            <p>
-              {pet.breed} • {pet.weight}
-            </p>
+            <p>{pet.breed} • {pet.weight}</p>
           </div>
         </div>
         <div className="health-hero-score">
@@ -3428,14 +3498,14 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
           >
             <span>
               <b>{pet.healthScore}</b>
-              <small>skor sehat</small>
+              <small>Health</small>
             </span>
           </div>
         </div>
         <div className="health-hero-meta">
           <span>
             <small>Alergi</small>
-            <b>{pet.allergies || "Tidak tercatat"}</b>
+            <b>{pet.allergies || "Belum dicatat"}</b>
           </span>
           <span>
             <small>Dokter terakhir</small>
@@ -3450,190 +3520,254 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
             </b>
           </span>
         </div>
+      </section>
+
+      <div className="health-native-tabs" role="tablist" aria-label="Halaman kesehatan">
         <button
           type="button"
-          className="secondary-button small"
-          disabled={!records.length}
-          onClick={download}
+          className={screen === "summary" ? "active" : ""}
+          aria-selected={screen === "summary"}
+          onClick={() => setScreen("summary")}
         >
-          <Icon name="download" size={16} /> Unduh data
+          Ringkasan
         </button>
-      </section>
-      <section className="health-account-facts">
-        <article>
-          <span>🪪</span>
-          <small>Microchip</small>
-          <b>{pet.microchip}</b>
-        </article>
-        <article>
-          <span>🩺</span>
-          <small>Total rekam medis</small>
-          <b>{records.length}</b>
-        </article>
-        <article>
-          <span>⚖️</span>
-          <small>Berat terbaru</small>
-          <b>{latest?.weight_kg ? `${latest.weight_kg} kg` : pet.weight}</b>
-        </article>
-        <article>
-          <span>🌡️</span>
-          <small>Suhu terakhir</small>
-          <b>
-            {latest?.temperature_c ? `${latest.temperature_c} °C` : "Belum ada"}
-          </b>
-        </article>
-      </section>
-      <section className="panel care-reminder-panel">
-        <div className="panel-heading">
-          <div>
-            <span className="section-eyebrow">PENGINGAT PERAWATAN</span>
-            <h3>Jadwal penting {pet.name}</h3>
-          </div>
-          <button
-            className="primary-button small"
-            type="button"
-            onClick={() => setReminderOpen(true)}
-          >
-            <Icon name="plus" size={15} /> Tambah pengingat
-          </button>
-        </div>
-        <div className="care-reminder-list">
-          {reminders.filter((item) =>
-            ["scheduled", "snoozed"].includes(item.status),
-          ).length ? (
-            reminders
-              .filter((item) => ["scheduled", "snoozed"].includes(item.status))
-              .map((item) => (
-                <article key={item.id}>
-                  <span>
-                    {item.reminder_type === "vaccination"
-                      ? "💉"
-                      : item.reminder_type === "medication"
-                        ? "💊"
-                        : item.reminder_type === "grooming"
-                          ? "✂️"
-                          : "🔔"}
-                  </span>
-                  <div>
-                    <b>{item.title}</b>
-                    <small>
-                      {new Date(item.due_at).toLocaleString("id-ID")} ·{" "}
-                      {item.recurrence === "once"
-                        ? "Satu kali"
-                        : `Berulang ${item.recurrence}`}
-                    </small>
-                    <p>{item.notes || `Pengingat untuk ${item.pet_name}`}</p>
-                  </div>
-                  <div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await snoozeCareReminder(item.id, 1440);
-                        await loadReminders();
-                        notify("Pengingat ditunda satu hari");
-                      }}
-                    >
-                      Tunda 1 hari
-                    </button>
-                    <button
-                      className="complete"
-                      type="button"
-                      onClick={async () => {
-                        await completeCareReminder(item.id);
-                        await loadReminders();
-                        notify("Perawatan ditandai selesai");
-                      }}
-                    >
-                      Selesai
-                    </button>
-                  </div>
-                </article>
-              ))
-          ) : (
-            <div className="empty-state compact">
-              Belum ada pengingat. Tambahkan jadwal vaksin, obat, grooming, atau
-              kontrol berikutnya.
-            </div>
-          )}
-        </div>
-      </section>
-      {(pet.notes || pet.allergies) && (
-        <section className="panel health-special-note">
-          <span>⚠️</span>
-          <div>
-            <small>CATATAN KHUSUS</small>
-            <b>{pet.allergies && `Alergi: ${pet.allergies}`}</b>
-            <p>{pet.notes || "Tidak ada catatan medis tambahan."}</p>
-          </div>
-        </section>
-      )}
-      <div className="tabs wide">
-        {categories.map((item) => (
-          <button
-            type="button"
-            className={tab === item.id ? "active" : ""}
-            key={item.id}
-            onClick={() => setTab(item.id)}
-          >
-            {item.label}
-            <span>
-              {item.id === "all"
-                ? records.length
-                : records.filter((record) =>
-                    record.record_type.toLowerCase().includes(item.id),
-                  ).length}
-            </span>
-          </button>
-        ))}
+        <button
+          type="button"
+          className={screen === "records" ? "active" : ""}
+          aria-selected={screen === "records"}
+          onClick={() => setScreen("records")}
+        >
+          Rekam Medis <span>{records.length}</span>
+        </button>
       </div>
-      <section className="panel health-record-api">
-        <div className="panel-heading">
-          <div>
-            <span className="section-eyebrow">PET MEDICAL RECORD</span>
-            <h3>Riwayat {pet.name}</h3>
-          </div>
-          <small>Catatan kesehatan terpilih</small>
-        </div>
-        {loading ? (
-          <div className="empty-state compact">
-            Memuat rekam medis {pet.name}…
-          </div>
-        ) : visible.length ? (
-          <div className="record-list">
-            {visible.map((record) => (
-              <article key={record.id}>
-                <span className="record-icon">🩺</span>
+
+      {screen === "summary" ? (
+        <>
+          <header className="health-native-section-header">
+            <div>
+              <span>RINGKASAN KESEHATAN</span>
+              <h3>Data medis {pet.name}</h3>
+            </div>
+            <button type="button" onClick={() => setReminderOpen(true)}>
+              <Icon name="plus" size={15} /> Pengingat
+            </button>
+          </header>
+
+          <section className="health-native-prevention">
+            <div className="health-native-progress">
+              <b>{records.length}</b>
+              <small>Record</small>
+            </div>
+            <div>
+              <p>
+                <span className={records.length ? "done" : ""}>
+                  {records.length ? <Icon name="check" size={12} /> : "!"}
+                </span>
+                <b>{records.length ? "Rekam medis tersinkron" : "Belum ada rekam medis"}</b>
+                <small>{latest?.title || "Buat booking pemeriksaan untuk memulai record"}</small>
+              </p>
+              <p>
+                <span className={pet.healthScore > 0 ? "done" : ""}>
+                  {pet.healthScore > 0 ? <Icon name="check" size={12} /> : "!"}
+                </span>
+                <b>Health score {pet.healthScore || "belum tersedia"}</b>
+                <small>{pet.nextCare || "Lengkapi profil dan aktivitas pet"}</small>
+              </p>
+            </div>
+          </section>
+
+          <section className="health-native-facts">
+            <article>
+              <span><Icon name="shield" size={17} /></span>
+              <small>Microchip</small>
+              <b>{pet.microchip}</b>
+            </article>
+            <article>
+              <span><Icon name="heart" size={17} /></span>
+              <small>Berat terbaru</small>
+              <b>{latest?.weight_kg ? `${latest.weight_kg} kg` : pet.weight}</b>
+            </article>
+          </section>
+
+          {latest ? (
+            <>
+              <header className="health-native-section-header">
                 <div>
-                  <small>
-                    {record.record_type.toUpperCase()} •{" "}
-                    {new Date(record.occurred_at).toLocaleString("id-ID")}
-                  </small>
-                  <b>{record.title}</b>
-                  <p>
-                    {record.diagnosis ||
-                      record.clinical_notes ||
-                      record.complaint ||
-                      "Tidak ada keterangan tambahan"}
-                  </p>
-                  <em>{record.doctor_name || "Dokter belum dicatat"}</em>
+                  <span>RECORD TERBARU</span>
+                  <h3>{latest.title}</h3>
                 </div>
-                <button type="button" onClick={() => setDetail(record)}>
-                  Lihat detail
+                <button type="button" onClick={() => setScreen("records")}>
+                  Semua <Icon name="arrow" size={14} />
                 </button>
-              </article>
+              </header>
+              <button
+                className="health-native-latest"
+                type="button"
+                onClick={() => setDetail(latest)}
+              >
+                <span><Icon name="heart" size={20} /></span>
+                <p>
+                  <small>{new Date(latest.occurred_at).toLocaleString("id-ID")}</small>
+                  <b>{latest.diagnosis || latest.complaint || latest.title}</b>
+                  <span>{latest.doctor_name || "Dokter belum dicatat"}</span>
+                </p>
+                <i><Icon name="arrow" size={15} /></i>
+              </button>
+            </>
+          ) : null}
+
+          <section className="panel care-reminder-panel health-native-reminders">
+            <header className="health-native-section-header">
+              <div>
+                <span>PENGINGAT PERAWATAN</span>
+                <h3>Jadwal penting {pet.name}</h3>
+              </div>
+              <button type="button" onClick={() => setReminderOpen(true)}>
+                <Icon name="plus" size={15} /> Tambah
+              </button>
+            </header>
+            <div className="care-reminder-list">
+              {reminders.filter((item) =>
+                ["scheduled", "snoozed"].includes(item.status),
+              ).length ? (
+                reminders
+                  .filter((item) => ["scheduled", "snoozed"].includes(item.status))
+                  .map((item) => (
+                    <article key={item.id}>
+                      <span>
+                        {item.reminder_type === "vaccination"
+                          ? "💉"
+                          : item.reminder_type === "medication"
+                            ? "💊"
+                            : item.reminder_type === "grooming"
+                              ? "✂️"
+                              : "🔔"}
+                      </span>
+                      <div>
+                        <b>{item.title}</b>
+                        <small>
+                          {new Date(item.due_at).toLocaleString("id-ID")} ·{" "}
+                          {item.recurrence === "once"
+                            ? "Satu kali"
+                            : `Berulang ${item.recurrence}`}
+                        </small>
+                        <p>{item.notes || `Pengingat untuk ${item.pet_name}`}</p>
+                      </div>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await snoozeCareReminder(item.id, 1440);
+                            await loadReminders();
+                            notify("Pengingat ditunda satu hari");
+                          }}
+                        >
+                          Tunda
+                        </button>
+                        <button
+                          className="complete"
+                          type="button"
+                          onClick={async () => {
+                            await completeCareReminder(item.id);
+                            await loadReminders();
+                            notify("Perawatan ditandai selesai");
+                          }}
+                        >
+                          Selesai
+                        </button>
+                      </div>
+                    </article>
+                  ))
+              ) : (
+                <div className="empty-state compact health-native-reminder-empty">
+                  Belum ada pengingat. Tambahkan jadwal vaksin, obat, grooming, atau
+                  kontrol berikutnya.
+                </div>
+              )}
+            </div>
+          </section>
+
+          {(pet.notes || pet.allergies) && (
+            <section className="health-special-note">
+              <span><Icon name="shield" size={18} /></span>
+              <div>
+                <small>CATATAN KHUSUS</small>
+                <b>{pet.allergies ? `Alergi: ${pet.allergies}` : "Catatan kesehatan"}</b>
+                <p>{pet.notes || "Tidak ada catatan medis tambahan."}</p>
+              </div>
+            </section>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="health-record-filter" role="tablist" aria-label="Jenis rekam medis">
+            {categories.map((item) => (
+              <button
+                type="button"
+                className={tab === item.id ? "active" : ""}
+                key={item.id}
+                aria-selected={tab === item.id}
+                onClick={() => setTab(item.id)}
+              >
+                {item.label}
+              </button>
             ))}
           </div>
-        ) : (
-          <div className="empty-state">
-            <span>🩺</span>
-            <h3>Belum ada rekam medis</h3>
-            <p>
-              Record akan muncul setelah pemeriksaan atau konsultasi untuk{" "}
-              {pet.name}.
-            </p>
-          </div>
-        )}
-      </section>
+          <section className="panel health-record-api health-native-records">
+            <header className="health-native-section-header">
+              <div>
+                <span>PET MEDICAL RECORD</span>
+                <h3>Riwayat {pet.name}</h3>
+              </div>
+              <button
+                type="button"
+                disabled={!records.length}
+                onClick={() => downloadPetMedicalPDF(pet, records)}
+              >
+                <Icon name="download" size={15} /> Unduh
+              </button>
+            </header>
+            {loading ? (
+              <div className="empty-state compact health-native-record-empty">
+                Memuat rekam medis {pet.name}…
+              </div>
+            ) : visible.length ? (
+              <div className="health-native-record-list">
+                {visible.map((record) => (
+                  <button
+                    type="button"
+                    key={record.id}
+                    onClick={() => setDetail(record)}
+                  >
+                    <span><Icon name="heart" size={20} /></span>
+                    <p>
+                      <small>
+                        {record.record_type.toUpperCase()} ·{" "}
+                        {new Date(record.occurred_at).toLocaleString("id-ID")}
+                      </small>
+                      <b>{record.title}</b>
+                      <span>
+                        {record.diagnosis ||
+                          record.clinical_notes ||
+                          record.complaint ||
+                          "Tidak ada keterangan tambahan"}
+                      </span>
+                    </p>
+                    <Icon name="chevron" size={16} />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state health-native-record-empty">
+                <span><Icon name="heart" size={28} /></span>
+                <h3>Belum ada rekam medis</h3>
+                <p>Record akan muncul setelah pemeriksaan atau konsultasi untuk {pet.name}.</p>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
       {detail && (
         <div className="modal-overlay" onMouseDown={() => setDetail(null)}>
           <section
@@ -3834,24 +3968,62 @@ function ShopView({
 }) {
   const [category, setCategory] = useState("Semua");
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState("recommended");
   const categories = [
     "Semua",
     ...Array.from(new Set(productCatalog.map((item) => item.category))),
   ];
-  const filtered = productCatalog.filter(
-    (product) =>
-      (category === "Semua" || product.category === category) &&
-      product.name.toLowerCase().includes(query.toLowerCase()),
-  );
+  const filtered = productCatalog
+    .filter(
+      (product) =>
+        (category === "Semua" || product.category === category) &&
+        `${product.name} ${product.brand}`.toLowerCase().includes(query.toLowerCase()),
+    )
+    .sort((left, right) => {
+      if (sort === "rating") return right.rating - left.rating;
+      if (sort === "price") return left.price - right.price;
+      if (sort === "popular") return right.sold.localeCompare(left.sold);
+      return Number(Boolean(right.badge)) - Number(Boolean(left.badge));
+    });
   return (
-    <div>
-      <section className="shop-banner">
+    <div className="shop-native">
+      <header className="native-screen-header shop-native-header">
         <div>
-          <span className="soft-badge white">DIKURASI OLEH DOKTER HEWAN</span>
-          <h2>Belanja lebih tepat untuk kebutuhan mereka.</h2>
-          <p>Rekomendasi personal, produk asli, dan pengiriman same day.</p>
+          <span>SLIVA MARKET</span>
+          <h2>Belanja kebutuhan pet</h2>
+        </div>
+        <button
+          className="native-header-icon"
+          type="button"
+          aria-label="Buka keranjang"
+          onClick={() => setCartOpen(true)}
+        >
+          <Icon name="bag" size={20} />
+        </button>
+      </header>
+
+      <label className="shop-native-search">
+        <Icon name="search" size={18} />
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Cari makanan, vitamin, atau toko"
+          aria-label="Cari produk atau toko"
+        />
+        {query && (
+          <button type="button" aria-label="Hapus pencarian" onClick={() => setQuery("")}>
+            <Icon name="close" size={16} />
+          </button>
+        )}
+      </label>
+
+      <section className="shop-native-hero">
+        <div>
+          <span className="shop-native-pill">BELANJA AMAN</span>
+          <h2>Satu keranjang, banyak toko pet.</h2>
+          <p>Produk petshop dan klinik terhubung langsung dengan stok asli.</p>
           <button
-            className="primary-button white-button"
+            className="shop-native-hero-action"
             type="button"
             onClick={() => {
               setCategory("Semua");
@@ -3861,116 +4033,135 @@ function ShopView({
             Lihat rekomendasi {petName}
           </button>
         </div>
-        <span className="shop-illustration">
-          🛍️<i>🐕</i>
-        </span>
+        <div className="shop-native-art" aria-hidden="true">
+          <span><Icon name="bag" size={48} /></span>
+          <i><Icon name="paw" size={18} /></i>
+        </div>
       </section>
-      <div className="shop-tools">
-        <label>
-          <Icon name="search" size={18} />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Cari makanan, obat, mainan..."
-          />
-        </label>
-        <button
-          className="secondary-button"
-          type="button"
-          onClick={() => setCartOpen(true)}
-        >
-          <Icon name="cart" size={17} /> Keranjang
+
+      <header className="shop-native-section-header">
+        <div>
+          <span>KATEGORI KEBUTUHAN</span>
+          <h3>Belanja dari petshop favorit</h3>
+        </div>
+        <button type="button" onClick={() => setCartOpen(true)}>
+          <Icon name="cart" size={16} /> Keranjang
         </button>
+      </header>
+
+      <div className="shop-native-categories" role="tablist" aria-label="Kategori produk">
+        {categories.map((item) => {
+          const active = category === item;
+          return (
+            <button
+              type="button"
+              className={active ? "active" : ""}
+              aria-selected={active}
+              onClick={() => setCategory(item)}
+              key={item}
+            >
+              <span>
+                <Icon
+                  name={
+                    item === "Semua"
+                      ? "sparkle"
+                      : item === "Kesehatan" || item === "Vitamin"
+                        ? "heart"
+                        : item === "Mainan"
+                          ? "paw"
+                          : "bag"
+                  }
+                  size={18}
+                />
+              </span>
+              {item}
+            </button>
+          );
+        })}
       </div>
-      <div className="category-scroll">
-        {categories.map((item) => (
+
+      <header className="shop-native-section-header shop-native-catalog-header">
+        <div>
+          <span>PILIHAN BUAT {petName.toUpperCase()}</span>
+          <h3>{filtered.length} produk ditemukan</h3>
+        </div>
+      </header>
+
+      <div className="shop-native-sort-row" role="tablist" aria-label="Urutkan produk">
+        {[
+          ["recommended", "Rekomendasi"],
+          ["popular", "Terlaris"],
+          ["rating", "Rating"],
+          ["price", "Harga termurah"],
+        ].map(([id, label]) => (
           <button
             type="button"
-            className={category === item ? "active" : ""}
-            onClick={() => setCategory(item)}
-            key={item}
+            key={id}
+            className={sort === id ? "active" : ""}
+            aria-selected={sort === id}
+            onClick={() => setSort(id)}
           >
-            <span>
-              {item === "Semua"
-                ? "✨"
-                : item === "Makanan"
-                  ? "🥣"
-                  : item === "Kesehatan"
-                    ? "🩺"
-                    : item === "Vitamin"
-                      ? "💊"
-                      : item === "Kebutuhan"
-                        ? "🧴"
-                        : item === "Mainan"
-                          ? "🧸"
-                          : "🎀"}
-            </span>
-            {item}
+            {label}
           </button>
         ))}
       </div>
-      <div className="shop-section-head">
-        <div>
-          <span className="section-eyebrow">
-            PILIHAN UNTUK {petName.toUpperCase()}
-          </span>
-          <h3>Rekomendasi dokter</h3>
-        </div>
-        <select aria-label="Urutkan produk">
-          <option>Paling relevan</option>
-          <option>Terlaris</option>
-          <option>Harga terendah</option>
-        </select>
-      </div>
-      <div className="product-grid">
-        {filtered.map((product) => (
-          <article className="product-card" key={product.id}>
-            <div className="product-visual">
-              <span>{product.emoji}</span>
-              {product.badge && <em>{product.badge}</em>}
-              <button
-                className={favorites.includes(product.id) ? "favorite" : ""}
-                type="button"
-                aria-label="Simpan produk"
-                onClick={() => toggleFavorite(product.id)}
-              >
-                <Icon name="heart" size={17} />
-              </button>
-            </div>
-            <div className="product-body">
-              <small>
-                {product.brand} <i>✓</i>
-              </small>
-              <h3>{product.name}</h3>
-              <p>
-                {product.rating > 0 && (
-                  <>
-                    <Icon name="star" size={13} /> <b>{product.rating}</b>{" "}
-                    •{" "}
-                  </>
-                )}
-                {product.sold}
-              </p>
-              <div className="product-price">
+
+      {filtered.length ? (
+        <div className="shop-native-grid">
+          {filtered.map((product) => (
+            <article className="shop-product-card" key={product.id}>
+              <div className="shop-product-visual">
+                <span>{product.emoji}</span>
+                {product.badge && <em>{product.badge}</em>}
+                <button
+                  className={favorites.includes(product.id) ? "favorite" : ""}
+                  type="button"
+                  aria-label={favorites.includes(product.id) ? "Hapus dari favorit" : "Simpan produk"}
+                  onClick={() => toggleFavorite(product.id)}
+                >
+                  <Icon name="heart" size={17} />
+                </button>
+              </div>
+              <div className="shop-product-body">
+                <b>{product.name}</b>
                 <span>
-                  <b>{formatRupiah(product.price)}</b>
-                  {product.originalPrice && (
-                    <del>{formatRupiah(product.originalPrice)}</del>
-                  )}
+                  <Icon name="bag" size={12} /> {product.brand}
                 </span>
+                <div>
+                  <p>
+                    <Icon name="star" size={10} /> {product.rating || "Baru"} · {product.sold}
+                  </p>
+                  <strong>{formatRupiah(product.price)}</strong>
+                </div>
                 <button
                   type="button"
                   disabled={product.badge === "Stok habis"}
                   onClick={() => addToCart(product.id)}
                   aria-label={`Tambah ${product.name} ke keranjang`}
                 >
-                  <Icon name="plus" size={18} />
+                  <Icon name="bag" size={15} /> Tambah
                 </button>
               </div>
-            </div>
-          </article>
-        ))}
-      </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state shop-native-empty">
+          <span><Icon name="search" size={28} /></span>
+          <h3>Produk belum ditemukan</h3>
+          <p>Coba kata kunci atau kategori lain.</p>
+          <button
+            className="primary-button small"
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setCategory("Semua");
+            }}
+          >
+            Reset pencarian
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -4000,25 +4191,32 @@ function ProfileView({
   const [edit, setEdit] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   return (
-    <div className="profile-layout">
-      <section className="profile-main-card">
+    <div className="profile-native">
+      <header className="native-screen-header">
+        <div>
+          <span>AKUN & KELUARGA</span>
+          <h2>Profil pet parent</h2>
+        </div>
+      </header>
+
+      <section className="profile-main-card profile-native-card">
         <div className="profile-cover">
-          <span>SLIVADOC PET FAMILY</span>
+          <span>PET PARENT CLUB ✦</span>
         </div>
         <div className="profile-person">
           <div className="profile-photo">{initials}</div>
           <div>
             <h2>{account.full_name}</h2>
-            <p>
-              {account.email} · {account.phone || "Nomor telepon belum diisi"}
-            </p>
-            <span className="gold-member">✓ AKUN PET OWNER AKTIF</span>
+            <p>{account.email} · {account.phone || "Nomor telepon belum diisi"}</p>
+            <span className="gold-member">✓ AKUN AKTIF</span>
           </div>
           <button
-            className="secondary-button small"
+            className="native-header-icon"
+            type="button"
+            aria-label="Edit profil"
             onClick={() => setEdit(true)}
           >
-            <Icon name="edit" size={15} /> Edit profil
+            <Icon name="edit" size={16} />
           </button>
         </div>
         <div className="profile-stats">
@@ -4028,7 +4226,7 @@ function ProfileView({
           </span>
           <span>
             <b>{points.toLocaleString("id-ID")}</b>
-            <small>Sliva Points</small>
+            <small>Points</small>
           </span>
           <span>
             <b>{points > 0 ? "Member" : "Regular"}</b>
@@ -4036,97 +4234,88 @@ function ProfileView({
           </span>
           <span>
             <b>Aktif</b>
-            <small>Sinkronisasi</small>
+            <small>Sinkron</small>
           </span>
         </div>
       </section>
-      <div className="profile-grid">
-        <section className="panel profile-section">
-          <div className="panel-heading">
-            <div>
-              <span className="section-eyebrow">DATA AKUN</span>
-              <h3>Identitas pet parent</h3>
-            </div>
-            <span className="active-chip">Aktif</span>
-          </div>
-          <dl className="account-detail-list">
-            <div>
-              <dt>Nama lengkap</dt>
-              <dd>{account.full_name}</dd>
-            </div>
-            <div>
-              <dt>Email login</dt>
-              <dd>{account.email}</dd>
-            </div>
-            <div>
-              <dt>Nomor telepon</dt>
-              <dd>{account.phone || "Belum diisi"}</dd>
-            </div>
-            <div>
-              <dt>Jumlah pet</dt>
-              <dd>{petCount}</dd>
-            </div>
-          </dl>
-        </section>
-        <section className="panel profile-section">
-          <div className="panel-heading">
-            <div>
-              <span className="section-eyebrow">SLIVA POINT</span>
-              <h3>Saldo dan aturan klaim</h3>
-            </div>
-            <span className="point-profile-badge">
-              {points.toLocaleString("id-ID")}
-            </span>
-          </div>
-          <div className="point-rule-card">
-            <span>✦</span>
-            <div>
-              <b>
-                {points
-                  ? points.toLocaleString("id-ID") + " poin tersedia"
-                  : "Belum ada poin"}
-              </b>
-              <p>
-                {rewardFormulaText(rewardFormula)}. Transaksi refund otomatis
-                membalik poin terkait.
-              </p>
-            </div>
-          </div>
-          {points === 0 && (
-            <div className="zero-transaction">
-              Belum ada transaksi lunas pada akun ini, sehingga saldo poin
-              adalah 0.
-            </div>
-          )}
-        </section>
-        <section className="panel profile-section span-2">
-          <div className="panel-heading">
-            <div>
-              <span className="section-eyebrow">PRIVASI & SESI</span>
-              <h3>Keamanan akun</h3>
-            </div>
-          </div>
-          <p className="muted-copy">
-            Data profil ditampilkan langsung dari akun yang sedang login. Keluar
-            akan mengakhiri sesi pada perangkat ini.
+
+      <section className="profile-native-points">
+        <header>
+          <span>SLIVA POINT</span>
+          <h3>Saldo dan aturan klaim</h3>
+        </header>
+        <div>
+          <span><Icon name="sparkle" size={19} /></span>
+          <p>
+            <b>{points.toLocaleString("id-ID")} Sliva Points</b>
+            <small>
+              {points
+                ? "Tersedia untuk klaim sesuai syarat"
+                : "Belum ada transaksi lunas"}
+            </small>
           </p>
-          <div className="profile-danger">
-            <span>
-              <b>Keluar dari perangkat ini</b>
-              <small>
-                Kamu dapat masuk kembali menggunakan email dan kata sandi.
-              </small>
-            </span>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => setConfirmLogout(true)}
-            >
-              <Icon name="logout" size={16} /> Keluar akun
-            </button>
-          </div>
-        </section>
-      </div>
+          <i>AKTIF</i>
+        </div>
+        <ul>
+          {(rewardFormula.rules?.length
+            ? rewardFormula.rules
+            : [rewardFormulaText(rewardFormula)])
+            .slice(0, 3)
+            .map((rule) => (
+              <li key={rule}>
+                <Icon name="check" size={12} /> {rule}
+              </li>
+            ))}
+        </ul>
+      </section>
+
+      <section className="panel profile-native-settings">
+        <header>
+          <span>PREFERENSI</span>
+          <h3>Pengaturan akun</h3>
+        </header>
+        <button type="button" onClick={() => setEdit(true)}>
+          <span><Icon name="user" size={19} /></span>
+          <p><b>Profil pet parent</b><small>{account.full_name}</small></p>
+          <Icon name="chevron" size={17} />
+        </button>
+        <button type="button" onClick={() => notify("Notifikasi Slivadoc tersedia di ikon lonceng.")}>
+          <span><Icon name="bell" size={19} /></span>
+          <p><b>Notifikasi</b><small>Buka daftar dan detail update</small></p>
+          <Icon name="chevron" size={17} />
+        </button>
+        <button type="button" onClick={() => notify(`Email login: ${account.email}`)}>
+          <span><Icon name="shield" size={19} /></span>
+          <p><b>Privasi & keamanan</b><small>Verifikasi dan sesi perangkat</small></p>
+          <Icon name="chevron" size={17} />
+        </button>
+        <button type="button" onClick={() => notify(`${petCount} profil pet terhubung ke akun ini.`)}>
+          <span><Icon name="users" size={19} /></span>
+          <p><b>Keluarga & akses</b><small>Kelola orang tepercaya untuk pet</small></p>
+          <Icon name="chevron" size={17} />
+        </button>
+      </section>
+
+      <button
+        className="profile-native-support"
+        type="button"
+        onClick={() => notify("SlivaCare siap membantu kebutuhan pet-mu.")}
+      >
+        <span><Icon name="chat" size={20} /></span>
+        <p><b>Chat Customer Support</b><small>Hubungi tim Slivadoc langsung dari aplikasi.</small></p>
+        <Icon name="arrow" size={16} />
+      </button>
+
+      <button
+        className="profile-native-logout"
+        type="button"
+        onClick={() => setConfirmLogout(true)}
+      >
+        <span><Icon name="logout" size={20} /></span>
+        <p><b>Keluar dari akun</b><small>Akhiri sesi hanya di perangkat ini.</small></p>
+        <Icon name="chevron" size={17} />
+      </button>
+
       {edit && (
         <ProfileEditModal
           account={account}
@@ -4691,7 +4880,7 @@ function MobileNav({
   onOpenChat: () => void;
 }) {
   const [more, setMore] = useState(false);
-  const primaryIds: AppView[] = ["home", "discover", "community", "bookings"];
+  const primaryIds: AppView[] = ["home", "shop", "community", "bookings"];
   const items = primaryIds
     .map((id) => navItems.find((item) => item.id === id))
     .filter((item): item is (typeof navItems)[number] => Boolean(item));

@@ -126,7 +126,7 @@ test("PetHub tab rail keeps every tab reachable", async ({ page }) => {
   );
 });
 
-test("narrow header search expands and mobile controls remain tappable", async ({
+test("narrow header keeps the native search launcher and controls tappable", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 700 });
@@ -134,21 +134,22 @@ test("narrow header search expands and mobile controls remain tappable", async (
 
   const search = page.locator(".global-search");
   const input = search.getByRole("searchbox", { name: "Cari di seluruh Slivadoc" });
-  const collapsedSearch = await search.boundingBox();
-  expect(collapsedSearch!.width).toBe(44);
-  expect(collapsedSearch!.height).toBeGreaterThanOrEqual(44);
+  const launcher = await search.boundingBox();
+  expect(launcher!.width).toBeGreaterThanOrEqual(200);
+  expect(launcher!.height).toBeGreaterThanOrEqual(44);
   await search.click();
   await expect(input).toBeFocused();
-  expect((await search.boundingBox())!.width).toBeGreaterThanOrEqual(300);
 
-  await page.keyboard.press("Escape");
-  await page.locator("body").click({ position: { x: 1, y: 100 } });
+  const notification = page.getByRole("button", { name: "Notifikasi" });
+  await expect(notification).toBeVisible();
+  const notificationBox = await notification.boundingBox();
+  expect(notificationBox!.width).toBeGreaterThanOrEqual(44);
+  expect(notificationBox!.height).toBeGreaterThanOrEqual(44);
+
+  await page.getByRole("button", { name: "Tutup", exact: true }).click();
+  await expect(page.locator(".owner-search-results")).toBeHidden();
   const undersized = await page.evaluate(() =>
-    [
-      ...document.querySelectorAll(
-        ".topbar button, .hero-actions button, .mobile-nav button",
-      ),
-    ]
+    [...document.querySelectorAll(".topbar button, .mobile-nav button")]
       .filter((element) => {
         const box = element.getBoundingClientRect();
         return box.width > 0 && box.height > 0;

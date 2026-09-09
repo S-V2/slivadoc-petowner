@@ -2,42 +2,39 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const css = await readFile(
-  new URL("../app/mobile-responsive.css", import.meta.url),
-  "utf8",
-);
-const layout = await readFile(
-  new URL("../app/layout.tsx", import.meta.url),
-  "utf8",
-);
-const guideline = await readFile(
-  new URL("../docs/SLIVADOC_BRAND_TYPOGRAPHY_STANDARD.md", import.meta.url),
-  "utf8",
-);
+const [css, layout] = await Promise.all([
+  readFile(new URL("../app/mobile-responsive.css", import.meta.url), "utf8"),
+  readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+]);
 
-test("root layout loads the consolidated mobile responsive cascade", () => {
+test("root layout loads the consolidated mobile responsive cascade last", () => {
   const globalsIndex = layout.indexOf('import "./globals.css"');
+  const homeIndex = layout.indexOf('import "./revamp-home.css"');
   const mobileIndex = layout.indexOf('import "./mobile-responsive.css"');
 
   assert.ok(globalsIndex >= 0);
-  assert.ok(mobileIndex > globalsIndex);
+  assert.ok(homeIndex > globalsIndex);
+  assert.ok(mobileIndex > homeIndex);
 });
 
-test("mobile semantic type scale stays compact and readable", () => {
-  assert.match(css, /--type-page-title:\s*24px/);
-  assert.match(css, /--type-section-title:\s*20px/);
-  assert.match(css, /--type-card-title:\s*16px/);
-  assert.match(css, /--type-body:\s*14px/);
-  assert.match(css, /--type-caption:\s*11px/);
-  assert.match(css, /--type-compact-control:\s*13px/);
-  assert.match(css, /input:not\(\[type="checkbox"\]\)[\s\S]*?font-size:\s*16px\s*!important/);
+test("mobile semantic type scale matches the RN 22/17/15/13/10 contract", () => {
+  assert.match(css, /--type-page-title:\s*22px;/);
+  assert.match(css, /--type-section-title:\s*17px;/);
+  assert.match(css, /--type-card-title:\s*15px;/);
+  assert.match(css, /--type-body:\s*13px;/);
+  assert.match(css, /--type-caption:\s*10px;/);
+  assert.match(css, /--type-control:\s*13px;/);
+  assert.match(css, /--type-compact-control:\s*13px;/);
+  assert.match(
+    css,
+    /input:not\(\[type="checkbox"\]\):not\(\[type="radio"\]\)[\s\S]*?font-size:\s*16px\s*!important/,
+  );
 });
 
-test("all feature heroes share the compact mobile display size", () => {
+test("mobile feature heroes use the native compact title token", () => {
   for (const selector of [
-    ".hero-copy h2",
-    ".discover-search-card h2",
     ".world-hero h2",
+    ".event-banner h2",
     ".care-hero h2",
     ".adoption-hero h2",
     ".document-hero h2",
@@ -46,22 +43,22 @@ test("all feature heroes share the compact mobile display size", () => {
   ]) {
     assert.ok(css.includes(selector), `${selector} must use the shared scale`);
   }
-  assert.match(css, /font-size:\s*22px\s*!important/);
+  assert.match(css, /font-size:\s*var\(--type-page-title\)\s*!important/);
 });
 
 test("discovery results stack their sorter instead of squeezing summary copy", () => {
   assert.match(
     css,
-    /\.app-shell \.discover-result-head\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/,
+    /\.discover-result-head\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/,
   );
   assert.match(
     css,
-    /\.app-shell \.discover-result-head select\s*\{[\s\S]*?width:\s*100%/,
+    /\.discover-result-head select\s*\{[\s\S]*?width:\s*100%/,
   );
 });
 
-test("mobile guideline documents tokens, touch targets, and target widths", () => {
-  assert.match(guideline, /--type-compact-control/);
-  assert.match(guideline, /44 × 44 px/);
-  assert.match(guideline, /320, 375, 414, dan 768 px/);
+test("mobile shell keeps search and notification controls at native touch size", () => {
+  assert.match(css, /\.global-search\s*\{[\s\S]*?height:\s*44px/);
+  assert.match(css, /\.top-actions \.icon-button \+ \.icon-button\s*\{[\s\S]*?width:\s*44px/);
+  assert.match(css, /\.mobile-more-sheet::before[\s\S]*?width:\s*42px[\s\S]*?height:\s*5px/);
 });

@@ -5,34 +5,42 @@
 @import "./revamp-pawdating.css";
 
 :root {
-  --sky-25: #f7fcff;
-  --sky-50: #eef9ff;
-  --sky-100: #dcf2ff;
-  --sky-200: #bee7ff;
-  --sky-400: #47b5f7;
-  --sky-500: #159de8;
-  --sky-600: #087fc8;
-  --navy: #172b4d;
-  --text: #20324d;
-  --muted: #728096;
-  --line: #e5edf4;
-  --canvas: #f5f9fc;
-  --white: #ffffff;
-  --mint: #22b99a;
-  --violet: #806bea;
-  --red: #ef6270;
-  --yellow: #edb739;
-  --shadow: 0 12px 36px rgba(33, 77, 113, 0.08);
-  --font-sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --type-page-title: 32px;
-  --type-section-title: 24px;
-  --type-card-title: 18px;
-  --type-body-large: 16px;
-  --type-body: 14px;
-  --type-caption: 12px;
-  --type-control: 14px;
+  --canvas: #F6FBFF;
+  --white: #FFFFFF;
+  --navy: #153B5B;
+  --text: #2E4A62;
+  --muted: #5F7486;
+  --line: #E2EEF5;
+  --sky-25: #F6FBFF;
+  --sky-50: #EBF8FF;
+  --sky-100: #D8F1FF;
+  --sky-200: #D8F1FF;
+  --sky-300: #8FD4FB;
+  --sky-400: #55C4FA;
+  --sky-500: #19A7F2;
+  --sky-600: #05689F;
+  --mint: #08725F;
+  --mint-50: #E8FAF5;
+  --violet: #5B48B5;
+  --violet-50: #F1EEFF;
+  --red: #B5344E;
+  --red-50: #FFF0F4;
+  --yellow: #8B5A00;
+  --yellow-50: #FFF7DE;
+  --peach-50: #FFF1E9;
+  --pink-50: #FFF0F7;
+  --shadow: 0 6px 16px rgba(40, 121, 167, 0.065);
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --type-page-title: 22px;
+  --type-section-title: 17px;
+  --type-card-title: 15px;
+  --type-body-large: 14px;
+  --type-body: 13px;
+  --type-caption: 10px;
+  --type-control: 13px;
+  --type-compact-control: 13px;
   --leading-title: 1.2;
-  --leading-body: 1.6;
+  --leading-body: 1.55;
   --tracking-title: -.025em;
 }
 
@@ -491,3 +499,852 @@ p, li, dd { text-wrap:pretty; overflow-wrap:anywhere; }
 .points-redemption-card input { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; outline: none; }
 .points-redemption-card input:focus { border-color: var(--sky-400); box-shadow: 0 0 0 3px var(--sky-50); }
 .points-redemption-card button { padding: 0 14px; border: 0; border-radius: 10px; color: var(--sky-700); background: var(--sky-100); font-weight: 800; }
+
+/* React Native visual-system cutover. Kept last so legacy feature rules inherit
+   the same tokens without changing routes or data behavior. */
+body {
+  background: var(--canvas);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--type-body);
+  font-weight: 400;
+  line-height: var(--leading-body);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+.page-heading h1,
+.page-content h1 {
+  color: var(--navy);
+  font-size: var(--type-page-title);
+  font-weight: 700;
+  line-height: var(--leading-title);
+}
+
+.page-content h2,
+.modal h2,
+.drawer h2 {
+  color: var(--navy);
+  font-size: var(--type-section-title);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.page-content h3,
+.page-content .panel-heading h3,
+.page-content .panel-heading > h3 {
+  color: var(--navy);
+  font-size: var(--type-card-title);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.page-content p,
+.page-content li,
+.page-content dd {
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+}
+
+.page-content small,
+.page-content time,
+.page-content dt,
+.page-content .section-eyebrow,
+.page-content .heading-kicker {
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+
+.primary-button,
+.secondary-button,
+.ghost-button,
+.full-soft-button {
+  min-height: 44px;
+  border-radius: 16px;
+  font-size: var(--type-control);
+  font-weight: 600;
+}
+
+.primary-button {
+  border-color: var(--sky-600);
+  color: var(--white);
+  background: var(--sky-600);
+  box-shadow: var(--shadow);
+}
+
+.primary-button:hover {
+  background: var(--sky-500);
+  box-shadow: var(--shadow);
+}
+
+.primary-button.small,
+.secondary-button.small {
+  min-height: 40px;
+  border-radius: 12px;
+  font-size: var(--type-control);
+}
+
+.secondary-button,
+.full-soft-button {
+  border-color: var(--sky-100);
+  color: var(--sky-600);
+  background: var(--sky-50);
+}
+
+.panel,
+.service-result-card,
+.booking-card,
+.product-card,
+.profile-main-card,
+.health-account-facts article,
+.community-post,
+.group-row,
+.doctor-card,
+.adoption-card,
+.document-card,
+.document-product-card,
+.academy-card,
+.event-card,
+.spot-list > button,
+.stream-strip > button,
+.paw-profile-card {
+  border-color: var(--sky-100);
+  border-radius: 22px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+}
+
+.section-eyebrow,
+.heading-kicker,
+.world-kicker {
+  color: var(--muted);
+  font-size: var(--type-caption);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.modal-overlay,
+.filter-panel-backdrop,
+.mobile-more-backdrop,
+.comment-sheet-backdrop,
+.group-chat-backdrop,
+.legal-overlay {
+  background: rgba(13, 35, 54, 0.42);
+}
+
+.modal,
+.drawer,
+.discover-filter-panel,
+.mobile-more-sheet,
+.comments-sheet,
+.group-chat-sheet {
+  border-color: var(--sky-100);
+  border-radius: 22px;
+}
+
+.modal::before,
+.drawer::before,
+.discover-filter-panel::before,
+.mobile-more-sheet::before,
+.comments-sheet::before,
+.group-chat-sheet::before {
+  display: none;
+}
+
+.comment-sheet-backdrop,
+.group-chat-backdrop {
+  align-items: center;
+}
+
+@media (max-width: 580px) {
+  .comment-sheet-backdrop,
+  .group-chat-backdrop {
+    align-items: flex-end;
+  }
+}
+
+.discover-search-card,
+.shop-banner,
+.health-hero-panel,
+.world-hero,
+.event-banner,
+.care-hero,
+.adoption-hero,
+.document-hero,
+.petship-hero,
+.fundraising-hero {
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+}
+
+.discover-search-card,
+.shop-banner,
+.world-hero,
+.event-banner,
+.care-hero,
+.adoption-hero,
+.document-hero,
+.petship-hero,
+.fundraising-hero {
+  background-color: var(--sky-600);
+}
+
+.health-hero-panel {
+  background: linear-gradient(135deg, var(--sky-600), #0A6F9C, var(--violet));
+}
+
+.discover-search-card h2,
+.shop-banner h2,
+.world-hero h2,
+.event-banner h2,
+.petspot-head h2,
+.pethub-head h2,
+.care-hero h2,
+.adoption-hero h2,
+.document-hero h2,
+.petship-hero h2,
+.fundraising-hero h2 {
+  font-size: var(--type-page-title);
+  font-weight: 700;
+  line-height: 1.24;
+}
+
+.discover-search-card p,
+.shop-banner p,
+.world-hero p,
+.event-banner p,
+.petspot-head p,
+.pethub-head p,
+.care-hero p,
+.adoption-hero p,
+.document-hero p,
+.petship-hero p,
+.fundraising-hero p {
+  font-size: var(--type-body);
+}
+
+/* Filled-gradient hero foregrounds remain legible at every viewport. */
+.hero-card .hero-copy,
+.shop-native-hero,
+.shop-banner,
+.health-hero-panel,
+.discover-search-card,
+.world-hero,
+.event-banner,
+.pethub-head,
+.care-hero,
+.adoption-hero,
+.document-hero,
+.petship-hero,
+.fundraising-hero,
+.public-campaign-banner,
+.home-daily-hero,
+.home-campaign,
+.pet-identity-banner,
+.activity-detail-hero,
+.service-detail-hero {
+  color: var(--white);
+}
+
+.hero-card .hero-copy h2,
+.shop-native-hero h2,
+.shop-banner h2,
+.health-hero-panel h2,
+.discover-search-card h2,
+.world-hero h2,
+.event-banner h2,
+.pethub-head h2,
+.care-hero h2,
+.adoption-hero h2,
+.document-hero h2,
+.petship-hero h2,
+.fundraising-hero h2,
+.public-campaign-banner h2,
+.home-daily-hero h2,
+.home-campaign h2,
+.pet-identity-banner h2,
+.activity-detail-hero h2,
+.service-detail-hero h2 {
+  color: var(--white);
+}
+
+.hero-card .hero-copy p,
+.shop-native-hero p,
+.shop-banner p,
+.health-hero-panel p,
+.discover-search-card p,
+.world-hero p,
+.event-banner p,
+.pethub-head p,
+.care-hero p,
+.adoption-hero p,
+.document-hero p,
+.petship-hero p,
+.fundraising-hero p,
+.public-campaign-banner p,
+.home-daily-hero p,
+.home-campaign p,
+.pet-identity-banner p,
+.service-detail-hero p {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.health-hero-panel small,
+.pet-identity-banner > div:nth-child(2) small,
+.activity-detail-hero small {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.filter-pills button,
+.tabs button,
+.category-scroll button,
+.universe-nav button,
+.world-toolbar button,
+.hub-tabs button,
+.community-tabs button,
+.paw-tabs button {
+  font-size: var(--type-control);
+  font-weight: 600;
+}
+
+.empty-state {
+  border-color: var(--sky-100);
+  border-radius: 22px;
+  color: var(--muted);
+  background: var(--white);
+}
+
+@media (min-width: 861px) {
+  .page-content {
+    padding-bottom: 92px;
+  }
+
+  .discover-search-card,
+  .shop-banner,
+  .world-hero,
+  .event-banner,
+  .care-hero,
+  .adoption-hero,
+  .document-hero {
+    min-height: 220px;
+  }
+
+  .world-hero::after,
+  .event-banner::after {
+    display: none;
+  }
+
+  .petspot-head,
+  .pethub-head {
+    min-height: 144px;
+    border-radius: 22px;
+  }
+}
+
+/* Desktop retains the sidebar shell while using the same component hierarchy. */
+@media (min-width: 861px) {
+  .native-screen-header {
+    display: none;
+  }
+
+  .discover-native,
+  .activity-native,
+  .health-native,
+  .shop-native,
+  .profile-native {
+    display: grid;
+    gap: 16px;
+  }
+
+  .activity-type-filters,
+  .activity-state-tabs,
+  .health-native-tabs,
+  .health-record-filter,
+  .shop-native-sort-row,
+  .shop-native-categories {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+  }
+
+  .activity-type-filters > button,
+  .activity-state-tabs > button,
+  .health-native-tabs > button,
+  .health-record-filter > button,
+  .shop-native-sort-row > button {
+    min-height: 36px;
+    padding: 0 11px;
+    border: 1px solid var(--sky-100);
+    border-radius: 11px;
+    color: var(--muted);
+    background: var(--white);
+    font-size: var(--type-control);
+    font-weight: 600;
+  }
+
+  .activity-type-filters > button.active,
+  .activity-state-tabs > button.active,
+  .health-native-tabs > button.active,
+  .health-record-filter > button.active,
+  .shop-native-sort-row > button.active {
+    border-color: var(--sky-600);
+    color: var(--sky-600);
+    background: var(--sky-50);
+  }
+
+  .activity-native-toolbar,
+  .shop-native-section-header,
+  .health-native-section-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .activity-native-toolbar h3,
+  .shop-native-section-header h3,
+  .health-native-section-header h3 {
+    margin: 0;
+    font-size: var(--type-card-title);
+  }
+
+  .activity-native-list,
+  .health-native-record-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .activity-native-card,
+  .shop-product-card,
+  .health-native-prevention,
+  .health-native-latest,
+  .profile-native-points,
+  .profile-native-settings,
+  .profile-native-support,
+  .profile-native-logout {
+    border: 1px solid var(--sky-100);
+    border-radius: 22px;
+    background: var(--white);
+    box-shadow: var(--shadow);
+  }
+
+  .activity-native-main,
+  .health-native-latest,
+  .health-native-record-list > button,
+  .profile-native-settings > button,
+  .profile-native-support,
+  .profile-native-logout {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border: 0;
+    color: var(--text);
+    background: transparent;
+    text-align: left;
+  }
+
+  .activity-native-icon,
+  .health-native-record-list > button > span,
+  .profile-native-settings > button > span,
+  .profile-native-support > span,
+  .profile-native-logout > span {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 14px;
+    color: var(--sky-600);
+    background: var(--sky-50);
+  }
+
+  .activity-native-icon--mint {
+    color: var(--mint);
+    background: var(--mint-50);
+  }
+
+  .activity-native-icon--violet {
+    color: var(--violet);
+    background: var(--violet-50);
+  }
+
+  .activity-native-copy,
+  .health-native-record-list p,
+  .profile-native-settings p,
+  .profile-native-support p,
+  .profile-native-logout p {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    gap: 3px;
+    margin: 0;
+  }
+
+  .activity-native-copy > b,
+  .health-native-record-list b,
+  .profile-native-settings p b,
+  .profile-native-support p b,
+  .profile-native-logout p b {
+    color: var(--navy);
+    font-size: var(--type-body-large);
+    font-weight: 600;
+  }
+
+  .activity-native-copy > span,
+  .activity-native-copy small,
+  .health-native-record-list p > span,
+  .health-native-record-list small,
+  .profile-native-settings p small,
+  .profile-native-support p small,
+  .profile-native-logout p small {
+    color: var(--muted);
+    font-size: var(--type-caption);
+  }
+
+  .activity-native-card footer {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 14px;
+    border-top: 1px solid var(--line);
+    background: var(--sky-50);
+  }
+
+  .activity-native-card footer > * {
+    color: var(--sky-600);
+    font-size: var(--type-caption);
+  }
+
+  .activity-native-card footer > button {
+    min-height: 30px;
+    margin-left: auto;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 10px;
+    color: var(--sky-600);
+    background: var(--white);
+  }
+
+  .shop-native-search {
+    height: 46px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 620px;
+    padding: 0 13px;
+    border: 1px solid var(--sky-100);
+    border-radius: 16px;
+    color: var(--sky-600);
+    background: var(--white);
+    box-shadow: var(--shadow);
+  }
+
+  .shop-native-search input {
+    min-width: 0;
+    flex: 1;
+    border: 0;
+    outline: 0;
+    color: var(--text);
+    background: transparent;
+  }
+
+  .shop-native-hero {
+    position: relative;
+    min-height: 220px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    padding: 24px;
+    border-radius: 22px;
+    color: var(--white);
+    background: linear-gradient(135deg, var(--sky-600), #0A6F9C);
+    box-shadow: var(--shadow);
+  }
+
+  .shop-native-hero > div:first-child {
+    position: relative;
+    z-index: 1;
+    max-width: 56%;
+  }
+
+  .shop-native-hero h2 {
+    margin: 9px 0 0;
+    color: var(--white);
+    font-size: var(--type-page-title);
+  }
+
+  .shop-native-hero p {
+    color: rgba(255, 255, 255, 0.86);
+  }
+
+  .shop-native-art {
+    position: absolute;
+    right: 9%;
+    bottom: 24px;
+    width: 122px;
+    height: 132px;
+    border: 1px solid rgba(255, 255, 255, 0.34);
+    border-radius: 46px;
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .shop-native-art > span,
+  .shop-native-art > i {
+    position: absolute;
+    display: grid;
+    place-items: center;
+  }
+
+  .shop-native-art > span {
+    bottom: 16px;
+    left: 14px;
+    width: 66px;
+    height: 66px;
+    border-radius: 22px;
+    color: var(--white);
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .shop-native-art > i {
+    top: 18px;
+    right: 12px;
+    width: 39px;
+    height: 39px;
+    border-radius: 14px;
+    color: var(--sky-600);
+    background: var(--white);
+  }
+
+  .shop-native-categories > button {
+    min-width: 92px;
+    min-height: 80px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 5px;
+    padding: 8px;
+    border: 1px solid var(--sky-100);
+    border-radius: 16px;
+    color: var(--muted);
+    background: var(--white);
+    font-size: var(--type-caption);
+    font-weight: 600;
+  }
+
+  .shop-native-categories > button > span {
+    color: var(--sky-600);
+  }
+
+  .shop-native-categories > button.active {
+    border-color: var(--sky-500);
+    color: var(--sky-600);
+    background: var(--sky-50);
+  }
+
+  .shop-native-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .shop-product-visual {
+    position: relative;
+    min-height: 140px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, var(--sky-50), var(--mint-50));
+  }
+
+  .shop-product-visual > span {
+    font-size: 48px;
+  }
+
+  .shop-product-visual > button {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  .shop-product-body {
+    display: grid;
+    gap: 5px;
+    padding: 12px;
+  }
+
+  .shop-product-body > b {
+    color: var(--navy);
+    font-size: var(--type-body);
+    font-weight: 600;
+  }
+
+  .shop-product-body > span,
+  .shop-product-body p {
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--type-caption);
+  }
+
+  .shop-product-body strong {
+    color: var(--sky-600);
+    font-size: var(--type-control);
+  }
+
+  .shop-product-body > button {
+    min-height: 36px;
+    border: 0;
+    border-radius: 11px;
+    color: var(--white);
+    background: var(--sky-600);
+    font-size: var(--type-control);
+  }
+
+  .health-native-hero {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .health-native-prevention {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .health-native-progress {
+    width: 88px;
+    height: 88px;
+    display: grid;
+    flex: 0 0 auto;
+    place-content: center;
+    justify-items: center;
+    border: 9px solid var(--sky-500);
+    border-radius: 50%;
+  }
+
+  .health-native-progress b {
+    color: var(--navy);
+    font-size: var(--type-section-title);
+  }
+
+  .health-native-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .health-native-facts article {
+    display: grid;
+    gap: 4px;
+    padding: 14px;
+    border: 1px solid var(--sky-100);
+    border-radius: 16px;
+    background: var(--white);
+    box-shadow: var(--shadow);
+  }
+
+  .health-native-facts b {
+    color: var(--navy);
+    font-size: var(--type-control);
+  }
+
+  .health-native-reminders,
+  .health-native-records {
+    padding: 16px;
+  }
+
+  .health-native-record-list > button {
+    border: 1px solid var(--sky-100);
+    border-radius: 16px;
+  }
+
+  .profile-native-card {
+    overflow: hidden;
+  }
+
+  .profile-native-points {
+    padding: 18px;
+    color: var(--white);
+    background: linear-gradient(135deg, var(--sky-600), #0A6F9C, var(--violet));
+  }
+
+  .profile-native-points p b {
+    color: var(--white);
+  }
+
+  .profile-native-points p small,
+  .profile-native-points li {
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  .profile-native-settings {
+    padding: 16px;
+  }
+
+  .profile-native-support,
+  .profile-native-logout {
+    border: 1px solid var(--sky-100);
+    border-radius: 18px;
+  }
+
+  .profile-native-support > span {
+    color: var(--white);
+    background: var(--sky-600);
+  }
+
+  .profile-native-logout {
+    border-color: #F4D5DD;
+  }
+
+  .profile-native-logout > span,
+  .profile-native-logout p b {
+    color: var(--red);
+    background: var(--red-50);
+  }
+}
+
+@media (min-width: 861px) {
+  .hero-card,
+  .shop-native-hero,
+  .shop-banner,
+  .health-hero-panel,
+  .discover-search-card,
+  .world-hero,
+  .event-banner,
+  .pethub-head,
+  .care-hero,
+  .adoption-hero,
+  .document-hero,
+  .petship-hero,
+  .fundraising-hero,
+  .public-campaign-banner,
+  .home-daily-hero,
+  .home-campaign,
+  .pet-identity-banner,
+  .activity-detail-hero,
+  .service-detail-hero {
+    border-radius: 22px;
+  }
+
+  .petowner-login,
+  .modal-overlay > .modal {
+    border-radius: 22px;
+  }
+
+  .modal-overlay > .modal::before {
+    display: none;
+  }
+}

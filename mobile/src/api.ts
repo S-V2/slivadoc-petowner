@@ -233,10 +233,7 @@ async function platformRequest<T>(
   retry = true,
 ): Promise<T> {
   const method = String(init?.method ?? "GET").toUpperCase();
-  if (
-    mobileOwnerHasPet === false &&
-    mobileMutationRequiresPet(path, method)
-  ) {
+  if (mobileOwnerHasPet === false && mobileMutationRequiresPet(path, method)) {
     throw new Error(PET_PROFILE_REQUIRED_MESSAGE);
   }
   const key = `${path}:${platformAccessToken.slice(-12)}`;
@@ -326,6 +323,8 @@ export type MobileFamilyAccess = {
   role: string;
   permissions: string[];
   status: string;
+  journey_type?: string;
+  reference_stt_no?: string;
   accepted_at?: string | null;
   created_at: string;
 };
@@ -358,6 +357,28 @@ export type MobileActivityOrderItem = {
   branch_name: string;
   image_url: string;
 };
+export type MobileShipmentEvent = {
+  status_code: string;
+  status: string;
+  description: string;
+  location: string;
+  occurred_at: string;
+};
+export type MobileShipment = {
+  id: string;
+  shipping_number: string;
+  provider: string;
+  provider_shipment_id: string;
+  stt_no: string;
+  service_code: string;
+  status: string;
+  provider_status: string;
+  pickup_status: string;
+  fee: number;
+  estimated_sla: string;
+  print_url: string;
+  events: MobileShipmentEvent[];
+};
 export type MobileActivityCenterItem = {
   id: string;
   type: MobileActivityType;
@@ -388,6 +409,7 @@ export type MobileActivityCenterItem = {
   notes?: string;
   subtotal?: number;
   platform_fee?: number;
+  shipping_fee?: number;
   discount_amount?: number;
   voucher_code?: string;
   points_redeemed?: number;
@@ -395,6 +417,7 @@ export type MobileActivityCenterItem = {
   total_amount?: number;
   item_count?: number;
   items?: MobileActivityOrderItem[];
+  shipments?: MobileShipment[];
   paid_at?: string | null;
   veterinarian_id?: string;
   doctor_name?: string;
@@ -549,6 +572,7 @@ export type MobileProductReview = {
 export type MobileOrderQuote = {
   subtotal: number;
   platform_fee: number;
+  shipping_fee: number;
   voucher_code: string;
   voucher_description: string;
   voucher_discount: number;
@@ -560,6 +584,44 @@ export type MobileOrderQuote = {
   point_value_rupiah: number;
   min_redemption_points: number;
   max_redemption_bps: number;
+  shipping_ready: boolean;
+  shipping_quotes: Array<{
+    branch_id: string;
+    branch_name: string;
+    origin: string;
+    destination: string;
+    selected_service?: string;
+    selected_fee?: number;
+    selected_sla?: string;
+    rates: Array<{
+      service_code: string;
+      service_type: string;
+      fee: number;
+      normal_fee: number;
+      estimated_sla: string;
+      chargeable_weight_kg: number;
+      insurance_fee: number;
+    }>;
+  }>;
+};
+export type MobileOrderInput = {
+  items: Array<{ product_id: string; quantity: number }>;
+  voucher_code?: string;
+  redeem_points?: number;
+  shipping?: {
+    address: {
+      name: string;
+      phone: string;
+      email?: string;
+      address: string;
+      post_code?: string;
+      area: string;
+      geoloc?: string;
+    };
+    shipment_type: "PICKUP" | "DROPOFF";
+    use_insurance: boolean;
+    selections: Array<{ branch_id: string; service_code: string }>;
+  };
 };
 export type MobileGlobalSearchResult = {
   category: string;
@@ -710,10 +772,22 @@ export const getMobileServices = (options?: {
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 };
 
-function legacyActivityType(activity: MobileActivity): MobileActivityType | undefined {
+function legacyActivityType(
+  activity: MobileActivity,
+): MobileActivityType | undefined {
   const source = `${activity.category} ${activity.action_route}`.toLowerCase();
-  if (source.includes("booking") || source.includes("hotel") || source.includes("home_service")) return "booking";
-  if (source.includes("order") || source.includes("marketplace") || source.includes("commerce")) return "order";
+  if (
+    source.includes("booking") ||
+    source.includes("hotel") ||
+    source.includes("home_service")
+  )
+    return "booking";
+  if (
+    source.includes("order") ||
+    source.includes("marketplace") ||
+    source.includes("commerce")
+  )
+    return "order";
   if (source.includes("consult")) return "consultation";
   return undefined;
 }
@@ -724,11 +798,16 @@ function legacyActivityState(
 ): Exclude<MobileActivityState, "all"> {
   const status = activity.status.toLowerCase();
   if (["completed", "cancelled", "no_show"].includes(status)) return "history";
-  const scheduledAt = activity.starts_at ? new Date(activity.starts_at).getTime() : Number.NaN;
+  const scheduledAt = activity.starts_at
+    ? new Date(activity.starts_at).getTime()
+    : Number.NaN;
   if (
     Number.isFinite(scheduledAt) &&
     scheduledAt > Date.now() &&
-    (type === "booking" || ["scheduled", "pending_payment", "requested", "confirmed"].includes(status))
+    (type === "booking" ||
+      ["scheduled", "pending_payment", "requested", "confirmed"].includes(
+        status,
+      ))
   ) {
     return "upcoming";
   }
@@ -751,8 +830,13 @@ function normalizeLegacyActivity(
   const type = legacyActivityType(activity);
   if (!type) return undefined;
   const metadata = activity.metadata ?? {};
-  const referenceId = activity.reference_id || legacyMetadataValue(metadata, "reference_id") || activity.id;
-  const amount = legacyMetadataAmount(metadata, "total_amount") || legacyMetadataAmount(metadata, "amount");
+  const referenceId =
+    activity.reference_id ||
+    legacyMetadataValue(metadata, "reference_id") ||
+    activity.id;
+  const amount =
+    legacyMetadataAmount(metadata, "total_amount") ||
+    legacyMetadataAmount(metadata, "amount");
   return {
     id: activity.id,
     type,
@@ -765,7 +849,8 @@ function normalizeLegacyActivity(
     title: activity.title,
     subtitle: activity.description,
     status: activity.status,
-    payment_status: legacyMetadataValue(metadata, "payment_status") || "belum tersedia",
+    payment_status:
+      legacyMetadataValue(metadata, "payment_status") || "belum tersedia",
     amount,
     total_amount: amount,
     state: legacyActivityState(activity, type),
@@ -787,10 +872,10 @@ function isDetailedActivityResponse(
 ): result is MobileActivityCenterResponse {
   return Boolean(
     "summary" in result &&
-      result.summary &&
-      typeof result.summary.booking === "number" &&
-      typeof result.summary.order === "number" &&
-      typeof result.summary.consultation === "number",
+    result.summary &&
+    typeof result.summary.booking === "number" &&
+    typeof result.summary.order === "number" &&
+    typeof result.summary.consultation === "number",
   );
 }
 
@@ -817,7 +902,9 @@ export const getMobileActivityCenter = async (
     { booking: 0, order: 0, consultation: 0 },
   );
   const data = normalized.filter(
-    (item) => (type === "all" || item.type === type) && (state === "all" || item.state === state),
+    (item) =>
+      (type === "all" || item.type === type) &&
+      (state === "all" || item.state === state),
   );
   return { data, count: data.length, summary };
 };
@@ -858,21 +945,13 @@ export const saveMobileProductReview = (
     { method: "POST", body: JSON.stringify(input) },
   );
 
-export const quoteMobileOrder = (input: {
-  items: Array<{ product_id: string; quantity: number }>;
-  voucher_code?: string;
-  redeem_points?: number;
-}) =>
+export const quoteMobileOrder = (input: MobileOrderInput) =>
   platformRequest<MobileOrderQuote>("/api/v1/petowner/orders/quote", {
     method: "POST",
     body: JSON.stringify(input),
   });
 
-export const createMobileOrder = (input: {
-  items: Array<{ product_id: string; quantity: number }>;
-  voucher_code?: string;
-  redeem_points?: number;
-}) =>
+export const createMobileOrder = (input: MobileOrderInput) =>
   platformRequest<
     MobileOrderQuote & {
       id: string;
@@ -885,6 +964,42 @@ export const createMobileOrder = (input: {
     method: "POST",
     body: JSON.stringify(input),
   });
+
+export async function getMobileTransactionInvoiceHTML(
+  referenceType:
+    | "shop_order"
+    | "pos_invoice"
+    | "brand_purchase_order"
+    | "petowner_booking"
+    | "consultation"
+    | "academy_enrollment"
+    | "event_registration"
+    | "document_request"
+    | "fundraiser_donation",
+  referenceID: string,
+) {
+  const baseURL = requireServiceURL(
+    PLATFORM_API_URL,
+    "EXPO_PUBLIC_PLATFORM_API_URL",
+  );
+  const path = `/api/v1/transaction-documents/${referenceType}/${referenceID}/invoice`;
+  const send = (token: string) =>
+    fetch(`${baseURL}${path}`, {
+      headers: {
+        Accept: "text/html",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+  let response = await send(platformAccessToken);
+  if (response.status === 401 && platformRefreshToken) {
+    response = await send(await refreshMobileSession());
+  }
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.message ?? "Invoice belum dapat dimuat");
+  }
+  return response.text();
+}
 
 export const getMobilePetFamily = (petId: string) =>
   platformRequest<{ data: MobileFamilyAccess[] }>(
@@ -906,10 +1021,9 @@ export const inviteMobilePetFamily = (
   );
 
 export const revokeMobilePetFamily = (accessId: string) =>
-  platformRequest<{ message: string }>(
-    `/api/v1/petowner/family/${accessId}`,
-    { method: "DELETE" },
-  );
+  platformRequest<{ message: string }>(`/api/v1/petowner/family/${accessId}`, {
+    method: "DELETE",
+  });
 export const getMobileGlobalSearch = (query: string, category = "") =>
   platformRequest<{ data: MobileGlobalSearchResult[] }>(
     `/api/v1/public/search?q=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}`,
@@ -1307,15 +1421,18 @@ export const createMobilePetHubStory = (input: {
   media_type: "image" | "video";
   caption: string;
 }) =>
-  platformRequest<{ id: string; expires_in: number }>("/api/v1/pethub/stories", {
-    method: "POST",
-    body: JSON.stringify({
-      photo_url: input.media_url,
-      media_url: input.media_url,
-      media_type: input.media_type,
-      caption: input.caption,
-    }),
-  });
+  platformRequest<{ id: string; expires_in: number }>(
+    "/api/v1/pethub/stories",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        photo_url: input.media_url,
+        media_url: input.media_url,
+        media_type: input.media_type,
+        caption: input.caption,
+      }),
+    },
+  );
 export const reactMobilePetHubPost = (postId: string) =>
   platformRequest<{ liked: boolean }>(
     `/api/v1/pethub/posts/${postId}/reactions`,

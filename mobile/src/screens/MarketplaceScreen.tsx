@@ -22,6 +22,7 @@ import {
   quoteMobileOrder,
   saveMobileProductReview,
   type MobileOrderQuote,
+  type MobileOrderInput,
   type MobilePaymentIntent,
   type MobileProduct,
   type MobileProductReview,
@@ -30,12 +31,36 @@ import {
   MobileBatpayModal,
   MobilePaymentMethods,
 } from "../components/BatpayPayment";
-import { EmptyState, PetRequiredNotice, Pill, PrimaryButton, Screen } from "../components/ui";
+import {
+  EmptyState,
+  PetRequiredNotice,
+  Pill,
+  PrimaryButton,
+  Screen,
+} from "../components/ui";
 import type { Service } from "../data";
-import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
+import {
+  LocalizedText as Text,
+  LocalizedTextInput as TextInput,
+  useI18n,
+} from "../i18n";
 import { colors, shadow } from "../theme";
 
 type SortMode = "recommended" | "popular" | "rating" | "price";
+type ShippingAddressForm = {
+  name: string;
+  phone: string;
+  address: string;
+  post_code: string;
+  area: string;
+};
+type ShippingAddressForm = {
+  name: string;
+  phone: string;
+  address: string;
+  post_code: string;
+  area: string;
+};
 
 type MarketplaceScreenProps = {
   authenticated: boolean;
@@ -67,7 +92,8 @@ function productIcon(product: MobileProduct): keyof typeof Ionicons.glyphMap {
 
 function compactNumber(value: number) {
   if (!Number.isFinite(value)) return "0";
-  if (value >= 1000) return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}rb`;
+  if (value >= 1000)
+    return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}rb`;
   return String(Math.max(0, Math.round(value)));
 }
 
@@ -86,7 +112,13 @@ function Stars({ value, size = 12 }: { value: number; size?: number }) {
   );
 }
 
-function ProductVisual({ product, large = false }: { product: MobileProduct; large?: boolean }) {
+function ProductVisual({
+  product,
+  large = false,
+}: {
+  product: MobileProduct;
+  large?: boolean;
+}) {
   if (product.image_url) {
     return (
       <Image
@@ -104,7 +136,11 @@ function ProductVisual({ product, large = false }: { product: MobileProduct; lar
       style={[styles.productFallback, large && styles.productFallbackLarge]}
     >
       <View style={styles.fallbackBubble} />
-      <Ionicons name={productIcon(product)} size={large ? 66 : 40} color={colors.sky600} />
+      <Ionicons
+        name={productIcon(product)}
+        size={large ? 66 : 40}
+        color={colors.sky600}
+      />
       <Text style={styles.fallbackLabel}>{product.category}</Text>
     </LinearGradient>
   );
@@ -135,7 +171,9 @@ function ProductCard({
         <ProductVisual product={product} />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={favorite ? "Hapus dari favorit" : "Tambah ke favorit"}
+          accessibilityLabel={
+            favorite ? "Hapus dari favorit" : "Tambah ke favorit"
+          }
           hitSlop={8}
           onPress={(event) => {
             event.stopPropagation();
@@ -167,14 +205,18 @@ function ProductCard({
         </View>
         <View style={styles.productCommerceRow}>
           <View style={styles.productCommerceCopy}>
-            <Text style={styles.productPrice}>{formatCurrency(product.price)}</Text>
+            <Text style={styles.productPrice}>
+              {formatCurrency(product.price)}
+            </Text>
             <View style={styles.productMeta}>
               <Ionicons name="star" size={10} color={colors.yellow} />
               <Text style={styles.productMetaText}>
                 {product.review_count ? product.rating.toFixed(1) : "Baru"}
               </Text>
               <View style={styles.metaDivider} />
-              <Text style={styles.productMetaText}>{compactNumber(product.sold_count)} terjual</Text>
+              <Text style={styles.productMetaText}>
+                {compactNumber(product.sold_count)} terjual
+              </Text>
             </View>
           </View>
           <Pressable
@@ -233,6 +275,16 @@ export function MarketplaceScreen({
   const [quote, setQuote] = useState<MobileOrderQuote>();
   const [quoteBusy, setQuoteBusy] = useState(false);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [shippingAddress, setShippingAddress] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    post_code: "",
+    area: "",
+  });
+  const [shippingSelections, setShippingSelections] = useState<
+    Record<string, string>
+  >({});
   const handledIntent = useRef(0);
 
   const loadProducts = useCallback(async () => {
@@ -241,7 +293,9 @@ export function MarketplaceScreen({
       const result = await getMobileProducts();
       setProducts(result.data);
     } catch (cause) {
-      onAction(cause instanceof Error ? cause.message : "Produk belum dapat dimuat");
+      onAction(
+        cause instanceof Error ? cause.message : "Produk belum dapat dimuat",
+      );
     } finally {
       setLoading(false);
     }
@@ -267,7 +321,8 @@ export function MarketplaceScreen({
           (product.branch_id ? partnerById.get(product.branch_id) : undefined);
         if (!partner) return product;
 
-        const missingPartnerName = product.business_name === "Pet Partner Slivadoc";
+        const missingPartnerName =
+          product.business_name === "Pet Partner Slivadoc";
         return {
           ...product,
           business_id: partner.businessId || product.business_id,
@@ -279,14 +334,20 @@ export function MarketplaceScreen({
             missingPartnerName && partner.branchName
               ? partner.branchName
               : product.branch_name,
-          city: product.city === "Online" && partner.city ? partner.city : product.city,
+          city:
+            product.city === "Online" && partner.city
+              ? partner.city
+              : product.city,
         };
       }),
     [partnerById, products],
   );
 
   const categories = useMemo(
-    () => ["Semua", ...new Set(catalogProducts.map((item) => item.category).filter(Boolean))],
+    () => [
+      "Semua",
+      ...new Set(catalogProducts.map((item) => item.category).filter(Boolean)),
+    ],
     [catalogProducts],
   );
   const stores = useMemo(
@@ -318,7 +379,10 @@ export function MarketplaceScreen({
       if (sort === "popular") return right.sold_count - left.sold_count;
       if (sort === "rating") return right.rating - left.rating;
       if (sort === "price") return left.price - right.price;
-      return Number(right.available) - Number(left.available) || right.review_count - left.review_count;
+      return (
+        Number(right.available) - Number(left.available) ||
+        right.review_count - left.review_count
+      );
     });
   }, [catalogProducts, category, query, sort, store]);
   const productsById = useMemo(
@@ -339,18 +403,25 @@ export function MarketplaceScreen({
     0,
   );
 
-  const setQuantity = useCallback((product: MobileProduct, quantity: number) => {
-    const safeQuantity = Math.max(0, Math.min(Math.floor(product.stock), quantity));
-    setCart((current) => {
-      if (!safeQuantity) {
-        const next = { ...current };
-        delete next[product.id];
-        return next;
-      }
-      return { ...current, [product.id]: safeQuantity };
-    });
-    setQuote(undefined);
-  }, []);
+  const setQuantity = useCallback(
+    (product: MobileProduct, quantity: number) => {
+      const safeQuantity = Math.max(
+        0,
+        Math.min(Math.floor(product.stock), quantity),
+      );
+      setCart((current) => {
+        if (!safeQuantity) {
+          const next = { ...current };
+          delete next[product.id];
+          return next;
+        }
+        return { ...current, [product.id]: safeQuantity };
+      });
+      setQuote(undefined);
+      setShippingSelections({});
+    },
+    [],
+  );
 
   const addToCart = useCallback(
     (product: MobileProduct) => {
@@ -401,13 +472,19 @@ export function MarketplaceScreen({
         return;
       }
       if (intent.items?.length) {
-        const restored = intent.items.reduce<Record<string, number>>((result, item) => {
-          const product = productsById.get(item.product_id);
-          if (product?.available) {
-            result[product.id] = Math.max(1, Math.min(Math.floor(product.stock), item.quantity));
-          }
-          return result;
-        }, {});
+        const restored = intent.items.reduce<Record<string, number>>(
+          (result, item) => {
+            const product = productsById.get(item.product_id);
+            if (product?.available) {
+              result[product.id] = Math.max(
+                1,
+                Math.min(Math.floor(product.stock), item.quantity),
+              );
+            }
+            return result;
+          },
+          {},
+        );
         if (!Object.keys(restored).length) {
           onAction("Produk pada pesanan lama sedang tidak tersedia");
           return;
@@ -419,7 +496,7 @@ export function MarketplaceScreen({
     });
   }, [intent, loadReviews, loading, onAction, productsById]);
 
-  const orderInput = useMemo(
+  const orderInput = useMemo<MobileOrderInput>(
     () => ({
       items: cartItems.map((item) => ({
         product_id: item.product.id,
@@ -427,9 +504,23 @@ export function MarketplaceScreen({
       })),
       voucher_code: voucher.trim(),
       redeem_points: Math.max(0, Number.parseInt(points || "0", 10) || 0),
+      shipping: {
+        address: shippingAddress,
+        shipment_type: "PICKUP",
+        use_insurance: false,
+        selections: Object.entries(shippingSelections).map(
+          ([branch_id, service_code]) => ({ branch_id, service_code }),
+        ),
+      },
     }),
-    [cartItems, points, voucher],
+    [cartItems, points, shippingAddress, shippingSelections, voucher],
   );
+
+  const shippingAddressComplete =
+    shippingAddress.name.trim().length >= 2 &&
+    shippingAddress.phone.trim().length >= 8 &&
+    shippingAddress.address.trim().length >= 8 &&
+    shippingAddress.area.trim().length >= 4;
 
   const refreshQuote = async () => {
     if (!cartItems.length) return;
@@ -441,12 +532,49 @@ export function MarketplaceScreen({
       onRequirePet();
       return;
     }
+    if (!shippingAddressComplete) {
+      onAction(
+        "Lengkapi nama, telepon, alamat, serta area kecamatan dan kota tujuan",
+      );
+      return;
+    }
     setQuoteBusy(true);
     try {
-      setQuote(await quoteMobileOrder(orderInput));
+      let nextQuote = await quoteMobileOrder(orderInput);
+      const automaticSelections = Object.fromEntries(
+        nextQuote.shipping_quotes
+          .filter((shipment) => shipment.rates[0])
+          .map((shipment) => [
+            shipment.branch_id,
+            shippingSelections[shipment.branch_id] ||
+              shipment.rates[0].service_code,
+          ]),
+      );
+      if (
+        Object.keys(automaticSelections).length &&
+        nextQuote.shipping_quotes.some(
+          (shipment) => !shippingSelections[shipment.branch_id],
+        )
+      ) {
+        nextQuote = await quoteMobileOrder({
+          ...orderInput,
+          shipping: {
+            ...orderInput.shipping!,
+            selections: Object.entries(automaticSelections).map(
+              ([branch_id, service_code]) => ({ branch_id, service_code }),
+            ),
+          },
+        });
+        setShippingSelections(automaticSelections);
+      }
+      setQuote(nextQuote);
     } catch (cause) {
       setQuote(undefined);
-      onAction(cause instanceof Error ? cause.message : "Ringkasan belum dapat dihitung");
+      onAction(
+        cause instanceof Error
+          ? cause.message
+          : "Ringkasan belum dapat dihitung",
+      );
     } finally {
       setQuoteBusy(false);
     }
@@ -462,6 +590,18 @@ export function MarketplaceScreen({
       return;
     }
     if (!cartItems.length) return;
+    if (
+      !quote ||
+      !shippingAddressComplete ||
+      quote.shipping_quotes.some(
+        (shipment) =>
+          !shipment.selected_service ||
+          shipment.selected_service !== shippingSelections[shipment.branch_id],
+      )
+    ) {
+      onAction("Cek ongkir dan pilih layanan Lion Parcel sebelum membayar");
+      return;
+    }
     setCheckoutBusy(true);
     try {
       const order = await createMobileOrder(orderInput);
@@ -474,7 +614,11 @@ export function MarketplaceScreen({
       setCartOpen(false);
       onAction(`Pesanan ${order.order_number} siap dibayar`);
     } catch (cause) {
-      onAction(cause instanceof Error ? cause.message : "Checkout belum dapat diproses");
+      onAction(
+        cause instanceof Error
+          ? cause.message
+          : "Checkout belum dapat diproses",
+      );
     } finally {
       setCheckoutBusy(false);
     }
@@ -504,7 +648,9 @@ export function MarketplaceScreen({
       setReviewComment("");
       await Promise.all([loadReviews(selected), loadProducts()]);
     } catch (cause) {
-      onAction(cause instanceof Error ? cause.message : "Ulasan belum dapat disimpan");
+      onAction(
+        cause instanceof Error ? cause.message : "Ulasan belum dapat disimpan",
+      );
     } finally {
       setReviewBusy(false);
     }
@@ -524,7 +670,11 @@ export function MarketplaceScreen({
             onPress={onOpenNotifications}
             style={styles.headerButton}
           >
-            <Ionicons name="notifications-outline" size={20} color={colors.text} />
+            <Ionicons
+              name="notifications-outline"
+              size={20}
+              color={colors.text}
+            />
             <View style={styles.notificationDot} />
           </Pressable>
           <Pressable
@@ -536,7 +686,9 @@ export function MarketplaceScreen({
             <Ionicons name="bag-handle-outline" size={20} color={colors.text} />
             {cartCount ? (
               <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{Math.min(cartCount, 99)}</Text>
+                <Text style={styles.cartBadgeText}>
+                  {Math.min(cartCount, 99)}
+                </Text>
               </View>
             ) : null}
           </Pressable>
@@ -564,14 +716,21 @@ export function MarketplaceScreen({
         <LinearGradient colors={[colors.sky600, "#0A6F9C"]} style={styles.hero}>
           <View style={styles.heroCopy}>
             <Pill tone="mint">BELANJA AMAN</Pill>
-            <Text style={styles.heroTitle}>Satu keranjang,{"\n"}banyak toko pet.</Text>
+            <Text style={styles.heroTitle}>
+              Satu keranjang,{"\n"}banyak toko pet.
+            </Text>
             <Text style={styles.heroNote}>
               Produk petshop dan klinik terhubung langsung dengan stok asli.
             </Text>
           </View>
           <View style={styles.heroArt}>
             <View style={styles.heroOrb} />
-            <Ionicons name="bag-handle" size={58} color={colors.white} style={styles.heroEmoji} />
+            <Ionicons
+              name="bag-handle"
+              size={58}
+              color={colors.white}
+              style={styles.heroEmoji}
+            />
             <View style={styles.heroPaw}>
               <Ionicons name="paw" size={19} color={colors.sky600} />
             </View>
@@ -581,9 +740,13 @@ export function MarketplaceScreen({
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionEyebrow}>TOKO TERHUBUNG</Text>
-            <Text style={styles.sectionTitle}>Belanja dari petshop favorit</Text>
+            <Text style={styles.sectionTitle}>
+              Belanja dari petshop favorit
+            </Text>
           </View>
-          <Text style={styles.sectionCount}>{Math.max(0, stores.length - 1)} toko</Text>
+          <Text style={styles.sectionCount}>
+            {Math.max(0, stores.length - 1)} toko
+          </Text>
         </View>
         <ScrollView
           horizontal
@@ -601,14 +764,32 @@ export function MarketplaceScreen({
                 onPress={() => setStore(item.id)}
                 style={[styles.storeChip, active && styles.storeChipActive]}
               >
-                <View style={[styles.storeIcon, active && styles.storeIconActive]}>
-                  <Ionicons name={index ? "storefront-outline" : "sparkles-outline"} size={20} color={active ? colors.sky600 : "#8B4A20"} />
+                <View
+                  style={[styles.storeIcon, active && styles.storeIconActive]}
+                >
+                  <Ionicons
+                    name={index ? "storefront-outline" : "sparkles-outline"}
+                    size={20}
+                    color={active ? colors.sky600 : "#8B4A20"}
+                  />
                 </View>
                 <View style={styles.storeChipCopy}>
-                  <Text numberOfLines={1} style={[styles.storeChipName, active && styles.storeChipNameActive]}>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.storeChipName,
+                      active && styles.storeChipNameActive,
+                    ]}
+                  >
                     {item.name}
                   </Text>
-                  <Text numberOfLines={1} style={[styles.storeChipCity, active && styles.storeChipCityActive]}>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.storeChipCity,
+                      active && styles.storeChipCityActive,
+                    ]}
+                  >
                     {index ? item.city || "Toko resmi" : "Lihat semuanya"}
                   </Text>
                 </View>
@@ -628,9 +809,19 @@ export function MarketplaceScreen({
               <Pressable
                 key={item}
                 onPress={() => setCategory(item)}
-                style={[styles.categoryChip, active && styles.categoryChipActive]}
+                style={[
+                  styles.categoryChip,
+                  active && styles.categoryChipActive,
+                ]}
               >
-                <Text style={[styles.categoryText, active && styles.categoryTextActive]}>{item}</Text>
+                <Text
+                  style={[
+                    styles.categoryText,
+                    active && styles.categoryTextActive,
+                  ]}
+                >
+                  {item}
+                </Text>
               </Pressable>
             );
           })}
@@ -639,10 +830,16 @@ export function MarketplaceScreen({
         <View style={styles.catalogHeader}>
           <View>
             <Text style={styles.sectionEyebrow}>PILIHAN BUAT PET-MU</Text>
-            <Text style={styles.sectionTitle}>{visibleProducts.length} produk ditemukan</Text>
+            <Text style={styles.sectionTitle}>
+              {visibleProducts.length} produk ditemukan
+            </Text>
           </View>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.sortRow}
+        >
           {(
             [
               ["recommended", "Rekomendasi"],
@@ -656,7 +853,11 @@ export function MarketplaceScreen({
               onPress={() => setSort(id)}
               style={[styles.sortChip, sort === id && styles.sortChipActive]}
             >
-              <Text style={[styles.sortText, sort === id && styles.sortTextActive]}>{label}</Text>
+              <Text
+                style={[styles.sortText, sort === id && styles.sortTextActive]}
+              >
+                {label}
+              </Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -727,9 +928,21 @@ export function MarketplaceScreen({
         voucher={voucher}
         points={points}
         paymentMethod={paymentMethod}
+        shippingAddress={shippingAddress}
+        shippingSelections={shippingSelections}
         onPaymentMethod={setPaymentMethod}
         onVoucher={setVoucher}
         onPoints={setPoints}
+        onShippingAddress={(field, value) => {
+          setShippingAddress((current) => ({ ...current, [field]: value }));
+          setQuote(undefined);
+        }}
+        onShippingService={(branchID, serviceCode) => {
+          setShippingSelections((current) => ({
+            ...current,
+            [branchID]: serviceCode,
+          }));
+        }}
         onClose={() => setCartOpen(false)}
         onQuantity={setQuantity}
         onQuote={() => void refreshQuote()}
@@ -764,18 +977,28 @@ function SheetFrame({
   children: React.ReactNode;
 }) {
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.modalBackdrop}
       >
-        <SafeAreaView edges={["top", "left", "right"]} style={styles.sheetSafeArea}>
+        <SafeAreaView
+          edges={["top", "left", "right"]}
+          style={styles.sheetSafeArea}
+        >
           <View style={styles.sheet}>
             <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeaderCopy}>
                 <Text style={styles.sheetEyebrow}>{eyebrow}</Text>
-                <Text numberOfLines={2} style={styles.sheetTitle}>{title}</Text>
+                <Text numberOfLines={2} style={styles.sheetTitle}>
+                  {title}
+                </Text>
               </View>
               <Pressable
                 accessibilityRole="button"
@@ -824,7 +1047,12 @@ function ProductDetailSheet({
   const { formatCurrency, formatDate } = useI18n();
   if (!product) return null;
   return (
-    <SheetFrame visible title={product.name} eyebrow="DETAIL PRODUK" onClose={onClose}>
+    <SheetFrame
+      visible
+      title={product.name}
+      eyebrow="DETAIL PRODUK"
+      onClose={onClose}
+    >
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -832,10 +1060,14 @@ function ProductDetailSheet({
       >
         <ProductVisual product={product} large />
         <View style={styles.detailStoreRow}>
-            <View style={styles.detailStoreIcon}><Ionicons name="storefront-outline" size={19} color="#8B4A20" /></View>
+          <View style={styles.detailStoreIcon}>
+            <Ionicons name="storefront-outline" size={19} color="#8B4A20" />
+          </View>
           <View style={styles.detailStoreCopy}>
             <Text style={styles.detailStoreName}>{product.business_name}</Text>
-            <Text style={styles.detailStoreMeta}>{product.branch_name} · {product.city || "Indonesia"}</Text>
+            <Text style={styles.detailStoreMeta}>
+              {product.branch_name} · {product.city || "Indonesia"}
+            </Text>
           </View>
           <Pill tone="mint">Terverifikasi</Pill>
         </View>
@@ -843,44 +1075,70 @@ function ProductDetailSheet({
         <View style={styles.detailMetaRow}>
           <Stars value={product.rating} />
           <Text style={styles.detailMetaText}>
-            {product.review_count ? `${product.rating.toFixed(1)} (${product.review_count} ulasan)` : "Belum ada ulasan"}
+            {product.review_count
+              ? `${product.rating.toFixed(1)} (${product.review_count} ulasan)`
+              : "Belum ada ulasan"}
           </Text>
           <View style={styles.metaDivider} />
-          <Text style={styles.detailMetaText}>{compactNumber(product.sold_count)} terjual</Text>
+          <Text style={styles.detailMetaText}>
+            {compactNumber(product.sold_count)} terjual
+          </Text>
           <View style={styles.metaDivider} />
-          <Text style={styles.detailMetaText}>Stok {Math.floor(product.stock)}</Text>
+          <Text style={styles.detailMetaText}>
+            Stok {Math.floor(product.stock)}
+          </Text>
         </View>
         <Text style={styles.detailSectionTitle}>Tentang produk</Text>
         <Text style={styles.detailDescription}>
-          {product.description || "Produk pilihan dari partner Slivadoc untuk kebutuhan harian pet-mu."}
+          {product.description ||
+            "Produk pilihan dari partner Slivadoc untuk kebutuhan harian pet-mu."}
         </Text>
 
         <View style={styles.reviewHeader}>
           <View>
             <Text style={styles.detailSectionTitle}>Ulasan & komentar</Text>
-            <Text style={styles.reviewHint}>Hanya pembeli terverifikasi yang dapat menulis ulasan.</Text>
+            <Text style={styles.reviewHint}>
+              Hanya pembeli terverifikasi yang dapat menulis ulasan.
+            </Text>
           </View>
           <Text style={styles.reviewCount}>{reviews.length}</Text>
         </View>
-        {reviewsLoading ? <ActivityIndicator style={styles.reviewLoader} color={colors.sky600} /> : null}
+        {reviewsLoading ? (
+          <ActivityIndicator
+            style={styles.reviewLoader}
+            color={colors.sky600}
+          />
+        ) : null}
         {!reviewsLoading && !reviews.length ? (
           <View style={styles.emptyReviews}>
-            <Ionicons name="chatbubble-ellipses-outline" size={23} color={colors.sky600} />
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={23}
+              color={colors.sky600}
+            />
             <View style={styles.emptyReviewsCopy}>
-              <Text style={styles.emptyReviewsTitle}>Jadi reviewer pertama</Text>
-              <Text style={styles.emptyReviewsNote}>Ulasan jujur membantu pet parent lain memilih.</Text>
+              <Text style={styles.emptyReviewsTitle}>
+                Jadi reviewer pertama
+              </Text>
+              <Text style={styles.emptyReviewsNote}>
+                Ulasan jujur membantu pet parent lain memilih.
+              </Text>
             </View>
           </View>
         ) : null}
         {reviews.map((review) => (
           <View key={review.id} style={styles.reviewCard}>
             <View style={styles.reviewerAvatar}>
-              <Text style={styles.reviewerAvatarText}>{review.reviewer_name.slice(0, 1).toUpperCase()}</Text>
+              <Text style={styles.reviewerAvatarText}>
+                {review.reviewer_name.slice(0, 1).toUpperCase()}
+              </Text>
             </View>
             <View style={styles.reviewBody}>
               <View style={styles.reviewerLine}>
                 <Text style={styles.reviewerName}>{review.reviewer_name}</Text>
-                {review.verified_purchase ? <Pill tone="mint">Pembelian valid</Pill> : null}
+                {review.verified_purchase ? (
+                  <Pill tone="mint">Pembelian valid</Pill>
+                ) : null}
               </View>
               <Stars value={review.rating} size={11} />
               <Text style={styles.reviewComment}>{review.comment}</Text>
@@ -937,7 +1195,10 @@ function ProductDetailSheet({
         <Pressable
           disabled={!product.available}
           onPress={onAdd}
-          style={[styles.secondaryAction, !product.available && styles.disabledButton]}
+          style={[
+            styles.secondaryAction,
+            !product.available && styles.disabledButton,
+          ]}
         >
           <Ionicons name="bag-add-outline" size={18} color={colors.sky600} />
           <Text style={styles.secondaryActionText}>+ Keranjang</Text>
@@ -945,9 +1206,14 @@ function ProductDetailSheet({
         <Pressable
           disabled={!product.available}
           onPress={onBuy}
-          style={[styles.primaryAction, !product.available && styles.disabledButton]}
+          style={[
+            styles.primaryAction,
+            !product.available && styles.disabledButton,
+          ]}
         >
-          <Text style={styles.primaryActionText}>{product.available ? "Beli sekarang" : "Stok habis"}</Text>
+          <Text style={styles.primaryActionText}>
+            {product.available ? "Beli sekarang" : "Stok habis"}
+          </Text>
         </Pressable>
       </View>
     </SheetFrame>
@@ -964,9 +1230,13 @@ function CartSheet({
   voucher,
   points,
   paymentMethod,
+  shippingAddress,
+  shippingSelections,
   onPaymentMethod,
   onVoucher,
   onPoints,
+  onShippingAddress,
+  onShippingService,
   onClose,
   onQuantity,
   onQuote,
@@ -981,9 +1251,13 @@ function CartSheet({
   voucher: string;
   points: string;
   paymentMethod: string;
+  shippingAddress: ShippingAddressForm;
+  shippingSelections: Record<string, string>;
   onPaymentMethod: (value: string) => void;
   onVoucher: (value: string) => void;
   onPoints: (value: string) => void;
+  onShippingAddress: (field: keyof ShippingAddressForm, value: string) => void;
+  onShippingService: (branchID: string, serviceCode: string) => void;
   onClose: () => void;
   onQuantity: (product: MobileProduct, quantity: number) => void;
   onQuote: () => void;
@@ -991,7 +1265,12 @@ function CartSheet({
 }) {
   const { formatCurrency } = useI18n();
   return (
-    <SheetFrame visible={visible} title={`Keranjang (${items.length})`} eyebrow="CHECKOUT AMAN" onClose={onClose}>
+    <SheetFrame
+      visible={visible}
+      title={`Keranjang (${items.length})`}
+      eyebrow="CHECKOUT AMAN"
+      onClose={onClose}
+    >
       {!items.length ? (
         <EmptyState
           icon="bag-handle-outline"
@@ -1001,30 +1280,173 @@ function CartSheet({
           onAction={onClose}
         />
       ) : (
-        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.cartContent}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.cartContent}
+        >
           <View style={styles.cartNotice}>
-              <Ionicons name="shield-checkmark" size={18} color={colors.mint} />
-            <Text style={styles.cartNoticeText}>Harga dan stok dikonfirmasi ulang oleh Slivadoc saat checkout.</Text>
+            <Ionicons name="shield-checkmark" size={18} color={colors.mint} />
+            <Text style={styles.cartNoticeText}>
+              Harga dan stok dikonfirmasi ulang oleh Slivadoc saat checkout.
+            </Text>
           </View>
           {items.map(({ product, quantity }) => (
             <View key={product.id} style={styles.cartItem}>
-              <View style={styles.cartThumb}><Ionicons name={productIcon(product)} size={27} color={colors.sky600} /></View>
+              <View style={styles.cartThumb}>
+                <Ionicons
+                  name={productIcon(product)}
+                  size={27}
+                  color={colors.sky600}
+                />
+              </View>
               <View style={styles.cartItemCopy}>
-                <Text numberOfLines={2} style={styles.cartItemName}>{product.name}</Text>
-                <Text numberOfLines={1} style={styles.cartItemStore}>{product.business_name}</Text>
-                <Text style={styles.cartItemPrice}>{formatCurrency(product.price)}</Text>
+                <Text numberOfLines={2} style={styles.cartItemName}>
+                  {product.name}
+                </Text>
+                <Text numberOfLines={1} style={styles.cartItemStore}>
+                  {product.business_name}
+                </Text>
+                <Text style={styles.cartItemPrice}>
+                  {formatCurrency(product.price)}
+                </Text>
               </View>
               <View style={styles.stepper}>
-                <Pressable accessibilityLabel="Kurangi jumlah" onPress={() => onQuantity(product, quantity - 1)} style={styles.stepperButton}>
-                  <Ionicons name={quantity === 1 ? "trash-outline" : "remove"} size={14} color={quantity === 1 ? colors.red : colors.text} />
+                <Pressable
+                  accessibilityLabel="Kurangi jumlah"
+                  onPress={() => onQuantity(product, quantity - 1)}
+                  style={styles.stepperButton}
+                >
+                  <Ionicons
+                    name={quantity === 1 ? "trash-outline" : "remove"}
+                    size={14}
+                    color={quantity === 1 ? colors.red : colors.text}
+                  />
                 </Pressable>
                 <Text style={styles.quantity}>{quantity}</Text>
-                <Pressable accessibilityLabel="Tambah jumlah" onPress={() => onQuantity(product, quantity + 1)} style={styles.stepperButton}>
+                <Pressable
+                  accessibilityLabel="Tambah jumlah"
+                  onPress={() => onQuantity(product, quantity + 1)}
+                  style={styles.stepperButton}
+                >
                   <Ionicons name="add" size={14} color={colors.text} />
                 </Pressable>
               </View>
             </View>
           ))}
+
+          <View style={styles.shippingCard}>
+            <View style={styles.shippingHeading}>
+              <Ionicons
+                name="location-outline"
+                size={18}
+                color={colors.sky600}
+              />
+              <View style={styles.shippingHeadingCopy}>
+                <Text style={styles.shippingTitle}>Alamat pengiriman</Text>
+                <Text style={styles.shippingNote}>
+                  Area wajib memakai format KECAMATAN, KOTA untuk tarif Lion
+                  Parcel.
+                </Text>
+              </View>
+            </View>
+            <TextInput
+              placeholder="Nama penerima"
+              placeholderTextColor={colors.muted}
+              value={shippingAddress.name}
+              onChangeText={(value) => onShippingAddress("name", value)}
+              style={styles.addressInput}
+            />
+            <TextInput
+              keyboardType="phone-pad"
+              placeholder="Nomor telepon penerima"
+              placeholderTextColor={colors.muted}
+              value={shippingAddress.phone}
+              onChangeText={(value) => onShippingAddress("phone", value)}
+              style={styles.addressInput}
+            />
+            <TextInput
+              multiline
+              placeholder="Alamat lengkap, nomor, RT/RW, kelurahan"
+              placeholderTextColor={colors.muted}
+              value={shippingAddress.address}
+              onChangeText={(value) => onShippingAddress("address", value)}
+              style={[styles.addressInput, styles.addressMultiline]}
+            />
+            <View style={styles.addressRow}>
+              <TextInput
+                autoCapitalize="characters"
+                placeholder="KECAMATAN, KOTA"
+                placeholderTextColor={colors.muted}
+                value={shippingAddress.area}
+                onChangeText={(value) => onShippingAddress("area", value)}
+                style={[styles.addressInput, styles.addressArea]}
+              />
+              <TextInput
+                keyboardType="number-pad"
+                placeholder="Kode pos"
+                placeholderTextColor={colors.muted}
+                value={shippingAddress.post_code}
+                onChangeText={(value) => onShippingAddress("post_code", value)}
+                style={[styles.addressInput, styles.addressPostal]}
+              />
+            </View>
+            {quote?.shipping_quotes.map((shipment) => (
+              <View key={shipment.branch_id} style={styles.shippingOrigin}>
+                <Text style={styles.shippingOriginName}>
+                  Dari {shipment.branch_name} · {shipment.origin}
+                </Text>
+                <View style={styles.shippingRates}>
+                  {shipment.rates.map((rate) => {
+                    const selected =
+                      shippingSelections[shipment.branch_id] ===
+                      rate.service_code;
+                    return (
+                      <Pressable
+                        key={rate.service_code}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected }}
+                        onPress={() =>
+                          onShippingService(
+                            shipment.branch_id,
+                            rate.service_code,
+                          )
+                        }
+                        style={[
+                          styles.shippingRate,
+                          selected && styles.shippingRateSelected,
+                        ]}
+                      >
+                        <Text style={styles.shippingRateName}>
+                          {rate.service_code}
+                        </Text>
+                        <Text style={styles.shippingRatePrice}>
+                          {formatCurrency(rate.fee)}
+                        </Text>
+                        <Text style={styles.shippingRateSla}>
+                          {rate.estimated_sla || "SLA mengikuti rute"}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+            <Pressable
+              disabled={quoteBusy}
+              onPress={onQuote}
+              style={styles.shippingQuoteButton}
+            >
+              <Ionicons
+                name="calculator-outline"
+                size={16}
+                color={colors.white}
+              />
+              <Text style={styles.shippingQuoteText}>
+                {quoteBusy ? "Mengecek rute…" : "Cek ongkir Lion Parcel"}
+              </Text>
+            </Pressable>
+          </View>
 
           <View style={styles.promoCard}>
             <Text style={styles.inputLabel}>Voucher Slivadoc</Text>
@@ -1037,8 +1459,14 @@ function CartSheet({
                 onChangeText={onVoucher}
                 style={styles.promoInput}
               />
-              <Pressable disabled={quoteBusy} onPress={onQuote} style={styles.applyButton}>
-                <Text style={styles.applyText}>{quoteBusy ? "…" : "Pakai"}</Text>
+              <Pressable
+                disabled={quoteBusy}
+                onPress={onQuote}
+                style={styles.applyButton}
+              >
+                <Text style={styles.applyText}>
+                  {quoteBusy ? "…" : "Pakai"}
+                </Text>
               </Pressable>
             </View>
             <Text style={styles.inputLabel}>Tukar Sliva Points</Text>
@@ -1050,18 +1478,59 @@ function CartSheet({
               onChangeText={onPoints}
               style={styles.pointsInput}
             />
-            {quote?.voucher_error ? <Text style={styles.quoteError}>{quote.voucher_error}</Text> : null}
+            {quote?.voucher_error ? (
+              <Text style={styles.quoteError}>{quote.voucher_error}</Text>
+            ) : null}
           </View>
 
-          <MobilePaymentMethods value={paymentMethod} onChange={onPaymentMethod} disabled={checkoutBusy} />
+          <MobilePaymentMethods
+            value={paymentMethod}
+            onChange={onPaymentMethod}
+            disabled={checkoutBusy}
+          />
 
           <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Subtotal</Text><Text style={styles.summaryValue}>{formatCurrency(quote?.subtotal ?? subtotal)}</Text></View>
-            <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Biaya platform</Text><Text style={styles.summaryValue}>{formatCurrency(quote?.platform_fee ?? 0)}</Text></View>
-            {quote?.voucher_discount ? <View style={styles.summaryRow}><Text style={styles.discountLabel}>Diskon voucher</Text><Text style={styles.discountValue}>−{formatCurrency(quote.voucher_discount)}</Text></View> : null}
-            {quote?.points_discount ? <View style={styles.summaryRow}><Text style={styles.discountLabel}>Sliva Points</Text><Text style={styles.discountValue}>−{formatCurrency(quote.points_discount)}</Text></View> : null}
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Subtotal</Text>
+              <Text style={styles.summaryValue}>
+                {formatCurrency(quote?.subtotal ?? subtotal)}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Biaya platform</Text>
+              <Text style={styles.summaryValue}>
+                {formatCurrency(quote?.platform_fee ?? 0)}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Ongkir Lion Parcel</Text>
+              <Text style={styles.summaryValue}>
+                {formatCurrency(quote?.shipping_fee ?? 0)}
+              </Text>
+            </View>
+            {quote?.voucher_discount ? (
+              <View style={styles.summaryRow}>
+                <Text style={styles.discountLabel}>Diskon voucher</Text>
+                <Text style={styles.discountValue}>
+                  −{formatCurrency(quote.voucher_discount)}
+                </Text>
+              </View>
+            ) : null}
+            {quote?.points_discount ? (
+              <View style={styles.summaryRow}>
+                <Text style={styles.discountLabel}>Sliva Points</Text>
+                <Text style={styles.discountValue}>
+                  −{formatCurrency(quote.points_discount)}
+                </Text>
+              </View>
+            ) : null}
             <View style={styles.summaryDivider} />
-            <View style={styles.summaryRow}><Text style={styles.totalLabel}>Total pembayaran</Text><Text style={styles.totalValue}>{formatCurrency(quote?.total_amount ?? subtotal)}</Text></View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.totalLabel}>Total pembayaran</Text>
+              <Text style={styles.totalValue}>
+                {formatCurrency(quote?.total_amount ?? subtotal)}
+              </Text>
+            </View>
           </View>
           <PrimaryButton
             disabled={checkoutBusy}
@@ -1077,32 +1546,186 @@ function CartSheet({
 
 const styles = StyleSheet.create({
   screenContent: { paddingBottom: 18 },
-  header: { minHeight: 60, flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 7 },
+  header: {
+    minHeight: 60,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 7,
+  },
   headerCopy: { flex: 1 },
-  kicker: { color: colors.sky600, fontSize: 9, lineHeight: 13, fontWeight: "600", letterSpacing: 1.1 },
-  headerTitle: { marginTop: 1, color: colors.navy, fontSize: 18, lineHeight: 23, fontWeight: "700", letterSpacing: -0.35 },
-  headerButton: { position: "relative", width: 40, height: 40, borderRadius: 13, borderWidth: 1, borderColor: colors.line, alignItems: "center", justifyContent: "center", backgroundColor: colors.white },
-  notificationDot: { position: "absolute", right: 8, top: 7, width: 7, height: 7, borderRadius: 4, borderWidth: 1.5, borderColor: colors.white, backgroundColor: colors.red },
-  cartBadge: { position: "absolute", right: -4, top: -4, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: colors.red },
+  kicker: {
+    color: colors.sky600,
+    fontSize: 9,
+    lineHeight: 13,
+    fontWeight: "600",
+    letterSpacing: 1.1,
+  },
+  headerTitle: {
+    marginTop: 1,
+    color: colors.navy,
+    fontSize: 18,
+    lineHeight: 23,
+    fontWeight: "700",
+    letterSpacing: -0.35,
+  },
+  headerButton: {
+    position: "relative",
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.white,
+  },
+  notificationDot: {
+    position: "absolute",
+    right: 8,
+    top: 7,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: colors.white,
+    backgroundColor: colors.red,
+  },
+  cartBadge: {
+    position: "absolute",
+    right: -4,
+    top: -4,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.red,
+  },
   cartBadgeText: { color: colors.white, fontSize: 9, fontWeight: "600" },
-  searchBox: { height: 44, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 13, borderRadius: 14, borderWidth: 1, borderColor: "#CCE9F8", backgroundColor: colors.white, ...shadow },
+  searchBox: {
+    height: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 13,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#CCE9F8",
+    backgroundColor: colors.white,
+    ...shadow,
+  },
   searchInput: { flex: 1, height: "100%", color: colors.text, fontSize: 13 },
-  hero: { position: "relative", minHeight: 174, overflow: "hidden", flexDirection: "row", marginTop: 12, padding: 18, borderRadius: 22 },
+  hero: {
+    position: "relative",
+    minHeight: 174,
+    overflow: "hidden",
+    flexDirection: "row",
+    marginTop: 12,
+    padding: 18,
+    borderRadius: 22,
+  },
   heroCopy: { zIndex: 2, width: "68%" },
-  heroTitle: { marginTop: 12, color: colors.white, fontSize: 24, lineHeight: 27, fontWeight: "700", letterSpacing: -0.65 },
-  heroNote: { maxWidth: 230, marginTop: 9, color: "rgba(255,255,255,.86)", fontSize: 11, lineHeight: 16 },
-  heroArt: { position: "absolute", right: 0, top: 0, bottom: 0, width: "42%", alignItems: "center", justifyContent: "center" },
-  heroOrb: { position: "absolute", width: 170, height: 170, borderRadius: 85, backgroundColor: "rgba(255,255,255,.14)" },
+  heroTitle: {
+    marginTop: 12,
+    color: colors.white,
+    fontSize: 24,
+    lineHeight: 27,
+    fontWeight: "700",
+    letterSpacing: -0.65,
+  },
+  heroNote: {
+    maxWidth: 230,
+    marginTop: 9,
+    color: "rgba(255,255,255,.86)",
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  heroArt: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: "42%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroOrb: {
+    position: "absolute",
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: "rgba(255,255,255,.14)",
+  },
   heroEmoji: { fontSize: 61, transform: [{ rotate: "-7deg" }] },
-  heroPaw: { position: "absolute", right: 17, top: 18, width: 37, height: 37, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,.88)" },
-  sectionHeader: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 10, marginTop: 20 },
-  sectionEyebrow: { color: colors.muted, fontSize: 9, lineHeight: 13, fontWeight: "600", letterSpacing: 1 },
-  sectionTitle: { marginTop: 2, color: colors.navy, fontSize: 16, lineHeight: 21, fontWeight: "700", letterSpacing: -0.2 },
-  sectionCount: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, color: colors.sky600, backgroundColor: colors.sky50, fontSize: 10, fontWeight: "600" },
+  heroPaw: {
+    position: "absolute",
+    right: 17,
+    top: 18,
+    width: 37,
+    height: 37,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,.88)",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 20,
+  },
+  sectionEyebrow: {
+    color: colors.muted,
+    fontSize: 9,
+    lineHeight: 13,
+    fontWeight: "600",
+    letterSpacing: 1,
+  },
+  sectionTitle: {
+    marginTop: 2,
+    color: colors.navy,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+  },
+  sectionCount: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    color: colors.sky600,
+    backgroundColor: colors.sky50,
+    fontSize: 10,
+    fontWeight: "600",
+  },
   storeRow: { gap: 8, paddingTop: 10, paddingRight: 16 },
-  storeChip: { width: 168, minHeight: 62, flexDirection: "row", alignItems: "center", gap: 9, padding: 9, borderRadius: 16, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
-  storeChipActive: { borderColor: colors.sky500, backgroundColor: colors.sky50 },
-  storeIcon: { width: 42, height: 42, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: colors.peach50 },
+  storeChip: {
+    width: 168,
+    minHeight: 62,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    padding: 9,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+  },
+  storeChipActive: {
+    borderColor: colors.sky500,
+    backgroundColor: colors.sky50,
+  },
+  storeIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.peach50,
+  },
   storeIconActive: { backgroundColor: colors.white },
   storeEmoji: { fontSize: 20 },
   storeChipCopy: { minWidth: 0, flex: 1 },
@@ -1111,117 +1734,614 @@ const styles = StyleSheet.create({
   storeChipCity: { marginTop: 3, color: colors.muted, fontSize: 9 },
   storeChipCityActive: { color: colors.text, fontWeight: "700" },
   categoryRow: { gap: 7, paddingVertical: 12, paddingRight: 16 },
-  categoryChip: { minHeight: 32, justifyContent: "center", paddingHorizontal: 13, borderRadius: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
-  categoryChipActive: { borderColor: colors.sky600, backgroundColor: colors.sky600 },
+  categoryChip: {
+    minHeight: 32,
+    justifyContent: "center",
+    paddingHorizontal: 13,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+  },
+  categoryChipActive: {
+    borderColor: colors.sky600,
+    backgroundColor: colors.sky600,
+  },
   categoryText: { color: colors.muted, fontSize: 10, fontWeight: "600" },
   categoryTextActive: { color: colors.white },
-  catalogHeader: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 4 },
+  catalogHeader: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
   sortRow: { gap: 6, paddingVertical: 10, paddingRight: 16 },
-  sortChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, backgroundColor: "#EEF5F9" },
+  sortChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 9,
+    backgroundColor: "#EEF5F9",
+  },
   sortChipActive: { backgroundColor: colors.navy },
   sortText: { color: colors.muted, fontSize: 9, fontWeight: "600" },
   sortTextActive: { color: colors.white },
-  loadingState: { minHeight: 240, alignItems: "center", justifyContent: "center", gap: 10 },
+  loadingState: {
+    minHeight: 240,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
   loadingText: { color: colors.muted, fontSize: 11 },
-  productGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 14 },
-  productCard: { width: "48.5%", overflow: "hidden", borderRadius: 22, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, ...shadow },
+  productGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: 14,
+  },
+  productCard: {
+    width: "48.5%",
+    overflow: "hidden",
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    backgroundColor: colors.white,
+    ...shadow,
+  },
   pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
   productVisualWrap: { position: "relative", height: 122 },
   productImage: { width: "100%", height: "100%" },
   productImageLarge: { height: 230, borderRadius: 18 },
-  productFallback: { width: "100%", height: "100%", overflow: "hidden", alignItems: "center", justifyContent: "center" },
+  productFallback: {
+    width: "100%",
+    height: "100%",
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   productFallbackLarge: { height: 230, borderRadius: 18 },
-  fallbackBubble: { position: "absolute", right: -24, top: -33, width: 105, height: 105, borderRadius: 55, backgroundColor: "rgba(255,255,255,.55)" },
+  fallbackBubble: {
+    position: "absolute",
+    right: -24,
+    top: -33,
+    width: 105,
+    height: 105,
+    borderRadius: 55,
+    backgroundColor: "rgba(255,255,255,.55)",
+  },
   productEmoji: { fontSize: 43 },
   productEmojiLarge: { fontSize: 72 },
-  fallbackLabel: { position: "absolute", left: 9, bottom: 8, maxWidth: "82%", paddingHorizontal: 7, paddingVertical: 4, borderRadius: 7, color: colors.sky600, backgroundColor: "rgba(255,255,255,.88)", fontSize: 8, fontWeight: "600" },
-  favoriteButton: { position: "absolute", right: 9, top: 9, width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: "rgba(216,241,255,.9)", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,.96)", ...shadow },
-  soldOutBadge: { position: "absolute", left: 8, top: 8, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 7, backgroundColor: "rgba(21,59,91,.82)" },
+  fallbackLabel: {
+    position: "absolute",
+    left: 9,
+    bottom: 8,
+    maxWidth: "82%",
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 7,
+    color: colors.sky600,
+    backgroundColor: "rgba(255,255,255,.88)",
+    fontSize: 8,
+    fontWeight: "600",
+  },
+  favoriteButton: {
+    position: "absolute",
+    right: 9,
+    top: 9,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: "rgba(216,241,255,.9)",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,.96)",
+    ...shadow,
+  },
+  soldOutBadge: {
+    position: "absolute",
+    left: 8,
+    top: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 7,
+    backgroundColor: "rgba(21,59,91,.82)",
+  },
   soldOutText: { color: colors.white, fontSize: 8, fontWeight: "600" },
   productCardBody: { padding: 11 },
-  productName: { minHeight: 36, color: colors.navy, fontSize: 13, lineHeight: 18, fontWeight: "700", letterSpacing: -0.15 },
-  productStoreBadge: { minWidth: 0, minHeight: 27, flexDirection: "row", alignItems: "center", gap: 5, marginTop: 6, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 10, backgroundColor: colors.sky50 },
-  storeName: { minWidth: 0, flex: 1, color: colors.navy, fontSize: 9, lineHeight: 13, fontWeight: "600" },
-  productCommerceRow: { minWidth: 0, flexDirection: "row", alignItems: "flex-end", gap: 7, marginTop: 9 },
+  productName: {
+    minHeight: 36,
+    color: colors.navy,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "700",
+    letterSpacing: -0.15,
+  },
+  productStoreBadge: {
+    minWidth: 0,
+    minHeight: 27,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: colors.sky50,
+  },
+  storeName: {
+    minWidth: 0,
+    flex: 1,
+    color: colors.navy,
+    fontSize: 9,
+    lineHeight: 13,
+    fontWeight: "600",
+  },
+  productCommerceRow: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 7,
+    marginTop: 9,
+  },
   productCommerceCopy: { minWidth: 0, flex: 1 },
-  productPrice: { color: colors.sky600, fontSize: 14, lineHeight: 18, fontWeight: "700" },
-  productMeta: { minHeight: 15, flexDirection: "row", alignItems: "center", gap: 3, marginTop: 3 },
+  productPrice: {
+    color: colors.sky600,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: "700",
+  },
+  productMeta: {
+    minHeight: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginTop: 3,
+  },
   productMetaText: { color: colors.muted, fontSize: 8 },
-  metaDivider: { width: 1, height: 10, marginHorizontal: 2, backgroundColor: colors.line },
-  addButton: { minWidth: 68, height: 38, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingHorizontal: 9, borderRadius: 13, backgroundColor: colors.sky600 },
+  metaDivider: {
+    width: 1,
+    height: 10,
+    marginHorizontal: 2,
+    backgroundColor: colors.line,
+  },
+  addButton: {
+    minWidth: 68,
+    height: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 9,
+    borderRadius: 13,
+    backgroundColor: colors.sky600,
+  },
   addButtonText: { color: colors.white, fontSize: 9, fontWeight: "600" },
   disabledButton: { opacity: 0.42 },
   stars: { flexDirection: "row", alignItems: "center", gap: 1 },
-  modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(13,35,54,.45)" },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(13,35,54,.45)",
+  },
   sheetSafeArea: { maxHeight: "88%" },
-  sheet: { overflow: "hidden", maxHeight: "100%", borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.white, ...shadow },
-  sheetHandle: { alignSelf: "center", width: 42, height: 5, marginTop: 8, borderRadius: 3, backgroundColor: "#DCE7ED" },
-  sheetHeader: { minHeight: 70, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
+  sheet: {
+    overflow: "hidden",
+    maxHeight: "100%",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: colors.white,
+    ...shadow,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 42,
+    height: 5,
+    marginTop: 8,
+    borderRadius: 3,
+    backgroundColor: "#DCE7ED",
+  },
+  sheetHeader: {
+    minHeight: 70,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
   sheetHeaderCopy: { minWidth: 0, flex: 1 },
-  sheetEyebrow: { color: colors.sky600, fontSize: 9, fontWeight: "600", letterSpacing: 1 },
-  sheetTitle: { marginTop: 2, color: colors.navy, fontSize: 17, lineHeight: 22, fontWeight: "700" },
-  sheetClose: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: colors.canvas },
+  sheetEyebrow: {
+    color: colors.sky600,
+    fontSize: 9,
+    fontWeight: "600",
+    letterSpacing: 1,
+  },
+  sheetTitle: {
+    marginTop: 2,
+    color: colors.navy,
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: "700",
+  },
+  sheetClose: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.canvas,
+  },
   detailContent: { padding: 16, paddingBottom: 20 },
-  detailStoreRow: { flexDirection: "row", alignItems: "center", gap: 9, marginTop: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.line },
-  detailStoreIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.peach50 },
+  detailStoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    marginTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  detailStoreIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.peach50,
+  },
   detailStoreCopy: { minWidth: 0, flex: 1 },
   detailStoreName: { color: colors.navy, fontSize: 12, fontWeight: "700" },
   detailStoreMeta: { marginTop: 3, color: colors.muted, fontSize: 9 },
-  detailPrice: { marginTop: 14, color: colors.sky600, fontSize: 22, lineHeight: 28, fontWeight: "700" },
-  detailMetaRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 5, marginTop: 6 },
+  detailPrice: {
+    marginTop: 14,
+    color: colors.sky600,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: "700",
+  },
+  detailMetaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 6,
+  },
   detailMetaText: { color: colors.muted, fontSize: 9 },
-  detailSectionTitle: { marginTop: 18, color: colors.navy, fontSize: 14, lineHeight: 18, fontWeight: "700" },
-  detailDescription: { marginTop: 6, color: colors.text, fontSize: 11, lineHeight: 17 },
-  reviewHeader: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 12 },
-  reviewHint: { marginTop: 3, color: colors.muted, fontSize: 9, lineHeight: 13 },
-  reviewCount: { minWidth: 28, paddingHorizontal: 7, paddingVertical: 5, borderRadius: 9, color: colors.sky600, backgroundColor: colors.sky50, fontSize: 10, fontWeight: "600", textAlign: "center" },
+  detailSectionTitle: {
+    marginTop: 18,
+    color: colors.navy,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: "700",
+  },
+  detailDescription: {
+    marginTop: 6,
+    color: colors.text,
+    fontSize: 11,
+    lineHeight: 17,
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  reviewHint: {
+    marginTop: 3,
+    color: colors.muted,
+    fontSize: 9,
+    lineHeight: 13,
+  },
+  reviewCount: {
+    minWidth: 28,
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    borderRadius: 9,
+    color: colors.sky600,
+    backgroundColor: colors.sky50,
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+  },
   reviewLoader: { marginVertical: 18 },
-  emptyReviews: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10, padding: 12, borderRadius: 14, backgroundColor: colors.canvas },
+  emptyReviews: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: colors.canvas,
+  },
   emptyReviewsEmoji: { fontSize: 24 },
   emptyReviewsCopy: { minWidth: 0, flex: 1 },
   emptyReviewsTitle: { color: colors.navy, fontSize: 11, fontWeight: "700" },
-  emptyReviewsNote: { marginTop: 3, color: colors.muted, fontSize: 9, lineHeight: 13 },
-  reviewCard: { flexDirection: "row", gap: 9, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.line },
-  reviewerAvatar: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.violet50 },
+  emptyReviewsNote: {
+    marginTop: 3,
+    color: colors.muted,
+    fontSize: 9,
+    lineHeight: 13,
+  },
+  reviewCard: {
+    flexDirection: "row",
+    gap: 9,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  reviewerAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.violet50,
+  },
   reviewerAvatarText: { color: colors.violet, fontSize: 13, fontWeight: "700" },
   reviewBody: { minWidth: 0, flex: 1 },
-  reviewerLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 },
+  reviewerLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 6,
+  },
   reviewerName: { color: colors.navy, fontSize: 10, fontWeight: "600" },
-  reviewComment: { marginTop: 6, color: colors.text, fontSize: 10, lineHeight: 15 },
+  reviewComment: {
+    marginTop: 6,
+    color: colors.text,
+    fontSize: 10,
+    lineHeight: 15,
+  },
   reviewDate: { marginTop: 5, color: colors.muted, fontSize: 8 },
-  reviewComposer: { gap: 9, marginTop: 14, padding: 13, borderRadius: 16, borderWidth: 1, borderColor: "#CDEAF8", backgroundColor: colors.sky50 },
+  reviewComposer: {
+    gap: 9,
+    marginTop: 14,
+    padding: 13,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#CDEAF8",
+    backgroundColor: colors.sky50,
+  },
   composerTitle: { color: colors.navy, fontSize: 12, fontWeight: "700" },
   ratingPicker: { flexDirection: "row", gap: 3 },
   ratingButton: { padding: 2 },
-  reviewInput: { minHeight: 82, padding: 11, borderRadius: 12, borderWidth: 1, borderColor: colors.line, color: colors.text, backgroundColor: colors.white, fontSize: 11, lineHeight: 16, textAlignVertical: "top" },
-  detailActions: { flexDirection: "row", gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.white },
-  secondaryAction: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 13, borderRadius: 13, borderWidth: 1, borderColor: colors.sky500 },
-  secondaryActionText: { color: colors.sky600, fontSize: 11, fontWeight: "700" },
-  primaryAction: { minHeight: 44, flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: colors.sky600 },
+  reviewInput: {
+    minHeight: 82,
+    padding: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    color: colors.text,
+    backgroundColor: colors.white,
+    fontSize: 11,
+    lineHeight: 16,
+    textAlignVertical: "top",
+  },
+  detailActions: {
+    flexDirection: "row",
+    gap: 8,
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    backgroundColor: colors.white,
+  },
+  secondaryAction: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 13,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: colors.sky500,
+  },
+  secondaryActionText: {
+    color: colors.sky600,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  primaryAction: {
+    minHeight: 44,
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 13,
+    backgroundColor: colors.sky600,
+  },
   primaryActionText: { color: colors.white, fontSize: 12, fontWeight: "700" },
   cartContent: { gap: 10, padding: 16, paddingBottom: 26 },
-  cartNotice: { flexDirection: "row", alignItems: "center", gap: 8, padding: 11, borderRadius: 13, backgroundColor: colors.mint50 },
-  cartNoticeText: { minWidth: 0, flex: 1, color: "#267C6C", fontSize: 9, lineHeight: 13 },
-  cartItem: { minHeight: 78, flexDirection: "row", alignItems: "center", gap: 9, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
-  cartThumb: { width: 58, height: 58, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 },
+  cartNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 11,
+    borderRadius: 13,
+    backgroundColor: colors.mint50,
+  },
+  cartNoticeText: {
+    minWidth: 0,
+    flex: 1,
+    color: "#267C6C",
+    fontSize: 9,
+    lineHeight: 13,
+  },
+  cartItem: {
+    minHeight: 78,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  cartThumb: {
+    width: 58,
+    height: 58,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.sky50,
+  },
   cartEmoji: { fontSize: 27 },
   cartItemCopy: { minWidth: 0, flex: 1 },
-  cartItemName: { color: colors.navy, fontSize: 11, lineHeight: 15, fontWeight: "700" },
+  cartItemName: {
+    color: colors.navy,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: "700",
+  },
   cartItemStore: { marginTop: 2, color: colors.muted, fontSize: 8 },
-  cartItemPrice: { marginTop: 5, color: colors.sky600, fontSize: 10, fontWeight: "600" },
-  stepper: { height: 32, flexDirection: "row", alignItems: "center", borderRadius: 10, borderWidth: 1, borderColor: colors.line },
-  stepperButton: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
-  quantity: { minWidth: 22, color: colors.navy, fontSize: 10, fontWeight: "600", textAlign: "center" },
-  promoCard: { gap: 7, marginTop: 2, padding: 12, borderRadius: 15, backgroundColor: colors.canvas },
+  cartItemPrice: {
+    marginTop: 5,
+    color: colors.sky600,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  stepper: {
+    height: 32,
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  stepperButton: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quantity: {
+    minWidth: 22,
+    color: colors.navy,
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  promoCard: {
+    gap: 7,
+    marginTop: 2,
+    padding: 12,
+    borderRadius: 15,
+    backgroundColor: colors.canvas,
+  },
+  shippingCard: {
+    gap: 8,
+    marginTop: 2,
+    padding: 13,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#CCE9F8",
+    backgroundColor: colors.sky50,
+  },
+  shippingHeading: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  shippingHeadingCopy: { flex: 1 },
+  shippingTitle: { color: colors.navy, fontSize: 12, fontWeight: "700" },
+  shippingNote: {
+    marginTop: 2,
+    color: colors.muted,
+    fontSize: 9,
+    lineHeight: 13,
+  },
+  addressInput: {
+    minHeight: 40,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: colors.line,
+    color: colors.text,
+    backgroundColor: colors.white,
+    fontSize: 10,
+  },
+  addressMultiline: { minHeight: 64, textAlignVertical: "top" },
+  addressRow: { flexDirection: "row", gap: 7 },
+  addressArea: { flex: 1 },
+  addressPostal: { width: 88 },
+  shippingOrigin: { gap: 6, paddingTop: 4 },
+  shippingOriginName: { color: colors.text, fontSize: 9, fontWeight: "600" },
+  shippingRates: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  shippingRate: {
+    minWidth: 102,
+    flexGrow: 1,
+    padding: 9,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+  },
+  shippingRateSelected: {
+    borderColor: colors.sky500,
+    backgroundColor: "#E7F6FD",
+  },
+  shippingRateName: { color: colors.navy, fontSize: 10, fontWeight: "700" },
+  shippingRatePrice: {
+    marginTop: 2,
+    color: colors.sky600,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  shippingRateSla: { marginTop: 2, color: colors.muted, fontSize: 8 },
+  shippingQuoteButton: {
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    borderRadius: 11,
+    backgroundColor: colors.sky600,
+  },
+  shippingQuoteText: { color: colors.white, fontSize: 10, fontWeight: "700" },
   inputLabel: { color: colors.text, fontSize: 9, fontWeight: "600" },
   promoRow: { flexDirection: "row", gap: 7 },
-  promoInput: { minWidth: 0, height: 40, flex: 1, paddingHorizontal: 11, borderRadius: 11, borderWidth: 1, borderColor: colors.line, color: colors.text, backgroundColor: colors.white, fontSize: 10 },
-  pointsInput: { height: 40, paddingHorizontal: 11, borderRadius: 11, borderWidth: 1, borderColor: colors.line, color: colors.text, backgroundColor: colors.white, fontSize: 10 },
-  applyButton: { height: 40, justifyContent: "center", paddingHorizontal: 14, borderRadius: 11, backgroundColor: colors.navy },
+  promoInput: {
+    minWidth: 0,
+    height: 40,
+    flex: 1,
+    paddingHorizontal: 11,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: colors.line,
+    color: colors.text,
+    backgroundColor: colors.white,
+    fontSize: 10,
+  },
+  pointsInput: {
+    height: 40,
+    paddingHorizontal: 11,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: colors.line,
+    color: colors.text,
+    backgroundColor: colors.white,
+    fontSize: 10,
+  },
+  applyButton: {
+    height: 40,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    borderRadius: 11,
+    backgroundColor: colors.navy,
+  },
   applyText: { color: colors.white, fontSize: 10, fontWeight: "600" },
   quoteError: { color: colors.red, fontSize: 9, lineHeight: 13 },
-  summaryCard: { gap: 8, marginTop: 2, padding: 13, borderRadius: 15, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
-  summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  summaryCard: {
+    gap: 8,
+    marginTop: 2,
+    padding: 13,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
   summaryLabel: { color: colors.muted, fontSize: 10 },
   summaryValue: { color: colors.text, fontSize: 10, fontWeight: "600" },
   discountLabel: { color: colors.mint, fontSize: 10 },

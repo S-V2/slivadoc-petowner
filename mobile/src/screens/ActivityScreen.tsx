@@ -134,6 +134,24 @@ function statusPresentation(status: string): { label: string; tone: PillTone } {
   };
 }
 
+const shipmentSteps = ["Diproses", "Pickup", "Dalam perjalanan", "Selesai"];
+
+function shipmentPresentation(status: string): { label: string; stage: number } {
+  const normalized = status.toLowerCase();
+  if (normalized === "delivered") return { label: "Sudah diterima", stage: 3 };
+  if (["in_transit", "exception", "returning", "returned"].includes(normalized)) {
+    return {
+      label: normalized === "exception" ? "Ada kendala pengiriman" : "Dalam perjalanan",
+      stage: 2,
+    };
+  }
+  if (["booked", "pickup_requested"].includes(normalized)) {
+    return { label: normalized === "booked" ? "Menunggu pickup" : "Pickup dijadwalkan", stage: 1 };
+  }
+  if (normalized === "cancelled") return { label: "Pengiriman dibatalkan", stage: 0 };
+  return { label: "Sedang diproses", stage: 0 };
+}
+
 function repeatLabel(item: MobileActivityCenterItem) {
   if (item.type === "booking") return "Booking lagi";
   if (item.type === "order") return "Beli lagi";
@@ -556,6 +574,14 @@ function ActivityDetailSheet({
                       </Text>
                     </View>
                   </View>
+                  {Boolean(item.shipments?.length) ? (
+                    <View style={styles.trackingReadOnlyNote}>
+                      <Ionicons name="sync-outline" size={15} color={colors.sky600} />
+                      <Text style={styles.trackingReadOnlyText}>
+                        Status pengiriman bersifat view-only dan tersinkron otomatis dari Lion Parcel.
+                      </Text>
+                    </View>
+                  ) : null}
                   {(item.shipments ?? []).map((shipment) => (
                     <View key={shipment.id} style={styles.shipmentCard}>
                       <View style={styles.shipmentTitleRow}>
@@ -570,9 +596,31 @@ function ActivityDetailSheet({
                           </Text>
                           <Text style={styles.shipmentStatus}>
                             Lion Parcel · {shipment.service_code} ·{" "}
-                            {shipment.status.replaceAll("_", " ")}
+                            {shipmentPresentation(shipment.status).label}
                           </Text>
                         </View>
+                      </View>
+                      <View style={styles.shipmentProgress}>
+                        {shipmentSteps.map((step, index) => (
+                          <View key={step} style={styles.shipmentProgressStep}>
+                            <View
+                              style={[
+                                styles.shipmentProgressDot,
+                                index <= shipmentPresentation(shipment.status).stage &&
+                                  styles.shipmentProgressDotActive,
+                              ]}
+                            />
+                            <Text
+                              style={[
+                                styles.shipmentProgressLabel,
+                                index <= shipmentPresentation(shipment.status).stage &&
+                                  styles.shipmentProgressLabelActive,
+                              ]}
+                            >
+                              {step}
+                            </Text>
+                          </View>
+                        ))}
                       </View>
                       <DetailRow
                         icon="barcode-outline"
@@ -764,29 +812,40 @@ export function ActivityScreen({
   const [loading, setLoading] = useState(true);
   const requestSequence = useRef(0);
 
-  const loadActivities = useCallback(async () => {
+  const loadActivities = useCallback(async (silent = false) => {
     if (!authenticated) return;
     const request = requestSequence.current + 1;
     requestSequence.current = request;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const result = await getMobileActivityCenter(typeFilter, stateFilter);
       if (requestSequence.current !== request) return;
       setActivities(result.data);
       setSummary(result.summary);
+      setSelected((current) =>
+        current
+          ? result.data.find((activity) => activity.id === current.id) ?? current
+          : current,
+      );
     } catch (cause) {
       if (requestSequence.current !== request) return;
       onAction(
         cause instanceof Error ? cause.message : "Aktivitas belum dapat dimuat",
       );
     } finally {
-      if (requestSequence.current === request) setLoading(false);
+      if (!silent && requestSequence.current === request) setLoading(false);
     }
   }, [authenticated, onAction, stateFilter, typeFilter]);
 
   useEffect(() => {
     queueMicrotask(() => void loadActivities());
   }, [loadActivities, refreshVersion]);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    const timer = setInterval(() => void loadActivities(true), 60_000);
+    return () => clearInterval(timer);
+  }, [authenticated, loadActivities]);
 
   const repeat = useCallback(
     (item: MobileActivityCenterItem) => {
@@ -1457,6 +1516,16 @@ const styles = StyleSheet.create({
     borderColor: "#CCE9F8",
     backgroundColor: colors.sky50,
   },
+  trackingReadOnlyNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+    padding: 10,
+    borderRadius: 13,
+    backgroundColor: "#EAF7FD",
+  },
+  trackingReadOnlyText: { flex: 1, color: colors.text, fontSize: 9, lineHeight: 13 },
   shipmentTitleRow: { flexDirection: "row", alignItems: "center", gap: 9 },
   shipmentTitleCopy: { flex: 1 },
   shipmentNumber: { color: colors.navy, fontSize: 12, fontWeight: "700" },
@@ -1466,6 +1535,26 @@ const styles = StyleSheet.create({
     fontSize: 9,
     textTransform: "capitalize",
   },
+  shipmentProgress: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 4,
+    paddingVertical: 5,
+  },
+  shipmentProgressStep: { flex: 1, alignItems: "center", gap: 4 },
+  shipmentProgressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.line,
+  },
+  shipmentProgressDotActive: { backgroundColor: colors.sky600 },
+  shipmentProgressLabel: {
+    color: colors.muted,
+    fontSize: 7,
+    textAlign: "center",
+  },
+  shipmentProgressLabelActive: { color: colors.navy, fontWeight: "700" },
   shipmentEvent: { flexDirection: "row", gap: 9, paddingLeft: 5 },
   shipmentDot: {
     width: 7,

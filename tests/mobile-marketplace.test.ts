@@ -11,6 +11,10 @@ const marketplace = readFileSync(
   new URL("../mobile/src/screens/MarketplaceScreen.tsx", import.meta.url),
   "utf8",
 );
+const activities = readFileSync(
+  new URL("../mobile/src/screens/ActivityScreen.tsx", import.meta.url),
+  "utf8",
+);
 
 test("marketplace is a primary mobile destination while services remain available", () => {
   assert.match(app, /id:\s*"marketplace"[\s\S]*label:\s*"Belanja"/);
@@ -76,4 +80,17 @@ test("marketplace keeps partner and sales metadata readable when catalogue field
     marketplace,
     /storeChipCityActive:\s*\{\s*color:\s*colors\.text/,
   );
+});
+
+test("mobile order detail exposes a view-only shipment timeline through delivery", () => {
+  assert.match(api, /export type MobileShipmentEvent/);
+  assert.match(api, /shipments\?: MobileShipment\[\]/);
+  assert.match(activities, /Status pengiriman bersifat view-only/);
+  assert.match(activities, /shipmentPresentation/);
+  assert.match(activities, /Dalam perjalanan/);
+  assert.match(activities, /Sudah diterima/);
+  assert.match(activities, /shipment\.events/);
+  assert.match(activities, /loadActivities\(true\)/);
+  assert.match(activities, /60_000/);
+  assert.doesNotMatch(activities, /shipping\/track/);
 });

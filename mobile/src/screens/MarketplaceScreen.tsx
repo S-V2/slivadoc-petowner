@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -17,8 +18,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   createMobileOrder,
   createMobilePaymentIntent,
+  getMobileDistricts,
   getMobileProductReviews,
   getMobileProducts,
+  getMobileProvinces,
+  getMobileRegencies,
+  getMobileVillages,
   quoteMobileOrder,
   saveMobileProductReview,
   type MobileOrderQuote,
@@ -26,11 +31,13 @@ import {
   type MobilePaymentIntent,
   type MobileProduct,
   type MobileProductReview,
+  type MobileRegionOption,
 } from "../api";
 import {
   MobileBatpayModal,
   MobilePaymentMethods,
 } from "../components/BatpayPayment";
+import { RegionSelectSheet } from "../components/RegionSelectSheet";
 import {
   EmptyState,
   PetRequiredNotice,
@@ -44,16 +51,61 @@ import {
   LocalizedTextInput as TextInput,
   useI18n,
 } from "../i18n";
+import {
+  buildShippingAddressPayload,
+  createEmptyShippingAddress,
+  createEmptyShippingDestination,
+  createShippingAutoQuoteKey,
+  isShippingDestinationComplete,
+  isShippingQuoteRequestCurrent,
+  resetShippingDestination,
+  type ShippingAddressForm,
+  type ShippingDestinationSelection,
+  type ShippingRegionLevel,
+} from "../shipping";
 import { colors, shadow } from "../theme";
 
 type SortMode = "recommended" | "popular" | "rating" | "price";
-type ShippingAddressForm = {
-  name: string;
-  phone: string;
-  address: string;
-  post_code: string;
-  area: string;
+
+const REGION_LEVELS: readonly ShippingRegionLevel[] = [
+  "province",
+  "regency",
+  "district",
+  "village",
+];
+
+const REGION_PICKER_COPY: Record<
+  ShippingRegionLevel,
+  { label: string; placeholder: string; searchPlaceholder: string }
+> = {
+  province: {
+    label: "Provinsi",
+    placeholder: "Pilih provinsi",
+    searchPlaceholder: "Cari provinsi",
+  },
+  regency: {
+    label: "Kabupaten / Kota",
+    placeholder: "Pilih kabupaten atau kota",
+    searchPlaceholder: "Cari kabupaten atau kota",
+  },
+  district: {
+    label: "Kecamatan",
+    placeholder: "Pilih kecamatan",
+    searchPlaceholder: "Cari kecamatan",
+  },
+  village: {
+    label: "Kelurahan / Desa",
+    placeholder: "Pilih kelurahan atau desa",
+    searchPlaceholder: "Cari kelurahan atau desa",
+  },
 };
+
+function isAbortError(cause: unknown) {
+  return (
+    cause instanceof Error &&
+    (cause.name === "AbortError" || /aborted|aborterror/i.test(cause.message))
+  );
+}
 
 type MarketplaceScreenProps = {
   authenticated: boolean;
@@ -266,19 +318,36 @@ export function MarketplaceScreen({
   const [voucher, setVoucher] = useState("");
   const [points, setPoints] = useState("");
   const [quote, setQuote] = useState<MobileOrderQuote>();
+  const [quotedKey, setQuotedKey] = useState("");
   const [quoteBusy, setQuoteBusy] = useState(false);
+  const [quoteError, setQuoteError] = useState("");
   const [checkoutBusy, setCheckoutBusy] = useState(false);
-  const [shippingAddress, setShippingAddress] = useState({
-    name: "",
-    phone: "",
-    address: "",
-    post_code: "",
-    area: "",
-  });
+  const [shippingAddress, setShippingAddress] = useState<ShippingAddressForm>(
+    createEmptyShippingAddress,
+  );
+  const [shippingDestination, setShippingDestination] =
+    useState<ShippingDestinationSelection>(createEmptyShippingDestination);
   const [shippingSelections, setShippingSelections] = useState<
     Record<string, string>
   >({});
+  const [regionOptions, setRegionOptions] = useState<
+    Record<ShippingRegionLevel, MobileRegionOption[]>
+  >({ province: [], regency: [], district: [], village: [] });
+  const [regionPicker, setRegionPicker] = useState<ShippingRegionLevel>();
+  const [regionLoading, setRegionLoading] = useState<ShippingRegionLevel>();
+  const [regionErrors, setRegionErrors] = useState<
+    Partial<Record<ShippingRegionLevel, string>>
+  >({});
   const handledIntent = useRef(0);
+  const quoteSequence = useRef(0);
+  const quoteController = useRef<AbortController | undefined>(undefined);
+  const shippingSelectionsRef = useRef<Record<string, string>>({});
+  const regionRequestSequence = useRef<Record<ShippingRegionLevel, number>>({
+    province: 0,
+    regency: 0,
+    district: 0,
+    village: 0,
+  });
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -297,6 +366,136 @@ export function MarketplaceScreen({
   useEffect(() => {
     queueMicrotask(() => void loadProducts());
   }, [loadProducts, refreshVersion]);
+
+  const loadRegionOptions = useCallback(
+    async (level: ShippingRegionLevel, parentID = "") => {
+      const sequence = regionRequestSequence.current[level] + 1;
+      regionRequestSequence.current[level] = sequence;
+      setRegionLoading(level);
+      setRegionErrors((current) => ({ ...current, [level]: undefined }));
+
+      try {
+        let result: { data: MobileRegionOption[] };
+        switch (level) {
+          case "province":
+            result = await getMobileProvinces();
+            break;
+          case "regency":
+            result = await getMobileRegencies(parentID);
+            break;
+          case "district":
+            result = await getMobileDistricts(parentID);
+            break;
+          case "village":
+            result = await getMobileVillages(parentID);
+            break;
+        }
+        if (regionRequestSequence.current[level] !== sequence) return;
+        setRegionOptions((current) => ({ ...current, [level]: result.data }));
+      } catch (cause) {
+        if (regionRequestSequence.current[level] !== sequence) return;
+        setRegionOptions((current) => ({ ...current, [level]: [] }));
+        setRegionErrors((current) => ({
+          ...current,
+          [level]:
+            cause instanceof Error
+              ? cause.message
+              : "Daftar wilayah belum dapat dimuat",
+        }));
+      } finally {
+        if (regionRequestSequence.current[level] === sequence) {
+          setRegionLoading((current) =>
+            current === level ? undefined : current,
+          );
+        }
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (cartOpen) void loadRegionOptions("province");
+  }, [cartOpen, loadRegionOptions]);
+
+  const updateShippingSelections = useCallback(
+    (next: Record<string, string>) => {
+      shippingSelectionsRef.current = next;
+      setShippingSelections(next);
+    },
+    [],
+  );
+
+  const invalidateQuote = useCallback(
+    (clearSelections = true) => {
+      quoteSequence.current += 1;
+      quoteController.current?.abort();
+      quoteController.current = undefined;
+      setQuote(undefined);
+      setQuotedKey("");
+      setQuoteBusy(false);
+      setQuoteError("");
+      if (clearSelections) updateShippingSelections({});
+    },
+    [updateShippingSelections],
+  );
+
+  const openRegionPicker = useCallback(
+    (level: ShippingRegionLevel) => {
+      setRegionPicker(level);
+      const parentID =
+        level === "regency"
+          ? shippingDestination.province?.code
+          : level === "district"
+            ? shippingDestination.regency?.code
+            : level === "village"
+              ? shippingDestination.district?.code
+              : "";
+      if (!regionOptions[level].length && (level === "province" || parentID)) {
+        void loadRegionOptions(level, parentID);
+      }
+    },
+    [loadRegionOptions, regionOptions, shippingDestination],
+  );
+
+  const selectRegion = useCallback(
+    (level: ShippingRegionLevel, option: MobileRegionOption) => {
+      setShippingDestination((current) =>
+        resetShippingDestination(current, level, {
+          code: option.code || option.id,
+          name: option.name,
+        }),
+      );
+      invalidateQuote();
+
+      const levelIndex = REGION_LEVELS.indexOf(level);
+      const clearedLevels = REGION_LEVELS.slice(levelIndex + 1);
+      if (clearedLevels.length) {
+        clearedLevels.forEach((child) => {
+          regionRequestSequence.current[child] += 1;
+        });
+        setRegionOptions((current) => {
+          const next = { ...current };
+          clearedLevels.forEach((child) => {
+            next[child] = [];
+          });
+          return next;
+        });
+        setRegionErrors((current) => {
+          const next = { ...current };
+          clearedLevels.forEach((child) => {
+            next[child] = undefined;
+          });
+          return next;
+        });
+      }
+
+      const nextLevel = REGION_LEVELS[levelIndex + 1];
+      if (nextLevel) {
+        void loadRegionOptions(nextLevel, option.id || option.code);
+      }
+    },
+    [invalidateQuote, loadRegionOptions],
+  );
 
   const partnerById = useMemo(() => {
     const index = new Map<string, Service>();
@@ -410,10 +609,9 @@ export function MarketplaceScreen({
         }
         return { ...current, [product.id]: safeQuantity };
       });
-      setQuote(undefined);
-      setShippingSelections({});
+      invalidateQuote();
     },
-    [],
+    [invalidateQuote],
   );
 
   const addToCart = useCallback(
@@ -483,95 +681,226 @@ export function MarketplaceScreen({
           return;
         }
         setCart(restored);
-        setQuote(undefined);
+        invalidateQuote();
         setCartOpen(true);
       }
     });
-  }, [intent, loadReviews, loading, onAction, productsById]);
+  }, [
+    intent,
+    loadReviews,
+    loading,
+    onAction,
+    productsById,
+    invalidateQuote,
+  ]);
 
-  const orderInput = useMemo<MobileOrderInput>(
-    () => ({
-      items: cartItems.map((item) => ({
+  const quoteItems = useMemo(
+    () =>
+      cartItems.map((item) => ({
         product_id: item.product.id,
         quantity: item.quantity,
       })),
+    [cartItems],
+  );
+  const shippingAddressComplete = isShippingDestinationComplete(
+    shippingAddress,
+    shippingDestination,
+  );
+  const autoQuoteKey = shippingAddressComplete
+    ? `${createShippingAutoQuoteKey(quoteItems, shippingAddress, shippingDestination)}:voucher=${voucher.trim().toUpperCase()}:points=${Math.max(0, Number.parseInt(points || "0", 10) || 0)}`
+    : "";
+  const autoQuoteKeyRef = useRef(autoQuoteKey);
+  autoQuoteKeyRef.current = autoQuoteKey;
+
+  const buildOrderInput = useCallback(
+    (selections: Record<string, string>): MobileOrderInput => ({
+      items: quoteItems,
       voucher_code: voucher.trim(),
       redeem_points: Math.max(0, Number.parseInt(points || "0", 10) || 0),
       shipping: {
-        address: shippingAddress,
+        address: buildShippingAddressPayload(
+          shippingAddress,
+          shippingDestination,
+        ),
         shipment_type: "PICKUP",
         use_insurance: false,
-        selections: Object.entries(shippingSelections).map(
+        selections: Object.entries(selections).map(
           ([branch_id, service_code]) => ({ branch_id, service_code }),
         ),
       },
     }),
-    [cartItems, points, shippingAddress, shippingSelections, voucher],
+    [points, quoteItems, shippingAddress, shippingDestination, voucher],
   );
 
-  const shippingAddressComplete =
-    shippingAddress.name.trim().length >= 2 &&
-    shippingAddress.phone.trim().length >= 8 &&
-    shippingAddress.address.trim().length >= 8 &&
-    shippingAddress.area.trim().length >= 4;
-
-  const refreshQuote = async () => {
-    if (!cartItems.length) return;
-    if (!authenticated) {
-      onRequireLogin();
-      return;
-    }
-    if (!hasPet) {
-      onRequirePet();
-      return;
-    }
-    if (!shippingAddressComplete) {
-      onAction(
-        "Lengkapi nama, telepon, alamat, serta area kecamatan dan kota tujuan",
-      );
-      return;
-    }
-    setQuoteBusy(true);
-    try {
-      let nextQuote = await quoteMobileOrder(orderInput);
-      const automaticSelections = Object.fromEntries(
-        nextQuote.shipping_quotes
-          .filter((shipment) => shipment.rates[0])
-          .map((shipment) => [
-            shipment.branch_id,
-            shippingSelections[shipment.branch_id] ||
-              shipment.rates[0]!.service_code,
-          ]),
-      );
-      if (
-        Object.keys(automaticSelections).length &&
-        nextQuote.shipping_quotes.some(
-          (shipment) => !shippingSelections[shipment.branch_id],
-        )
-      ) {
-        nextQuote = await quoteMobileOrder({
-          ...orderInput,
-          shipping: {
-            ...orderInput.shipping!,
-            selections: Object.entries(automaticSelections).map(
-              ([branch_id, service_code]) => ({ branch_id, service_code }),
-            ),
-          },
-        });
-        setShippingSelections(automaticSelections);
+  const refreshQuote = useCallback(
+    async (
+      selectionOverride?: Record<string, string>,
+      surfaceError = false,
+    ) => {
+      if (!cartItems.length) return;
+      if (!authenticated) {
+        if (surfaceError) onRequireLogin();
+        return;
       }
-      setQuote(nextQuote);
-    } catch (cause) {
-      setQuote(undefined);
-      onAction(
-        cause instanceof Error
-          ? cause.message
-          : "Ringkasan belum dapat dihitung",
-      );
-    } finally {
-      setQuoteBusy(false);
+      if (!hasPet) {
+        if (surfaceError) onRequirePet();
+        return;
+      }
+      if (!shippingAddressComplete) {
+        if (surfaceError) {
+          onAction("Lengkapi seluruh alamat tujuan pengiriman terlebih dahulu");
+        }
+        return;
+      }
+
+      const sequence = quoteSequence.current + 1;
+      quoteSequence.current = sequence;
+      const requestKey = autoQuoteKey;
+      quoteController.current?.abort();
+      const controller = new AbortController();
+      quoteController.current = controller;
+      const requestedSelections =
+        selectionOverride ?? shippingSelectionsRef.current;
+      setQuoteBusy(true);
+      setQuotedKey("");
+      setQuoteError("");
+      try {
+        let orderInput = buildOrderInput(requestedSelections);
+        let nextQuote = await quoteMobileOrder(orderInput, controller.signal);
+        if (
+          !isShippingQuoteRequestCurrent(
+            sequence,
+            quoteSequence.current,
+            requestKey,
+            autoQuoteKeyRef.current,
+          )
+        )
+          return;
+
+        const automaticSelections = Object.fromEntries(
+          nextQuote.shipping_quotes
+            .filter((shipment) => shipment.rates[0])
+            .map((shipment) => {
+              const requested = requestedSelections[shipment.branch_id];
+              const available = shipment.rates.some(
+                (rate) => rate.service_code === requested,
+              );
+              const cheapest = shipment.rates.reduce((best, rate) =>
+                rate.fee < best.fee ? rate : best,
+              );
+              return [
+                shipment.branch_id,
+                available && requested ? requested : cheapest.service_code,
+              ];
+            }),
+        );
+
+        if (
+          Object.keys(automaticSelections).length !==
+          nextQuote.shipping_quotes.length
+        ) {
+          throw new Error(
+            "Salah satu origin pengiriman belum memiliki layanan yang tersedia",
+          );
+        }
+
+        if (
+          Object.keys(automaticSelections).length &&
+          nextQuote.shipping_quotes.some(
+            (shipment) =>
+              automaticSelections[shipment.branch_id] !==
+              requestedSelections[shipment.branch_id],
+          )
+        ) {
+          orderInput = buildOrderInput(automaticSelections);
+          nextQuote = await quoteMobileOrder(orderInput, controller.signal);
+        }
+        if (
+          !isShippingQuoteRequestCurrent(
+            sequence,
+            quoteSequence.current,
+            requestKey,
+            autoQuoteKeyRef.current,
+          )
+        )
+          return;
+
+        updateShippingSelections(automaticSelections);
+        setQuote(nextQuote);
+        setQuotedKey(requestKey);
+      } catch (cause) {
+        if (isAbortError(cause) || quoteSequence.current !== sequence) return;
+        const message =
+          cause instanceof Error
+            ? cause.message
+            : "Ringkasan belum dapat dihitung";
+        setQuote(undefined);
+        setQuotedKey("");
+        setQuoteError(message);
+        if (surfaceError) onAction(message);
+      } finally {
+        if (quoteSequence.current === sequence) {
+          setQuoteBusy(false);
+          if (quoteController.current === controller) {
+            quoteController.current = undefined;
+          }
+        }
+      }
+    },
+    [
+      authenticated,
+      autoQuoteKey,
+      buildOrderInput,
+      cartItems.length,
+      hasPet,
+      onAction,
+      onRequireLogin,
+      onRequirePet,
+      shippingAddressComplete,
+      updateShippingSelections,
+    ],
+  );
+
+  useEffect(() => {
+    if (
+      !cartOpen ||
+      !authenticated ||
+      !hasPet ||
+      !cartItems.length ||
+      !autoQuoteKey
+    ) {
+      quoteController.current?.abort();
+      return;
     }
-  };
+
+    const timer = setTimeout(() => {
+      void refreshQuote(undefined, false);
+    }, 600);
+    return () => {
+      clearTimeout(timer);
+      quoteController.current?.abort();
+    };
+  }, [
+    authenticated,
+    autoQuoteKey,
+    cartItems.length,
+    cartOpen,
+    hasPet,
+    refreshQuote,
+  ]);
+
+  const checkoutReady = Boolean(
+    quote &&
+      quotedKey === autoQuoteKey &&
+      shippingAddressComplete &&
+      !quoteBusy &&
+      quote.shipping_quotes.length > 0 &&
+      quote.shipping_quotes.every(
+        (shipment) =>
+          shipment.selected_service &&
+          shipment.selected_service === shippingSelections[shipment.branch_id],
+      ),
+  );
 
   const checkout = async () => {
     if (!authenticated) {
@@ -583,20 +912,13 @@ export function MarketplaceScreen({
       return;
     }
     if (!cartItems.length) return;
-    if (
-      !quote ||
-      !shippingAddressComplete ||
-      quote.shipping_quotes.some(
-        (shipment) =>
-          !shipment.selected_service ||
-          shipment.selected_service !== shippingSelections[shipment.branch_id],
-      )
-    ) {
-      onAction("Cek ongkir dan pilih layanan Lion Parcel sebelum membayar");
+    if (!checkoutReady) {
+      onAction("Lengkapi tujuan dan tunggu ongkir selesai dihitung");
       return;
     }
     setCheckoutBusy(true);
     try {
+      const orderInput = buildOrderInput(shippingSelectionsRef.current);
       const order = await createMobileOrder(orderInput);
       const intent = await createMobilePaymentIntent(
         "shop_order",
@@ -922,23 +1244,77 @@ export function MarketplaceScreen({
         points={points}
         paymentMethod={paymentMethod}
         shippingAddress={shippingAddress}
+        shippingDestination={shippingDestination}
+        shippingAddressComplete={shippingAddressComplete}
         shippingSelections={shippingSelections}
+        quoteError={quoteError}
+        regionPickerOpen={regionPicker !== undefined}
+        regionPicker={
+          <RegionSelectSheet
+            embedded
+            key={regionPicker ?? "closed"}
+            visible={regionPicker !== undefined}
+            title={REGION_PICKER_COPY[regionPicker ?? "province"].placeholder}
+            placeholder={
+              REGION_PICKER_COPY[regionPicker ?? "province"].searchPlaceholder
+            }
+            options={regionOptions[regionPicker ?? "province"]}
+            loading={regionLoading === regionPicker}
+            error={regionErrors[regionPicker ?? "province"]}
+            value={shippingDestination[regionPicker ?? "province"]?.code}
+            onSelect={(option) =>
+              selectRegion(regionPicker ?? "province", option)
+            }
+            onRetry={() => {
+              const level = regionPicker ?? "province";
+              const parentID =
+                level === "regency"
+                  ? shippingDestination.province?.code
+                  : level === "district"
+                    ? shippingDestination.regency?.code
+                    : level === "village"
+                      ? shippingDestination.district?.code
+                      : "";
+              void loadRegionOptions(level, parentID);
+            }}
+            onClose={() => setRegionPicker(undefined)}
+          />
+        }
+        checkoutReady={checkoutReady}
         onPaymentMethod={setPaymentMethod}
-        onVoucher={setVoucher}
-        onPoints={setPoints}
+        onVoucher={(value) => {
+          setVoucher(value);
+          invalidateQuote(false);
+        }}
+        onPoints={(value) => {
+          setPoints(value);
+          invalidateQuote(false);
+        }}
         onShippingAddress={(field, value) => {
           setShippingAddress((current) => ({ ...current, [field]: value }));
-          setQuote(undefined);
+          invalidateQuote(false);
         }}
+        onOpenRegion={openRegionPicker}
         onShippingService={(branchID, serviceCode) => {
-          setShippingSelections((current) => ({
-            ...current,
+          const next = {
+            ...shippingSelectionsRef.current,
             [branchID]: serviceCode,
-          }));
+          };
+          invalidateQuote(false);
+          updateShippingSelections(next);
+          void refreshQuote(next, false);
         }}
-        onClose={() => setCartOpen(false)}
+        onClose={() => {
+          if (regionPicker !== undefined) {
+            setRegionPicker(undefined);
+            return;
+          }
+          setRegionPicker(undefined);
+          invalidateQuote(false);
+          setCartOpen(false);
+        }}
         onQuantity={setQuantity}
-        onQuote={() => void refreshQuote()}
+        onQuote={() => void refreshQuote(undefined, true)}
         onCheckout={() => void checkout()}
       />
 
@@ -947,7 +1323,7 @@ export function MarketplaceScreen({
         onClose={() => setPayment(undefined)}
         onPaid={() => {
           setCart({});
-          setQuote(undefined);
+          invalidateQuote();
           void loadProducts();
           onAction("Pembayaran berhasil, pesanan sedang disiapkan toko");
         }}
@@ -1213,6 +1589,54 @@ function ProductDetailSheet({
   );
 }
 
+function ShippingRegionField({
+  level,
+  value,
+  disabled,
+  onPress,
+}: {
+  level: ShippingRegionLevel;
+  value?: string;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const copy = REGION_PICKER_COPY[level];
+  const { t } = useI18n();
+  return (
+    <View style={styles.regionFieldWrap}>
+      <Text style={styles.regionFieldLabel}>{copy.label} *</Text>
+      <Pressable
+        accessibilityLabel={`${t(copy.placeholder)}${value ? `, ${value}` : ""}`}
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.regionField,
+          disabled && styles.regionFieldDisabled,
+          pressed && !disabled && styles.pressed,
+        ]}
+      >
+        <Ionicons
+          name={value ? "location" : "location-outline"}
+          size={16}
+          color={value ? colors.sky600 : colors.muted}
+        />
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.regionFieldValue,
+            !value && styles.regionFieldPlaceholder,
+          ]}
+        >
+          {value || copy.placeholder}
+        </Text>
+        <Ionicons name="chevron-down" size={15} color={colors.muted} />
+      </Pressable>
+    </View>
+  );
+}
+
 function CartSheet({
   visible,
   items,
@@ -1224,11 +1648,18 @@ function CartSheet({
   points,
   paymentMethod,
   shippingAddress,
+  shippingDestination,
+  shippingAddressComplete,
   shippingSelections,
+  quoteError,
+  regionPickerOpen,
+  regionPicker,
+  checkoutReady,
   onPaymentMethod,
   onVoucher,
   onPoints,
   onShippingAddress,
+  onOpenRegion,
   onShippingService,
   onClose,
   onQuantity,
@@ -1245,11 +1676,18 @@ function CartSheet({
   points: string;
   paymentMethod: string;
   shippingAddress: ShippingAddressForm;
+  shippingDestination: ShippingDestinationSelection;
+  shippingAddressComplete: boolean;
   shippingSelections: Record<string, string>;
+  quoteError: string;
+  regionPickerOpen: boolean;
+  regionPicker?: ReactNode;
+  checkoutReady: boolean;
   onPaymentMethod: (value: string) => void;
   onVoucher: (value: string) => void;
   onPoints: (value: string) => void;
   onShippingAddress: (field: keyof ShippingAddressForm, value: string) => void;
+  onOpenRegion: (level: ShippingRegionLevel) => void;
   onShippingService: (branchID: string, serviceCode: string) => void;
   onClose: () => void;
   onQuantity: (product: MobileProduct, quantity: number) => void;
@@ -1274,6 +1712,10 @@ function CartSheet({
         />
       ) : (
         <ScrollView
+          accessibilityElementsHidden={regionPickerOpen}
+          importantForAccessibility={
+            regionPickerOpen ? "no-hide-descendants" : "auto"
+          }
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.cartContent}
@@ -1338,8 +1780,8 @@ function CartSheet({
               <View style={styles.shippingHeadingCopy}>
                 <Text style={styles.shippingTitle}>Alamat pengiriman</Text>
                 <Text style={styles.shippingNote}>
-                  Area wajib memakai format KECAMATAN, KOTA untuk tarif Lion
-                  Parcel.
+                  Origin otomatis mengikuti cabang petshop atau petclinic
+                  pengirim. Lengkapi tujuan untuk menghitung ongkir.
                 </Text>
               </View>
             </View>
@@ -1360,35 +1802,141 @@ function CartSheet({
             />
             <TextInput
               multiline
-              placeholder="Alamat lengkap, nomor, RT/RW, kelurahan"
+              placeholder="Nama jalan, nomor rumah, RT/RW, dan patokan"
               placeholderTextColor={colors.muted}
               value={shippingAddress.address}
               onChangeText={(value) => onShippingAddress("address", value)}
               style={[styles.addressInput, styles.addressMultiline]}
             />
-            <View style={styles.addressRow}>
-              <TextInput
-                autoCapitalize="characters"
-                placeholder="KECAMATAN, KOTA"
-                placeholderTextColor={colors.muted}
-                value={shippingAddress.area}
-                onChangeText={(value) => onShippingAddress("area", value)}
-                style={[styles.addressInput, styles.addressArea]}
-              />
+            <View style={styles.destinationHeading}>
+              <Text style={styles.destinationTitle}>Tujuan pengiriman</Text>
+              <View style={styles.requiredBadge}>
+                <Text style={styles.requiredBadgeText}>WAJIB</Text>
+              </View>
+            </View>
+            <ShippingRegionField
+              level="province"
+              value={shippingDestination.province?.name}
+              onPress={() => onOpenRegion("province")}
+            />
+            <ShippingRegionField
+              level="regency"
+              value={shippingDestination.regency?.name}
+              disabled={!shippingDestination.province}
+              onPress={() => onOpenRegion("regency")}
+            />
+            <ShippingRegionField
+              level="district"
+              value={shippingDestination.district?.name}
+              disabled={!shippingDestination.regency}
+              onPress={() => onOpenRegion("district")}
+            />
+            <ShippingRegionField
+              level="village"
+              value={shippingDestination.village?.name}
+              disabled={!shippingDestination.district}
+              onPress={() => onOpenRegion("village")}
+            />
+            <View style={styles.postalFieldWrap}>
+              <Text style={styles.regionFieldLabel}>Kode pos *</Text>
               <TextInput
                 keyboardType="number-pad"
-                placeholder="Kode pos"
+                maxLength={5}
+                placeholder="5 digit kode pos"
                 placeholderTextColor={colors.muted}
                 value={shippingAddress.post_code}
-                onChangeText={(value) => onShippingAddress("post_code", value)}
-                style={[styles.addressInput, styles.addressPostal]}
+                onChangeText={(value) =>
+                  onShippingAddress(
+                    "post_code",
+                    value.replace(/\D/g, "").slice(0, 5),
+                  )
+                }
+                style={styles.addressInput}
               />
             </View>
+
+            {quoteBusy ? (
+              <View
+                accessibilityLiveRegion="polite"
+                style={styles.shippingAutoStatus}
+              >
+                <ActivityIndicator color={colors.sky600} size="small" />
+                <View style={styles.shippingAutoCopy}>
+                  <Text style={styles.shippingAutoTitle}>
+                    Menghitung ongkir otomatis…
+                  </Text>
+                  <Text style={styles.shippingAutoNote}>
+                    Rute dihitung dari setiap origin pengirim.
+                  </Text>
+                </View>
+              </View>
+            ) : quoteError ? (
+              <View
+                accessibilityLiveRegion="polite"
+                style={[styles.shippingAutoStatus, styles.shippingErrorStatus]}
+              >
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={19}
+                  color={colors.red}
+                />
+                <View style={styles.shippingAutoCopy}>
+                  <Text style={styles.shippingErrorTitle}>
+                    Ongkir belum dapat dihitung
+                  </Text>
+                  <Text style={styles.shippingAutoNote}>{quoteError}</Text>
+                </View>
+                <Pressable
+                  accessibilityLabel="Coba hitung ulang ongkir"
+                  accessibilityRole="button"
+                  onPress={onQuote}
+                  style={styles.shippingRetryButton}
+                >
+                  <Ionicons name="refresh" size={15} color={colors.sky600} />
+                </Pressable>
+              </View>
+            ) : !shippingAddressComplete ? (
+              <View style={styles.shippingAutoStatus}>
+                <Ionicons
+                  name="information-circle-outline"
+                  size={19}
+                  color={colors.sky600}
+                />
+                <Text style={styles.shippingAutoNote}>
+                  Isi data penerima, alamat, seluruh wilayah tujuan, dan kode
+                  pos. Ongkir akan dihitung otomatis.
+                </Text>
+              </View>
+            ) : quote ? (
+              <View
+                style={[styles.shippingAutoStatus, styles.shippingReadyStatus]}
+              >
+                <Ionicons name="checkmark-circle" size={19} color="#14836E" />
+                <Text style={styles.shippingReadyText}>
+                  Ongkir terbaru sudah dihitung otomatis.
+                </Text>
+              </View>
+            ) : null}
+
             {quote?.shipping_quotes.map((shipment) => (
               <View key={shipment.branch_id} style={styles.shippingOrigin}>
-                <Text style={styles.shippingOriginName}>
-                  Dari {shipment.branch_name} · {shipment.origin}
-                </Text>
+                <View style={styles.shippingOriginHeading}>
+                  <View style={styles.shippingOriginIcon}>
+                    <Ionicons
+                      name="storefront-outline"
+                      size={15}
+                      color={colors.sky600}
+                    />
+                  </View>
+                  <View style={styles.shippingOriginCopy}>
+                    <Text style={styles.shippingOriginLabel}>
+                      DIKIRIM OTOMATIS DARI
+                    </Text>
+                    <Text style={styles.shippingOriginName}>
+                      {shipment.branch_name} · {shipment.origin}
+                    </Text>
+                  </View>
+                </View>
                 <View style={styles.shippingRates}>
                   {shipment.rates.map((rate) => {
                     const selected =
@@ -1425,20 +1973,6 @@ function CartSheet({
                 </View>
               </View>
             ))}
-            <Pressable
-              disabled={quoteBusy}
-              onPress={onQuote}
-              style={styles.shippingQuoteButton}
-            >
-              <Ionicons
-                name="calculator-outline"
-                size={16}
-                color={colors.white}
-              />
-              <Text style={styles.shippingQuoteText}>
-                {quoteBusy ? "Mengecek rute…" : "Cek ongkir Lion Parcel"}
-              </Text>
-            </Pressable>
           </View>
 
           <View style={styles.promoCard}>
@@ -1526,13 +2060,24 @@ function CartSheet({
             </View>
           </View>
           <PrimaryButton
-            disabled={checkoutBusy}
-            label={checkoutBusy ? "Menyiapkan pembayaran…" : "Bayar pesanan"}
+            disabled={checkoutBusy || !checkoutReady}
+            label={
+              checkoutBusy
+                ? "Menyiapkan pembayaran…"
+                : quoteBusy
+                  ? "Menghitung ongkir…"
+                  : !shippingAddressComplete
+                    ? "Lengkapi alamat tujuan"
+                    : !checkoutReady
+                      ? "Ongkir belum siap"
+                      : "Bayar pesanan"
+            }
             icon="lock-closed-outline"
             onPress={onCheckout}
           />
         </ScrollView>
       )}
+      {regionPicker}
     </SheetFrame>
   );
 }
@@ -2242,11 +2787,119 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   addressMultiline: { minHeight: 64, textAlignVertical: "top" },
-  addressRow: { flexDirection: "row", gap: 7 },
-  addressArea: { flex: 1 },
-  addressPostal: { width: 88 },
-  shippingOrigin: { gap: 6, paddingTop: 4 },
-  shippingOriginName: { color: colors.text, fontSize: 9, fontWeight: "600" },
+  destinationHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 3,
+  },
+  destinationTitle: { color: colors.navy, fontSize: 10, fontWeight: "700" },
+  requiredBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: "#E7F6FD",
+  },
+  requiredBadgeText: {
+    color: colors.sky600,
+    fontSize: 7,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+  },
+  regionFieldWrap: { gap: 5 },
+  regionFieldLabel: { color: colors.text, fontSize: 9, fontWeight: "600" },
+  regionField: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 11,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+  },
+  regionFieldDisabled: { opacity: 0.52, backgroundColor: colors.canvas },
+  regionFieldValue: {
+    minWidth: 0,
+    flex: 1,
+    color: colors.navy,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  regionFieldPlaceholder: { color: colors.muted, fontWeight: "400" },
+  postalFieldWrap: { gap: 5 },
+  shippingAutoStatus: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#CCE9F8",
+    backgroundColor: colors.white,
+  },
+  shippingAutoCopy: { minWidth: 0, flex: 1 },
+  shippingAutoTitle: { color: colors.navy, fontSize: 9, fontWeight: "700" },
+  shippingAutoNote: {
+    minWidth: 0,
+    flex: 1,
+    color: colors.muted,
+    fontSize: 8,
+    lineHeight: 12,
+  },
+  shippingErrorStatus: {
+    borderColor: "#F5C9CE",
+    backgroundColor: colors.red50,
+  },
+  shippingErrorTitle: { color: colors.red, fontSize: 9, fontWeight: "700" },
+  shippingRetryButton: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 11,
+    backgroundColor: colors.white,
+  },
+  shippingReadyStatus: {
+    borderColor: "#CBEDE5",
+    backgroundColor: colors.mint50,
+  },
+  shippingReadyText: { color: "#14836E", fontSize: 9, fontWeight: "600" },
+  shippingOrigin: {
+    gap: 8,
+    marginTop: 2,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#CCE9F8",
+  },
+  shippingOriginHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  shippingOriginIcon: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: colors.white,
+  },
+  shippingOriginCopy: { minWidth: 0, flex: 1 },
+  shippingOriginLabel: {
+    color: colors.sky600,
+    fontSize: 7,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  shippingOriginName: {
+    marginTop: 2,
+    color: colors.text,
+    fontSize: 9,
+    fontWeight: "600",
+  },
   shippingRates: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   shippingRate: {
     minWidth: 102,
@@ -2269,16 +2922,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   shippingRateSla: { marginTop: 2, color: colors.muted, fontSize: 8 },
-  shippingQuoteButton: {
-    minHeight: 40,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 7,
-    borderRadius: 11,
-    backgroundColor: colors.sky600,
-  },
-  shippingQuoteText: { color: colors.white, fontSize: 10, fontWeight: "700" },
   inputLabel: { color: colors.text, fontSize: 9, fontWeight: "600" },
   promoRow: { flexDirection: "row", gap: 7 },
   promoInput: {

@@ -569,6 +569,11 @@ export type MobileProductReview = {
   created_at: string;
   updated_at: string;
 };
+export type MobileRegionOption = {
+  id: string;
+  code: string;
+  name: string;
+};
 export type MobileOrderQuote = {
   subtotal: number;
   platform_fee: number;
@@ -872,10 +877,10 @@ function isDetailedActivityResponse(
 ): result is MobileActivityCenterResponse {
   return Boolean(
     "summary" in result &&
-    result.summary &&
-    typeof result.summary.booking === "number" &&
-    typeof result.summary.order === "number" &&
-    typeof result.summary.consultation === "number",
+      result.summary &&
+      typeof result.summary.booking === "number" &&
+      typeof result.summary.order === "number" &&
+      typeof result.summary.consultation === "number",
   );
 }
 
@@ -945,9 +950,62 @@ export const saveMobileProductReview = (
     { method: "POST", body: JSON.stringify(input) },
   );
 
-export const quoteMobileOrder = (input: MobileOrderInput) =>
+function normalizeMobileRegionOptions(payload: unknown): MobileRegionOption[] {
+  const records = Array.isArray(payload)
+    ? payload
+    : payload &&
+        typeof payload === "object" &&
+        Array.isArray((payload as { data?: unknown }).data)
+      ? (payload as { data: unknown[] }).data
+      : [];
+  const seen = new Set<string>();
+
+  return records.flatMap((record) => {
+    if (!record || typeof record !== "object") return [];
+    const candidate = record as Partial<
+      Record<keyof MobileRegionOption, unknown>
+    >;
+    const id = String(candidate.id ?? candidate.code ?? "").trim();
+    const code = String(candidate.code ?? candidate.id ?? "").trim();
+    const name = String(candidate.name ?? "").trim();
+    const key = id || code || name.toLocaleLowerCase("id-ID");
+    if (!key || !name || seen.has(key)) return [];
+    seen.add(key);
+    return [{ id, code, name }];
+  });
+}
+
+function getMobileRegionOptions(path: string) {
+  return platformRequest<unknown>(path).then((payload) => ({
+    data: normalizeMobileRegionOptions(payload),
+  }));
+}
+
+export const getMobileProvinces = () =>
+  getMobileRegionOptions("/api/v1/regions/provinces");
+
+export const getMobileRegencies = (provinceId: string) =>
+  getMobileRegionOptions(
+    `/api/v1/regions/regencies?province_id=${encodeURIComponent(provinceId.trim())}`,
+  );
+
+export const getMobileDistricts = (regencyId: string) =>
+  getMobileRegionOptions(
+    `/api/v1/regions/districts?regency_id=${encodeURIComponent(regencyId.trim())}`,
+  );
+
+export const getMobileVillages = (districtId: string) =>
+  getMobileRegionOptions(
+    `/api/v1/regions/villages?district_id=${encodeURIComponent(districtId.trim())}`,
+  );
+
+export const quoteMobileOrder = (
+  input: MobileOrderInput,
+  signal?: AbortSignal,
+) =>
   platformRequest<MobileOrderQuote>("/api/v1/petowner/orders/quote", {
     method: "POST",
+    signal,
     body: JSON.stringify(input),
   });
 

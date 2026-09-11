@@ -54,13 +54,6 @@ type ShippingAddressForm = {
   post_code: string;
   area: string;
 };
-type ShippingAddressForm = {
-  name: string;
-  phone: string;
-  address: string;
-  post_code: string;
-  area: string;
-};
 
 type MarketplaceScreenProps = {
   authenticated: boolean;
@@ -547,7 +540,7 @@ export function MarketplaceScreen({
           .map((shipment) => [
             shipment.branch_id,
             shippingSelections[shipment.branch_id] ||
-              shipment.rates[0].service_code,
+              shipment.rates[0]!.service_code,
           ]),
       );
       if (
@@ -1778,15 +1771,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     rowGap: 14,
   },
-  productCard: {
-    width: "48.5%",
-    overflow: "hidden",
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: colors.sky100,
-    backgroundColor: colors.white,
-    ...shadow,
-  },
+  productCard: { width: "48.5%", overflow: "hidden", borderRadius: 22, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, ...shadow },
   pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
   productVisualWrap: { position: "relative", height: 122 },
   productImage: { width: "100%", height: "100%" },

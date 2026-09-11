@@ -323,8 +323,6 @@ export type MobileFamilyAccess = {
   role: string;
   permissions: string[];
   status: string;
-  journey_type?: string;
-  reference_stt_no?: string;
   accepted_at?: string | null;
   created_at: string;
 };
@@ -362,6 +360,8 @@ export type MobileShipmentEvent = {
   status: string;
   description: string;
   location: string;
+  journey_type?: string;
+  reference_stt_no?: string;
   occurred_at: string;
 };
 export type MobileShipment = {

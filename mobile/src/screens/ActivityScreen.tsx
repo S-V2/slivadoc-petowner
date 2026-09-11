@@ -359,11 +359,12 @@ function ActivityDetailSheet({
   if (!item) return null;
   const presentation = typePresentation(item.type);
   const status = statusPresentation(item.status);
-  const invoiceReferenceType = {
-    booking: "petowner_booking",
-    order: "shop_order",
-    consultation: "consultation",
-  }[item.type];
+  const invoiceReferenceType =
+    item.type === "booking"
+      ? "petowner_booking"
+      : item.type === "consultation"
+        ? "consultation"
+        : "shop_order";
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>

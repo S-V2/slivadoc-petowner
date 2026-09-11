@@ -52,7 +52,7 @@ import {
   useI18n,
 } from "../i18n";
 import {
-  buildShippingAddressPayload,
+  buildMarketplaceShippingPayload,
   createEmptyShippingAddress,
   createEmptyShippingDestination,
   createShippingAutoQuoteKey,
@@ -717,17 +717,11 @@ export function MarketplaceScreen({
       items: quoteItems,
       voucher_code: voucher.trim(),
       redeem_points: Math.max(0, Number.parseInt(points || "0", 10) || 0),
-      shipping: {
-        address: buildShippingAddressPayload(
-          shippingAddress,
-          shippingDestination,
-        ),
-        shipment_type: "PICKUP",
-        use_insurance: false,
-        selections: Object.entries(selections).map(
-          ([branch_id, service_code]) => ({ branch_id, service_code }),
-        ),
-      },
+      shipping: buildMarketplaceShippingPayload(
+        shippingAddress,
+        shippingDestination,
+        selections,
+      ),
     }),
     [points, quoteItems, shippingAddress, shippingDestination, voucher],
   );

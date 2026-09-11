@@ -41,6 +41,13 @@ export type ShippingQuoteItem = Readonly<{
   quantity: number;
 }>;
 
+export type MarketplaceShippingPayload = {
+  address: ShippingAddressPayload;
+  shipment_type: "PICKUP";
+  use_insurance: false;
+  selections: Array<{ branch_id: string; service_code: string }>;
+};
+
 export function isShippingQuoteRequestCurrent(
   requestSequence: number,
   currentSequence: number,
@@ -75,6 +82,33 @@ function normalizeText(value: string) {
 
 function normalizeAreaName(value: string) {
   return normalizeText(value).toUpperCase();
+}
+
+function stripAreaPrefix(value: string, prefixes: readonly string[]) {
+  const normalized = normalizeAreaName(value);
+  const prefix = prefixes.find((candidate) => normalized.startsWith(candidate));
+  return prefix ? normalized.slice(prefix.length).trim() : normalized;
+}
+
+/**
+ * Produces the district format accepted by the tariff provider. Region master
+ * data may include Indonesian administrative prefixes, while the tariff API
+ * resolves the same district using its canonical `KECAMATAN, KOTA` labels.
+ */
+export function buildShippingArea(
+  districtName: string,
+  regencyName: string,
+) {
+  const district = stripAreaPrefix(districtName, ["KECAMATAN ", "KEC. "]);
+  const regency = stripAreaPrefix(regencyName, [
+    "KABUPATEN ADMINISTRASI ",
+    "KOTA ADMINISTRASI ",
+    "KOTA ADM. ",
+    "KABUPATEN ",
+    "KAB. ",
+    "KOTA ",
+  ]);
+  return `${district}, ${regency}`;
 }
 
 function normalizePhone(value: string) {
@@ -187,7 +221,23 @@ export function buildShippingAddressPayload(
     phone: normalizePhone(address.phone),
     address: normalizeText(address.address),
     post_code: address.post_code.trim(),
-    area: `${normalizeAreaName(district.name)}, ${normalizeAreaName(regency.name)}`,
+    area: buildShippingArea(district.name, regency.name),
+  };
+}
+
+export function buildMarketplaceShippingPayload(
+  address: ShippingAddressForm,
+  destination: ShippingDestinationSelection,
+  selections: Readonly<Record<string, string>>,
+): MarketplaceShippingPayload {
+  return {
+    address: buildShippingAddressPayload(address, destination),
+    shipment_type: "PICKUP",
+    use_insurance: false,
+    selections: Object.entries(selections).map(([branch_id, service_code]) => ({
+      branch_id,
+      service_code,
+    })),
   };
 }
 

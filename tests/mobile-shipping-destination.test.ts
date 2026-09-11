@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildShippingArea,
   buildShippingAddressPayload,
+  buildMarketplaceShippingPayload,
   createShippingAutoQuoteKey,
   isShippingDestinationComplete,
   isShippingQuoteRequestCurrent,
@@ -100,7 +102,22 @@ test("changing a region clears only the dependent dropdown selections", () => {
   assert.equal(completeDestination.village, village, "input is not mutated");
 });
 
-test("backend payload normalizes area and contains only the strict API fields", () => {
+test("shipping area matches the tariff payload format used by dashboard", () => {
+  assert.equal(
+    buildShippingArea(" Kecamatan   Kalideres ", " Kota Jakarta Barat "),
+    "KALIDERES, JAKARTA BARAT",
+  );
+  assert.equal(
+    buildShippingArea("Andir", "Kota Bandung"),
+    "ANDIR, BANDUNG",
+  );
+  assert.equal(
+    buildShippingArea("Kuta", "Kabupaten Badung"),
+    "KUTA, BADUNG",
+  );
+});
+
+test("mobile payload canonicalizes destination and contains only strict API fields", () => {
   const payload = buildShippingAddressPayload(
     {
       ...completeAddress,
@@ -124,7 +141,27 @@ test("backend payload normalizes area and contains only the strict API fields", 
       phone: "+6282391239651",
       address: "Jl. Peta Barat No. 21",
       post_code: "11840",
-      area: "KALIDERES, KOTA JAKARTA BARAT",
+      area: "KALIDERES, JAKARTA BARAT",
+    },
+  );
+});
+
+test("mobile shipping request sends the canonical destination payload", () => {
+  assert.deepEqual(
+    buildMarketplaceShippingPayload(completeAddress, completeDestination, {
+      "branch-1": "REGPACK",
+    }),
+    {
+      address: {
+        name: "Evans Moris Cheahn",
+        phone: "+6282391239651",
+        address: "Jl. Peta Barat No. 21, RT 03/RW 02",
+        post_code: "11840",
+        area: "KALIDERES, JAKARTA BARAT",
+      },
+      shipment_type: "PICKUP",
+      use_insurance: false,
+      selections: [{ branch_id: "branch-1", service_code: "REGPACK" }],
     },
   );
 });

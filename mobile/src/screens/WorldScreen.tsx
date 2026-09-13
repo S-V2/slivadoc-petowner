@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
+  Image,
   KeyboardAvoidingView,
   Linking,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -10,10 +13,14 @@ import {
   type TextInputProps,
   View,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import {
   applyMobileAdoption,
+  createMobilePawDatingHealthReport,
+  createMobilePawDatingProfile,
   createMobileConsultation,
   createMobileDocumentRequest,
   createMobilePaymentIntent,
@@ -24,16 +31,24 @@ import {
   getMobileDocumentProducts,
   getMobileEvents,
   getMobileMyPawDatingProfiles,
+  getMobilePawDatingProfile,
   getMobilePawDatingProfiles,
   getMobilePetSpots,
+  passMobilePawDatingProfile,
   registerMobileEvent,
   sendMobilePawDatingInterest,
+  submitMobilePawDatingProfile,
   trackMobileAcademyProgramClick,
   type MobileOwner,
   type MobilePaymentIntent,
   type WorldItem,
+  uploadMobileImage,
 } from "../api";
-import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
+import {
+  LocalizedText as Text,
+  LocalizedTextInput as TextInput,
+  useI18n,
+} from "../i18n";
 import { colors, shadow } from "../theme";
 import {
   PetRequiredNotice,
@@ -88,7 +103,11 @@ const emptyDocumentForm = (): DocumentForm => ({
   departureAt: "",
   transportType: "flight",
 });
-const modes: Array<{ id: Mode; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+const modes: Array<{
+  id: Mode;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}> = [
   { id: "pawdating", label: "PAW Dating", icon: "heart-circle-outline" },
   { id: "academy", label: "Academy", icon: "school-outline" },
   { id: "events", label: "Event", icon: "ticket-outline" },
@@ -108,7 +127,10 @@ const emptyWorld = (): Record<Mode, WorldItem[]> => ({
   adoption: [],
   documents: [],
 });
-const worldIcon = (mode: Mode, item?: WorldItem | null): keyof typeof Ionicons.glyphMap => {
+const worldIcon = (
+  mode: Mode,
+  item?: WorldItem | null,
+): keyof typeof Ionicons.glyphMap => {
   if (mode === "pawdating") return "heart-circle-outline";
   if (mode === "academy") return "school-outline";
   if (mode === "events") return "ticket-outline";
@@ -148,6 +170,178 @@ function FormTextField({
   );
 }
 
+function MobilePawDatingDeck({
+  profiles,
+  busy,
+  onDetail,
+  onSwipe,
+}: {
+  profiles: WorldItem[];
+  busy: boolean;
+  onDetail: (profile: WorldItem) => void;
+  onSwipe: (profile: WorldItem, decision: "like" | "pass") => void;
+}) {
+  const active = profiles[0];
+  const next = profiles[1];
+  const [position] = useState(() => new Animated.ValueXY());
+  const rotate = position.x.interpolate({
+    inputRange: [-220, 0, 220],
+    outputRange: ["-13deg", "0deg", "13deg"],
+  });
+  const likeOpacity = position.x.interpolate({
+    inputRange: [0, 75],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+  const passOpacity = position.x.interpolate({
+    inputRange: [-75, 0],
+    outputRange: [1, 0],
+    extrapolate: "clamp",
+  });
+
+  const finish = (decision: "like" | "pass") => {
+    if (!active) return;
+    Animated.timing(position, {
+      toValue: { x: decision === "like" ? 520 : -520, y: 0 },
+      duration: 180,
+      useNativeDriver: true,
+    }).start(() => {
+      position.setValue({ x: 0, y: 0 });
+      onSwipe(active, decision);
+    });
+  };
+  const responder = PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gesture) =>
+      !busy &&
+      Math.abs(gesture.dx) > 6 &&
+      Math.abs(gesture.dx) > Math.abs(gesture.dy),
+    onPanResponderMove: (_, gesture) =>
+      position.setValue({ x: gesture.dx, y: 0 }),
+    onPanResponderRelease: (_, gesture) => {
+      if (gesture.dx > 85) finish("like");
+      else if (gesture.dx < -85) finish("pass");
+      else
+        Animated.spring(position, {
+          toValue: { x: 0, y: 0 },
+          useNativeDriver: true,
+        }).start();
+    },
+    onPanResponderTerminate: () =>
+      Animated.spring(position, {
+        toValue: { x: 0, y: 0 },
+        useNativeDriver: true,
+      }).start(),
+  });
+
+  if (!active) return null;
+  const renderCard = (item: WorldItem) => (
+    <View style={styles.swipeCard}>
+      <View style={styles.swipeVisual}>
+        {item.photo_urls?.[0] ? (
+          <Image
+            source={{ uri: item.photo_urls[0] }}
+            alt={`Foto ${item.name || "pet"}`}
+            style={styles.swipePhoto}
+          />
+        ) : (
+          <Ionicons name="paw" size={64} color={colors.sky600} />
+        )}
+        <View style={styles.swipeVerified}>
+          <Text style={styles.swipeVerifiedText}>
+            ✦ LEVEL {item.profile_level} · HEALTH {item.health_score}/100
+          </Text>
+        </View>
+      </View>
+      <View style={styles.swipeCopy}>
+        <View style={styles.swipeTitleRow}>
+          <View>
+            <Text style={styles.swipeName}>{item.name}</Text>
+            <Text style={styles.swipeMeta}>
+              {item.breed} · {item.sex === "female" ? "Betina" : "Jantan"}
+            </Text>
+          </View>
+          <Text style={styles.swipeDistance}>
+            {item.distance_km != null
+              ? `${item.distance_km.toFixed(1)} km`
+              : item.city}
+          </Text>
+        </View>
+        <Text numberOfLines={2} style={styles.swipeDescription}>
+          {item.description ||
+            `${item.name} mencari pasangan yang sehat dan cocok.`}
+        </Text>
+        <Pressable style={styles.swipeDetail} onPress={() => onDetail(item)}>
+          <Text style={styles.swipeDetailText}>Lihat detail pet & owner</Text>
+          <Ionicons name="arrow-forward" size={15} color={colors.sky600} />
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.swipeExperience}>
+      <Text style={styles.swipeGuide}>
+        ← kiri untuk lewati · kanan untuk suka →
+      </Text>
+      <View style={styles.swipeStage}>
+        {next ? (
+          <View style={styles.swipeCardNext}>{renderCard(next)}</View>
+        ) : null}
+        <Animated.View
+          {...responder.panHandlers}
+          style={[
+            styles.swipeCardActive,
+            { transform: [...position.getTranslateTransform(), { rotate }] },
+          ]}
+        >
+          <Animated.Text
+            style={[
+              styles.swipeStamp,
+              styles.swipeLikeStamp,
+              { opacity: likeOpacity },
+            ]}
+          >
+            SUKA
+          </Animated.Text>
+          <Animated.Text
+            style={[
+              styles.swipeStamp,
+              styles.swipePassStamp,
+              { opacity: passOpacity },
+            ]}
+          >
+            LEWATI
+          </Animated.Text>
+          {renderCard(active)}
+        </Animated.View>
+      </View>
+      <View style={styles.swipeButtons}>
+        <Pressable
+          disabled={busy}
+          onPress={() => finish("pass")}
+          style={[styles.swipeButton, styles.swipePassButton]}
+        >
+          <Ionicons name="close" size={30} color="#C94B4B" />
+        </Pressable>
+        <Pressable
+          disabled={busy}
+          onPress={() => onDetail(active)}
+          style={styles.swipeDetailButton}
+        >
+          <Text style={styles.swipeDetailButtonText}>Detail</Text>
+        </Pressable>
+        <Pressable
+          disabled={busy}
+          onPress={() => finish("like")}
+          style={[styles.swipeButton, styles.swipeLikeButton]}
+        >
+          <Ionicons name="heart" size={28} color="#128464" />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export function WorldScreen({
   refreshVersion,
   onAction,
@@ -173,12 +367,18 @@ export function WorldScreen({
 }) {
   const { formatCurrency, formatDate, formatNumber } = useI18n();
   const money = (value?: number) => formatCurrency(value ?? 0);
-  const when = (value?: string) => value
-    ? formatDate(value, { dateStyle: "medium", timeStyle: "short" })
-    : "Segera";
+  const when = (value?: string) =>
+    value
+      ? formatDate(value, { dateStyle: "medium", timeStyle: "short" })
+      : "Segera";
   const [mode, setMode] = useState<Mode>(intent?.mode ?? "academy");
   const [items, setItems] = useState<Record<Mode, WorldItem[]>>(emptyWorld);
   const [selected, setSelected] = useState<WorldItem | null>(null);
+  const [userLocation, setUserLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  }>();
+  const [pawDatingCreateOpen, setPawDatingCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("qris");
@@ -189,10 +389,31 @@ export function WorldScreen({
     useState<DocumentForm>(emptyDocumentForm);
   const handledIntent = useRef(0);
   useEffect(() => {
-    queueMicrotask(() => {
+    let current = true;
+    queueMicrotask(async () => {
       setLoading(true);
+      let location = userLocation;
+      try {
+        const permission = await Location.getForegroundPermissionsAsync();
+        const granted =
+          permission.status === "granted"
+            ? permission
+            : await Location.requestForegroundPermissionsAsync();
+        if (granted.status === "granted") {
+          const position = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          location = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          };
+          if (current) setUserLocation(location);
+        }
+      } catch {
+        // City is used as the distance fallback when location is unavailable.
+      }
       void Promise.allSettled([
-        getMobilePawDatingProfiles(),
+        getMobilePawDatingProfiles(location),
         getMobileAcademy(),
         getMobileEvents(),
         getMobilePetSpots(),
@@ -209,7 +430,8 @@ export function WorldScreen({
             consult,
             adoption,
             documents,
-          ]) =>
+          ]) => {
+            if (!current) return;
             setItems({
               pawdating:
                 pawdating.status === "fulfilled" ? pawdating.value.data : [],
@@ -222,10 +444,19 @@ export function WorldScreen({
                 adoption.status === "fulfilled" ? adoption.value.data : [],
               documents:
                 documents.status === "fulfilled" ? documents.value.data : [],
-            }),
+            });
+          },
         )
-        .finally(() => setLoading(false));
+        .finally(() => {
+          if (current) setLoading(false);
+        });
     });
+    return () => {
+      current = false;
+    };
+    // Location is intentionally read from the current render without becoming a
+    // dependency, so granting permission does not immediately duplicate all calls.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshVersion]);
   useEffect(() => {
     if (!intent || loading || handledIntent.current === intent.token) return;
@@ -256,7 +487,7 @@ export function WorldScreen({
   // wipe whatever the user had already typed every time owner data or the fetched list
   // refreshed underneath an open sheet. `selected` only ever becomes non-null here, so
   // this is the single entry point.
-  const openItem = (item: WorldItem) => {
+  const openItem = async (item: WorldItem) => {
     if (mode === "adoption") {
       setAdoptionForm({
         ...emptyAdoptionForm(),
@@ -266,6 +497,64 @@ export function WorldScreen({
     }
     if (mode === "documents") setDocumentForm(emptyDocumentForm());
     setSelected(item);
+    if (mode === "pawdating") {
+      try {
+        setSelected(await getMobilePawDatingProfile(item.id, userLocation));
+      } catch (cause) {
+        onAction(
+          cause instanceof Error
+            ? cause.message
+            : "Detail profil belum dapat dimuat",
+        );
+      }
+    }
+  };
+  const dismissPawDating = (profileId: string) =>
+    setItems((current) => ({
+      ...current,
+      pawdating: current.pawdating.filter((item) => item.id !== profileId),
+    }));
+  const swipePawDating = async (item: WorldItem, decision: "like" | "pass") => {
+    if (busy) return;
+    if (decision === "pass") dismissPawDating(item.id);
+    if (!owner) {
+      if (decision === "like") onLogin();
+      return;
+    }
+    if (!hasPet) {
+      if (decision === "like") onRequirePet();
+      return;
+    }
+    setBusy(true);
+    try {
+      const mine = await getMobileMyPawDatingProfiles();
+      const source = mine.data.find(
+        (profile) => profile.status === "published",
+      )?.id;
+      if (!source) {
+        if (decision === "like") {
+          onAction(
+            "Profil pet harus disetujui Marketplace sebelum bisa swipe kanan",
+          );
+          setPawDatingCreateOpen(true);
+        }
+        return;
+      }
+      if (decision === "pass") {
+        await passMobilePawDatingProfile(item.id, source);
+      } else {
+        await sendMobilePawDatingInterest(item.id, source);
+        dismissPawDating(item.id);
+        onAction(`Kamu menyukai ${item.name}; ketertarikan sudah terkirim`);
+      }
+    } catch (cause) {
+      if (decision === "like")
+        onAction(
+          cause instanceof Error ? cause.message : "Swipe belum dapat disimpan",
+        );
+    } finally {
+      setBusy(false);
+    }
   };
   const runPrimaryAction = async () => {
     if (!selected) return;
@@ -321,9 +610,13 @@ export function WorldScreen({
     try {
       if (mode === "pawdating") {
         const mine = await getMobileMyPawDatingProfiles();
-        const source = mine.data[0]?.id;
+        const source = mine.data.find(
+          (profile) => profile.status === "published",
+        )?.id;
         if (!source)
-          throw new Error("Buat profil PAW Dating pet terlebih dahulu");
+          throw new Error(
+            "Profil pet harus disetujui Marketplace sebelum mengirim ketertarikan",
+          );
         await sendMobilePawDatingInterest(selected.id, source);
         onAction("Ketertarikan terkirim; kontak tetap privat sampai disetujui");
       } else if (mode === "academy") {
@@ -434,7 +727,12 @@ export function WorldScreen({
   };
   const heroCopy: Record<
     Mode,
-    { kicker: string; title: string; note: string; icon: keyof typeof Ionicons.glyphMap }
+    {
+      kicker: string;
+      title: string;
+      note: string;
+      icon: keyof typeof Ionicons.glyphMap;
+    }
   > = {
     pawdating: {
       kicker: "RESPONSIBLE PET MATCHMAKING",
@@ -493,7 +791,9 @@ export function WorldScreen({
           subtitle="Seluruh dunia pet dalam satu aplikasi"
           onNotification={onOpenNotifications}
         />
-        {!hasPet && owner ? <PetRequiredNotice onAddPet={onRequirePet} /> : null}
+        {!hasPet && owner ? (
+          <PetRequiredNotice onAddPet={onRequirePet} />
+        ) : null}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -505,7 +805,11 @@ export function WorldScreen({
               onPress={() => setMode(item.id)}
               style={[styles.mode, mode === item.id && styles.activeMode]}
             >
-              <Ionicons name={item.icon} size={20} color={mode === item.id ? colors.sky600 : colors.muted} />
+              <Ionicons
+                name={item.icon}
+                size={20}
+                color={mode === item.id ? colors.sky600 : colors.muted}
+              />
               <Text
                 style={[
                   styles.modeLabel,
@@ -536,7 +840,9 @@ export function WorldScreen({
           subtitle="Seluruh dunia pet dalam satu aplikasi"
           onNotification={onOpenNotifications}
         />
-        {!hasPet && owner ? <PetRequiredNotice onAddPet={onRequirePet} /> : null}
+        {!hasPet && owner ? (
+          <PetRequiredNotice onAddPet={onRequirePet} />
+        ) : null}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -548,7 +854,11 @@ export function WorldScreen({
               onPress={() => setMode(item.id)}
               style={[styles.mode, mode === item.id && styles.activeMode]}
             >
-              <Ionicons name={item.icon} size={20} color={mode === item.id ? colors.sky600 : colors.muted} />
+              <Ionicons
+                name={item.icon}
+                size={20}
+                color={mode === item.id ? colors.sky600 : colors.muted}
+              />
               <Text
                 style={[
                   styles.modeLabel,
@@ -570,7 +880,12 @@ export function WorldScreen({
           <Text style={styles.heroKicker}>{heroCopy[mode].kicker}</Text>
           <Text style={styles.heroTitle}>{heroCopy[mode].title}</Text>
           <Text style={styles.heroNote}>{heroCopy[mode].note}</Text>
-          <Ionicons name={heroCopy[mode].icon} size={56} color="rgba(255,255,255,.88)" style={styles.heroEmoji} />
+          <Ionicons
+            name={heroCopy[mode].icon}
+            size={56}
+            color="rgba(255,255,255,.88)"
+            style={styles.heroEmoji}
+          />
         </View>
         {loading ? (
           <Text style={styles.cardNote}>Memuat informasi terbaru…</Text>
@@ -586,30 +901,50 @@ export function WorldScreen({
               {mode === "pawdating"
                 ? "Verified matches"
                 : mode === "petspot"
-                    ? "Di sekitar kamu"
-                    : "Pilihan untukmu"}
+                  ? "Di sekitar kamu"
+                  : "Pilihan untukmu"}
             </Text>
           </View>
-          <Pressable
-            onPress={() =>
-              onAction(
-                mode === "petspot"
-                  ? "Lokasi perangkat digunakan untuk mengurutkan PetSpot"
-                  : mode === "pawdating"
-                    ? "Filter level, kesehatan, ras, gender, dan jarak dibuka"
+          {mode === "pawdating" ? (
+            <Pressable
+              style={styles.create}
+              onPress={() => {
+                if (!owner) onLogin();
+                else if (!hasPet || !pet) onRequirePet();
+                else setPawDatingCreateOpen(true);
+              }}
+            >
+              <Ionicons name="add" size={18} color={colors.white} />
+              <Text style={styles.createText}>Daftarkan pet</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() =>
+                onAction(
+                  mode === "petspot"
+                    ? "Lokasi perangkat digunakan untuk mengurutkan PetSpot"
                     : "Filter dibuka",
-              )
-            }
-          >
-            <Ionicons
-              name={mode === "petspot" ? "navigate" : "options"}
-              size={20}
-              color={colors.sky600}
-            />
-          </Pressable>
+                )
+              }
+            >
+              <Ionicons
+                name={mode === "petspot" ? "navigate" : "options"}
+                size={20}
+                color={colors.sky600}
+              />
+            </Pressable>
+          )}
         </View>
-        <View style={styles.list}>
-          {items[mode].map((item, index) => (
+        {mode === "pawdating" && items.pawdating.length > 0 ? (
+          <MobilePawDatingDeck
+            profiles={items.pawdating}
+            busy={busy}
+            onDetail={(item) => void openItem(item)}
+            onSwipe={(item, decision) => void swipePawDating(item, decision)}
+          />
+        ) : (
+          <View style={styles.list}>
+            {items[mode].map((item, index) => (
               <Pressable
                 key={item.id}
                 onPress={() => openItem(item)}
@@ -622,7 +957,11 @@ export function WorldScreen({
                     index % 3 === 2 && styles.visualViolet,
                   ]}
                 >
-                  <Ionicons name={worldIcon(mode, item)} size={38} color={colors.sky600} />
+                  <Ionicons
+                    name={worldIcon(mode, item)}
+                    size={38}
+                    color={colors.sky600}
+                  />
                   {mode === "pawdating" ? (
                     <View style={styles.verified}>
                       <Text style={styles.verifiedText}>
@@ -691,8 +1030,9 @@ export function WorldScreen({
                   </View>
                 </View>
               </Pressable>
-          ))}
-        </View>
+            ))}
+          </View>
+        )}
       </Screen>
       <Modal
         visible={!!selected}
@@ -725,7 +1065,11 @@ export function WorldScreen({
                   contentContainerStyle={styles.sheetContent}
                 >
                   <View style={styles.sheetHero}>
-                    <Ionicons name={worldIcon(mode, selected)} size={48} color={colors.sky600} />
+                    <Ionicons
+                      name={worldIcon(mode, selected)}
+                      size={48}
+                      color={colors.sky600}
+                    />
                   </View>
                   <Text style={styles.sheetKicker}>
                     {mode === "pawdating"
@@ -770,10 +1114,37 @@ export function WorldScreen({
                             )}
                       </Text>
                     </View>
+                    {mode === "pawdating" ? (
+                      <View style={[styles.detail, styles.ownerDetail]}>
+                        <Text style={styles.detailLabel}>Pet owner</Text>
+                        <Text style={styles.detailValue}>
+                          {selected?.owner?.name ||
+                            selected?.owner_display ||
+                            "Pet Owner"}
+                          {selected?.owner?.verified
+                            ? " · ✓ Terverifikasi"
+                            : ""}
+                        </Text>
+                        <Text style={styles.ownerNote}>
+                          {selected?.owner?.member_since
+                            ? `Member sejak ${formatDate(selected.owner.member_since, { month: "long", year: "numeric" })}`
+                            : "Kontak tetap privat sampai match disetujui"}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
                   {mode === "pawdating" ? (
                     <View style={styles.welfareNote}>
-                      <View style={styles.welfareTitleRow}><Ionicons name="shield-checkmark-outline" size={17} color={colors.sky600}/><Text style={styles.welfareTitle}>Welfare check aktif</Text></View>
+                      <View style={styles.welfareTitleRow}>
+                        <Ionicons
+                          name="shield-checkmark-outline"
+                          size={17}
+                          color={colors.sky600}
+                        />
+                        <Text style={styles.welfareTitle}>
+                          Welfare check aktif
+                        </Text>
+                      </View>
                       <Text style={styles.welfareText}>
                         Sistem memblokir pairing tidak aman, data kedaluwarsa,
                         dan indikasi kekerabatan. Pemeriksaan pra-breeding tetap
@@ -910,7 +1281,11 @@ export function WorldScreen({
                     <View style={styles.formSection}>
                       <Text style={styles.formTitle}>Data permohonan</Text>
                       <View style={styles.petSummary}>
-                        <Ionicons name="paw-outline" size={22} color={colors.sky600}/>
+                        <Ionicons
+                          name="paw-outline"
+                          size={22}
+                          color={colors.sky600}
+                        />
                         <View style={styles.petSummaryCopy}>
                           <Text style={styles.formLabel}>PET</Text>
                           <Text style={styles.petSummaryName}>
@@ -1050,7 +1425,281 @@ export function WorldScreen({
           onAction("Pembayaran berhasil dan transaksi sudah tercatat");
         }}
       />
+      {pet ? (
+        <PawDatingCreateModal
+          key={pet.id}
+          visible={pawDatingCreateOpen}
+          pet={pet}
+          location={userLocation}
+          onClose={() => setPawDatingCreateOpen(false)}
+          onAction={onAction}
+          onCreated={(message) => {
+            setPawDatingCreateOpen(false);
+            onAction(message);
+          }}
+        />
+      ) : null}
     </>
+  );
+}
+
+function PawDatingCreateModal({
+  visible,
+  pet,
+  location,
+  onClose,
+  onAction,
+  onCreated,
+}: {
+  visible: boolean;
+  pet: WorldPet;
+  location?: { latitude: number; longitude: number };
+  onClose: () => void;
+  onAction: (message: string) => void;
+  onCreated: (message: string) => void;
+}) {
+  const today = new Date();
+  const validDate = new Date(today);
+  validDate.setDate(validDate.getDate() + 180);
+  const [busy, setBusy] = useState(false);
+  const [vaccineBook, setVaccineBook] =
+    useState<ImagePicker.ImagePickerAsset>();
+  const [form, setForm] = useState({
+    city: "",
+    description: `${pet.name} adalah ${pet.breed} yang sehat dan bersahabat.`,
+    clinic: "",
+    doctor: "",
+    license: "",
+    exam: today.toISOString().slice(0, 10),
+    valid: validDate.toISOString().slice(0, 10),
+  });
+  const update = (key: keyof typeof form, value: string) =>
+    setForm((current) => ({ ...current, [key]: value }));
+
+  const pickVaccineBook = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      onAction("Izin galeri diperlukan untuk mengunggah foto buku vaksin");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: false,
+      quality: 0.9,
+    });
+    if (!result.canceled && result.assets[0]) setVaccineBook(result.assets[0]);
+  };
+
+  const submit = async () => {
+    if (
+      !form.city.trim() ||
+      form.description.trim().length < 20 ||
+      !form.clinic.trim() ||
+      !form.doctor.trim() ||
+      !form.exam ||
+      !form.valid ||
+      !vaccineBook
+    ) {
+      onAction(
+        "Lengkapi kota, deskripsi, data pemeriksaan, dan foto buku vaksin",
+      );
+      return;
+    }
+    setBusy(true);
+    try {
+      const upload = await uploadMobileImage(
+        vaccineBook.uri,
+        vaccineBook.mimeType ?? "image/jpeg",
+        vaccineBook.fileName ?? "buku-vaksin.jpg",
+        "documents",
+      );
+      const profile = await createMobilePawDatingProfile({
+        pet_id: pet.id,
+        city: form.city.trim(),
+        latitude: location?.latitude,
+        longitude: location?.longitude,
+        pedigree_status: "none",
+        description: form.description.trim(),
+        temperament: [],
+        traits: [],
+        preferred_breeds: [pet.breed],
+        preferred_age_min_months: 18,
+        preferred_age_max_months: 84,
+        max_distance_km: 200,
+        photo_urls: [],
+        vaccine_book_urls: [upload.url],
+        visibility: "public",
+      });
+      await createMobilePawDatingHealthReport(profile.id, {
+        examination_at: `${form.exam}T00:00:00Z`,
+        valid_until: `${form.valid}T00:00:00Z`,
+        clinic_name: form.clinic.trim(),
+        veterinarian_name: form.doctor.trim(),
+        veterinarian_license: form.license.trim(),
+        physical_exam: { general: "pending review" },
+        vaccination_checks: { status: "pending review" },
+        parasite_checks: { status: "pending review" },
+        infectious_disease_tests: { status: "pending review" },
+        reproductive_tests: { status: "pending review" },
+        genetic_tests: [],
+        orthopedic_checks: {},
+        cardiac_checks: {},
+        ophthalmic_checks: {},
+        laboratory_results: [],
+        findings: "",
+        recommendations: "",
+        restrictions: [],
+        document_urls: [upload.url],
+      });
+      await submitMobilePawDatingProfile(profile.id);
+      setVaccineBook(undefined);
+      onCreated(
+        "Profil masuk antrean approval Marketplace dan belum tampil ke publik",
+      );
+    } catch (cause) {
+      onAction(
+        cause instanceof Error
+          ? cause.message
+          : "Profil PAW Dating belum dapat dikirim",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.createModalBackdrop}
+      >
+        <SafeAreaView style={styles.createModalSafe}>
+          <View style={styles.createModalSheet}>
+            <View style={styles.createModalHeader}>
+              <View>
+                <Text style={styles.eyebrow}>PAW DATING REGISTRATION</Text>
+                <Text style={styles.createModalTitle}>
+                  Daftarkan {pet.name}
+                </Text>
+              </View>
+              <Pressable onPress={onClose} style={styles.sheetCloseInline}>
+                <Ionicons name="close" size={21} color={colors.text} />
+              </Pressable>
+            </View>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.createModalContent}
+            >
+              <View style={styles.petSummary}>
+                <Ionicons name="paw" size={24} color={colors.sky600} />
+                <View style={styles.petSummaryCopy}>
+                  <Text style={styles.formLabel}>PET</Text>
+                  <Text style={styles.petSummaryName}>
+                    {pet.name} · {pet.breed}
+                  </Text>
+                </View>
+              </View>
+              <FormTextField
+                label="Kota"
+                value={form.city}
+                onChangeText={(value) => update("city", value)}
+                placeholder="Contoh: Jakarta Selatan"
+              />
+              <FormTextField
+                label="Tentang pet"
+                value={form.description}
+                onChangeText={(value) => update("description", value)}
+                multiline
+                placeholder="Ceritakan karakter dan kebutuhan pet"
+              />
+              <View style={styles.formSection}>
+                <Text style={styles.formTitle}>Health screening</Text>
+                <Text style={styles.formNote}>
+                  Profil baru dirilis setelah dokter memverifikasi kesehatan dan
+                  Marketplace menyetujui dokumen.
+                </Text>
+                <FormTextField
+                  label="Klinik / rumah sakit"
+                  value={form.clinic}
+                  onChangeText={(value) => update("clinic", value)}
+                />
+                <FormTextField
+                  label="Nama dokter"
+                  value={form.doctor}
+                  onChangeText={(value) => update("doctor", value)}
+                />
+                <FormTextField
+                  label="Nomor STRV / SIP (opsional)"
+                  value={form.license}
+                  onChangeText={(value) => update("license", value)}
+                />
+                <View style={styles.dateRow}>
+                  <View style={styles.dateField}>
+                    <FormTextField
+                      label="Tanggal periksa"
+                      value={form.exam}
+                      onChangeText={(value) => update("exam", value)}
+                      placeholder="YYYY-MM-DD"
+                    />
+                  </View>
+                  <View style={styles.dateField}>
+                    <FormTextField
+                      label="Valid sampai"
+                      value={form.valid}
+                      onChangeText={(value) => update("valid", value)}
+                      placeholder="YYYY-MM-DD"
+                    />
+                  </View>
+                </View>
+                <Text style={styles.formLabel}>Foto buku vaksin · wajib</Text>
+                <Pressable
+                  style={styles.vaccinePicker}
+                  onPress={() => void pickVaccineBook()}
+                >
+                  {vaccineBook ? (
+                    <Image
+                      source={{ uri: vaccineBook.uri }}
+                      alt={`Foto buku vaksin ${pet.name}`}
+                      style={styles.vaccinePreview}
+                    />
+                  ) : (
+                    <Ionicons
+                      name="camera-outline"
+                      size={25}
+                      color={colors.sky600}
+                    />
+                  )}
+                  <View style={styles.vaccinePickerCopy}>
+                    <Text style={styles.vaccinePickerTitle}>
+                      {vaccineBook
+                        ? "Foto buku vaksin dipilih"
+                        : "Pilih foto buku vaksin"}
+                    </Text>
+                    <Text style={styles.formNote}>
+                      Hanya dapat dilihat oleh tim verifikasi.
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
+              <PrimaryButton
+                label={
+                  busy
+                    ? "Mengunggah & mengirim…"
+                    : "Kirim ke antrean Marketplace"
+                }
+                onPress={() => void submit()}
+                disabled={busy}
+              />
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
@@ -1462,4 +2111,193 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "right",
   },
+  swipeExperience: { marginBottom: 20 },
+  swipeGuide: {
+    marginBottom: 10,
+    color: colors.muted,
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  swipeStage: { height: 426, position: "relative" },
+  swipeCardActive: { position: "absolute", inset: 0, zIndex: 2 },
+  swipeCardNext: {
+    position: "absolute",
+    inset: 0,
+    opacity: 0.55,
+    transform: [{ scale: 0.95 }, { translateY: 13 }],
+  },
+  swipeCard: {
+    overflow: "hidden",
+    height: 416,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 24,
+    backgroundColor: colors.white,
+    ...shadow,
+  },
+  swipeVisual: {
+    height: 238,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.sky50,
+  },
+  swipePhoto: { width: "100%", height: "100%" },
+  swipeVerified: {
+    position: "absolute",
+    left: 12,
+    top: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 9,
+    backgroundColor: "rgba(255,255,255,.93)",
+  },
+  swipeVerifiedText: { color: colors.sky600, fontSize: 9, fontWeight: "700" },
+  swipeCopy: { flex: 1, padding: 15 },
+  swipeTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  swipeName: { color: colors.navy, fontSize: 23, fontWeight: "700" },
+  swipeMeta: { marginTop: 3, color: colors.muted, fontSize: 11 },
+  swipeDistance: {
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: colors.mint50,
+    color: "#176D5C",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  swipeDescription: {
+    marginTop: 9,
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 17,
+  },
+  swipeDetail: {
+    minHeight: 43,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: "auto",
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: colors.sky50,
+  },
+  swipeDetailText: { color: colors.sky600, fontSize: 11, fontWeight: "700" },
+  swipeStamp: {
+    position: "absolute",
+    top: 58,
+    zIndex: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 3,
+    borderRadius: 9,
+    backgroundColor: "rgba(255,255,255,.9)",
+    fontSize: 24,
+    fontWeight: "700",
+    letterSpacing: 2,
+  },
+  swipeLikeStamp: {
+    left: 20,
+    borderColor: "#128464",
+    color: "#128464",
+    transform: [{ rotate: "-10deg" }],
+  },
+  swipePassStamp: {
+    right: 20,
+    borderColor: "#C94B4B",
+    color: "#C94B4B",
+    transform: [{ rotate: "10deg" }],
+  },
+  swipeButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 18,
+    marginTop: 13,
+  },
+  swipeButton: {
+    width: 58,
+    height: 58,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderRadius: 29,
+    backgroundColor: colors.white,
+    ...shadow,
+  },
+  swipePassButton: { borderColor: "#F2C7C7" },
+  swipeLikeButton: { borderColor: "#BFE3D8" },
+  swipeDetailButton: {
+    minHeight: 42,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 21,
+    backgroundColor: colors.white,
+  },
+  swipeDetailButtonText: {
+    color: colors.sky600,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  ownerDetail: { flexBasis: "100%" },
+  ownerNote: { marginTop: 3, color: colors.muted, fontSize: 9 },
+  createModalBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(14,32,55,.42)",
+  },
+  createModalSafe: { maxHeight: "94%" },
+  createModalSheet: {
+    maxHeight: "100%",
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    backgroundColor: colors.white,
+  },
+  createModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  createModalTitle: {
+    marginTop: 4,
+    color: colors.navy,
+    fontSize: 21,
+    fontWeight: "700",
+  },
+  sheetCloseInline: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+    backgroundColor: colors.canvas,
+  },
+  createModalContent: { gap: 12, padding: 16, paddingBottom: 28 },
+  dateRow: { flexDirection: "row", gap: 9 },
+  dateField: { flex: 1 },
+  vaccinePicker: {
+    minHeight: 78,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 11,
+    padding: 11,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors.sky400,
+    borderRadius: 13,
+    backgroundColor: colors.white,
+  },
+  vaccinePreview: { width: 54, height: 54, borderRadius: 10 },
+  vaccinePickerCopy: { flex: 1 },
+  vaccinePickerTitle: { color: colors.navy, fontSize: 12, fontWeight: "700" },
 });

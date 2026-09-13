@@ -663,8 +663,17 @@ export type PawDatingProfile = {
   risk_level: string;
   health_valid_until: string;
   owner_display: string;
+  owner?: {
+    name: string;
+    verified: boolean;
+    member_since: string;
+    city: string;
+  };
   status?: string;
   visibility?: string;
+  vaccine_book_uploaded?: boolean;
+  rejection_reason?: string;
+  marketplace_reviewed_at?: string;
   health_report?: PawDatingHealthReport;
 };
 
@@ -1001,7 +1010,9 @@ export const createDocumentRequest = (input: Record<string, unknown>) =>
   });
 
 export const getPetHubComments = (postId: string) =>
-  request<PlatformList<PetHubComment>>(`/api/v1/pethub/posts/${postId}/comments`);
+  request<PlatformList<PetHubComment>>(
+    `/api/v1/pethub/posts/${postId}/comments`,
+  );
 
 export const createPetHubComment = (postId: string, content: string) =>
   request<{ id: string }>(`/api/v1/pethub/posts/${postId}/comments`, {
@@ -1023,8 +1034,20 @@ export const getPawDatingProfiles = (query = "") =>
     `/api/v1/public/pawdating/profiles${query ? `?${query}` : ""}`,
   );
 
-export const getPawDatingProfile = (profileId: string) =>
-  request<PawDatingProfile>(`/api/v1/public/pawdating/profiles/${profileId}`);
+export const getPawDatingProfile = (
+  profileId: string,
+  location?: { latitude: number; longitude: number },
+) => {
+  const params = new URLSearchParams();
+  if (location) {
+    params.set("latitude", String(location.latitude));
+    params.set("longitude", String(location.longitude));
+  }
+  const query = params.toString();
+  return request<PawDatingProfile>(
+    `/api/v1/public/pawdating/profiles/${profileId}${query ? `?${query}` : ""}`,
+  );
+};
 
 export const getPawDatingStandards = () =>
   request<PawDatingStandards>("/api/v1/public/pawdating/standards");
@@ -1071,10 +1094,7 @@ export const submitPawDatingProfile = (profileId: string) =>
     { method: "POST" },
   );
 
-export const getPawDatingCompatibility = (
-  targetId: string,
-  sourceId: string,
-) =>
+export const getPawDatingCompatibility = (targetId: string, sourceId: string) =>
   request<{ compatibility: PawDatingCompatibility }>(
     `/api/v1/pawdating/profiles/${targetId}/compatibility?source_profile_id=${sourceId}`,
   );
@@ -1096,6 +1116,15 @@ export const sendPawDatingInterest = (
     method: "POST",
     body: JSON.stringify(input),
   });
+
+export const recordPawDatingPass = (targetId: string, sourceId: string) =>
+  request<{ id: string; profile_id: string; decision: "pass" }>(
+    `/api/v1/pawdating/profiles/${targetId}/swipes`,
+    {
+      method: "POST",
+      body: JSON.stringify({ source_profile_id: sourceId, decision: "pass" }),
+    },
+  );
 
 export const getPawDatingInterests = () =>
   request<PlatformList<PawDatingInterest>>("/api/v1/pawdating/interests");

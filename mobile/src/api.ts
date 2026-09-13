@@ -877,10 +877,10 @@ function isDetailedActivityResponse(
 ): result is MobileActivityCenterResponse {
   return Boolean(
     "summary" in result &&
-      result.summary &&
-      typeof result.summary.booking === "number" &&
-      typeof result.summary.order === "number" &&
-      typeof result.summary.consultation === "number",
+    result.summary &&
+    typeof result.summary.booking === "number" &&
+    typeof result.summary.order === "number" &&
+    typeof result.summary.consultation === "number",
   );
 }
 
@@ -1295,7 +1295,16 @@ export type WorldItem = {
   repost_count?: number;
   media_url?: string;
   photo_url?: string;
+  photo_urls?: string[];
   thumbnail_url?: string;
+  owner_display?: string;
+  owner?: {
+    name: string;
+    verified: boolean;
+    member_since: string;
+    city: string;
+  };
+  health_report?: Record<string, unknown>;
   post_type?: "thread" | "photo" | "video" | "poll" | "update";
   media_type?: "image" | "video";
   channel_avatar_url?: string;
@@ -1337,12 +1346,71 @@ export const getMobileAdoptions = () =>
   getUniqueWorldItems("/api/v1/public/adoptions");
 export const getMobileDocumentProducts = () =>
   getUniqueWorldItems("/api/v1/public/pet-documents");
-export const getMobilePawDatingProfiles = () =>
-  getUniqueWorldItems(
-    "/api/v1/public/pawdating/profiles?min_level=2&min_health_score=80&max_distance_km=200",
+export const getMobilePawDatingProfiles = (location?: {
+  latitude: number;
+  longitude: number;
+}) => {
+  const params = new URLSearchParams({
+    min_level: "2",
+    min_health_score: "80",
+    max_distance_km: "200",
+  });
+  if (location) {
+    params.set("latitude", String(location.latitude));
+    params.set("longitude", String(location.longitude));
+  }
+  return getUniqueWorldItems(
+    `/api/v1/public/pawdating/profiles?${params.toString()}`,
   );
+};
+export const getMobilePawDatingProfile = (
+  profileId: string,
+  location?: { latitude: number; longitude: number },
+) => {
+  const params = new URLSearchParams();
+  if (location) {
+    params.set("latitude", String(location.latitude));
+    params.set("longitude", String(location.longitude));
+  }
+  const query = params.toString();
+  return platformRequest<WorldItem>(
+    `/api/v1/public/pawdating/profiles/${profileId}${query ? `?${query}` : ""}`,
+  );
+};
 export const getMobileMyPawDatingProfiles = () =>
   getUniqueWorldItems("/api/v1/pawdating/profiles");
+export const createMobilePawDatingProfile = (input: Record<string, unknown>) =>
+  platformRequest<{ id: string; status: string; message: string }>(
+    "/api/v1/pawdating/profiles",
+    { method: "POST", body: JSON.stringify(input) },
+  );
+export const createMobilePawDatingHealthReport = (
+  profileId: string,
+  input: Record<string, unknown>,
+) =>
+  platformRequest<{ id: string; verification_status: string; message: string }>(
+    `/api/v1/pawdating/profiles/${profileId}/health-reports`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+export const submitMobilePawDatingProfile = (profileId: string) =>
+  platformRequest<{ id: string; status: string; message: string }>(
+    `/api/v1/pawdating/profiles/${profileId}/submit`,
+    { method: "POST" },
+  );
+export const passMobilePawDatingProfile = (
+  targetProfileId: string,
+  sourceProfileId: string,
+) =>
+  platformRequest<{ id: string; decision: "pass" }>(
+    `/api/v1/pawdating/profiles/${targetProfileId}/swipes`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        source_profile_id: sourceProfileId,
+        decision: "pass",
+      }),
+    },
+  );
 export const sendMobilePawDatingInterest = (
   targetProfileId: string,
   sourceProfileId: string,

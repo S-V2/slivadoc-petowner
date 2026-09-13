@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type FormEvent,
@@ -24,6 +25,7 @@ import {
   isPetOwnerAuthenticated,
   respondPawDatingInterest,
   reportPawDatingProfile,
+  recordPawDatingPass,
   sendPawDatingInterest,
   submitPawDatingProfile,
   type PawDatingCompatibility,
@@ -33,9 +35,11 @@ import {
   type PawDatingProfile,
   type PawDatingStandards,
 } from "../../lib/platform-api";
+import { uploadImage } from "../../lib/petowner-api";
 
 type Tab = "discover" | "mine" | "requests" | "standards";
 type Notify = (message: string) => void;
+type UserLocation = { latitude: number; longitude: number };
 
 const emptyStandards: PawDatingStandards = {
   principles: [],
@@ -62,6 +66,8 @@ export default function PawDatingExperience({
 }) {
   const [tab, setTab] = useState<Tab>("discover");
   const [profiles, setProfiles] = useState<PawDatingProfile[]>([]);
+  const [dismissedProfileIds, setDismissedProfileIds] = useState<string[]>([]);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [species, setSpecies] = useState("");
@@ -100,6 +106,10 @@ export default function PawDatingExperience({
     if (health) params.set("min_health_score", health);
     if (city) params.set("city", city);
     if (distance) params.set("max_distance_km", distance);
+    if (userLocation) {
+      params.set("latitude", String(userLocation.latitude));
+      params.set("longitude", String(userLocation.longitude));
+    }
     try {
       const result = await getPawDatingProfiles(params.toString());
       setProfiles(result.data);
@@ -113,7 +123,7 @@ export default function PawDatingExperience({
     } finally {
       setLoading(false);
     }
-  }, [city, distance, health, level, notify, sex, species]);
+  }, [city, distance, health, level, notify, sex, species, userLocation]);
 
   const loadPrivateData = useCallback(async () => {
     if (!isPetOwnerAuthenticated()) return;
@@ -124,7 +134,10 @@ export default function PawDatingExperience({
       ]);
       setMyProfiles(mine.data);
       setInterests(requests.data);
-      if (!sourceProfileId && mine.data[0]) setSourceProfileId(mine.data[0].id);
+      const published = mine.data.find(
+        (profile) => profile.status === "published",
+      );
+      if (!sourceProfileId && published) setSourceProfileId(published.id);
     } catch (error) {
       notify(
         error instanceof Error ? error.message : "Data akun belum dapat dimuat",
@@ -135,6 +148,18 @@ export default function PawDatingExperience({
   useEffect(() => {
     queueMicrotask(() => void loadProfiles());
   }, [loadProfiles]);
+  useEffect(() => {
+    if (!("geolocation" in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) =>
+        setUserLocation({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        }),
+      () => undefined,
+      { enableHighAccuracy: false, maximumAge: 300_000, timeout: 8_000 },
+    );
+  }, []);
   useEffect(() => {
     getPawDatingStandards()
       .then(setStandards)
@@ -156,6 +181,7 @@ export default function PawDatingExperience({
       profiles.filter((profile) => {
         const needle = search.toLowerCase().trim();
         return (
+          !dismissedProfileIds.includes(profile.id) &&
           (!needle ||
             `${profile.name} ${profile.breed} ${profile.city}`
               .toLowerCase()
@@ -165,18 +191,31 @@ export default function PawDatingExperience({
           profile.profile_level >= Number(level || 1) &&
           profile.health_score >= Number(health || 0) &&
           (!city || profile.city.toLowerCase().includes(city.toLowerCase())) &&
-          (!profile.distance_km ||
+          (profile.distance_km === undefined ||
             profile.distance_km <= Number(distance || 9999))
         );
       }),
-    [profiles, search, species, sex, level, health, city, distance],
+    [
+      profiles,
+      search,
+      species,
+      sex,
+      level,
+      health,
+      city,
+      distance,
+      dismissedProfileIds,
+    ],
   );
 
   async function openProfile(profile: PawDatingProfile) {
     setSelected(profile);
     setCompatibility(null);
     try {
-      const detail = await getPawDatingProfile(profile.id);
+      const detail = await getPawDatingProfile(
+        profile.id,
+        userLocation ?? undefined,
+      );
       setSelected(detail);
     } catch (error) {
       notify(
@@ -184,6 +223,61 @@ export default function PawDatingExperience({
           ? error.message
           : "Detail profil belum dapat dimuat",
       );
+    }
+  }
+
+  async function publishedSourceProfile() {
+    const cached = myProfiles.find((profile) => profile.status === "published");
+    if (cached) return cached;
+    const mine = await getMyPawDatingProfiles();
+    setMyProfiles(mine.data);
+    const published = mine.data.find(
+      (profile) => profile.status === "published",
+    );
+    if (published) setSourceProfileId(published.id);
+    return published;
+  }
+
+  async function swipeProfile(
+    profile: PawDatingProfile,
+    decision: "like" | "pass",
+  ) {
+    if (submitting) return;
+    if (decision === "pass") {
+      setDismissedProfileIds((items) => [...items, profile.id]);
+      if (!isPetOwnerAuthenticated()) return;
+      try {
+        const source = await publishedSourceProfile();
+        if (source) await recordPawDatingPass(profile.id, source.id);
+      } catch {
+        // The local pass still keeps the browsing flow uninterrupted.
+      }
+      return;
+    }
+    if (!requireLogin()) return;
+    setSubmitting(true);
+    try {
+      const source = await publishedSourceProfile();
+      if (!source) {
+        notify(
+          "Profil pet Anda harus disetujui Marketplace sebelum bisa swipe kanan",
+        );
+        setTab("mine");
+        return;
+      }
+      const result = await sendPawDatingInterest(profile.id, {
+        source_profile_id: source.id,
+        interest_type: "interest",
+        introduction_message: message,
+      });
+      setDismissedProfileIds((items) => [...items, profile.id]);
+      notify(`Anda menyukai ${profile.name}. ${result.message}`);
+    } catch (error) {
+      notify(
+        error instanceof Error ? error.message : "Swipe kanan belum tersimpan",
+      );
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -198,14 +292,15 @@ export default function PawDatingExperience({
       try {
         const mine = await getMyPawDatingProfiles();
         setMyProfiles(mine.data);
-        source = mine.data[0]?.id ?? "";
+        source =
+          mine.data.find((profile) => profile.status === "published")?.id ?? "";
         setSourceProfileId(source);
       } catch {
         /* handled below */
       }
     }
     if (!source) {
-      notify("Buat profil PAW Dating pet Anda terlebih dahulu");
+      notify("Profil pet Anda harus disetujui Marketplace terlebih dahulu");
       setSelected(null);
       setTab("mine");
       return;
@@ -232,11 +327,12 @@ export default function PawDatingExperience({
       if (!source) {
         const mine = await getMyPawDatingProfiles();
         setMyProfiles(mine.data);
-        source = mine.data[0]?.id ?? "";
+        source =
+          mine.data.find((profile) => profile.status === "published")?.id ?? "";
         setSourceProfileId(source);
       }
       if (!source) {
-        notify("Buat profil PAW Dating pet Anda terlebih dahulu");
+        notify("Profil pet Anda harus disetujui Marketplace terlebih dahulu");
         setInterestOpen(false);
         setTab("mine");
         return;
@@ -505,15 +601,14 @@ export default function PawDatingExperience({
               }}
             />
           ) : (
-            <div className="paw-profile-grid">
-              {visibleProfiles.map((profile) => (
-                <ProfileCard
-                  key={profile.id}
-                  profile={profile}
-                  onOpen={() => void openProfile(profile)}
-                />
-              ))}
-            </div>
+            <PawDatingSwipeDeck
+              profiles={visibleProfiles}
+              busy={submitting}
+              onOpen={(profile) => void openProfile(profile)}
+              onSwipe={(profile, decision) =>
+                void swipeProfile(profile, decision)
+              }
+            />
           )}
         </>
       )}
@@ -572,12 +667,32 @@ export default function PawDatingExperience({
                       Health score {profile.health_score}/100 · Status{" "}
                       {titleCase(profile.status ?? "draft")}
                     </small>
+                    {profile.status === "review" && (
+                      <small className="paw-queue-note">
+                        Menunggu approval Marketplace · belum tampil publik
+                      </small>
+                    )}
+                    {profile.rejection_reason && (
+                      <small className="paw-rejection-note">
+                        Catatan: {profile.rejection_reason}
+                      </small>
+                    )}
                   </div>
                   <button
                     type="button"
-                    onClick={() => void openProfile(profile)}
+                    onClick={() => {
+                      if (profile.status === "published")
+                        void openProfile(profile);
+                      else
+                        notify(
+                          profile.rejection_reason ||
+                            "Profil belum dapat dibuka publik karena masih menunggu approval Marketplace",
+                        );
+                    }}
                   >
-                    Buka profil →
+                    {profile.status === "published"
+                      ? "Buka profil →"
+                      : "Lihat status"}
                   </button>
                 </article>
               ))}
@@ -679,7 +794,9 @@ export default function PawDatingExperience({
           profile={selected}
           health={selected.health_report}
           compatibility={compatibility}
-          sourceProfiles={myProfiles}
+          sourceProfiles={myProfiles.filter(
+            (profile) => profile.status === "published",
+          )}
           sourceProfileId={sourceProfileId}
           setSourceProfileId={setSourceProfileId}
           onClose={() => {
@@ -831,7 +948,10 @@ function ProfileCard({
         <div className="paw-profile-meta">
           <span>◷ {ageText(profile.age_months)}</span>
           <span>
-            ⌖ {profile.distance_km ? `${profile.distance_km} km` : profile.city}
+            ⌖{" "}
+            {profile.distance_km !== undefined
+              ? `${profile.distance_km.toFixed(1)} km`
+              : profile.city}
           </span>
           <span>♙ {titleCase(profile.pedigree_status)}</span>
         </div>
@@ -862,6 +982,125 @@ function ProfileCard({
         </div>
       </div>
     </article>
+  );
+}
+
+function PawDatingSwipeDeck({
+  profiles,
+  busy,
+  onOpen,
+  onSwipe,
+}: {
+  profiles: PawDatingProfile[];
+  busy: boolean;
+  onOpen: (profile: PawDatingProfile) => void;
+  onSwipe: (profile: PawDatingProfile, decision: "like" | "pass") => void;
+}) {
+  const active = profiles[0];
+  const next = profiles[1];
+  const startX = useRef(0);
+  const skipClick = useRef(false);
+  const [dragging, setDragging] = useState(false);
+  const [offset, setOffset] = useState(0);
+
+  function finishSwipe() {
+    setDragging(false);
+    if (Math.abs(offset) >= 85) {
+      skipClick.current = true;
+      onSwipe(active, offset > 0 ? "like" : "pass");
+      window.setTimeout(() => {
+        skipClick.current = false;
+      }, 0);
+    }
+    setOffset(0);
+  }
+
+  return (
+    <div className="paw-swipe-experience">
+      <div className="paw-swipe-guide" aria-label="Petunjuk swipe">
+        <span>← Geser kiri untuk lewati</span>
+        <b>{profiles.length} pet tersisa</b>
+        <span>Geser kanan untuk suka →</span>
+      </div>
+      <div className="paw-swipe-stage">
+        {next && (
+          <div
+            className="paw-swipe-card paw-swipe-card-next"
+            aria-hidden="true"
+          >
+            <ProfileCard profile={next} onOpen={() => undefined} />
+          </div>
+        )}
+        <div
+          className={`paw-swipe-card paw-swipe-card-active ${dragging ? "dragging" : ""} ${offset > 12 ? "swiping-right" : offset < -12 ? "swiping-left" : ""}`}
+          style={
+            {
+              transform: `translateX(${offset}px) rotate(${offset / 18}deg)`,
+              "--swipe-strength": Math.min(1, Math.abs(offset) / 100),
+            } as CSSProperties
+          }
+          onPointerDown={(event) => {
+            if (busy) return;
+            startX.current = event.clientX;
+            setDragging(true);
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            if (dragging) setOffset(event.clientX - startX.current);
+          }}
+          onPointerUp={finishSwipe}
+          onPointerCancel={() => {
+            setDragging(false);
+            setOffset(0);
+          }}
+        >
+          <span className="paw-swipe-stamp paw-swipe-like">SUKA</span>
+          <span className="paw-swipe-stamp paw-swipe-pass">LEWATI</span>
+          <ProfileCard
+            profile={active}
+            onOpen={() => {
+              if (!skipClick.current) onOpen(active);
+            }}
+          />
+          <button
+            className="paw-swipe-detail"
+            type="button"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => onOpen(active)}
+          >
+            Lihat detail pet & owner
+          </button>
+        </div>
+      </div>
+      <div className="paw-swipe-actions">
+        <button
+          className="pass"
+          type="button"
+          disabled={busy}
+          aria-label={`Lewati ${active.name}`}
+          onClick={() => onSwipe(active, "pass")}
+        >
+          ×
+        </button>
+        <button
+          className="detail"
+          type="button"
+          disabled={busy}
+          onClick={() => onOpen(active)}
+        >
+          Detail
+        </button>
+        <button
+          className="like"
+          type="button"
+          disabled={busy}
+          aria-label={`Suka ${active.name}`}
+          onClick={() => onSwipe(active, "like")}
+        >
+          ♡
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -965,6 +1204,33 @@ function ProfileDetail({
           <HealthScore value={profile.health_score} large />
         </div>
         <p className="paw-detail-desc">{profile.description}</p>
+        <section className="paw-owner-detail">
+          <div className="paw-owner-avatar">
+            {(profile.owner?.name || profile.owner_display || "P")
+              .slice(0, 1)
+              .toUpperCase()}
+          </div>
+          <div>
+            <span>PET OWNER</span>
+            <strong>
+              {profile.owner?.name || profile.owner_display || "Pet Owner"}
+              {profile.owner?.verified ? " ✓" : ""}
+            </strong>
+            <small>
+              {profile.owner?.member_since
+                ? `Member sejak ${new Date(profile.owner.member_since).toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`
+                : "Identitas owner dilindungi Slivadoc"}
+            </small>
+          </div>
+          <div className="paw-owner-distance">
+            <span>JARAK DARI ANDA</span>
+            <strong>
+              {profile.distance_km !== undefined
+                ? `${profile.distance_km.toFixed(1)} km`
+                : profile.city}
+            </strong>
+          </div>
+        </section>
         <div className="paw-tags">
           {[...profile.temperament, ...profile.traits]
             .slice(0, 5)
@@ -1300,7 +1566,7 @@ function PawReportModal({
           Kategori
           <select name="category" required defaultValue="">
             <option value="">Pilih kategori</option>
-            <option value="misleading_health">
+            <option value="fake_health_data">
               Data kesehatan tidak sesuai
             </option>
             <option value="animal_welfare">Keselamatan pet</option>
@@ -1496,6 +1762,9 @@ function CreateProfileModal({
 }) {
   const [step, setStep] = useState(1);
   const [busy, setBusy] = useState(false);
+  const [vaccineBook, setVaccineBook] = useState<File | null>(null);
+  const [consentData, setConsentData] = useState(false);
+  const [consentWelfare, setConsentWelfare] = useState(false);
   const [form, setForm] = useState({
     city: "",
     description: `${pet.name} adalah ${pet.breed}.`,
@@ -1513,9 +1782,40 @@ function CreateProfileModal({
   });
   const set = (key: string, value: string) =>
     setForm((current) => ({ ...current, [key]: value }));
+  function continueStep() {
+    if (
+      step === 1 &&
+      (!form.city.trim() || form.description.trim().length < 20)
+    ) {
+      notify("Kota dan deskripsi minimal 20 karakter wajib dilengkapi");
+      return;
+    }
+    if (
+      step === 2 &&
+      (!form.clinic.trim() ||
+        !form.doctor.trim() ||
+        !form.exam ||
+        !form.valid ||
+        !vaccineBook)
+    ) {
+      notify("Data pemeriksaan dan foto buku vaksin wajib dilengkapi");
+      return;
+    }
+    setStep((value) => value + 1);
+  }
   async function save() {
+    if (!vaccineBook) {
+      notify("Foto buku vaksin wajib diunggah");
+      setStep(2);
+      return;
+    }
+    if (!consentData || !consentWelfare) {
+      notify("Kedua persetujuan welfare wajib dicentang");
+      return;
+    }
     setBusy(true);
     try {
+      const vaccineUpload = await uploadImage(vaccineBook, "documents");
       const profile = await createPawDatingProfile({
         pet_id: pet.id,
         city: form.city,
@@ -1536,6 +1836,7 @@ function CreateProfileModal({
         preferred_age_max_months: 84,
         max_distance_km: Number(form.maxDistance),
         photo_urls: [],
+        vaccine_book_urls: [vaccineUpload.url],
         visibility: "public",
       });
       await createPawDatingHealthReport(profile.id, {
@@ -1557,10 +1858,12 @@ function CreateProfileModal({
         findings: "",
         recommendations: "",
         restrictions: [],
-        document_urls: [],
+        document_urls: [vaccineUpload.url],
       });
       await submitPawDatingProfile(profile.id);
-      notify("Profil dan laporan kesehatan berhasil dikirim untuk review");
+      notify(
+        "Profil masuk antrean approval Marketplace dan belum tampil ke publik",
+      );
       onCreated();
     } catch (error) {
       notify(
@@ -1726,15 +2029,33 @@ function CreateProfileModal({
                   required
                 />
               </label>
-              <label>
-                Dokumen asli
-                <button
-                  className="paw-upload"
-                  type="button"
-                  onClick={() => notify("Pemilih dokumen health report dibuka")}
-                >
-                  ＋ Unggah PDF / foto
-                </button>
+              <label className="paw-vaccine-upload">
+                Foto buku vaksin <b>* wajib</b>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  capture="environment"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    if (file && !file.type.startsWith("image/")) {
+                      notify(
+                        "Buku vaksin harus berupa foto JPG, PNG, atau WebP",
+                      );
+                      event.target.value = "";
+                      return;
+                    }
+                    setVaccineBook(file);
+                  }}
+                  required
+                />
+                <span className="paw-upload">
+                  {vaccineBook
+                    ? `✓ ${vaccineBook.name}`
+                    : "＋ Ambil / pilih foto buku vaksin"}
+                </span>
+                <small>
+                  JPG, PNG, atau WebP. Dokumen hanya dilihat tim verifikasi.
+                </small>
               </label>
             </div>
             <div className="paw-checklist">
@@ -1767,10 +2088,18 @@ function CreateProfileModal({
                   {form.maxDistance} km
                 </p>
                 <b>Level awal: Identity Verified</b>
+                <small>
+                  ✓ Buku vaksin: {vaccineBook?.name || "belum dipilih"}
+                </small>
               </div>
             </div>
             <label className="paw-consent">
-              <input type="checkbox" required />
+              <input
+                type="checkbox"
+                checked={consentData}
+                onChange={(event) => setConsentData(event.target.checked)}
+                required
+              />
               <span>
                 Saya menyatakan data pet dan dokumen kesehatan benar, memiliki
                 hak atas pet ini, dan menyetujui verifikasi dokter serta
@@ -1778,7 +2107,12 @@ function CreateProfileModal({
               </span>
             </label>
             <label className="paw-consent">
-              <input type="checkbox" required />
+              <input
+                type="checkbox"
+                checked={consentWelfare}
+                onChange={(event) => setConsentWelfare(event.target.checked)}
+                required
+              />
               <span>
                 Saya memahami hasil kompatibilitas bukan izin otomatis untuk
                 breeding dan pemeriksaan pra-breeding tetap wajib.
@@ -1800,7 +2134,7 @@ function CreateProfileModal({
             <button
               className="paw-primary"
               type="button"
-              onClick={() => setStep((value) => value + 1)}
+              onClick={continueStep}
             >
               Lanjutkan →
             </button>
@@ -1808,7 +2142,7 @@ function CreateProfileModal({
             <button
               className="paw-primary"
               type="button"
-              disabled={busy}
+              disabled={busy || !consentData || !consentWelfare}
               onClick={() => void save()}
             >
               {busy ? "Mengirim..." : "Kirim untuk review"}

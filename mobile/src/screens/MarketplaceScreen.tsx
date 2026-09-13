@@ -118,6 +118,7 @@ type MarketplaceScreenProps = {
   onRequireLogin: () => void;
   onRequirePet: () => void;
   onToggleFavorite: (id: string) => Promise<void> | void;
+  onIntentHandled: (token: number) => void;
   intent?: {
     token: number;
     productId?: string;
@@ -297,6 +298,7 @@ export function MarketplaceScreen({
   onRequireLogin,
   onRequirePet,
   onToggleFavorite,
+  onIntentHandled,
   intent,
 }: MarketplaceScreenProps) {
   const [products, setProducts] = useState<MobileProduct[]>([]);
@@ -650,6 +652,7 @@ export function MarketplaceScreen({
     if (!intent || loading || handledIntent.current === intent.token) return;
     queueMicrotask(() => {
       handledIntent.current = intent.token;
+      onIntentHandled(intent.token);
       if (intent.productId) {
         const product = productsById.get(intent.productId);
         if (!product) {
@@ -690,6 +693,7 @@ export function MarketplaceScreen({
     loadReviews,
     loading,
     onAction,
+    onIntentHandled,
     productsById,
     invalidateQuote,
   ]);
@@ -885,15 +889,15 @@ export function MarketplaceScreen({
 
   const checkoutReady = Boolean(
     quote &&
-      quotedKey === autoQuoteKey &&
-      shippingAddressComplete &&
-      !quoteBusy &&
-      quote.shipping_quotes.length > 0 &&
-      quote.shipping_quotes.every(
-        (shipment) =>
-          shipment.selected_service &&
-          shipment.selected_service === shippingSelections[shipment.branch_id],
-      ),
+    quotedKey === autoQuoteKey &&
+    shippingAddressComplete &&
+    !quoteBusy &&
+    quote.shipping_quotes.length > 0 &&
+    quote.shipping_quotes.every(
+      (shipment) =>
+        shipment.selected_service &&
+        shipment.selected_service === shippingSelections[shipment.branch_id],
+    ),
   );
 
   const checkout = async () => {

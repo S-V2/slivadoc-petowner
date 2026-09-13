@@ -9,6 +9,17 @@ const web = readFileSync(
 const api = readFileSync("app/lib/platform-api.ts", "utf8");
 const mobile = readFileSync("mobile/src/screens/WorldScreen.tsx", "utf8");
 
+test("PAW Dating opens directly to its functional content without the promo hero", () => {
+  for (const removedCopy of [
+    "RESPONSIBLE PET MATCHMAKING",
+    "Pasangan tepat dimulai dari",
+    "Pasangan tepat, kesehatan jelas.",
+  ]) {
+    assert.doesNotMatch(web, new RegExp(removedCopy));
+    assert.doesNotMatch(mobile, new RegExp(removedCopy));
+  }
+});
+
 test("PAW Dating discovery uses left and right swipe decisions", () => {
   assert.match(web, /PawDatingSwipeDeck/);
   assert.match(web, /offset > 0 \? "like" : "pass"/);

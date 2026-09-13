@@ -726,7 +726,7 @@ export function WorldScreen({
     }
   };
   const heroCopy: Record<
-    Mode,
+    Exclude<Mode, "pawdating">,
     {
       kicker: string;
       title: string;
@@ -734,12 +734,6 @@ export function WorldScreen({
       icon: keyof typeof Ionicons.glyphMap;
     }
   > = {
-    pawdating: {
-      kicker: "RESPONSIBLE PET MATCHMAKING",
-      title: "Pasangan tepat, kesehatan jelas.",
-      note: "Filter level, genetik, silsilah, karakter, usia, dan jarak dengan verifikasi dokter.",
-      icon: "heart-circle-outline",
-    },
     academy: {
       kicker: "PET TRAINING & ACADEMY",
       title: "Belajar dan bertumbuh bersama.",
@@ -870,23 +864,19 @@ export function WorldScreen({
             </Pressable>
           ))}
         </ScrollView>
-        <View
-          style={[
-            styles.hero,
-            mode === "events" && styles.eventHero,
-            mode === "pawdating" && styles.pawDatingHero,
-          ]}
-        >
-          <Text style={styles.heroKicker}>{heroCopy[mode].kicker}</Text>
-          <Text style={styles.heroTitle}>{heroCopy[mode].title}</Text>
-          <Text style={styles.heroNote}>{heroCopy[mode].note}</Text>
-          <Ionicons
-            name={heroCopy[mode].icon}
-            size={56}
-            color="rgba(255,255,255,.88)"
-            style={styles.heroEmoji}
-          />
-        </View>
+        {mode !== "pawdating" ? (
+          <View style={[styles.hero, mode === "events" && styles.eventHero]}>
+            <Text style={styles.heroKicker}>{heroCopy[mode].kicker}</Text>
+            <Text style={styles.heroTitle}>{heroCopy[mode].title}</Text>
+            <Text style={styles.heroNote}>{heroCopy[mode].note}</Text>
+            <Ionicons
+              name={heroCopy[mode].icon}
+              size={56}
+              color="rgba(255,255,255,.88)"
+              style={styles.heroEmoji}
+            />
+          </View>
+        ) : null}
         {loading ? (
           <Text style={styles.cardNote}>Memuat informasi terbaru…</Text>
         ) : busy ? (

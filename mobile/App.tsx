@@ -471,6 +471,9 @@ function MobileApp() {
     intentTokenRef.current += 1;
     return intentTokenRef.current;
   };
+  const consumeMarketplaceIntent = useCallback((token: number) => {
+    setMarketplaceIntent((current) => current?.token === token ? undefined : current);
+  }, []);
   const openMarketplace = (productId?: string) => {
     setMarketplaceIntent({ token: nextIntentToken(), productId });
     navigateTo("marketplace");
@@ -663,6 +666,7 @@ function MobileApp() {
                     }
                   }}
                   intent={marketplaceIntent}
+                  onIntentHandled={consumeMarketplaceIntent}
                 />
               ) : null}
               {tab === "world" ? (
@@ -771,6 +775,7 @@ function MobileApp() {
                     accessibilityState={{ selected: active }}
                     onPress={() => {
                       setMoreOpen(false);
+                      if (item.id === "marketplace") setMarketplaceIntent(undefined);
                       navigateTo(item.id);
                     }}
                     style={({ pressed }) => [

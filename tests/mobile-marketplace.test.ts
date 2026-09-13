@@ -22,6 +22,16 @@ test("marketplace is a primary mobile destination while services remain availabl
   assert.match(app, /<MarketplaceScreen/);
 });
 
+test("bottom navigation opens a clean marketplace without replaying cart intents", () => {
+  assert.match(
+    app,
+    /item\.id === "marketplace"[\s\S]*setMarketplaceIntent\(undefined\)[\s\S]*navigateTo\(item\.id\)/,
+  );
+  assert.match(app, /onIntentHandled=\{consumeMarketplaceIntent\}/);
+  assert.match(marketplace, /onIntentHandled\(intent\.token\)/);
+  assert.match(app, /current\?\.token === token \? undefined : current/);
+});
+
 test("mobile marketplace uses live catalogue, authoritative checkout, and BatPay", () => {
   assert.match(marketplace, /getMobileProducts/);
   assert.match(

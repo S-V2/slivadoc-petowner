@@ -395,59 +395,6 @@ export default function PawDatingExperience({
 
   return (
     <section className="pawdating-shell">
-      <div className="pawdating-hero">
-        <div className="pawdating-hero-copy">
-          <span className="pawdating-kicker">
-            ♡ RESPONSIBLE PET MATCHMAKING
-          </span>
-          <h2>
-            Pasangan tepat dimulai dari
-            <br />
-            <em>kesehatan yang jelas.</em>
-          </h2>
-          <p>
-            Temukan pet yang kompatibel berdasarkan kesehatan, genetik,
-            silsilah, karakter, usia, dan jarak—dengan verifikasi dokter serta
-            persetujuan dua arah.
-          </p>
-          <div className="pawdating-hero-actions">
-            <button
-              className="paw-primary"
-              type="button"
-              onClick={() => setTab("discover")}
-            >
-              Temukan pasangan
-            </button>
-            <button
-              className="paw-secondary"
-              type="button"
-              onClick={() => {
-                if (requireLogin()) {
-                  setCreateOpen(true);
-                }
-              }}
-            >
-              + Buat profil pet
-            </button>
-          </div>
-          <div className="paw-trust-row">
-            <span>✓ Health report</span>
-            <span>✓ Genetic screening</span>
-            <span>✓ Mutual consent</span>
-          </div>
-        </div>
-        <div
-          className="pawdating-hero-visual"
-          aria-label="Pet parent bersama anjing dan kucing"
-        >
-          <div className="paw-hero-score">
-            <strong>96</strong>
-            <span>Health score</span>
-          </div>
-          <div className="paw-hero-verified">✓ Level 4 verified</div>
-        </div>
-      </div>
-
       <div className="paw-welfare-banner">
         <span>🛡️</span>
         <div>

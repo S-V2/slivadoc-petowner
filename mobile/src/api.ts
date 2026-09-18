@@ -1310,6 +1310,17 @@ export type WorldItem = {
   channel_avatar_url?: string;
   channel_handle?: string;
   verified?: boolean;
+  reservable?: boolean;
+  deposit_type?: "percentage" | "fixed";
+  deposit_value?: number;
+  reservation_policy?: {
+    slot_minutes?: number;
+    hold_minutes?: number;
+    minimum_notice_minutes?: number;
+    maximum_party_size?: number;
+    cancellation_hours?: number;
+    pet_rules?: string[];
+  };
   following?: boolean;
   created_at?: string;
 };
@@ -1330,6 +1341,70 @@ export const getMobileEvents = () =>
   getUniqueWorldItems("/api/v1/public/events");
 export const getMobilePetSpots = () =>
   getUniqueWorldItems("/api/v1/public/petspots");
+export type MobilePetSpotResource = {
+  id: string;
+  code: string;
+  name: string;
+  resource_type: "table" | "room" | "unit" | "zone" | "venue" | "parking" | "seat" | "other";
+  floor_name: string;
+  capacity: number;
+  x_percent: number;
+  y_percent: number;
+  shape: "round" | "square" | "rectangle" | "unit";
+  base_price: number;
+  amenities: string[];
+  pet_policy: Record<string, unknown>;
+  available: boolean;
+};
+export type MobilePetSpotReservation = {
+  id: string;
+  reservation_number: string;
+  spot_id: string;
+  spot_name: string;
+  resource_id: string;
+  subtotal: number;
+  deposit_amount: number;
+  remaining_amount: number;
+  payment_status: string;
+  status: string;
+  hold_expires_at: string;
+  payment_required: true;
+  reference_type: "petspot_reservation";
+};
+export const getMobilePetSpotAvailability = (
+  spotId: string,
+  startsAt: string,
+  endsAt: string,
+  guests: number,
+) => {
+  const query = new URLSearchParams({
+    starts_at: startsAt,
+    ends_at: endsAt,
+    guests: String(guests),
+  });
+  return platformRequest<{ data: MobilePetSpotResource[]; count: number }>(
+    `/api/v1/public/petspots/${spotId}/availability?${query.toString()}`,
+  );
+};
+export const createMobilePetSpotReservation = (input: {
+  resource_id: string;
+  pet_id?: string;
+  guest_name: string;
+  guest_phone: string;
+  guest_count: number;
+  pet_count: number;
+  starts_at: string;
+  ends_at: string;
+  special_request?: string;
+}) =>
+  platformRequest<MobilePetSpotReservation>(
+    "/api/v1/petowner/petspot-reservations",
+    { method: "POST", body: JSON.stringify(input) },
+  );
+export const getMobilePetSpotReservations = () =>
+  platformRequest<{ data: MobilePetSpotReservation[]; count: number }>(
+    "/api/v1/petowner/petspot-reservations",
+  );
 export const getMobileStreams = () =>
   getUniqueWorldItems("/api/v1/public/pethub/streams");
 export const getMobilePetHubFeed = () =>

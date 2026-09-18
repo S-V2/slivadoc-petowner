@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import {
   applyMobileAdoption,
+  createMobilePetSpotReservation,
   createMobilePawDatingHealthReport,
   createMobilePawDatingProfile,
   createMobileConsultation,
@@ -34,6 +35,7 @@ import {
   getMobilePawDatingProfile,
   getMobilePawDatingProfiles,
   getMobilePetSpots,
+  getMobilePetSpotAvailability,
   passMobilePawDatingProfile,
   registerMobileEvent,
   sendMobilePawDatingInterest,
@@ -41,6 +43,7 @@ import {
   trackMobileAcademyProgramClick,
   type MobileOwner,
   type MobilePaymentIntent,
+  type MobilePetSpotResource,
   type WorldItem,
   uploadMobileImage,
 } from "../api";
@@ -87,6 +90,14 @@ type DocumentForm = {
   departureAt: string;
   transportType: "flight" | "ship";
 };
+type PetSpotReservationForm = {
+  date: string;
+  time: string;
+  durationMinutes: number;
+  guestCount: number;
+  petCount: number;
+  specialRequest: string;
+};
 
 const emptyAdoptionForm = (): AdoptionForm => ({
   applicantName: "",
@@ -103,6 +114,28 @@ const emptyDocumentForm = (): DocumentForm => ({
   departureAt: "",
   transportType: "flight",
 });
+const emptyPetSpotReservationForm = (
+  slotMinutes = 90,
+): PetSpotReservationForm => {
+  const target = new Date();
+  target.setDate(target.getDate() + 1);
+  target.setHours(18, 0, 0, 0);
+  return {
+    date: target.toISOString().slice(0, 10),
+    time: "18:00",
+    durationMinutes: slotMinutes,
+    guestCount: 2,
+    petCount: 1,
+    specialRequest: "",
+  };
+};
+const petSpotWindow = (form: PetSpotReservationForm) => {
+  const starts = new Date(`${form.date}T${form.time}:00`);
+  const ends = new Date(starts.getTime() + form.durationMinutes * 60_000);
+  if (Number.isNaN(starts.getTime()) || Number.isNaN(ends.getTime()))
+    throw new Error("Tanggal atau jam reservasi belum valid");
+  return { startsAt: starts.toISOString(), endsAt: ends.toISOString() };
+};
 const modes: Array<{
   id: Mode;
   label: string;
@@ -383,6 +416,15 @@ export function WorldScreen({
   const [busy, setBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<MobilePaymentIntent>();
+  const [petSpotForm, setPetSpotForm] = useState<PetSpotReservationForm>(
+    emptyPetSpotReservationForm,
+  );
+  const [petSpotResources, setPetSpotResources] = useState<
+    MobilePetSpotResource[]
+  >([]);
+  const [selectedPetSpotResource, setSelectedPetSpotResource] =
+    useState<MobilePetSpotResource>();
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [adoptionForm, setAdoptionForm] =
     useState<AdoptionForm>(emptyAdoptionForm);
   const [documentForm, setDocumentForm] =
@@ -480,6 +522,36 @@ export function WorldScreen({
     if (mode === "academy" && selected)
       void trackMobileAcademyProgramClick(selected.id).catch(() => undefined);
   }, [mode, selected]);
+  const loadPetSpotAvailability = async (
+    spot: WorldItem,
+    form: PetSpotReservationForm,
+  ) => {
+    if (!spot.reservable) return;
+    setAvailabilityLoading(true);
+    setSelectedPetSpotResource(undefined);
+    try {
+      const window = petSpotWindow(form);
+      const result = await getMobilePetSpotAvailability(
+        spot.id,
+        window.startsAt,
+        window.endsAt,
+        form.guestCount,
+      );
+      setPetSpotResources(result.data);
+      setSelectedPetSpotResource(
+        result.data.find((resource) => resource.available),
+      );
+    } catch (cause) {
+      setPetSpotResources([]);
+      onAction(
+        cause instanceof Error
+          ? cause.message
+          : "Ketersediaan meja atau unit belum dapat dimuat",
+      );
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  };
   // Opening an item starts its form fresh. This runs in the open handler rather than an
   // effect on purpose. Calling setState in an effect body is the cascading render that
   // react-hooks/set-state-in-effect rejects, and the effect's dependency on
@@ -496,6 +568,15 @@ export function WorldScreen({
       });
     }
     if (mode === "documents") setDocumentForm(emptyDocumentForm());
+    if (mode === "petspot" && item.reservable) {
+      const form = emptyPetSpotReservationForm(
+        item.reservation_policy?.slot_minutes ?? 90,
+      );
+      setPetSpotForm(form);
+      setPetSpotResources([]);
+      setSelectedPetSpotResource(undefined);
+      void loadPetSpotAvailability(item, form);
+    }
     setSelected(item);
     if (mode === "pawdating") {
       try {
@@ -560,7 +641,7 @@ export function WorldScreen({
     if (!selected) return;
     if (
       !owner &&
-      mode !== "petspot" &&
+      (mode !== "petspot" || selected.reservable) &&
       !(mode === "pethub" && selected.playback_url)
     ) {
       onLogin();
@@ -604,6 +685,18 @@ export function WorldScreen({
         return;
       }
       departureAt = parsedDeparture.toISOString();
+    }
+    if (
+      mode === "petspot" &&
+      selected.reservable &&
+      !selectedPetSpotResource
+    ) {
+      onAction("Pilih meja atau unit yang masih tersedia");
+      return;
+    }
+    if (mode === "petspot" && selected.reservable && !owner?.phone?.trim()) {
+      onAction("Lengkapi nomor telepon di profil sebelum membuat reservasi");
+      return;
     }
     setBusy(true);
     let completed = false;
@@ -697,14 +790,41 @@ export function WorldScreen({
           );
         else onAction("Permohonan dokumen gratis berhasil dibuat");
       } else if (mode === "petspot") {
-        const query =
-          selected.latitude != null && selected.longitude != null
-            ? `${selected.latitude},${selected.longitude}`
-            : encodeURIComponent(selected.address || selected.name || "");
-        await Linking.openURL(
-          `https://www.google.com/maps/search/?api=1&query=${query}`,
-        );
-        onAction("Petunjuk arah dibuka");
+        if (selected.reservable && selectedPetSpotResource) {
+          const window = petSpotWindow(petSpotForm);
+          const source = await createMobilePetSpotReservation({
+            resource_id: selectedPetSpotResource.id,
+            ...(pet && /^[0-9a-f-]{36}$/i.test(pet.id)
+              ? { pet_id: pet.id }
+              : {}),
+            guest_name: owner!.full_name,
+            guest_phone: owner!.phone ?? "",
+            guest_count: petSpotForm.guestCount,
+            pet_count: petSpotForm.petCount,
+            starts_at: window.startsAt,
+            ends_at: window.endsAt,
+            special_request: petSpotForm.specialRequest.trim(),
+          });
+          setPayment(
+            await createMobilePaymentIntent(
+              "petspot_reservation",
+              source.id,
+              paymentMethod,
+            ),
+          );
+          onAction(
+            `DP ${money(source.deposit_amount)} dibuat untuk ${source.reservation_number}`,
+          );
+        } else {
+          const query =
+            selected.latitude != null && selected.longitude != null
+              ? `${selected.latitude},${selected.longitude}`
+              : encodeURIComponent(selected.address || selected.name || "");
+          await Linking.openURL(
+            `https://www.google.com/maps/search/?api=1&query=${query}`,
+          );
+          onAction("Petunjuk arah dibuka");
+        }
       } else if (selected.playback_url) {
         await Linking.openURL(selected.playback_url);
         onAction("Live PetHub dibuka");
@@ -1123,6 +1243,275 @@ export function WorldScreen({
                       </View>
                     ) : null}
                   </View>
+                  {mode === "petspot" && selected?.reservable ? (
+                    <View style={styles.petSpotReservation}>
+                      <View style={styles.petSpotReservationHead}>
+                        <View>
+                          <Text style={styles.formTitle}>Reservasi PetSpot</Text>
+                          <Text style={styles.formNote}>
+                            Pilih jadwal lalu lihat meja atau unit yang tersedia.
+                          </Text>
+                        </View>
+                        <View style={styles.depositBadge}>
+                          <Text style={styles.depositBadgeText}>
+                            DP WAJIB{" "}
+                            {selected.deposit_type === "percentage"
+                              ? `${selected.deposit_value ?? 0}%`
+                              : money(selected.deposit_value)}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.dateRow}>
+                        <View style={styles.dateField}>
+                          <FormTextField
+                            label="Tanggal"
+                            value={petSpotForm.date}
+                            onChangeText={(date) =>
+                              setPetSpotForm((current) => ({
+                                ...current,
+                                date,
+                              }))
+                            }
+                            placeholder="YYYY-MM-DD"
+                          />
+                        </View>
+                        <View style={styles.dateField}>
+                          <FormTextField
+                            label="Jam"
+                            value={petSpotForm.time}
+                            onChangeText={(time) =>
+                              setPetSpotForm((current) => ({
+                                ...current,
+                                time,
+                              }))
+                            }
+                            placeholder="18:00"
+                          />
+                        </View>
+                      </View>
+                      <Text style={styles.formLabel}>Durasi</Text>
+                      <View style={styles.choiceRow}>
+                        {[60, 90, 120, 1440].map((durationMinutes) => (
+                          <Pressable
+                            key={durationMinutes}
+                            onPress={() =>
+                              setPetSpotForm((current) => ({
+                                ...current,
+                                durationMinutes,
+                              }))
+                            }
+                            style={[
+                              styles.choice,
+                              petSpotForm.durationMinutes === durationMinutes &&
+                                styles.choiceActive,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.choiceText,
+                                petSpotForm.durationMinutes ===
+                                  durationMinutes && styles.choiceTextActive,
+                              ]}
+                            >
+                              {durationMinutes === 1440
+                                ? "1 hari"
+                                : `${durationMinutes} menit`}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                      <View style={styles.counterRow}>
+                        {[
+                          {
+                            label: "Tamu",
+                            key: "guestCount" as const,
+                            min: 1,
+                          },
+                          {
+                            label: "Pet",
+                            key: "petCount" as const,
+                            min: 0,
+                          },
+                        ].map((counter) => (
+                          <View key={counter.key} style={styles.counterCard}>
+                            <Text style={styles.formLabel}>{counter.label}</Text>
+                            <View style={styles.counterControl}>
+                              <Pressable
+                                onPress={() =>
+                                  setPetSpotForm((current) => ({
+                                    ...current,
+                                    [counter.key]: Math.max(
+                                      counter.min,
+                                      current[counter.key] - 1,
+                                    ),
+                                  }))
+                                }
+                                style={styles.counterButton}
+                              >
+                                <Ionicons
+                                  name="remove"
+                                  size={16}
+                                  color={colors.sky600}
+                                />
+                              </Pressable>
+                              <Text style={styles.counterValue}>
+                                {petSpotForm[counter.key]}
+                              </Text>
+                              <Pressable
+                                onPress={() =>
+                                  setPetSpotForm((current) => ({
+                                    ...current,
+                                    [counter.key]:
+                                      current[counter.key] + 1,
+                                  }))
+                                }
+                                style={styles.counterButton}
+                              >
+                                <Ionicons
+                                  name="add"
+                                  size={16}
+                                  color={colors.sky600}
+                                />
+                              </Pressable>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                      <Pressable
+                        disabled={availabilityLoading}
+                        onPress={() =>
+                          selected &&
+                          void loadPetSpotAvailability(selected, petSpotForm)
+                        }
+                        style={styles.checkAvailability}
+                      >
+                        <Ionicons
+                          name="search"
+                          size={16}
+                          color={colors.white}
+                        />
+                        <Text style={styles.checkAvailabilityText}>
+                          {availabilityLoading
+                            ? "Memeriksa ketersediaan…"
+                            : "Perbarui denah ketersediaan"}
+                        </Text>
+                      </Pressable>
+                      <View style={styles.layoutLegend}>
+                        <Text style={styles.layoutLegendAvailable}>
+                          ● Tersedia
+                        </Text>
+                        <Text style={styles.layoutLegendReserved}>
+                          ● Sudah direservasi
+                        </Text>
+                        <Text style={styles.layoutLegendSelected}>
+                          ● Pilihanmu
+                        </Text>
+                      </View>
+                      <View style={styles.petSpotLayout}>
+                        <View style={styles.layoutDoor}>
+                          <Text style={styles.layoutDoorText}>PINTU</Text>
+                        </View>
+                        {petSpotResources.map((resource) => {
+                          const active =
+                            selectedPetSpotResource?.id === resource.id;
+                          return (
+                            <Pressable
+                              key={resource.id}
+                              disabled={!resource.available}
+                              onPress={() =>
+                                setSelectedPetSpotResource(resource)
+                              }
+                              style={[
+                                styles.layoutResource,
+                                {
+                                  left: `${Math.min(82, Math.max(3, resource.x_percent))}%`,
+                                  top: `${Math.min(74, Math.max(5, resource.y_percent))}%`,
+                                },
+                                resource.shape === "round" &&
+                                  styles.layoutResourceRound,
+                                !resource.available &&
+                                  styles.layoutResourceReserved,
+                                active && styles.layoutResourceSelected,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.layoutResourceCode,
+                                  active && styles.layoutResourceCodeActive,
+                                ]}
+                              >
+                                {resource.code}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.layoutResourceCapacity,
+                                  active && styles.layoutResourceCodeActive,
+                                ]}
+                              >
+                                {resource.capacity} org
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                        {!availabilityLoading &&
+                        !petSpotResources.length ? (
+                          <View style={styles.layoutEmpty}>
+                            <Ionicons
+                              name="calendar-outline"
+                              size={24}
+                              color={colors.muted}
+                            />
+                            <Text style={styles.formNote}>
+                              Belum ada resource untuk jadwal ini
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      {selectedPetSpotResource ? (
+                        <View style={styles.selectedResourceCard}>
+                          <View>
+                            <Text style={styles.formTitle}>
+                              {selectedPetSpotResource.name}
+                            </Text>
+                            <Text style={styles.formNote}>
+                              {selectedPetSpotResource.floor_name} · kapasitas{" "}
+                              {selectedPetSpotResource.capacity} ·{" "}
+                              {money(selectedPetSpotResource.base_price)}
+                            </Text>
+                          </View>
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={24}
+                            color="#128464"
+                          />
+                        </View>
+                      ) : null}
+                      <FormTextField
+                        label="Permintaan khusus (opsional)"
+                        value={petSpotForm.specialRequest}
+                        onChangeText={(specialRequest) =>
+                          setPetSpotForm((current) => ({
+                            ...current,
+                            specialRequest,
+                          }))
+                        }
+                        multiline
+                        placeholder="Contoh: dekat outdoor, membawa 2 anjing"
+                      />
+                      <View style={styles.depositNotice}>
+                        <Ionicons
+                          name="shield-checkmark-outline"
+                          size={20}
+                          color={colors.sky600}
+                        />
+                        <Text style={styles.depositNoticeText}>
+                          Resource ditahan sementara selama{" "}
+                          {selected.reservation_policy?.hold_minutes ?? 15} menit.
+                          Reservasi baru dikonfirmasi setelah DP terverifikasi.
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
                   {mode === "pawdating" ? (
                     <View style={styles.welfareNote}>
                       <View style={styles.welfareTitleRow}>
@@ -1369,10 +1758,11 @@ export function WorldScreen({
                       ) : null}
                     </View>
                   ) : null}
-                  {["academy", "events", "consult", "documents"].includes(
+                  {(["academy", "events", "consult", "documents"].includes(
                     mode,
                   ) &&
-                  Number(selected?.price || selected?.total_fee || 0) > 0 ? (
+                    Number(selected?.price || selected?.total_fee || 0) > 0) ||
+                  (mode === "petspot" && selected?.reservable) ? (
                     <MobilePaymentMethods
                       value={paymentMethod}
                       onChange={setPaymentMethod}
@@ -1394,7 +1784,9 @@ export function WorldScreen({
                                 : mode === "documents"
                                   ? "Ajukan dokumen"
                                   : mode === "petspot"
-                                    ? "Buka petunjuk arah"
+                                    ? selected?.reservable
+                                      ? "Reservasi & bayar DP"
+                                      : "Buka petunjuk arah"
                                     : selected?.status === "live"
                                       ? "Tonton live"
                                       : "Aktifkan pengingat"
@@ -1973,6 +2365,155 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     fontWeight: "600",
+  },
+  petSpotReservation: {
+    gap: 11,
+    marginBottom: 14,
+    padding: 13,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 18,
+    backgroundColor: "#F7FCFF",
+  },
+  petSpotReservationHead: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  depositBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 9,
+    backgroundColor: "#FFF0D8",
+  },
+  depositBadgeText: { color: "#9A5B08", fontSize: 9, fontWeight: "800" },
+  counterRow: { flexDirection: "row", gap: 9 },
+  counterCard: {
+    flex: 1,
+    gap: 7,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 13,
+    backgroundColor: colors.white,
+  },
+  counterControl: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  counterButton: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: colors.sky50,
+  },
+  counterValue: { color: colors.navy, fontSize: 15, fontWeight: "800" },
+  checkAvailability: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    borderRadius: 12,
+    backgroundColor: colors.sky600,
+  },
+  checkAvailabilityText: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  layoutLegend: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  layoutLegendAvailable: { color: "#128464", fontSize: 9 },
+  layoutLegendReserved: { color: "#C55454", fontSize: 9 },
+  layoutLegendSelected: { color: colors.sky600, fontSize: 9 },
+  petSpotLayout: {
+    position: "relative",
+    minHeight: 270,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#D8E6ED",
+    borderRadius: 16,
+    backgroundColor: colors.white,
+  },
+  layoutDoor: {
+    position: "absolute",
+    bottom: 0,
+    left: "39%",
+    width: "22%",
+    paddingVertical: 4,
+    borderTopLeftRadius: 7,
+    borderTopRightRadius: 7,
+    backgroundColor: "#DCE8EE",
+  },
+  layoutDoorText: {
+    color: colors.muted,
+    fontSize: 8,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  layoutResource: {
+    position: "absolute",
+    width: 58,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 5,
+    borderWidth: 2,
+    borderColor: "#9ED9C5",
+    borderRadius: 10,
+    backgroundColor: "#EAF8F2",
+  },
+  layoutResourceRound: { width: 54, height: 54, borderRadius: 27 },
+  layoutResourceReserved: {
+    borderColor: "#E6B5B5",
+    backgroundColor: "#FFF0F0",
+    opacity: 0.7,
+  },
+  layoutResourceSelected: {
+    borderColor: colors.sky600,
+    backgroundColor: colors.sky600,
+    ...shadow,
+  },
+  layoutResourceCode: { color: "#25695F", fontSize: 10, fontWeight: "800" },
+  layoutResourceCodeActive: { color: colors.white },
+  layoutResourceCapacity: { color: colors.muted, fontSize: 8 },
+  layoutEmpty: {
+    position: "absolute",
+    inset: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+  selectedResourceCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: 11,
+    borderRadius: 13,
+    backgroundColor: "#EAF8F2",
+  },
+  depositNotice: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    padding: 11,
+    borderRadius: 13,
+    backgroundColor: colors.sky50,
+  },
+  depositNoticeText: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 10,
+    lineHeight: 16,
   },
   welfareNote: {
     marginBottom: 14,

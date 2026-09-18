@@ -2387,7 +2387,7 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     backgroundColor: "#FFF0D8",
   },
-  depositBadgeText: { color: "#9A5B08", fontSize: 9, fontWeight: "800" },
+  depositBadgeText: { color: "#9A5B08", fontSize: 9, fontWeight: "700" },
   counterRow: { flexDirection: "row", gap: 9 },
   counterCard: {
     flex: 1,
@@ -2411,7 +2411,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: colors.sky50,
   },
-  counterValue: { color: colors.navy, fontSize: 15, fontWeight: "800" },
+  counterValue: { color: colors.navy, fontSize: 15, fontWeight: "700" },
   checkAvailability: {
     minHeight: 44,
     flexDirection: "row",
@@ -2456,7 +2456,7 @@ const styles = StyleSheet.create({
   layoutDoorText: {
     color: colors.muted,
     fontSize: 8,
-    fontWeight: "800",
+    fontWeight: "700",
     textAlign: "center",
   },
   layoutResource: {
@@ -2482,7 +2482,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sky600,
     ...shadow,
   },
-  layoutResourceCode: { color: "#25695F", fontSize: 10, fontWeight: "800" },
+  layoutResourceCode: { color: "#25695F", fontSize: 10, fontWeight: "700" },
   layoutResourceCodeActive: { color: colors.white },
   layoutResourceCapacity: { color: colors.muted, fontSize: 8 },
   layoutEmpty: {

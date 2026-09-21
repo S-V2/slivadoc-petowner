@@ -30,6 +30,14 @@ test("mobile combines doctor and trainer consultations without bypassing schedul
     mobileWorld,
     /selected\.mode !== "chat" && !selectedTrainerSlot/,
   );
+  assert.match(
+    mobileWorld,
+    /setSelected\(plan\);[\s\S]*loadTrainerSlots\(plan\)/,
+  );
+  assert.match(
+    mobileWorld,
+    /trainerAvailabilityRequest\.current !== requestID/,
+  );
   assert.match(mobileWorld, /"consultation",\s*source\.id,\s*paymentMethod/);
 });
 

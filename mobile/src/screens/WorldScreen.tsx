@@ -23,6 +23,7 @@ import {
   createMobilePawDatingHealthReport,
   createMobilePawDatingProfile,
   createMobileConsultation,
+  createMobileTrainerConsultation,
   createMobileDocumentRequest,
   createMobilePaymentIntent,
   enrollMobileAcademy,
@@ -36,6 +37,8 @@ import {
   getMobilePawDatingProfiles,
   getMobilePetSpots,
   getMobilePetSpotAvailability,
+  getMobileTrainerAvailability,
+  getMobileTrainerConsultationPlans,
   passMobilePawDatingProfile,
   registerMobileEvent,
   sendMobilePawDatingInterest,
@@ -44,6 +47,7 @@ import {
   type MobileOwner,
   type MobilePaymentIntent,
   type MobilePetSpotResource,
+  type MobileTrainerAvailabilitySlot,
   type WorldItem,
   uploadMobileImage,
 } from "../api";
@@ -425,6 +429,13 @@ export function WorldScreen({
   const [selectedPetSpotResource, setSelectedPetSpotResource] =
     useState<MobilePetSpotResource>();
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [trainerAvailabilityLoading, setTrainerAvailabilityLoading] =
+    useState(false);
+  const [trainerSlots, setTrainerSlots] = useState<
+    MobileTrainerAvailabilitySlot[]
+  >([]);
+  const [trainerTimezone, setTrainerTimezone] = useState("Asia/Jakarta");
+  const [selectedTrainerSlot, setSelectedTrainerSlot] = useState("");
   const [adoptionForm, setAdoptionForm] =
     useState<AdoptionForm>(emptyAdoptionForm);
   const [documentForm, setDocumentForm] =
@@ -460,6 +471,7 @@ export function WorldScreen({
         getMobileEvents(),
         getMobilePetSpots(),
         getMobileConsultationPlans(),
+        getMobileTrainerConsultationPlans(),
         getMobileAdoptions(),
         getMobileDocumentProducts(),
       ])
@@ -470,6 +482,7 @@ export function WorldScreen({
             events,
             spots,
             consult,
+            trainerConsult,
             adoption,
             documents,
           ]) => {
@@ -481,7 +494,12 @@ export function WorldScreen({
               events: events.status === "fulfilled" ? events.value.data : [],
               petspot: spots.status === "fulfilled" ? spots.value.data : [],
               pethub: [],
-              consult: consult.status === "fulfilled" ? consult.value.data : [],
+              consult: [
+                ...(consult.status === "fulfilled" ? consult.value.data : []),
+                ...(trainerConsult.status === "fulfilled"
+                  ? trainerConsult.value.data
+                  : []),
+              ],
               adoption:
                 adoption.status === "fulfilled" ? adoption.value.data : [],
               documents:
@@ -568,6 +586,29 @@ export function WorldScreen({
       });
     }
     if (mode === "documents") setDocumentForm(emptyDocumentForm());
+    if (mode === "consult") {
+      setTrainerSlots([]);
+      setSelectedTrainerSlot("");
+      if (item.provider_type === "trainer" && item.trainer_id) {
+        setTrainerAvailabilityLoading(true);
+        try {
+          const result = await getMobileTrainerAvailability(
+            item.trainer_id,
+            item.id,
+          );
+          setTrainerSlots(result.data);
+          setTrainerTimezone(result.timezone || "Asia/Jakarta");
+        } catch (cause) {
+          onAction(
+            cause instanceof Error
+              ? cause.message
+              : "Slot konsultasi trainer belum dapat dimuat",
+          );
+        } finally {
+          setTrainerAvailabilityLoading(false);
+        }
+      }
+    }
     if (mode === "petspot" && item.reservable) {
       const form = emptyPetSpotReservationForm(
         item.reservation_policy?.slot_minutes ?? 90,
@@ -686,11 +727,7 @@ export function WorldScreen({
       }
       departureAt = parsedDeparture.toISOString();
     }
-    if (
-      mode === "petspot" &&
-      selected.reservable &&
-      !selectedPetSpotResource
-    ) {
+    if (mode === "petspot" && selected.reservable && !selectedPetSpotResource) {
       onAction("Pilih meja atau unit yang masih tersedia");
       return;
     }
@@ -743,10 +780,26 @@ export function WorldScreen({
           );
         else onAction("Tiket event gratis berhasil dibuat");
       } else if (mode === "consult") {
-        const source = await createMobileConsultation(
-          selected,
-          `Konsultasi untuk ${petName || "pet"}`,
-        );
+        if (
+          selected.provider_type === "trainer" &&
+          selected.mode !== "chat" &&
+          !selectedTrainerSlot
+        ) {
+          onAction("Pilih jadwal telepon atau video call dengan trainer");
+          return;
+        }
+        const source =
+          selected.provider_type === "trainer"
+            ? await createMobileTrainerConsultation(
+                selected,
+                `Konsultasi training untuk ${petName || "pet"}`,
+                selectedTrainerSlot || undefined,
+                pet?.id,
+              )
+            : await createMobileConsultation(
+                selected,
+                `Konsultasi untuk ${petName || "pet"}`,
+              );
         if (source.amount > 0)
           setPayment(
             await createMobilePaymentIntent(
@@ -879,9 +932,9 @@ export function WorldScreen({
       icon: "play-circle-outline",
     },
     consult: {
-      kicker: "VIRTUAL VET",
-      title: "Dokter sedekat layar kamu.",
-      note: "Chat, voice, video call, bundling, dan medical record.",
+      kicker: "VIRTUAL CONSULTATION",
+      title: "Dokter dan trainer sedekat layar kamu.",
+      note: "Booking chat, telepon, video call, dan bayar dalam satu alur.",
       icon: "medical-outline",
     },
     adoption: {
@@ -1095,7 +1148,7 @@ export function WorldScreen({
                           : mode === "petspot"
                             ? `★ ${item.rating} · ${item.distance_km ?? "—"} km`
                             : mode === "consult"
-                              ? `${item.duration_minutes ?? "—"} menit · dokter terverifikasi`
+                              ? `${item.duration_minutes ?? "—"} menit · ${item.provider_type === "trainer" ? "pet trainer" : "dokter"} terverifikasi`
                               : mode === "adoption"
                                 ? `${item.city || "Lokasi belum tersedia"} · ${item.health_status || "Health check"}`
                                 : mode === "documents"
@@ -1203,6 +1256,8 @@ export function WorldScreen({
                         {mode === "pawdating"
                           ? `✓ ${selected?.eligibility_status} · ${selected?.risk_level} risk`
                           : selected?.academy_name ||
+                            selected?.trainer_name ||
+                            selected?.doctor_name ||
                             selected?.venue ||
                             selected?.city ||
                             selected?.channel_name ||
@@ -1243,13 +1298,91 @@ export function WorldScreen({
                       </View>
                     ) : null}
                   </View>
+                  {mode === "consult" &&
+                  selected?.provider_type === "trainer" ? (
+                    <View style={styles.formSection}>
+                      <Text style={styles.formTitle}>
+                        Booking dengan {selected.trainer_name || "Pet Trainer"}
+                      </Text>
+                      <Text style={styles.formNote}>
+                        {selected.mode === "chat"
+                          ? "Mulai segera atau pilih jadwal dalam 14 hari ke depan."
+                          : `Pilih slot ${selected.mode === "video" ? "video call" : "telepon"} yang masih tersedia.`}
+                      </Text>
+                      <Text style={styles.formLabel}>
+                        JADWAL · {trainerTimezone}
+                      </Text>
+                      {selected.mode === "chat" ? (
+                        <Pressable
+                          onPress={() => setSelectedTrainerSlot("")}
+                          style={[
+                            styles.choice,
+                            selectedTrainerSlot === "" && styles.choiceActive,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.choiceText,
+                              selectedTrainerSlot === "" &&
+                                styles.choiceTextActive,
+                            ]}
+                          >
+                            Mulai segera
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                      {trainerAvailabilityLoading ? (
+                        <Text style={styles.formNote}>
+                          Memuat slot trainer…
+                        </Text>
+                      ) : (
+                        <View style={styles.trainerSlotGrid}>
+                          {trainerSlots.slice(0, 16).map((slot) => (
+                            <Pressable
+                              key={slot.starts_at}
+                              onPress={() =>
+                                setSelectedTrainerSlot(slot.starts_at)
+                              }
+                              style={[
+                                styles.trainerSlot,
+                                selectedTrainerSlot === slot.starts_at &&
+                                  styles.choiceActive,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.choiceText,
+                                  selectedTrainerSlot === slot.starts_at &&
+                                    styles.choiceTextActive,
+                                ]}
+                              >
+                                {when(slot.starts_at)} · {slot.duration_minutes}{" "}
+                                mnt
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      )}
+                      {!trainerAvailabilityLoading &&
+                      trainerSlots.length === 0 &&
+                      selected.mode !== "chat" ? (
+                        <Text style={styles.availabilityEmpty}>
+                          Belum ada slot dalam 14 hari. Pilih paket chat atau
+                          trainer lain.
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
                   {mode === "petspot" && selected?.reservable ? (
                     <View style={styles.petSpotReservation}>
                       <View style={styles.petSpotReservationHead}>
                         <View>
-                          <Text style={styles.formTitle}>Reservasi PetSpot</Text>
+                          <Text style={styles.formTitle}>
+                            Reservasi PetSpot
+                          </Text>
                           <Text style={styles.formNote}>
-                            Pilih jadwal lalu lihat meja atau unit yang tersedia.
+                            Pilih jadwal lalu lihat meja atau unit yang
+                            tersedia.
                           </Text>
                         </View>
                         <View style={styles.depositBadge}>
@@ -1334,7 +1467,9 @@ export function WorldScreen({
                           },
                         ].map((counter) => (
                           <View key={counter.key} style={styles.counterCard}>
-                            <Text style={styles.formLabel}>{counter.label}</Text>
+                            <Text style={styles.formLabel}>
+                              {counter.label}
+                            </Text>
                             <View style={styles.counterControl}>
                               <Pressable
                                 onPress={() =>
@@ -1361,8 +1496,7 @@ export function WorldScreen({
                                 onPress={() =>
                                   setPetSpotForm((current) => ({
                                     ...current,
-                                    [counter.key]:
-                                      current[counter.key] + 1,
+                                    [counter.key]: current[counter.key] + 1,
                                   }))
                                 }
                                 style={styles.counterButton}
@@ -1453,8 +1587,7 @@ export function WorldScreen({
                             </Pressable>
                           );
                         })}
-                        {!availabilityLoading &&
-                        !petSpotResources.length ? (
+                        {!availabilityLoading && !petSpotResources.length ? (
                           <View style={styles.layoutEmpty}>
                             <Ionicons
                               name="calendar-outline"
@@ -1506,8 +1639,9 @@ export function WorldScreen({
                         />
                         <Text style={styles.depositNoticeText}>
                           Resource ditahan sementara selama{" "}
-                          {selected.reservation_policy?.hold_minutes ?? 15} menit.
-                          Reservasi baru dikonfirmasi setelah DP terverifikasi.
+                          {selected.reservation_policy?.hold_minutes ?? 15}{" "}
+                          menit. Reservasi baru dikonfirmasi setelah DP
+                          terverifikasi.
                         </Text>
                       </View>
                     </View>
@@ -1778,7 +1912,9 @@ export function WorldScreen({
                           : mode === "events"
                             ? "Ambil tiket"
                             : mode === "consult"
-                              ? "Mulai konsultasi"
+                              ? selected?.provider_type === "trainer"
+                                ? "Booking trainer & bayar"
+                                : "Mulai konsultasi dokter"
                               : mode === "adoption"
                                 ? "Kirim pengajuan screening"
                                 : mode === "documents"
@@ -1792,7 +1928,13 @@ export function WorldScreen({
                                       : "Aktifkan pengingat"
                     }
                     onPress={runPrimaryAction}
-                    disabled={busy}
+                    disabled={
+                      busy ||
+                      (mode === "consult" &&
+                        selected?.provider_type === "trainer" &&
+                        (trainerAvailabilityLoading ||
+                          (selected.mode !== "chat" && !selectedTrainerSlot)))
+                    }
                   />
                 </ScrollView>
               </Pressable>
@@ -2575,6 +2717,26 @@ const styles = StyleSheet.create({
   },
   choiceText: { color: colors.muted, fontSize: 12, fontWeight: "600" },
   choiceTextActive: { color: colors.sky600 },
+  trainerSlotGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  trainerSlot: {
+    width: "48%",
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 9,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    backgroundColor: colors.white,
+  },
+  availabilityEmpty: {
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#FFF8DC",
+    color: "#91630E",
+    fontSize: 10,
+    lineHeight: 15,
+  },
   petSummary: {
     minHeight: 62,
     flexDirection: "row",

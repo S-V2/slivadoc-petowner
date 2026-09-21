@@ -404,3 +404,5 @@
     min-height: 220px;
   }
 }
+
+.consult-booking select{min-height:40px;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}.consult-toolbar{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}.consult-slot-empty{margin:0;padding:10px;border-radius:10px;color:#91630e;background:#fff8dc;font-size:8px}

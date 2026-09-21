@@ -435,6 +435,35 @@ export type ConsultationPlan = {
   features: string[];
 };
 
+export type Trainer = {
+  id: string;
+  full_name: string;
+  specialties: string[];
+  certification: string;
+  bio: string;
+  photo_url: string;
+  experience_years: number;
+  rating: number;
+  consultation_count: number;
+  languages: string[];
+  availability_status: string;
+  cancellation_policy: string;
+  starting_price: number;
+};
+
+export type TrainerConsultationPlan = Omit<
+  ConsultationPlan,
+  "veterinarian_id" | "doctor_name"
+> & {
+  trainer_id: string;
+  trainer_name: string;
+};
+
+export type TrainerAvailabilitySlot = {
+  starts_at: string;
+  duration_minutes: number;
+};
+
 export type Consultation = {
   id: string;
   order_number: string;
@@ -443,6 +472,9 @@ export type Consultation = {
   status: string;
   payment_status?: string;
   doctor_name?: string;
+  trainer_name?: string;
+  provider_name?: string;
+  provider_type?: "veterinarian" | "trainer";
   plan_name?: string;
   mode?: string;
   pet_name?: string;
@@ -872,6 +904,33 @@ export const getConsultationPlans = (veterinarianId?: string) =>
       veterinarianId ? `?veterinarian_id=${veterinarianId}` : ""
     }`,
   );
+
+export const getTrainers = () =>
+  request<PlatformList<Trainer>>("/api/v1/public/trainers");
+
+export const getTrainerConsultationPlans = (trainerId?: string) =>
+  request<PlatformList<TrainerConsultationPlan>>(
+    `/api/v1/public/trainer-consultation-plans${
+      trainerId ? `?trainer_id=${trainerId}` : ""
+    }`,
+  );
+
+export const getTrainerAvailability = (trainerId: string, planId: string) =>
+  request<
+    PlatformList<TrainerAvailabilitySlot> & {
+      timezone: string;
+      from: string;
+      until: string;
+    }
+  >(
+    `/api/v1/public/trainers/${trainerId}/availability?plan_id=${encodeURIComponent(planId)}&days=14`,
+  );
+
+export const createTrainerConsultation = (input: Record<string, unknown>) =>
+  request<Consultation>("/api/v1/trainer-consultations", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 
 export const createConsultation = (input: Record<string, unknown>) =>
   request<Consultation>("/api/v1/consultations", {

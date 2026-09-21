@@ -118,7 +118,7 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
   { id: "events", label: "Pet Event", icon: "calendar" },
   { id: "petspot", label: "PetSpot", icon: "map" },
   { id: "pethub", label: "PetHub", icon: "video" },
-  { id: "consult", label: "Konsultasi Dokter", icon: "heart" },
+  { id: "consult", label: "Konsultasi", icon: "heart" },
   { id: "adoption", label: "Adopsi", icon: "paw" },
   { id: "documents", label: "Pet Documents", icon: "download" },
   { id: "pawdating", label: "PAW Dating", icon: "heart" },

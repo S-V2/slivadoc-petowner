@@ -10,12 +10,16 @@ import {
   type FormEvent,
 } from "react";
 import { io, type Socket } from "socket.io-client";
-import { startConsultationMedia, type ConsultationMedia } from "../../lib/consultation-sfu";
+import {
+  startConsultationMedia,
+  type ConsultationMedia,
+} from "../../lib/consultation-sfu";
 import type { Pet } from "../../data/mock";
 import {
   applyAdoption,
   createAdoptionListing,
   createConsultation,
+  createTrainerConsultation,
   createDocumentRequest,
   createPaymentIntent,
   getAdoptions,
@@ -25,6 +29,9 @@ import {
   getCurrentPetOwnerUserID,
   getDocumentProducts,
   getMyConsultations,
+  getTrainerAvailability,
+  getTrainerConsultationPlans,
+  getTrainers,
   getVeterinarians,
   isPetOwnerAuthenticated,
   sendConsultationMessage,
@@ -33,6 +40,9 @@ import {
   type ConsultationPlan,
   type DocumentProduct,
   type PaymentIntent,
+  type Trainer,
+  type TrainerAvailabilitySlot,
+  type TrainerConsultationPlan,
   type Veterinarian,
 } from "../../lib/platform-api";
 import {
@@ -56,7 +66,9 @@ const money = new Intl.NumberFormat("id-ID", {
 // discount_percent the backend applies when it creates the order, so quoting
 // plan.price alone advertises a price nobody is charged. The rounding matches
 // operations/care_social.go — half up to whole rupiah on the payable.
-function planCharge(plan: ConsultationPlan): number {
+function planCharge(
+  plan: Pick<ConsultationPlan, "price" | "discount_percent">,
+): number {
   return Math.round((plan.price * (100 - plan.discount_percent)) / 100);
 }
 function requireLogin(notify: (message: string) => void) {
@@ -69,6 +81,10 @@ function requireLogin(notify: (message: string) => void) {
 export default function CareMarketplace({ mode, pet, notify }: Props) {
   const [doctors, setDoctors] = useState<Veterinarian[]>([]);
   const [plans, setPlans] = useState<ConsultationPlan[]>([]);
+  const [trainers, setTrainers] = useState<Trainer[]>([]);
+  const [trainerPlans, setTrainerPlans] = useState<TrainerConsultationPlan[]>(
+    [],
+  );
   const [adoptions, setAdoptions] = useState<AdoptionListing[]>([]);
   const [documents, setDocuments] = useState<DocumentProduct[]>([]);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
@@ -78,6 +94,9 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
   const [selectedPlan, setSelectedPlan] = useState<ConsultationPlan | null>(
     null,
   );
+  const [selectedTrainer, setSelectedTrainer] = useState<Trainer | null>(null);
+  const [selectedTrainerPlan, setSelectedTrainerPlan] =
+    useState<TrainerConsultationPlan | null>(null);
   const [selectedAdoption, setSelectedAdoption] =
     useState<AdoptionListing | null>(null);
   const [selectedDocument, setSelectedDocument] =
@@ -86,6 +105,9 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
     useState<PayableConsultation | null>(null);
   const [room, setRoom] = useState<Consultation | null>(null);
   const [filter, setFilter] = useState("all");
+  const [consultProvider, setConsultProvider] = useState<
+    "veterinarian" | "trainer"
+  >("veterinarian");
   const [adoptionComposer, setAdoptionComposer] = useState(false);
   const [adoptionSearch, setAdoptionSearch] = useState("");
   const [species, setSpecies] = useState("all");
@@ -100,12 +122,16 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
         const values = await Promise.allSettled([
           getVeterinarians(),
           getConsultationPlans(),
+          getTrainers(),
+          getTrainerConsultationPlans(),
           ...(isPetOwnerAuthenticated() ? [getMyConsultations()] : []),
         ]);
         if (cancelled) return;
-        const [v, p, c] = values;
+        const [v, p, t, tp, c] = values;
         if (v?.status === "fulfilled") setDoctors(v.value.data);
         if (p?.status === "fulfilled") setPlans(p.value.data);
+        if (t?.status === "fulfilled") setTrainers(t.value.data);
+        if (tp?.status === "fulfilled") setTrainerPlans(tp.value.data);
         if (c?.status === "fulfilled") setConsultations(c.value.data);
       } else if (mode === "adoption") {
         const result = await getAdoptions();
@@ -135,6 +161,13 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
           )
         : plans,
     [plans, selectedDoctor],
+  );
+  const selectedTrainerPlans = useMemo(
+    () =>
+      selectedTrainer
+        ? trainerPlans.filter((plan) => plan.trainer_id === selectedTrainer.id)
+        : trainerPlans,
+    [selectedTrainer, trainerPlans],
   );
   const adoptionCities = useMemo(
     () => [...new Set(adoptions.map((item) => item.city))].sort(),
@@ -169,22 +202,23 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
       <>
         <section className="care-hero">
           <div>
-            <span>SLIVADOC VIRTUAL VET</span>
-            <h2>Dokter hewan, sedekat layar kamu.</h2>
+            <span>SLIVADOC CONSULTATION</span>
+            <h2>Dokter dan pet trainer, sedekat layar kamu.</h2>
             <p>
-              Pilih chat, voice call, video call, atau paket bundling. Setiap
-              konsultasi otomatis masuk ke medical record {pet.name}.
+              Pilih chat, telepon, video call, atau paket bundling dengan dokter
+              maupun trainer terverifikasi. Jadwal dan pembayaran tersimpan
+              otomatis untuk {pet.name}.
             </p>
             <div>
               <button
                 className="primary-button"
                 onClick={() =>
                   document
-                    .querySelector("#doctor-list")
+                    .querySelector("#consult-provider-list")
                     ?.scrollIntoView({ behavior: "smooth" })
                 }
               >
-                Cari dokter online
+                Cari provider online
               </button>
               <button
                 className="secondary-button"
@@ -200,89 +234,172 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
           </div>
           <aside>
             <b>24/7</b>
-            <small>dokter terverifikasi</small>
-            <span>Chat langsung · Panggilan privat · Resep digital</span>
+            <small>provider terverifikasi</small>
+            <span>Chat langsung · Telepon privat · Video call</span>
           </aside>
         </section>
         <div className="care-trust">
-          <span>✓ STRV terverifikasi</span>
+          <span>✓ Dokter & trainer terverifikasi</span>
           <span>🔒 Room privat</span>
-          <span>🩺 Medical record terintegrasi</span>
-          <span>⚡ Dokter online saat ini</span>
+          <span>📅 Slot jadwal real-time</span>
+          <span>⚡ Provider online saat ini</span>
         </div>
-        <section id="doctor-list" className="section-title-world">
+        <section id="consult-provider-list" className="section-title-world">
           <div>
-            <span>DOKTER TERSEDIA</span>
-            <h2>Pilih dokter untuk {pet.name}</h2>
+            <span>
+              {consultProvider === "trainer"
+                ? "PET TRAINER TERSEDIA"
+                : "DOKTER TERSEDIA"}
+            </span>
+            <h2>
+              Pilih {consultProvider === "trainer" ? "trainer" : "dokter"} untuk{" "}
+              {pet.name}
+            </h2>
           </div>
-          <div className="hub-tabs">
-            <button
-              className={filter === "all" ? "active" : ""}
-              onClick={() => setFilter("all")}
-            >
-              Semua
-            </button>
-            <button
-              className={filter === "online" ? "active" : ""}
-              onClick={() => setFilter("online")}
-            >
-              Online sekarang
-            </button>
+          <div className="consult-toolbar">
+            <div className="hub-tabs" aria-label="Jenis provider konsultasi">
+              <button
+                className={consultProvider === "veterinarian" ? "active" : ""}
+                onClick={() => setConsultProvider("veterinarian")}
+              >
+                Dokter
+              </button>
+              <button
+                className={consultProvider === "trainer" ? "active" : ""}
+                onClick={() => setConsultProvider("trainer")}
+              >
+                Pet Trainer
+              </button>
+            </div>
+            <div className="hub-tabs" aria-label="Status provider">
+              <button
+                className={filter === "all" ? "active" : ""}
+                onClick={() => setFilter("all")}
+              >
+                Semua
+              </button>
+              <button
+                className={filter === "online" ? "active" : ""}
+                onClick={() => setFilter("online")}
+              >
+                Online
+              </button>
+            </div>
           </div>
         </section>
-        <div className="doctor-grid">
-          {doctors
-            .filter(
-              (d) => filter === "all" || d.availability_status === "online",
-            )
-            .map((doctor, index) => (
-              <article className="doctor-card" key={doctor.id}>
-                <div className={`doctor-photo doctor-${index % 3}`}>
-                  {doctor.photo_url ? (
-                    <NextImage
-                      src={doctor.photo_url}
-                      alt={doctor.full_name}
-                      width={480}
-                      height={480}
-                      unoptimized
-                    />
-                  ) : (
-                    <span>👩🏻‍⚕️</span>
-                  )}
-                  <i className={doctor.availability_status}>
-                    {doctor.availability_status === "online"
-                      ? "● Online"
-                      : doctor.availability_status}
-                  </i>
-                </div>
-                <div>
-                  <small>✓ DOKTER TERVERIFIKASI</small>
-                  <h3>{doctor.full_name}</h3>
-                  <p>{doctor.specialties.join(" · ")}</p>
-                  <div className="doctor-rating">
-                    <b>★ {doctor.rating}</b>
-                    <span>
-                      {doctor.consultation_count.toLocaleString("id-ID")}{" "}
-                      konsultasi
-                    </span>
-                    <span>{doctor.experience_years} tahun</span>
+        {consultProvider === "veterinarian" ? (
+          <div className="doctor-grid">
+            {doctors
+              .filter(
+                (d) => filter === "all" || d.availability_status === "online",
+              )
+              .map((doctor, index) => (
+                <article className="doctor-card" key={doctor.id}>
+                  <div className={`doctor-photo doctor-${index % 3}`}>
+                    {doctor.photo_url ? (
+                      <NextImage
+                        src={doctor.photo_url}
+                        alt={doctor.full_name}
+                        width={480}
+                        height={480}
+                        unoptimized
+                      />
+                    ) : (
+                      <span>👩🏻‍⚕️</span>
+                    )}
+                    <i className={doctor.availability_status}>
+                      {doctor.availability_status === "online"
+                        ? "● Online"
+                        : doctor.availability_status}
+                    </i>
                   </div>
-                  <em>{doctor.bio}</em>
-                  <footer>
-                    <span>
-                      Mulai <b>{money.format(doctor.starting_price)}</b>
-                    </span>
-                    <button
-                      className="primary-button"
-                      onClick={() => setSelectedDoctor(doctor)}
-                    >
-                      Lihat paket
-                    </button>
-                  </footer>
-                </div>
-              </article>
-            ))}
-        </div>
+                  <div>
+                    <small>✓ DOKTER TERVERIFIKASI</small>
+                    <h3>{doctor.full_name}</h3>
+                    <p>{doctor.specialties.join(" · ")}</p>
+                    <div className="doctor-rating">
+                      <b>★ {doctor.rating}</b>
+                      <span>
+                        {doctor.consultation_count.toLocaleString("id-ID")}{" "}
+                        konsultasi
+                      </span>
+                      <span>{doctor.experience_years} tahun</span>
+                    </div>
+                    <em>{doctor.bio}</em>
+                    <footer>
+                      <span>
+                        Mulai <b>{money.format(doctor.starting_price)}</b>
+                      </span>
+                      <button
+                        className="primary-button"
+                        onClick={() => setSelectedDoctor(doctor)}
+                      >
+                        Lihat paket
+                      </button>
+                    </footer>
+                  </div>
+                </article>
+              ))}
+          </div>
+        ) : (
+          <div className="doctor-grid">
+            {trainers
+              .filter(
+                (trainer) =>
+                  filter === "all" || trainer.availability_status === "online",
+              )
+              .map((trainer, index) => (
+                <article className="doctor-card" key={trainer.id}>
+                  <div className={`doctor-photo doctor-${index % 3}`}>
+                    {trainer.photo_url ? (
+                      <NextImage
+                        src={trainer.photo_url}
+                        alt={trainer.full_name}
+                        width={480}
+                        height={480}
+                        unoptimized
+                      />
+                    ) : (
+                      <span>🐾</span>
+                    )}
+                    <i className={trainer.availability_status}>
+                      {trainer.availability_status === "online"
+                        ? "● Online"
+                        : trainer.availability_status}
+                    </i>
+                  </div>
+                  <div>
+                    <small>✓ PET TRAINER TERVERIFIKASI</small>
+                    <h3>{trainer.full_name}</h3>
+                    <p>{trainer.specialties.join(" · ")}</p>
+                    <div className="doctor-rating">
+                      <b>★ {trainer.rating}</b>
+                      <span>
+                        {trainer.consultation_count.toLocaleString("id-ID")}{" "}
+                        sesi
+                      </span>
+                      <span>{trainer.experience_years} tahun</span>
+                    </div>
+                    <em>{trainer.bio}</em>
+                    <footer>
+                      <span>
+                        Mulai <b>{money.format(trainer.starting_price)}</b>
+                      </span>
+                      <button
+                        className="primary-button"
+                        onClick={() => {
+                          setSelectedTrainer(trainer);
+                          setSelectedTrainerPlan(null);
+                        }}
+                      >
+                        Lihat paket
+                      </button>
+                    </footer>
+                  </div>
+                </article>
+              ))}
+          </div>
+        )}
         {selectedDoctor && (
           <div
             className="modal-overlay"
@@ -357,6 +474,90 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
                     setPendingPayment(value);
                     setSelectedDoctor(null);
                     setSelectedPlan(null);
+                  }}
+                />
+              )}
+            </section>
+          </div>
+        )}
+        {selectedTrainer && (
+          <div
+            className="modal-overlay"
+            onMouseDown={() => setSelectedTrainer(null)}
+          >
+            <section
+              className="modal care-modal"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <button
+                className="modal-close"
+                onClick={() => setSelectedTrainer(null)}
+                aria-label="Tutup pilihan trainer"
+              >
+                ×
+              </button>
+              <div className="care-doctor-head">
+                <span>🐾</span>
+                <div>
+                  <small>
+                    ✓ TRAINER TERVERIFIKASI · {selectedTrainer.certification}
+                  </small>
+                  <h2>{selectedTrainer.full_name}</h2>
+                  <p>{selectedTrainer.specialties.join(" · ")}</p>
+                </div>
+              </div>
+              <h3>Pilih cara konsultasi</h3>
+              <div className="plan-grid">
+                {selectedTrainerPlans.map((plan) => (
+                  <button
+                    key={plan.id}
+                    className={
+                      selectedTrainerPlan?.id === plan.id ? "active" : ""
+                    }
+                    onClick={() => setSelectedTrainerPlan(plan)}
+                  >
+                    <i>
+                      {plan.mode === "chat"
+                        ? "💬"
+                        : plan.mode === "voice"
+                          ? "📞"
+                          : plan.mode === "video"
+                            ? "🎥"
+                            : "✦"}
+                    </i>
+                    <span>
+                      <b>{plan.name}</b>
+                      <small>{plan.description}</small>
+                      <em>
+                        {plan.duration_minutes} menit · follow-up{" "}
+                        {plan.followup_days} hari
+                      </em>
+                    </span>
+                    {plan.discount_percent > 0 ? (
+                      <strong className="plan-price-discounted">
+                        <s>{money.format(plan.price)}</s>
+                        <span>{money.format(planCharge(plan))}</span>
+                      </strong>
+                    ) : (
+                      <strong>{money.format(plan.price)}</strong>
+                    )}
+                    {plan.discount_percent > 0 && (
+                      <mark>Hemat {plan.discount_percent}%</mark>
+                    )}
+                  </button>
+                ))}
+              </div>
+              {selectedTrainerPlan && (
+                <TrainerConsultBooking
+                  key={selectedTrainerPlan.id}
+                  pet={pet}
+                  trainer={selectedTrainer}
+                  plan={selectedTrainerPlan}
+                  notify={notify}
+                  complete={(value) => {
+                    setPendingPayment(value);
+                    setSelectedTrainer(null);
+                    setSelectedTrainerPlan(null);
                   }}
                 />
               )}
@@ -826,6 +1027,188 @@ function ConsultBooking({
   );
 }
 
+function TrainerConsultBooking({
+  pet,
+  trainer,
+  plan,
+  notify,
+  complete,
+}: {
+  pet: Pet;
+  trainer: Trainer;
+  plan: TrainerConsultationPlan;
+  notify: (message: string) => void;
+  complete: (consultation: PayableConsultation) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [slots, setSlots] = useState<TrainerAvailabilitySlot[]>([]);
+  const [timezone, setTimezone] = useState("Asia/Jakarta");
+  const [selectedSlot, setSelectedSlot] = useState("");
+  const [availabilityLoading, setAvailabilityLoading] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState("qris");
+
+  useEffect(() => {
+    let cancelled = false;
+    getTrainerAvailability(trainer.id, plan.id)
+      .then((result) => {
+        if (cancelled) return;
+        setSlots(result.data);
+        setTimezone(result.timezone || "Asia/Jakarta");
+      })
+      .catch((error) => {
+        if (!cancelled)
+          notify(
+            error instanceof Error
+              ? error.message
+              : "Slot jadwal trainer belum dapat dimuat",
+          );
+      })
+      .finally(() => {
+        if (!cancelled) setAvailabilityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [notify, plan.id, trainer.id]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!requireLogin(notify)) return;
+    if (plan.mode !== "chat" && !selectedSlot) {
+      notify("Pilih slot jadwal yang tersedia untuk telepon atau video call.");
+      return;
+    }
+    setBusy(true);
+    const values = Object.fromEntries(new FormData(event.currentTarget));
+    try {
+      const result = await createTrainerConsultation({
+        ...(/^[0-9a-f-]{36}$/i.test(pet.id) ? { pet_id: pet.id } : {}),
+        trainer_id: trainer.id,
+        plan_id: plan.id,
+        goal: values.goal,
+        behavior_notes: String(values.behavior_notes || "")
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
+        scheduled_at: selectedSlot || undefined,
+      });
+      const batpay =
+        result.amount > 0
+          ? await createPaymentIntent("consultation", result.id, paymentMethod)
+          : undefined;
+      notify(
+        result.amount > 0
+          ? "Booking trainer dibuat. Selesaikan pembayaran untuk membuka room."
+          : "Booking trainer gratis berhasil dibuat.",
+      );
+      complete({
+        ...result,
+        batpay,
+        doctor_name: trainer.full_name,
+        trainer_name: trainer.full_name,
+        provider_name: trainer.full_name,
+        provider_type: "trainer",
+        plan_name: plan.name,
+        mode: plan.mode,
+        pet_name: pet.name,
+        scheduled_at: selectedSlot || undefined,
+      });
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Booking atau pembayaran trainer belum dapat dibuat",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="consult-booking" onSubmit={submit}>
+      <label>
+        <span>Tujuan latihan {pet.name}</span>
+        <textarea
+          name="goal"
+          placeholder="Contoh: mengurangi reaktivitas saat bertemu anjing lain…"
+          required
+          minLength={5}
+        />
+      </label>
+      <div>
+        <label>
+          <span>Catatan perilaku (pisahkan koma)</span>
+          <input
+            name="behavior_notes"
+            placeholder="menarik leash, mudah terdistraksi"
+          />
+        </label>
+        <label>
+          <span>Slot jadwal · {timezone}</span>
+          <select
+            value={selectedSlot}
+            onChange={(event) => setSelectedSlot(event.target.value)}
+            required={plan.mode !== "chat"}
+            disabled={availabilityLoading}
+          >
+            {plan.mode === "chat" && <option value="">Mulai segera</option>}
+            {plan.mode !== "chat" && <option value="">Pilih jadwal</option>}
+            {slots.map((slot) => (
+              <option value={slot.starts_at} key={slot.starts_at}>
+                {new Intl.DateTimeFormat("id-ID", {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  timeZone: timezone,
+                }).format(new Date(slot.starts_at))}{" "}
+                · {slot.duration_minutes} menit
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {!availabilityLoading && plan.mode !== "chat" && slots.length === 0 && (
+        <p className="consult-slot-empty">
+          Belum ada slot untuk 14 hari ke depan. Pilih paket chat atau trainer
+          lain.
+        </p>
+      )}
+      <div className="checkout-line">
+        <span>Total paket</span>
+        {plan.discount_percent > 0 ? (
+          <b className="plan-price-discounted">
+            <s>{money.format(plan.price)}</s>
+            <span>{money.format(planCharge(plan))}</span>
+          </b>
+        ) : (
+          <b>{money.format(plan.price)}</b>
+        )}
+      </div>
+      {planCharge(plan) > 0 && (
+        <PaymentMethodPicker
+          value={paymentMethod}
+          onChange={setPaymentMethod}
+          disabled={busy}
+        />
+      )}
+      <button
+        className="primary-button full"
+        disabled={
+          busy || availabilityLoading || (plan.mode !== "chat" && !slots.length)
+        }
+      >
+        {busy
+          ? "Membuat pembayaran…"
+          : planCharge(plan) > 0
+            ? "Booking & lanjut pembayaran"
+            : "Booking konsultasi gratis"}
+      </button>
+    </form>
+  );
+}
+
 function ConsultationRoom({
   consultation,
   close,
@@ -868,7 +1251,8 @@ function ConsultationRoom({
   const connectMedia = useCallback(
     async (video: boolean) => {
       const accessToken = getAccessToken();
-      if (!accessToken) throw new Error("Login diperlukan untuk membuka media.");
+      if (!accessToken)
+        throw new Error("Login diperlukan untuk membuka media.");
       endCall();
       mediaRef.current = await startConsultationMedia({
         realtimeURL: realtime,
@@ -959,8 +1343,16 @@ function ConsultationRoom({
     socket.on("call:end", endCall);
     socket.on(
       "call:tracks",
-      (payload: { fromUserId?: string; sessionId?: string; tracks?: { sessionId?: string; trackName: string; kind?: string }[] }) => {
-        if (payload.fromUserId && payload.fromUserId === currentUserIdRef.current) return;
+      (payload: {
+        fromUserId?: string;
+        sessionId?: string;
+        tracks?: { sessionId?: string; trackName: string; kind?: string }[];
+      }) => {
+        if (
+          payload.fromUserId &&
+          payload.fromUserId === currentUserIdRef.current
+        )
+          return;
         void mediaRef.current?.pull(
           (payload.tracks || []).map((track) => ({
             ...track,
@@ -985,7 +1377,11 @@ function ConsultationRoom({
         mode: video ? "video" : "voice",
       });
     } catch (error) {
-      notify(error instanceof Error ? error.message : "Izinkan kamera dan mikrofon untuk memulai panggilan");
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Izinkan kamera dan mikrofon untuk memulai panggilan",
+      );
     }
   }
   async function accept() {
@@ -993,9 +1389,16 @@ function ConsultationRoom({
     if (!socket) return;
     try {
       await connectMedia(incomingMode === "video");
-      socket.emit("call:accept", { consultationId: consultation.id, mode: incomingMode });
+      socket.emit("call:accept", {
+        consultationId: consultation.id,
+        mode: incomingMode,
+      });
     } catch (error) {
-      notify(error instanceof Error ? error.message : "Panggilan belum dapat diterima");
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Panggilan belum dapat diterima",
+      );
     }
   }
   async function send() {
@@ -1044,7 +1447,11 @@ function ConsultationRoom({
         <header>
           <div>
             <small>{state}</small>
-            <h2>{consultation.doctor_name}</h2>
+            <h2>
+              {consultation.provider_name ||
+                consultation.trainer_name ||
+                consultation.doctor_name}
+            </h2>
             <p>
               {consultation.pet_name} · {consultation.plan_name}
             </p>
@@ -1069,12 +1476,29 @@ function ConsultationRoom({
             </button>
           </div>
         </header>
-        <div className="webrtc-stage" style={{ display: call === "idle" ? "none" : undefined }}>
-          <div ref={remoteMedia} className="sfu-remote-media" style={{ width: "100%", height: "100%" }} />
+        <div
+          className="webrtc-stage"
+          style={{ display: call === "idle" ? "none" : undefined }}
+        >
+          <div
+            ref={remoteMedia}
+            className="sfu-remote-media"
+            style={{ width: "100%", height: "100%" }}
+          />
           <div
             ref={localMedia}
             className="sfu-local-media"
-            style={{ position: "absolute", right: 12, bottom: 12, width: 150, height: 100, overflow: "hidden", border: "2px solid white", borderRadius: 12, background: "#102f45" }}
+            style={{
+              position: "absolute",
+              right: 12,
+              bottom: 12,
+              width: 150,
+              height: 100,
+              overflow: "hidden",
+              border: "2px solid white",
+              borderRadius: 12,
+              background: "#102f45",
+            }}
           />
           {call === "ringing" && (
             <div className="inline-actions">

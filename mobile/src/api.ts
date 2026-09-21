@@ -66,6 +66,7 @@ const petProtectedMutationPatterns = [
   /^\/api\/v1\/community\//,
   /^\/api\/v1\/pethub\//,
   /^\/api\/v1\/consultations(?:\/|$)/,
+  /^\/api\/v1\/trainer-consultations$/,
   /^\/api\/v1\/adoptions\//,
   /^\/api\/v1\/academy\/enrollments$/,
   /^\/api\/v1\/events\/[^/]+\/registrations$/,
@@ -1252,6 +1253,10 @@ export type WorldItem = {
   specialties?: string[];
   mode?: string;
   veterinarian_id?: string;
+  trainer_id?: string;
+  provider_type?: "veterinarian" | "trainer";
+  discount_percent?: number;
+  followup_days?: number;
   duration_minutes?: number;
   total_fee?: number;
   processing_days?: number;
@@ -1345,7 +1350,8 @@ export type MobilePetSpotResource = {
   id: string;
   code: string;
   name: string;
-  resource_type: "table" | "room" | "unit" | "zone" | "venue" | "parking" | "seat" | "other";
+  resource_type:
+    "table" | "room" | "unit" | "zone" | "venue" | "parking" | "seat" | "other";
   floor_name: string;
   capacity: number;
   x_percent: number;
@@ -1416,7 +1422,38 @@ export const getMobilePetHubStories = () =>
 export const getMobileVeterinarians = () =>
   getUniqueWorldItems("/api/v1/public/veterinarians");
 export const getMobileConsultationPlans = () =>
-  getUniqueWorldItems("/api/v1/public/consultation-plans");
+  getUniqueWorldItems("/api/v1/public/consultation-plans").then((result) => ({
+    ...result,
+    data: result.data.map((item) => ({
+      ...item,
+      provider_type: "veterinarian" as const,
+    })),
+  }));
+export const getMobileTrainerConsultationPlans = () =>
+  getUniqueWorldItems("/api/v1/public/trainer-consultation-plans").then(
+    (result) => ({
+      ...result,
+      data: result.data.map((item) => ({
+        ...item,
+        provider_type: "trainer" as const,
+      })),
+    }),
+  );
+export type MobileTrainerAvailabilitySlot = {
+  starts_at: string;
+  duration_minutes: number;
+};
+export const getMobileTrainerAvailability = (
+  trainerId: string,
+  planId: string,
+) =>
+  platformRequest<{
+    data: MobileTrainerAvailabilitySlot[];
+    count: number;
+    timezone: string;
+  }>(
+    `/api/v1/public/trainers/${trainerId}/availability?plan_id=${encodeURIComponent(planId)}&days=14`,
+  );
 export const getMobileAdoptions = () =>
   getUniqueWorldItems("/api/v1/public/adoptions");
 export const getMobileDocumentProducts = () =>
@@ -1512,6 +1549,26 @@ export const createMobileConsultation = (plan: WorldItem, complaint: string) =>
         plan_id: plan.id,
         complaint,
         scheduled_at: new Date(Date.now() + 3600000).toISOString(),
+      }),
+    },
+  );
+export const createMobileTrainerConsultation = (
+  plan: WorldItem,
+  goal: string,
+  scheduledAt?: string,
+  petId?: string,
+) =>
+  platformRequest<{ id: string; room_key: string; amount: number }>(
+    "/api/v1/trainer-consultations",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ...(petId && /^[0-9a-f-]{36}$/i.test(petId) ? { pet_id: petId } : {}),
+        trainer_id: plan.trainer_id,
+        plan_id: plan.id,
+        goal,
+        behavior_notes: [],
+        scheduled_at: scheduledAt,
       }),
     },
   );

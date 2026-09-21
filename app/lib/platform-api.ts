@@ -911,7 +911,7 @@ export const getTrainers = () =>
 export const getTrainerConsultationPlans = (trainerId?: string) =>
   request<PlatformList<TrainerConsultationPlan>>(
     `/api/v1/public/trainer-consultation-plans${
-      trainerId ? `?trainer_id=${trainerId}` : ""
+      trainerId ? `?trainer_id=${encodeURIComponent(trainerId)}` : ""
     }`,
   );
 

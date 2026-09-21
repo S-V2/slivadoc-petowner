@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Image,
@@ -436,11 +436,45 @@ export function WorldScreen({
   >([]);
   const [trainerTimezone, setTrainerTimezone] = useState("Asia/Jakarta");
   const [selectedTrainerSlot, setSelectedTrainerSlot] = useState("");
+  const trainerAvailabilityRequest = useRef(0);
   const [adoptionForm, setAdoptionForm] =
     useState<AdoptionForm>(emptyAdoptionForm);
   const [documentForm, setDocumentForm] =
     useState<DocumentForm>(emptyDocumentForm);
   const handledIntent = useRef(0);
+  const loadTrainerSlots = useCallback(
+    async (item: WorldItem) => {
+      const requestID = ++trainerAvailabilityRequest.current;
+      setTrainerSlots([]);
+      setSelectedTrainerSlot("");
+      setTrainerTimezone("Asia/Jakarta");
+      if (item.provider_type !== "trainer" || !item.trainer_id) {
+        setTrainerAvailabilityLoading(false);
+        return;
+      }
+      setTrainerAvailabilityLoading(true);
+      try {
+        const result = await getMobileTrainerAvailability(
+          item.trainer_id,
+          item.id,
+        );
+        if (trainerAvailabilityRequest.current !== requestID) return;
+        setTrainerSlots(result.data);
+        setTrainerTimezone(result.timezone || "Asia/Jakarta");
+      } catch (cause) {
+        if (trainerAvailabilityRequest.current !== requestID) return;
+        onAction(
+          cause instanceof Error
+            ? cause.message
+            : "Slot konsultasi trainer belum dapat dimuat",
+        );
+      } finally {
+        if (trainerAvailabilityRequest.current === requestID)
+          setTrainerAvailabilityLoading(false);
+      }
+    },
+    [onAction],
+  );
   useEffect(() => {
     let current = true;
     queueMicrotask(async () => {
@@ -534,8 +568,9 @@ export function WorldScreen({
         return;
       }
       setSelected(plan);
+      void loadTrainerSlots(plan);
     });
-  }, [intent, items.consult, loading, onAction]);
+  }, [intent, items.consult, loadTrainerSlots, loading, onAction]);
   useEffect(() => {
     if (mode === "academy" && selected)
       void trackMobileAcademyProgramClick(selected.id).catch(() => undefined);
@@ -587,27 +622,7 @@ export function WorldScreen({
     }
     if (mode === "documents") setDocumentForm(emptyDocumentForm());
     if (mode === "consult") {
-      setTrainerSlots([]);
-      setSelectedTrainerSlot("");
-      if (item.provider_type === "trainer" && item.trainer_id) {
-        setTrainerAvailabilityLoading(true);
-        try {
-          const result = await getMobileTrainerAvailability(
-            item.trainer_id,
-            item.id,
-          );
-          setTrainerSlots(result.data);
-          setTrainerTimezone(result.timezone || "Asia/Jakarta");
-        } catch (cause) {
-          onAction(
-            cause instanceof Error
-              ? cause.message
-              : "Slot konsultasi trainer belum dapat dimuat",
-          );
-        } finally {
-          setTrainerAvailabilityLoading(false);
-        }
-      }
+      void loadTrainerSlots(item);
     }
     if (mode === "petspot" && item.reservable) {
       const form = emptyPetSpotReservationForm(

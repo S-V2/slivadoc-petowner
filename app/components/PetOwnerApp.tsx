@@ -55,6 +55,7 @@ import {
   updatePetOwnerProfile,
   getCareReminders,
   getPublicCampaigns,
+  getMyPetSpotReservations,
   createCareReminder,
   completeCareReminder,
   createPaymentIntent,
@@ -3288,6 +3289,42 @@ function DiscoverView({
   );
 }
 
+function HousingBookingsActivity({ notify }: { notify: Notify }) {
+  const [items, setItems] = useState<Awaited<ReturnType<typeof getMyPetSpotReservations>>["data"]>([]);
+  const [payment, setPayment] = useState<PaymentIntent | null>(null);
+  const [method, setMethod] = useState("qris");
+  const [busy, setBusy] = useState(false);
+  const refresh = useCallback(() => {
+    if (!isPetOwnerAuthenticated()) return;
+    void getMyPetSpotReservations().then((value) => setItems(value.data))
+      .catch((cause: unknown) => notify(cause instanceof Error ? cause.message : "Reservasi hunian belum dapat dimuat"));
+  }, [notify]);
+  useEffect(() => { refresh(); }, [refresh]);
+  async function pay(id: string) {
+    setBusy(true);
+    try { setPayment(await createPaymentIntent("petspot_reservation", id, method)); }
+    catch (cause) { notify(cause instanceof Error ? cause.message : "Pembayaran belum dapat dibuka"); }
+    finally { setBusy(false); }
+  }
+  const housing = items.filter((item) => item.category === "boarding_house" || item.category === "apartment");
+  if (!housing.length) return null;
+  return <section className="housing-activity">
+    <h3>Reservasi hunian</h3>
+    <p>Lihat tanggal tinggal, status DP, dan lanjutkan pembayaran booking yang masih aktif.</p>
+    {payment && <BatpayPaymentPanel payment={payment} onPaid={() => { setPayment(null); refresh(); }} />}
+    {housing.map((item) => <article key={item.id}>
+      <div><b>{item.spot_name} · {item.resource_name}</b><small>{item.reservation_number}</small>
+        <span>{new Date(item.starts_at).toLocaleDateString("id-ID")} – {new Date(item.ends_at).toLocaleDateString("id-ID")}</span></div>
+      <div><b>{item.status.replaceAll("_", " ")}</b><small>DP {formatRupiah(item.deposit_amount)} · {item.payment_status}</small></div>
+      {item.payment_status === "pending" && item.status === "pending_payment" &&
+        new Date(item.hold_expires_at) > new Date() && <div>
+          <PaymentMethodPicker value={method} onChange={setMethod} />
+          <button type="button" disabled={busy} onClick={() => void pay(item.id)}>Bayar DP</button>
+        </div>}
+    </article>)}
+  </section>;
+}
+
 function BookingsView({
   openBooking,
   setActiveView,
@@ -3337,6 +3374,8 @@ function BookingsView({
           <p>Pantau transaksi dan ulangi aktivitas dalam sekali tap.</p>
         </div>
       </header>
+
+      <HousingBookingsActivity notify={notify} />
 
       <div className="activity-type-filters" role="tablist" aria-label="Jenis aktivitas">
         {typeOptions.map((item) => {

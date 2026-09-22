@@ -14,7 +14,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
   getMobileActivityCenter,
+  getMobilePetSpotReservations,
+  createMobilePaymentIntent,
   getMobileTransactionInvoiceHTML,
+  type MobilePetSpotReservation,
+  type MobilePaymentIntent,
   type MobileActivityCenterItem,
   type MobileActivityOrderItem,
   type MobileActivityState,
@@ -29,6 +33,7 @@ import {
   PrimaryButton,
   Screen,
 } from "../components/ui";
+import { MobileBatpayModal, MobilePaymentMethods } from "../components/BatpayPayment";
 import { LocalizedText as Text, useI18n } from "../i18n";
 import { colors, shadow, typography } from "../theme";
 
@@ -802,6 +807,10 @@ export function ActivityScreen({
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [stateFilter, setStateFilter] = useState<MobileActivityState>("all");
   const [activities, setActivities] = useState<MobileActivityCenterItem[]>([]);
+  const [housingReservations, setHousingReservations] = useState<MobilePetSpotReservation[]>([]);
+  const [housingPayment, setHousingPayment] = useState<MobilePaymentIntent>();
+  const [housingPaymentMethod, setHousingPaymentMethod] = useState("qris");
+  const [housingBusy, setHousingBusy] = useState(false);
   const [summary, setSummary] = useState({
     booking: 0,
     order: 0,
@@ -840,6 +849,22 @@ export function ActivityScreen({
   useEffect(() => {
     queueMicrotask(() => void loadActivities());
   }, [loadActivities, refreshVersion]);
+  const loadHousing = useCallback(async () => {
+    if (!authenticated) return;
+    try {
+      const result = await getMobilePetSpotReservations();
+      setHousingReservations(result.data.filter((item) => item.category === "boarding_house" || item.category === "apartment"));
+    } catch (cause) {
+      onAction(cause instanceof Error ? cause.message : "Booking hunian belum dapat dimuat");
+    }
+  }, [authenticated, onAction]);
+  useEffect(() => { queueMicrotask(() => void loadHousing()); }, [loadHousing, refreshVersion]);
+  const payHousing = async (id: string) => {
+    setHousingBusy(true);
+    try { setHousingPayment(await createMobilePaymentIntent("petspot_reservation", id, housingPaymentMethod)); }
+    catch (cause) { onAction(cause instanceof Error ? cause.message : "Pembayaran DP belum dapat dibuka"); }
+    finally { setHousingBusy(false); }
+  };
 
   useEffect(() => {
     if (!authenticated) return;
@@ -936,6 +961,20 @@ export function ActivityScreen({
         </View>
 
         {!hasPet ? <PetRequiredNotice onAddPet={onRequirePet} /> : null}
+        {(typeFilter === "all" || typeFilter === "booking") && housingReservations.length ? <Card style={styles.housingActivity}>
+          <Text style={styles.housingTitle}>Booking kosan & apartemen</Text>
+          <Text style={styles.headerSubtitle}>Jadwal tinggal, status DP, dan unit yang kamu pesan.</Text>
+          {housingReservations.some((item) => item.payment_status === "pending" && item.status === "pending_payment") ?
+            <MobilePaymentMethods value={housingPaymentMethod} onChange={setHousingPaymentMethod} disabled={housingBusy} /> : null}
+          {housingReservations.map((item) => <View key={item.id} style={styles.housingBooking}>
+            <Text style={styles.housingTitle}>{item.spot_name} · {item.resource_name || "Unit"}</Text>
+            <Text style={styles.headerSubtitle}>{item.reservation_number} · {item.status.replaceAll("_", " ")}</Text>
+            <Text style={styles.headerSubtitle}>{item.starts_at ? new Date(item.starts_at).toLocaleDateString("id-ID") : ""} – {item.ends_at ? new Date(item.ends_at).toLocaleDateString("id-ID") : ""}</Text>
+            <Text style={styles.headerSubtitle}>DP {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(item.deposit_amount)} · {item.payment_status}</Text>
+            {item.payment_status === "pending" && item.status === "pending_payment" && new Date(item.hold_expires_at) > new Date() ?
+              <PrimaryButton compact label={housingBusy ? "Memproses…" : "Bayar DP"} onPress={() => void payHousing(item.id)} disabled={housingBusy} /> : null}
+          </View>)}
+        </Card> : null}
 
         <ScrollView
           horizontal
@@ -1056,6 +1095,8 @@ export function ActivityScreen({
           </Card>
         )}
       </Screen>
+      <MobileBatpayModal payment={housingPayment} onClose={() => setHousingPayment(undefined)}
+        onPaid={() => { setHousingPayment(undefined); void loadHousing(); void loadActivities(true); }} />
       <ActivityDetailSheet
         item={selected}
         onClose={() => setSelected(undefined)}
@@ -1077,6 +1118,9 @@ export function ActivityScreen({
 }
 
 const styles = StyleSheet.create({
+  housingActivity: { gap: 12, marginBottom: 16, padding: 16 },
+  housingBooking: { gap: 5, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.line },
+  housingTitle: { color: colors.navy, fontSize: 15, fontWeight: "700" },
   screenContent: { paddingTop: 4 },
   header: {
     minHeight: 78,

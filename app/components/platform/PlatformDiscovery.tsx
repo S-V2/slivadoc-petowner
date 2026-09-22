@@ -24,6 +24,8 @@ import {
   getPetHubStories,
   getPetHubStreams,
   getPetSpots,
+  getPetSpotAvailability,
+  createPetSpotReservation,
   reactPetHubPost,
   togglePetHubChannel,
   togglePetOwnerFavorite,
@@ -36,6 +38,8 @@ import {
   type PetHubStory,
   type PetHubStream,
   type PetSpot,
+  type PetSpotUnit,
+  type PetSpotReservation,
   type PaymentIntent,
 } from "../../lib/platform-api";
 import {
@@ -512,7 +516,7 @@ export default function PlatformDiscovery({
             <input
               value={spotSearch}
               onChange={(event) => setSpotSearch(event.target.value)}
-              placeholder="Cari nama cafe, mall, taman…"
+              placeholder="Cari cafe, kosan, apartemen, mall…"
             />
           </label>
           <label className="petspot-radius">
@@ -537,6 +541,8 @@ export default function PlatformDiscovery({
             {[
               { id: "all", label: "Semua", emoji: "⌖" },
               { id: "cafe", label: "Cafe", emoji: "☕" },
+              { id: "boarding_house", label: "Kosan / Coliving", emoji: "🏡" },
+              { id: "apartment", label: "Apartemen", emoji: "🏢" },
               { id: "mall", label: "Mall", emoji: "🏬" },
               { id: "park", label: "Taman", emoji: "🌳" },
               { id: "other", label: "Lainnya", emoji: "🎾" },
@@ -620,6 +626,7 @@ export default function PlatformDiscovery({
             item={selectedSpot}
             close={() => setSelectedSpot(null)}
             notify={notify}
+            ownerName={ownerName}
           />
         )}
       </>
@@ -1242,10 +1249,12 @@ function SpotModal({
   item,
   close,
   notify,
+  ownerName,
 }: {
   item: PetSpot;
   close: () => void;
   notify: (message: string) => void;
+  ownerName: string;
 }) {
   const maps = `https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`;
   const [busy, setBusy] = useState(false);
@@ -1272,6 +1281,8 @@ function SpotModal({
       setBusy(false);
     }
   }
+  if (item.category === "boarding_house" || item.category === "apartment")
+    return <HousingBookingModal item={item} close={close} notify={notify} ownerName={ownerName} />;
   return (
     <Modal close={close} className="world-modal spot-modal">
       <div className="modal-world-cover spot-modal-cover">
@@ -1327,6 +1338,197 @@ function SpotModal({
     </Modal>
   );
 }
+function HousingBookingModal({
+  item,
+  close,
+  notify,
+  ownerName,
+}: {
+  item: PetSpot;
+  close: () => void;
+  notify: (message: string) => void;
+  ownerName: string;
+}) {
+  const isBoarding = item.category === "boarding_house";
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [guests, setGuests] = useState(1);
+  const [pets, setPets] = useState(1);
+  const [name, setName] = useState(ownerName);
+  const [phone, setPhone] = useState("");
+  const [requestNote, setRequestNote] = useState("");
+  const [units, setUnits] = useState<PetSpotUnit[]>([]);
+  const [unitID, setUnitID] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [payment, setPayment] = useState<PaymentIntent | null>(null);
+  const [reservation, setReservation] = useState<PetSpotReservation | null>(null);
+  const [done, setDone] = useState(false);
+  const dateWindow = useMemo(() => {
+    if (!startDate || !endDate) return null;
+    const start = new Date(startDate + "T14:00:00");
+    const end = new Date(endDate + "T14:00:00");
+    const days = Math.ceil((end.getTime() - start.getTime()) / 86400000);
+    if (!Number.isFinite(days) || days < (isBoarding ? 30 : 1) || days > 366) return null;
+    return { starts_at: start.toISOString(), ends_at: end.toISOString(), days };
+  }, [startDate, endDate, isBoarding]);
+  useEffect(() => {
+    if (!dateWindow) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void getPetSpotAvailability(item.id, dateWindow.starts_at, dateWindow.ends_at, guests)
+        .then((result) => {
+          if (!cancelled) {
+            setUnits(result.data.filter((unit) => ["room", "unit"].includes(unit.resource_type)));
+            setChecking(false);
+          }
+        })
+        .catch((cause: unknown) => {
+          if (!cancelled) {
+            setError(cause instanceof Error ? cause.message : "Ketersediaan belum dapat dimuat");
+            setChecking(false);
+          }
+        });
+    }, 250);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [item.id, dateWindow, guests]);
+  const canHost = (unit: PetSpotUnit) =>
+    unit.available && pets <= Number(unit.pet_policy?.pet_limit ?? 99);
+  const selected = units.find((unit) => unit.id === unitID && canHost(unit));
+  const periods = selected && dateWindow
+    ? selected.booking_rules?.rate_period === "month"
+      ? Math.ceil(dateWindow.days / 30)
+      : dateWindow.days
+    : 0;
+  const subtotal = selected ? selected.base_price * periods : 0;
+  const depositType = selected?.minimum_deposit_type !== "inherit"
+    ? selected?.minimum_deposit_type
+    : item.deposit_type;
+  const depositValue = selected?.minimum_deposit_type !== "inherit"
+    ? selected?.minimum_deposit_value
+    : item.deposit_value;
+  const deposit = Math.ceil(depositType === "fixed"
+    ? Number(depositValue ?? 0)
+    : subtotal * Number(depositValue ?? 0) / 100);
+  const today = new Date().toISOString().slice(0, 10);
+
+  async function reserve(event: FormEvent) {
+    event.preventDefault();
+    if (!isPetOwnerAuthenticated()) {
+      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
+      notify("Login untuk memesan unit");
+      return;
+    }
+    if (!selected || !dateWindow) { setError("Pilih tanggal dan unit yang tersedia"); return; }
+    setBusy(true);
+    setError("");
+    try {
+      const created = await createPetSpotReservation({
+        resource_id: selected.id,
+        guest_name: name.trim(),
+        guest_phone: phone.trim(),
+        guest_count: guests,
+        pet_count: pets,
+        starts_at: dateWindow.starts_at,
+        ends_at: dateWindow.ends_at,
+        special_request: requestNote.trim(),
+      });
+      setReservation(created);
+      try {
+        setPayment(await createPaymentIntent("petspot_reservation", created.id, paymentMethod));
+      } catch (cause) {
+        setError((cause instanceof Error ? cause.message : "Pembayaran belum tersedia")
+          + ". Reservasi " + created.reservation_number + " tercatat; buka Aktivitas untuk melanjutkan sebelum batas DP.");
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Reservasi belum dapat dibuat");
+      // The availability may have changed while the guest was completing the form.
+      if (dateWindow) {
+        try {
+          const result = await getPetSpotAvailability(item.id, dateWindow.starts_at, dateWindow.ends_at, guests);
+          setUnits(result.data.filter((unit) => ["room", "unit"].includes(unit.resource_type)));
+          setUnitID("");
+        } catch { /* The error above remains visible. */ }
+      }
+    } finally { setBusy(false); }
+  }
+  return (
+    <Modal close={close} className="world-modal spot-modal housing-modal">
+      <div className="modal-world-body">
+        {done ? (
+          <Success title="Unit berhasil dipesan"
+            note={"Reservasi " + reservation?.reservation_number + " sudah terkonfirmasi. Detail tersedia di Aktivitas."}
+            close={close} />
+        ) : payment ? (
+          <BatpayPaymentPanel payment={payment} onPaid={() => setDone(true)} />
+        ) : (
+          <>
+            {item.cover_url ? <div className="housing-cover" style={{ backgroundImage: "url(" + JSON.stringify(item.cover_url) + ")" }} /> : null}
+            <small className="world-kicker">{isBoarding ? "KOSAN / COLIVING" : "APARTEMEN"} · {item.city}</small>
+            <h2>{item.name}</h2>
+            <p>{item.description}</p>
+            <p className="housing-address">{item.address}</p>
+            {item.pet_facilities.length ? <div className="housing-chips">{item.pet_facilities.map((value) => <span key={value}>✓ {value}</span>)}</div> : null}
+            <form className="world-form housing-booking-form" onSubmit={(event) => void reserve(event)}>
+              <h3>Cari unit tersedia</h3>
+              <div className="housing-form-row">
+                <label><span>Mulai tinggal</span><input required type="date" min={today} value={startDate}
+                  onChange={(event) => { setStartDate(event.target.value); setUnits([]); setUnitID(""); setChecking(true); setError(""); }} /></label>
+                <label><span>Selesai tinggal</span><input required type="date" min={startDate || today} value={endDate}
+                  onChange={(event) => { setEndDate(event.target.value); setUnits([]); setUnitID(""); setChecking(true); setError(""); }} /></label>
+              </div>
+              <p className="housing-hint">{isBoarding ? "Minimal 30 malam. Harga unit dapat berlaku per 30 malam." : "Harga unit berlaku per malam."}</p>
+              <div className="housing-form-row">
+                <label><span>Penghuni</span><input type="number" min={1} max={20} value={guests} onChange={(event) => { setGuests(Number(event.target.value)); setUnits([]); setUnitID(""); setChecking(true); }} /></label>
+                <label><span>Hewan</span><input type="number" min={0} max={10} value={pets} onChange={(event) => { setPets(Number(event.target.value)); setUnitID(""); }} /></label>
+              </div>
+              {startDate && endDate && !dateWindow && <p className="housing-error">Pilih durasi {isBoarding ? "minimal 30" : "minimal 1"} dan maksimal 366 malam.</p>}
+              {dateWindow && <section className="housing-units" aria-label="Pilihan unit">
+                <h3>Unit {checking ? "sedang dicek…" : "(" + units.filter(canHost).length + " tersedia)"}</h3>
+                {!checking && !units.length && <p>Belum ada unit yang cocok. Coba tanggal atau jumlah penghuni lain.</p>}
+                {units.map((unit) => {
+                  const period = unit.booking_rules?.rate_period === "month" ? "30 malam" : "malam";
+                  return <button type="button" key={unit.id} disabled={!canHost(unit)}
+                    className={"housing-unit " + (unitID === unit.id ? "selected" : "")}
+                    onClick={() => setUnitID(unit.id)}>
+                    {unit.image_urls?.[0] ? <span className="housing-unit-photo" role="img" aria-label={unit.name}
+                      style={{ backgroundImage: "url(" + JSON.stringify(unit.image_urls[0]) + ")" }} /> : null}
+                    <span><b>{unit.name}</b><small>{unit.code} · {unit.floor_name || "Unit"} · {unit.capacity} penghuni</small>
+                    {unit.description ? <small>{unit.description}</small> : null}
+                    <span className="housing-chips">{(unit.amenities ?? []).slice(0, 6).map((facility) => <i key={facility}>{facility}</i>)}</span>
+                    <strong>{money.format(unit.base_price)} / {period}</strong></span>
+                    <em>{!unit.available ? "Terisi" : !canHost(unit) ? "Batas pet" : "Pilih"}</em>
+                  </button>;
+                })}
+              </section>}
+              {selected && <section className="housing-summary">
+                <b>Rincian {selected.name}</b>
+                <span>Sewa {periods} × {selected.booking_rules?.rate_period === "month" ? "30 malam" : "malam"} <strong>{money.format(subtotal)}</strong></span>
+                <span>DP untuk mengunci unit <strong>{money.format(deposit)}</strong></span>
+                <span>Sisa dibayar sesuai ketentuan pemilik <strong>{money.format(Math.max(subtotal - deposit, 0))}</strong></span>
+              </section>}
+              <h3>Data pemesan</h3>
+              <div className="housing-form-row">
+                <label><span>Nama lengkap</span><input required value={name} onChange={(event) => setName(event.target.value)} /></label>
+                <label><span>Nomor HP</span><input required type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
+              </div>
+              <label><span>Catatan untuk pemilik</span><textarea value={requestNote} onChange={(event) => setRequestNote(event.target.value)} /></label>
+              {reservation && !payment && <p>Nomor reservasi: <b>{reservation.reservation_number}</b>. Batas DP: {when(reservation.hold_expires_at)}.</p>}
+              {error && <p role="alert" className="housing-error">{error}</p>}
+              <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />
+              <button type="submit" className="primary-button" disabled={busy || !selected || !dateWindow || !!reservation}>
+                {busy ? "Memproses…" : "Pesan unit & bayar DP"}
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 function StreamModal({
   item,
   close,

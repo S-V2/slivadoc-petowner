@@ -1317,6 +1317,7 @@ export type WorldItem = {
   channel_handle?: string;
   verified?: boolean;
   reservable?: boolean;
+  cover_url?: string;
   deposit_type?: "percentage" | "fixed";
   deposit_value?: number;
   reservation_policy?: {
@@ -1359,13 +1360,22 @@ export type MobilePetSpotResource = {
   y_percent: number;
   shape: "round" | "square" | "rectangle" | "unit";
   base_price: number;
+  minimum_deposit_type: "inherit" | "percentage" | "fixed";
+  minimum_deposit_value: number;
   amenities: string[];
+  image_urls: string[];
+  description: string;
+  booking_rules: Record<string, unknown>;
   pet_policy: Record<string, unknown>;
   available: boolean;
 };
 export type MobilePetSpotReservation = {
   id: string;
   reservation_number: string;
+  category?: string;
+  resource_name?: string;
+  starts_at?: string;
+  ends_at?: string;
   spot_id: string;
   spot_name: string;
   resource_id: string;

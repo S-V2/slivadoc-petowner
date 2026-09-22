@@ -414,6 +414,37 @@ export type PetSpot = {
   review_count: number;
   verified: boolean;
   distance_km?: number | null;
+  reservable?: boolean;
+  deposit_type?: "percentage" | "fixed";
+  deposit_value?: number;
+  reservation_policy?: Record<string, unknown>;
+};
+
+export type PetSpotUnit = {
+  id: string;
+  code: string;
+  name: string;
+  resource_type: string;
+  floor_name: string;
+  capacity: number;
+  base_price: number;
+  description: string;
+  amenities: string[];
+  image_urls: string[];
+  pet_policy: Record<string, unknown>;
+  booking_rules: Record<string, unknown>;
+  available: boolean;
+  minimum_deposit_type: "inherit" | "percentage" | "fixed";
+  minimum_deposit_value: number;
+};
+export type PetSpotReservation = {
+  id: string;
+  reservation_number: string;
+  deposit_amount: number;
+  remaining_amount: number;
+  subtotal: number;
+  hold_expires_at: string;
+  reference_type: string;
 };
 
 export type PetHubStream = {
@@ -988,6 +1019,44 @@ export const getTrainerConsultationPlans = (
       specialty,
     }),
   );
+
+export const getPetSpotAvailability = (
+  spotId: string,
+  startsAt: string,
+  endsAt: string,
+  guests: number,
+) => {
+  const query = new URLSearchParams({
+    starts_at: startsAt,
+    ends_at: endsAt,
+    guests: String(guests),
+  });
+  return request<PlatformList<PetSpotUnit>>(
+    `/api/v1/public/petspots/${encodeURIComponent(spotId)}/availability?${query}`,
+    { cache: "no-store" },
+  );
+};
+
+export const createPetSpotReservation = (input: {
+  resource_id: string;
+  guest_name: string;
+  guest_phone: string;
+  guest_count: number;
+  pet_count: number;
+  starts_at: string;
+  ends_at: string;
+  special_request: string;
+}) =>
+  request<PetSpotReservation>("/api/v1/petowner/petspot-reservations", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+export const getMyPetSpotReservations = () =>
+  request<PlatformList<PetSpotReservation & {
+    spot_name: string; resource_name: string; starts_at: string; ends_at: string;
+    payment_status: string; status: string; category: string;
+  }>>("/api/v1/petowner/petspot-reservations", { cache: "no-store" });
 
 export const getTrainerAvailability = (trainerId: string, planId: string) =>
   request<

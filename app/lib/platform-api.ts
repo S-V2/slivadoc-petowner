@@ -125,12 +125,49 @@ export type PointsSummary = {
   formula: RewardFormula;
 };
 
+export type ShippingRate = {
+  service_code: string;
+  service_type: string;
+  fee: number;
+  normal_fee: number;
+  estimated_sla: string;
+  chargeable_weight_kg: number;
+  insurance_fee: number;
+};
+
+export type ShippingQuote = {
+  branch_id: string;
+  branch_name: string;
+  origin: string;
+  destination: string;
+  selected_service?: string;
+  selected_fee?: number;
+  selected_sla?: string;
+  rates: ShippingRate[];
+};
+
+export type OrderShippingInput = {
+  address: {
+    name: string;
+    phone: string;
+    email?: string;
+    address: string;
+    post_code?: string;
+    area: string;
+    geoloc?: string;
+  };
+  shipment_type: "PICKUP" | "DROPOFF";
+  use_insurance: boolean;
+  selections: Array<{ branch_id: string; service_code: string }>;
+};
+
 // Authoritative cart breakdown from POST /api/v1/petowner/orders/quote. The
 // client renders these numbers instead of recomputing the fee or the discounts:
 // its own copy of that arithmetic is exactly what drifted from the server.
 export type OrderQuote = {
   subtotal: number;
   platform_fee: number;
+  shipping_fee: number;
   voucher_code: string;
   voucher_description: string;
   voucher_discount: number;
@@ -143,6 +180,8 @@ export type OrderQuote = {
   point_value_rupiah: number;
   min_redemption_points: number;
   max_redemption_bps: number;
+  shipping_ready: boolean;
+  shipping_quotes: ShippingQuote[];
 };
 
 export type PetOwnerOrder = OrderQuote & {
@@ -160,6 +199,7 @@ export type OrderQuoteInput = {
   }>;
   voucher_code?: string;
   redeem_points?: number;
+  shipping?: OrderShippingInput;
 };
 
 export type PetOwnerBootstrap = {
@@ -231,6 +271,11 @@ export type DiscoveryProduct = {
   stock: number;
   minimum_stock: number;
   available: boolean;
+};
+export type RegionOption = {
+  id: string;
+  code: string;
+  name: string;
 };
 
 export type GlobalSearchResult = {
@@ -1404,6 +1449,24 @@ export const getDiscoveryProducts = (search = "", category = "") =>
     )}&category=${encodeURIComponent(category)}`,
   );
 
+export const getPetOwnerProvinces = () =>
+  request<PlatformList<RegionOption>>("/api/v1/regions/provinces");
+
+export const getPetOwnerRegencies = (provinceID: string) =>
+  request<PlatformList<RegionOption>>(
+    `/api/v1/regions/regencies?province_id=${encodeURIComponent(provinceID)}`,
+  );
+
+export const getPetOwnerDistricts = (regencyID: string) =>
+  request<PlatformList<RegionOption>>(
+    `/api/v1/regions/districts?regency_id=${encodeURIComponent(regencyID)}`,
+  );
+
+export const getPetOwnerVillages = (districtID: string) =>
+  request<PlatformList<RegionOption>>(
+    `/api/v1/regions/villages?district_id=${encodeURIComponent(districtID)}`,
+  );
+
 export const globalSearch = (query: string, category = "") =>
   request<PlatformList<GlobalSearchResult>>(
     `/api/v1/public/search?q=${encodeURIComponent(
@@ -1448,24 +1511,23 @@ export const getPaymentIntent = (paymentId: string) =>
     cache: "no-store",
   });
 
+const petOwnerOrderPayload = (input: OrderQuoteInput) => ({
+  items: input.items,
+  voucher_code: input.voucher_code ?? "",
+  redeem_points: input.redeem_points ?? 0,
+  ...(input.shipping ? { shipping: input.shipping } : {}),
+});
+
 export const quotePetOwnerOrder = (input: OrderQuoteInput) =>
   request<OrderQuote>("/api/v1/petowner/orders/quote", {
     method: "POST",
-    body: JSON.stringify({
-      items: input.items,
-      voucher_code: input.voucher_code ?? "",
-      redeem_points: input.redeem_points ?? 0,
-    }),
+    body: JSON.stringify(petOwnerOrderPayload(input)),
   });
 
 export const createPetOwnerOrder = (input: OrderQuoteInput) =>
   request<PetOwnerOrder>("/api/v1/petowner/orders", {
     method: "POST",
-    body: JSON.stringify({
-      items: input.items,
-      voucher_code: input.voucher_code ?? "",
-      redeem_points: input.redeem_points ?? 0,
-    }),
+    body: JSON.stringify(petOwnerOrderPayload(input)),
   });
 
 export const getMedicalRecords = (petId: string) =>

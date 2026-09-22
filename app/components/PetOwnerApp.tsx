@@ -20,6 +20,7 @@ import CareMarketplace from "./platform/CareMarketplace";
 import PawDatingExperience from "./pawdating/PawDatingExperience";
 import { FundraisingView, PetshipView } from "./platform/PetshipFundraising";
 import type { LocationResult } from "../lib/petowner-api";
+import { ApiError } from "../lib/session";
 import { downloadPetMedicalPDF } from "../lib/pet-pdf";
 import { finiteNumber } from "../lib/safe-number";
 import {
@@ -29,6 +30,10 @@ import {
   closeLostPetMode,
   createPetOwnerBooking,
   getDiscoveryProducts,
+  getPetOwnerDistricts,
+  getPetOwnerProvinces,
+  getPetOwnerRegencies,
+  getPetOwnerVillages,
   getDiscoveryServices,
   getMedicalRecords,
   globalSearch,
@@ -63,11 +68,13 @@ import {
   type NotificationItem,
   type GlobalSearchResult,
   type PetOwnerBootstrap,
+  type OrderQuote,
+  type OrderShippingInput,
+  type RegionOption,
   type CareReminder,
   type PublicCampaign,
   type PaymentIntent,
   type RewardFormula,
-  type OrderQuote,
 } from "../lib/platform-api";
 import {
   BatpayPaymentPanel,
@@ -838,6 +845,7 @@ export default function PetOwnerApp() {
           onClose={() => setCartOpen(false)}
           notify={notify}
           productCatalog={productCatalog}
+          account={account}
           points={points}
           rewardFormula={rewardFormula}
           onRewardChanged={loadBootstrap}
@@ -5532,6 +5540,59 @@ function BookingModal({
     </div>
   );
 }
+type CartRegionLevel = "province" | "regency" | "district" | "village";
+type CartRegionIDs = Record<CartRegionLevel, string>;
+type CartRegions = Record<CartRegionLevel, RegionOption[]>;
+type CartAddress = {
+  name: string;
+  phone: string;
+  address: string;
+  post_code: string;
+};
+
+const emptyCartRegionIDs = (): CartRegionIDs => ({
+  province: "",
+  regency: "",
+  district: "",
+  village: "",
+});
+
+const emptyCartRegions = (): CartRegions => ({
+  province: [],
+  regency: [],
+  district: [],
+  village: [],
+});
+
+function cartRegionLabel(value: string, prefixes: string[]) {
+  const normalized = value.trim().replace(/\s+/g, " ").toUpperCase();
+  const prefix = prefixes.find((candidate) => normalized.startsWith(candidate));
+  return prefix ? normalized.slice(prefix.length).trim() : normalized;
+}
+
+function cartShippingArea(district: string, regency: string) {
+  return `${cartRegionLabel(district, ["KECAMATAN ", "KEC. "])}, ${cartRegionLabel(regency, [
+    "KABUPATEN ADMINISTRASI ",
+    "KOTA ADMINISTRASI ",
+    "KOTA ADM. ",
+    "KABUPATEN ",
+    "KAB. ",
+    "KOTA ",
+  ])}`;
+}
+
+function isCartAddressComplete(
+  address: CartAddress,
+  regionIDs: CartRegionIDs,
+) {
+  return (
+    address.name.trim().length >= 2 &&
+    address.phone.trim().length >= 8 &&
+    address.address.trim().length >= 8 &&
+    /^\d{5}$/.test(address.post_code.trim()) &&
+    Object.values(regionIDs).every(Boolean)
+  );
+}
 
 function CartDrawer({
   cart,
@@ -5539,6 +5600,7 @@ function CartDrawer({
   onClose,
   notify,
   productCatalog,
+  account,
   points,
   rewardFormula,
   onRewardChanged,
@@ -5548,6 +5610,7 @@ function CartDrawer({
   onClose: () => void;
   notify: Notify;
   productCatalog: Product[];
+  account: PetOwnerBootstrap["user"] | null;
   points: number;
   rewardFormula: RewardFormula;
   onRewardChanged: () => Promise<void>;
@@ -5559,6 +5622,26 @@ function CartDrawer({
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [busy, setBusy] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState(0);
+  const [shippingAddress, setShippingAddress] = useState<CartAddress>(() => ({
+    name: account?.full_name ?? "",
+    phone: account?.phone ?? "",
+    address: "",
+    post_code: "",
+  }));
+  const [shippingRegionIDs, setShippingRegionIDs] =
+    useState<CartRegionIDs>(emptyCartRegionIDs);
+  const [shippingRegions, setShippingRegions] =
+    useState<CartRegions>(emptyCartRegions);
+  const [shippingRegionLoading, setShippingRegionLoading] =
+    useState<CartRegionLevel | null>(null);
+  const [shippingSelections, setShippingSelections] = useState<
+    Record<string, string>
+  >({});
+  const [shippingRequired, setShippingRequired] = useState(false);
+  const [quoteErrorState, setQuoteErrorState] = useState<{
+    key: string;
+    message: string;
+  } | null>(null);
   // The server's breakdown. Nothing in this drawer computes the platform fee or
   // a discount itself: the cart used to do exactly that and drifted away from
   // what checkout actually charged. The breakdown is stored with the cart it
@@ -5579,27 +5662,168 @@ function CartDrawer({
       })),
     [items, cart],
   );
-  const quoteKey = JSON.stringify([orderItems, appliedVoucher, redeemPoints]);
+  const shippingAddressComplete = isCartAddressComplete(
+    shippingAddress,
+    shippingRegionIDs,
+  );
+  const shippingInput = useMemo<OrderShippingInput | undefined>(() => {
+    if (!shippingAddressComplete) return undefined;
+    const regency = shippingRegions.regency.find(
+      (item) => item.id === shippingRegionIDs.regency,
+    );
+    const district = shippingRegions.district.find(
+      (item) => item.id === shippingRegionIDs.district,
+    );
+    if (!regency || !district) return undefined;
+    return {
+      address: {
+        ...shippingAddress,
+        name: shippingAddress.name.trim(),
+        phone: shippingAddress.phone.trim(),
+        address: shippingAddress.address.trim(),
+        post_code: shippingAddress.post_code.trim(),
+        area: cartShippingArea(district.name, regency.name),
+        email: account?.email,
+      },
+      shipment_type: "PICKUP",
+      use_insurance: false,
+      selections: Object.entries(shippingSelections).map(
+        ([branch_id, service_code]) => ({ branch_id, service_code }),
+      ),
+    };
+  }, [
+    account?.email,
+    shippingAddress,
+    shippingAddressComplete,
+    shippingRegionIDs,
+    shippingRegions,
+    shippingSelections,
+  ]);
+  const authenticatedForQuote = isPetOwnerAuthenticated();
+  const quoteKey = JSON.stringify([
+    orderItems,
+    appliedVoucher,
+    redeemPoints,
+    authenticatedForQuote,
+    shippingInput ?? (shippingRequired ? "shipping-required" : "no-shipping"),
+  ]);
   const quote = quoted?.key === quoteKey ? quoted.value : null;
+  const quoteError =
+    quote
+      ? ""
+      : quoteErrorState?.key === quoteKey
+        ? quoteErrorState.message
+        : orderItems.length > 0 && !authenticatedForQuote
+          ? "Login diperlukan untuk menghitung total keranjang"
+          : shippingRequired && !shippingInput
+            ? "Lengkapi alamat pengiriman untuk menghitung total"
+            : "";
+  const shippingFormVisible = shippingRequired || quote?.shipping_ready === true;
+
   useEffect(() => {
-    if (orderItems.length === 0 || !isPetOwnerAuthenticated()) return;
+    if (!shippingFormVisible || shippingRegions.province.length > 0) return;
     let live = true;
+    void getPetOwnerProvinces()
+      .then((result) => {
+        if (live) {
+          setShippingRegions((current) => ({
+            ...current,
+            province: result.data,
+          }));
+        }
+      })
+      .catch((error) => {
+        if (live) {
+          notify(
+            error instanceof Error
+              ? error.message
+              : "Provinsi belum dapat dimuat",
+          );
+        }
+      });
+    return () => {
+      live = false;
+    };
+  }, [notify, shippingFormVisible, shippingRegions.province.length]);
+
+  useEffect(() => {
+    let live = true;
+    if (
+      orderItems.length === 0 ||
+      !authenticatedForQuote ||
+      (shippingRequired && !shippingInput)
+    ) {
+      return;
+    }
     void quotePetOwnerOrder({
       items: orderItems,
       voucher_code: appliedVoucher,
       redeem_points: redeemPoints,
+      ...(shippingInput ? { shipping: shippingInput } : {}),
     })
       .then((result) => {
-        if (live) setQuoted({ key: quoteKey, value: result });
+        if (!live) return;
+        if (result.shipping_ready && !shippingInput) {
+          setShippingRequired(true);
+          setQuoted(null);
+          return;
+        }
+        if (shippingInput && result.shipping_quotes.length > 0) {
+          const nextSelections: Record<string, string> = {};
+          for (const shipment of result.shipping_quotes) {
+            const requested = shippingSelections[shipment.branch_id];
+            const selected = shipment.rates.find(
+              (rate) => rate.service_code === requested,
+            );
+            const cheapest = shipment.rates.reduce(
+              (best, rate) => (rate.fee < best.fee ? rate : best),
+              shipment.rates[0],
+            );
+            if (selected || cheapest) {
+              nextSelections[shipment.branch_id] = (
+                selected ?? cheapest
+              ).service_code;
+            }
+          }
+          if (
+            JSON.stringify(nextSelections) !==
+            JSON.stringify(shippingSelections)
+          ) {
+            setShippingSelections(nextSelections);
+            return;
+          }
+        }
+        setShippingRequired(result.shipping_ready);
+        setQuoted({ key: quoteKey, value: result });
       })
-      .catch(() => {
-        if (live) setQuoted(null);
+      .catch((error) => {
+        if (!live) return;
+        setQuoted(null);
+        if (
+          error instanceof ApiError &&
+          error.code === "shipping_required"
+        ) {
+          setShippingRequired(true);
+          setQuoteErrorState({
+            key: quoteKey,
+            message:
+              "Lengkapi alamat dan pilih layanan Lion Parcel untuk menghitung total",
+          });
+          return;
+        }
+        setQuoteErrorState({
+          key: quoteKey,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Ringkasan keranjang belum dapat dihitung",
+        });
       });
     return () => {
       live = false;
     };
     // orderItems is rebuilt on every render; quoteKey is its stable identity
-    // together with the voucher and the redemption.
+    // together with voucher, redemption, shipping destination and service.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quoteKey]);
   const minimumRedemption =
@@ -5614,6 +5838,64 @@ function CartDrawer({
       if (!next[id]) delete next[id];
       return next;
     });
+  async function loadCartRegions(level: CartRegionLevel, parentID = "") {
+    setShippingRegionLoading(level);
+    try {
+      const result =
+        level === "province"
+          ? await getPetOwnerProvinces()
+          : level === "regency"
+            ? await getPetOwnerRegencies(parentID)
+            : level === "district"
+              ? await getPetOwnerDistricts(parentID)
+              : await getPetOwnerVillages(parentID);
+      setShippingRegions((current) => ({
+        ...current,
+        [level]: result.data,
+      }));
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Wilayah pengiriman belum dapat dimuat",
+      );
+    } finally {
+      setShippingRegionLoading((current) =>
+        current === level ? null : current,
+      );
+    }
+  }
+  function updateShippingAddress(field: keyof CartAddress, value: string) {
+    setShippingAddress((current) => ({ ...current, [field]: value }));
+    setShippingSelections({});
+  }
+  function selectShippingRegion(level: CartRegionLevel, value: string) {
+    const levels: CartRegionLevel[] = [
+      "province",
+      "regency",
+      "district",
+      "village",
+    ];
+    const index = levels.indexOf(level);
+    setShippingRegionIDs((current) => {
+      const next = { ...current, [level]: value };
+      for (let child = index + 1; child < levels.length; child += 1) {
+        next[levels[child]] = "";
+      }
+      return next;
+    });
+    setShippingRegions((current) => {
+      const next = { ...current };
+      for (let child = index + 1; child < levels.length; child += 1) {
+        next[levels[child]] = [];
+      }
+      return next;
+    });
+    setShippingSelections({});
+    if (value && index < levels.length - 1) {
+      void loadCartRegions(levels[index + 1], value);
+    }
+  }
   async function applyVoucher() {
     const code = voucherInput.toUpperCase();
     setVoucherBusy(true);
@@ -5622,12 +5904,20 @@ function CartDrawer({
         items: orderItems,
         voucher_code: code,
         redeem_points: redeemPoints,
+        ...(shippingInput ? { shipping: shippingInput } : {}),
       });
       // A rejected code is not applied, so the breakdown that gets stored is
       // the one for an empty voucher: full price, plus the reason.
       const applied = result.voucher_error ? "" : code;
+      setShippingRequired(result.shipping_ready);
       setQuoted({
-        key: JSON.stringify([orderItems, applied, redeemPoints]),
+        key: JSON.stringify([
+          orderItems,
+          applied,
+          redeemPoints,
+          shippingInput ??
+            (result.shipping_ready ? "shipping-required" : "no-shipping"),
+        ]),
         value: result,
       });
       setAppliedVoucher(applied);
@@ -5639,6 +5929,9 @@ function CartDrawer({
         `Voucher ${code} dipakai · potongan ${formatRupiah(result.voucher_discount)}`,
       );
     } catch (error) {
+      if (error instanceof ApiError && error.code === "shipping_required") {
+        setShippingRequired(true);
+      }
       notify(
         error instanceof Error
           ? error.message
@@ -5654,12 +5947,21 @@ function CartDrawer({
       window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
       return;
     }
+    if (shippingRequired && !shippingInput) {
+      notify("Lengkapi alamat pengiriman untuk melanjutkan");
+      return;
+    }
+    if (!quote) {
+      notify(quoteError || "Tunggu ringkasan keranjang selesai dihitung");
+      return;
+    }
     setBusy(true);
     try {
       const order = await createPetOwnerOrder({
         items: orderItems,
         voucher_code: appliedVoucher,
         redeem_points: redeemPoints,
+        ...(shippingInput ? { shipping: shippingInput } : {}),
       });
       setPayment(
         await createPaymentIntent("shop_order", order.id, paymentMethod),
@@ -5734,6 +6036,173 @@ function CartDrawer({
                 </div>
               ))}
             </div>
+            {shippingFormVisible && (
+              <section className="cart-shipping">
+                <div className="cart-shipping-heading">
+                  <b>Alamat pengiriman</b>
+                  <small>
+                    Lengkapi tujuan untuk menghitung ongkir Lion Parcel.
+                  </small>
+                </div>
+                <div className="cart-form-grid">
+                  <label>
+                    <span>Nama penerima</span>
+                    <input
+                      value={shippingAddress.name}
+                      onChange={(event) =>
+                        updateShippingAddress("name", event.target.value)
+                      }
+                      placeholder="Nama lengkap"
+                    />
+                  </label>
+                  <label>
+                    <span>No. WhatsApp</span>
+                    <input
+                      value={shippingAddress.phone}
+                      onChange={(event) =>
+                        updateShippingAddress("phone", event.target.value)
+                      }
+                      placeholder="08xxxxxxxxxx"
+                    />
+                  </label>
+                </div>
+                <label>
+                  <span>Alamat lengkap</span>
+                  <textarea
+                    value={shippingAddress.address}
+                    onChange={(event) =>
+                      updateShippingAddress("address", event.target.value)
+                    }
+                    placeholder="Nama jalan, nomor rumah, RT/RW"
+                    rows={3}
+                  />
+                </label>
+                <div className="cart-form-grid">
+                  <label>
+                    <span>Provinsi</span>
+                    <select
+                      value={shippingRegionIDs.province}
+                      disabled={shippingRegionLoading === "province"}
+                      onChange={(event) =>
+                        selectShippingRegion("province", event.target.value)
+                      }
+                    >
+                      <option value="">Pilih provinsi</option>
+                      {shippingRegions.province.map((region) => (
+                        <option key={region.id} value={region.id}>
+                          {region.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Kabupaten / kota</span>
+                    <select
+                      value={shippingRegionIDs.regency}
+                      disabled={
+                        !shippingRegionIDs.province ||
+                        shippingRegionLoading === "regency"
+                      }
+                      onChange={(event) =>
+                        selectShippingRegion("regency", event.target.value)
+                      }
+                    >
+                      <option value="">Pilih kabupaten / kota</option>
+                      {shippingRegions.regency.map((region) => (
+                        <option key={region.id} value={region.id}>
+                          {region.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Kecamatan</span>
+                    <select
+                      value={shippingRegionIDs.district}
+                      disabled={
+                        !shippingRegionIDs.regency ||
+                        shippingRegionLoading === "district"
+                      }
+                      onChange={(event) =>
+                        selectShippingRegion("district", event.target.value)
+                      }
+                    >
+                      <option value="">Pilih kecamatan</option>
+                      {shippingRegions.district.map((region) => (
+                        <option key={region.id} value={region.id}>
+                          {region.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Kelurahan / desa</span>
+                    <select
+                      value={shippingRegionIDs.village}
+                      disabled={
+                        !shippingRegionIDs.district ||
+                        shippingRegionLoading === "village"
+                      }
+                      onChange={(event) =>
+                        selectShippingRegion("village", event.target.value)
+                      }
+                    >
+                      <option value="">Pilih kelurahan / desa</option>
+                      {shippingRegions.village.map((region) => (
+                        <option key={region.id} value={region.id}>
+                          {region.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  <span>Kode pos</span>
+                  <input
+                    value={shippingAddress.post_code}
+                    onChange={(event) =>
+                      updateShippingAddress(
+                        "post_code",
+                        event.target.value.replace(/\D/g, "").slice(0, 5),
+                      )
+                    }
+                    inputMode="numeric"
+                    placeholder="12345"
+                  />
+                </label>
+                {quote?.shipping_quotes.map((shipment) => (
+                  <div className="cart-shipping-origin" key={shipment.branch_id}>
+                    <small>
+                      DIKIRIM DARI {shipment.branch_name} · {shipment.origin}
+                    </small>
+                    <div className="cart-shipping-rates">
+                      {shipment.rates.map((rate) => (
+                        <button
+                          className={
+                            shippingSelections[shipment.branch_id] ===
+                            rate.service_code
+                              ? "selected"
+                              : ""
+                          }
+                          type="button"
+                          key={rate.service_code}
+                          onClick={() =>
+                            setShippingSelections((current) => ({
+                              ...current,
+                              [shipment.branch_id]: rate.service_code,
+                            }))
+                          }
+                        >
+                          <b>{rate.service_code}</b>
+                          <span>{formatRupiah(rate.fee)}</span>
+                          <small>{rate.estimated_sla || "Sesuai rute"}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </section>
+            )}
             <label className="voucher">
               <span>🎟️</span>
               <input
@@ -5808,6 +6277,7 @@ function CartDrawer({
                 )}
               </section>
             )}
+            {quoteError && <p className="cart-quote-error">{quoteError}</p>}
             <div className="cart-summary">
               <span>
                 <small>Subtotal</small>
@@ -5815,7 +6285,7 @@ function CartDrawer({
               </span>
               <span>
                 <small>Pengiriman</small>
-                <b className="good">Gratis</b>
+                <b>{quote ? formatRupiah(quote.shipping_fee) : "—"}</b>
               </span>
               <span>
                 <small>Biaya layanan</small>
@@ -5838,7 +6308,11 @@ function CartDrawer({
               <span className="total">
                 <small>Total</small>
                 <b>
-                  {quote ? formatRupiah(quote.total_amount) : "Menghitung…"}
+                  {quote
+                    ? formatRupiah(quote.total_amount)
+                    : quoteError
+                      ? "Belum tersedia"
+                      : "Menghitung…"}
                 </b>
               </span>
             </div>

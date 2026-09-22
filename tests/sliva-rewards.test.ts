@@ -106,6 +106,40 @@ test("an omitted voucher and redemption still reach the server explicitly", asyn
     transport.restore();
   }
 });
+test("shipping destination and service selections reach quote endpoint", async () => {
+  const transport = stubTransport(200, serverQuote);
+  try {
+    const shipping = {
+      address: {
+        name: "Evans Moris",
+        phone: "+6282391239651",
+        address: "Jl. Peta Barat No. 21",
+        post_code: "11840",
+        area: "KALIDERES, JAKARTA BARAT",
+      },
+      shipment_type: "PICKUP" as const,
+      use_insurance: false,
+      selections: [
+        {
+          branch_id: "44444444-4444-4444-8444-444444444444",
+          service_code: "REGPACK",
+        },
+      ],
+    };
+    await quotePetOwnerOrder({
+      items: [{ product_id: "22222222-2222-4222-8222-222222222222", quantity: 1 }],
+      shipping,
+    });
+    assert.deepEqual(transport.calls[0].body, {
+      items: [{ product_id: "22222222-2222-4222-8222-222222222222", quantity: 1 }],
+      voucher_code: "",
+      redeem_points: 0,
+      shipping,
+    });
+  } finally {
+    transport.restore();
+  }
+});
 
 test("checkout sends the same fields as the quote and never recomputes the total", async () => {
   // A deliberately odd server total: subtotal + fee - discounts is 22.500, but

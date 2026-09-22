@@ -2765,7 +2765,7 @@ const styles = StyleSheet.create({
   housingPhoto: { width: 90, height: 100, borderRadius: 10 },
   housingCardBody: { flex: 1, gap: 5 },
   housingAmenities: { color: colors.sky600, fontSize: 11 },
-  housingPrice: { color: colors.navy, fontSize: 15, fontWeight: "800" },
+  housingPrice: { color: colors.navy, fontSize: 15, fontWeight: "700" },
   housingQuote: { gap: 7, padding: 13, borderRadius: 12, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white },
   petSpotReservation: {
     gap: 11,

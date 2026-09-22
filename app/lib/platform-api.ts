@@ -939,11 +939,14 @@ export const createConsultation = (input: Record<string, unknown>) =>
   });
 
 export const getMyConsultations = () =>
-  request<PlatformList<Consultation>>("/api/v1/consultations");
+  request<PlatformList<Consultation>>("/api/v1/consultations", {
+    cache: "no-store",
+  });
 
 export const getConsultationMessages = (consultationId: string) =>
   request<PlatformList<ConsultationMessage>>(
     `/api/v1/consultations/${consultationId}/messages`,
+    { cache: "no-store" },
   );
 
 export const sendConsultationMessage = (
@@ -1414,7 +1417,9 @@ export const createPaymentIntent = (
   });
 
 export const getPaymentIntent = (paymentId: string) =>
-  request<PaymentIntent>(`/api/v1/payment-intents/${paymentId}`);
+  request<PaymentIntent>(`/api/v1/payment-intents/${paymentId}`, {
+    cache: "no-store",
+  });
 
 export const quotePetOwnerOrder = (input: OrderQuoteInput) =>
   request<OrderQuote>("/api/v1/petowner/orders/quote", {

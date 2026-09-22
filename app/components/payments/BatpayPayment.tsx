@@ -120,15 +120,21 @@ function BatpayPaymentState({
     }
   }, [current.status, onPaid]);
   useEffect(() => {
-    if (current.status !== "pending") return;
+    if (current.status !== "pending" && current.status !== "refund_pending")
+      return;
     let active = true;
     const poll = () =>
       void getPaymentIntent(current.id)
         .then((result) => {
           if (active) setCurrent(result);
         })
-        .catch(() => undefined);
-    const timer = window.setInterval(poll, 5000);
+        .catch(() => {
+          if (active)
+            setMessage(
+              "Status pembayaran belum dapat diperiksa. Pemeriksaan akan dicoba kembali otomatis.",
+            );
+        });
+    const timer = window.setInterval(poll, 2000);
     void poll();
     return () => {
       active = false;
@@ -160,7 +166,32 @@ function BatpayPaymentState({
         )}
       </section>
     );
-  if (current.status === "failed" || current.status === "refunded")
+  if (current.status === "refund_pending")
+    return (
+      <section className="batpay-result pending" role="status">
+        <h3>Menunggu pengembalian manual</h3>
+        <p>
+          Dana sudah diterima, tetapi layanan tidak dapat dilanjutkan.
+          Permintaan sedang ditinjau; dana belum dinyatakan dikembalikan.
+        </p>
+        <p>{current.order_id}</p>
+        {message && <p className="form-message">{message}</p>}
+        {onClose && (
+          <button
+            type="button"
+            className="secondary-button full"
+            onClick={onClose}
+          >
+            Tutup
+          </button>
+        )}
+      </section>
+    );
+  if (
+    current.status === "failed" ||
+    current.status === "expired" ||
+    current.status === "refunded"
+  )
     return (
       <section className="batpay-result failed">
         <span>!</span>

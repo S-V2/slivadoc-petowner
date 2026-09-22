@@ -222,11 +222,34 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
               </button>
               <button
                 className="secondary-button"
-                onClick={() =>
-                  consultations[0]
-                    ? setRoom(consultations[0])
-                    : notify("Belum ada konsultasi aktif")
-                }
+                onClick={() => {
+                  void getMyConsultations()
+                    .then((response) => {
+                      setConsultations(response.data);
+                      const latest = response.data[0];
+                      if (!latest) notify("Belum ada konsultasi aktif");
+                      else if (latest.payment_status === "refund_pending")
+                        notify(
+                          "Menunggu verifikasi pengembalian manual. Dana belum dinyatakan dikembalikan.",
+                        );
+                      else if (latest.payment_status === "refunded")
+                        notify(
+                          "Pengembalian dana konsultasi sudah dicatat sebagai terverifikasi.",
+                        );
+                      else if (latest.payment_status !== "paid")
+                        notify(
+                          "Konsultasi belum dibayar. Periksa pembayaran melalui Aktivitas.",
+                        );
+                      else setRoom(latest);
+                    })
+                    .catch((error) =>
+                      notify(
+                        error instanceof Error
+                          ? error.message
+                          : "Konsultasi belum dapat dimuat.",
+                      ),
+                    );
+                }}
               >
                 Konsultasi saya
               </button>
@@ -1220,6 +1243,9 @@ function ConsultationRoom({
 }) {
   const socketRef = useRef<Socket | null>(null);
   const mediaRef = useRef<ConsultationMedia | null>(null);
+  const pendingTracks = useRef<
+    Array<{ sessionId: string; trackName: string; kind?: string }>
+  >([]);
   const currentUserIdRef = useRef("");
   const localMedia = useRef<HTMLDivElement | null>(null);
   const remoteMedia = useRef<HTMLDivElement | null>(null);
@@ -1244,6 +1270,7 @@ function ConsultationRoom({
   const endCall = useCallback(() => {
     mediaRef.current?.stop();
     mediaRef.current = null;
+    pendingTracks.current = [];
     localMedia.current?.replaceChildren();
     remoteMedia.current?.replaceChildren();
     setCall("idle");
@@ -1253,7 +1280,9 @@ function ConsultationRoom({
       const accessToken = getAccessToken();
       if (!accessToken)
         throw new Error("Login diperlukan untuk membuka media.");
+      const announcedTracks = pendingTracks.current;
       endCall();
+      pendingTracks.current = announcedTracks;
       mediaRef.current = await startConsultationMedia({
         realtimeURL: realtime,
         consultationId: consultation.id,
@@ -1262,6 +1291,9 @@ function ConsultationRoom({
         localContainer: localMedia.current,
         remoteContainer: remoteMedia.current,
       });
+      const queuedTracks = pendingTracks.current;
+      pendingTracks.current = [];
+      if (queuedTracks.length > 0) await mediaRef.current.pull(queuedTracks);
       setCall("active");
     },
     [consultation.id, endCall, realtime],
@@ -1353,12 +1385,18 @@ function ConsultationRoom({
           payload.fromUserId === currentUserIdRef.current
         )
           return;
-        void mediaRef.current?.pull(
-          (payload.tracks || []).map((track) => ({
-            ...track,
-            sessionId: track.sessionId ?? payload.sessionId ?? "",
-          })),
-        );
+        const tracks = (payload.tracks || []).map((track) => ({
+          ...track,
+          sessionId: track.sessionId ?? payload.sessionId ?? "",
+        }));
+        if (mediaRef.current) {
+          void mediaRef.current.pull(tracks).catch((error) => {
+            endCall();
+            notify(
+              error instanceof Error ? error.message : "Koneksi media gagal.",
+            );
+          });
+        } else pendingTracks.current = tracks;
       },
     );
     return () => {

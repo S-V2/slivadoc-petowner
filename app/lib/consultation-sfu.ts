@@ -1,6 +1,10 @@
 // Keep in sync with the other app's consultation-sfu.ts
 
-export type RemoteTrackRef = { sessionId: string; trackName: string; kind?: string };
+export type RemoteTrackRef = {
+  sessionId: string;
+  trackName: string;
+  kind?: string;
+};
 
 export type ConsultationMedia = {
   sessionId: string;
@@ -48,19 +52,34 @@ async function mediaJson<T extends { error?: string }>(
   return payload;
 }
 
-function waitForIceConnected(pc: RTCPeerConnection, timeoutMs: number, signal: AbortSignal): Promise<void> {
-  if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") return Promise.resolve();
+function waitForIceConnected(
+  pc: RTCPeerConnection,
+  timeoutMs: number,
+  signal: AbortSignal,
+): Promise<void> {
+  if (
+    pc.iceConnectionState === "connected" ||
+    pc.iceConnectionState === "completed"
+  )
+    return Promise.resolve();
   const { promise, resolve, reject } = Promise.withResolvers<void>();
   const fail = () => {
     cleanup();
     reject(new Error("Koneksi media gagal."));
   };
   const onState = () => {
-    if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+    if (
+      pc.iceConnectionState === "connected" ||
+      pc.iceConnectionState === "completed"
+    ) {
       cleanup();
       resolve();
     }
-    if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "closed") fail();
+    if (
+      pc.iceConnectionState === "failed" ||
+      pc.iceConnectionState === "closed"
+    )
+      fail();
   };
   const timer = setTimeout(fail, timeoutMs);
   const cleanup = () => {
@@ -73,8 +92,14 @@ function waitForIceConnected(pc: RTCPeerConnection, timeoutMs: number, signal: A
   return promise;
 }
 
-function collectRemoteTracks(pc: RTCPeerConnection, mids: string[], expected: number, timeoutMs: number): Promise<MediaStreamTrack[]> {
-  const { promise, resolve, reject } = Promise.withResolvers<MediaStreamTrack[]>();
+function collectRemoteTracks(
+  pc: RTCPeerConnection,
+  mids: string[],
+  expected: number,
+  timeoutMs: number,
+): Promise<MediaStreamTrack[]> {
+  const { promise, resolve, reject } =
+    Promise.withResolvers<MediaStreamTrack[]>();
   const tracks: MediaStreamTrack[] = [];
   const remaining = new Set(mids);
   const fail = () => {
@@ -121,7 +146,10 @@ function attachLocalVideo(container: HTMLElement | null, stream: MediaStream) {
   container.appendChild(video);
 }
 
-function attachRemoteTracks(container: HTMLElement | null, tracks: MediaStreamTrack[]) {
+function attachRemoteTracks(
+  container: HTMLElement | null,
+  tracks: MediaStreamTrack[],
+) {
   if (!container || tracks.length === 0) return;
   const videoTracks = tracks.filter((track) => track.kind === "video");
   const audioTracks = tracks.filter((track) => track.kind === "audio");
@@ -137,18 +165,27 @@ function attachRemoteTracks(container: HTMLElement | null, tracks: MediaStreamTr
       video.style.objectFit = "cover";
       container.appendChild(video);
     }
-    const stream = video.srcObject instanceof MediaStream ? video.srcObject : new MediaStream();
+    const stream =
+      video.srcObject instanceof MediaStream
+        ? video.srcObject
+        : new MediaStream();
     for (const track of [...videoTracks, ...audioTracks]) {
-      if (!stream.getTracks().some((existing) => existing.id === track.id)) stream.addTrack(track);
+      if (!stream.getTracks().some((existing) => existing.id === track.id))
+        stream.addTrack(track);
     }
     video.srcObject = stream;
     return;
   }
   for (const track of audioTracks) {
-    const already = Array.from(container.querySelectorAll("audio")).some((element) => {
-      const src = element.srcObject;
-      return src instanceof MediaStream && src.getTracks().some((existing) => existing.id === track.id);
-    });
+    const already = Array.from(container.querySelectorAll("audio")).some(
+      (element) => {
+        const src = element.srcObject;
+        return (
+          src instanceof MediaStream &&
+          src.getTracks().some((existing) => existing.id === track.id)
+        );
+      },
+    );
     if (already) continue;
     const audio = document.createElement("audio");
     audio.autoplay = true;
@@ -165,12 +202,26 @@ export async function startConsultationMedia(options: {
   localContainer: HTMLElement | null;
   remoteContainer: HTMLElement | null;
 }): Promise<ConsultationMedia> {
-  const { realtimeURL, consultationId, accessToken, video, localContainer, remoteContainer } = options;
+  const {
+    realtimeURL,
+    consultationId,
+    accessToken,
+    video,
+    localContainer,
+    remoteContainer,
+  } = options;
   const base = `${realtimeURL}/api/v1/consultations/${encodeURIComponent(consultationId)}`;
-  const session = await mediaJson<SessionResponse>(`${base}/media/session`, accessToken, { method: "POST" });
+  const session = await mediaJson<SessionResponse>(
+    `${base}/media/session`,
+    accessToken,
+    { method: "POST" },
+  );
   if (!session.sessionId) throw new Error("Akses media konsultasi ditolak.");
 
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video });
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: true,
+    video,
+  });
   const pc = new RTCPeerConnection({
     iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }],
     bundlePolicy: "max-bundle",
@@ -180,6 +231,7 @@ export async function startConsultationMedia(options: {
   const pulled = new Set<string>();
   let iceReady: Promise<void> = Promise.resolve();
   let iceResolved = false;
+  let mediaConfirmation: Promise<void> | null = null;
 
   const cleanupFailedStart = () => {
     for (const track of stream.getTracks()) track.stop();
@@ -207,13 +259,18 @@ export async function startConsultationMedia(options: {
     // the gateway surfaced only as a generic 502 cloudflare_sfu_unavailable. Reading
     // it from getTransceivers() here also covers the addTrack fallback above, which
     // never had a transceiver reference to read.
-    const publishedTracks = pc
-      .getTransceivers()
-      .flatMap((transceiver) => {
-        const track = transceiver.sender.track;
-        if (!track || !transceiver.mid || !localTracks.includes(track)) return [];
-        return [{ location: "local" as const, mid: transceiver.mid, trackName: track.id, kind: track.kind }];
-      });
+    const publishedTracks = pc.getTransceivers().flatMap((transceiver) => {
+      const track = transceiver.sender.track;
+      if (!track || !transceiver.mid || !localTracks.includes(track)) return [];
+      return [
+        {
+          location: "local" as const,
+          mid: transceiver.mid,
+          trackName: track.id,
+          kind: track.kind,
+        },
+      ];
+    });
     if (publishedTracks.length !== localTracks.length) {
       throw new Error("Koneksi media gagal.");
     }
@@ -221,22 +278,58 @@ export async function startConsultationMedia(options: {
     iceReady = waitForIceConnected(pc, 15_000, abort.signal).then(() => {
       iceResolved = true;
     });
-    const pushResponse = await mediaJson<TracksResponse>(`${base}/media/tracks`, accessToken, {
-      method: "POST",
-      body: JSON.stringify({
-        sessionId: session.sessionId,
-        sessionDescription: { sdp: offer.sdp, type: "offer" },
-        tracks: publishedTracks,
-      }),
-    });
+    const pushResponse = await mediaJson<TracksResponse>(
+      `${base}/media/tracks`,
+      accessToken,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: session.sessionId,
+          sessionDescription: { sdp: offer.sdp, type: "offer" },
+          tracks: publishedTracks,
+        }),
+      },
+    );
     if (pushResponse.sessionDescription) {
-      await pc.setRemoteDescription(new RTCSessionDescription(pushResponse.sessionDescription));
+      await pc.setRemoteDescription(
+        new RTCSessionDescription(pushResponse.sessionDescription),
+      );
     }
     await iceReady;
   } catch (error) {
     abort.abort();
     cleanupFailedStart();
     throw error;
+  }
+
+  function confirmIncomingMedia(): Promise<void> {
+    if (mediaConfirmation) return mediaConfirmation;
+    mediaConfirmation = (async () => {
+      const deadline = performance.now() + 15_000;
+      while (!stopped && performance.now() < deadline) {
+        let audioReceived = false;
+        let videoReceived = !video;
+        (await pc.getStats()).forEach((report) => {
+          if (report.type !== "inbound-rtp") return;
+          const kind = report.kind ?? report.mediaType;
+          if (kind === "audio" && report.packetsReceived > 0)
+            audioReceived = true;
+          if (kind === "video" && report.framesDecoded > 0)
+            videoReceived = true;
+        });
+        if (audioReceived && videoReceived) {
+          await mediaJson(`${base}/media/connected`, accessToken, {
+            method: "POST",
+            body: JSON.stringify({ sessionId: session.sessionId }),
+            signal: AbortSignal.any([abort.signal, AbortSignal.timeout(5_000)]),
+          });
+          return;
+        }
+        await new Promise<void>((resolve) => setTimeout(resolve, 200));
+      }
+      if (!stopped) throw new Error("Koneksi media gagal.");
+    })();
+    return mediaConfirmation;
   }
 
   async function pull(tracks: RemoteTrackRef[]): Promise<void> {
@@ -253,23 +346,39 @@ export async function startConsultationMedia(options: {
     });
     if (pending.length === 0) return;
 
-    const pullResponse = await mediaJson<TracksResponse>(`${base}/media/tracks`, accessToken, {
-      method: "POST",
-      body: JSON.stringify({
-        sessionId: session.sessionId,
-        tracks: pending.map((track) => ({
-          location: "remote",
-          sessionId: track.sessionId,
-          trackName: track.trackName,
-        })),
-      }),
-    });
+    const pullResponse = await mediaJson<TracksResponse>(
+      `${base}/media/tracks`,
+      accessToken,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: session.sessionId,
+          tracks: pending.map((track) => ({
+            location: "remote",
+            sessionId: track.sessionId,
+            trackName: track.trackName,
+          })),
+        }),
+      },
+    );
 
-    const mids = (pullResponse.tracks || []).map((track) => track.mid).filter((mid): mid is string => Boolean(mid));
-    const resolvingTracks = collectRemoteTracks(pc, mids, pending.length, 15_000);
+    const mids = (pullResponse.tracks || [])
+      .map((track) => track.mid)
+      .filter((mid): mid is string => Boolean(mid));
+    const resolvingTracks = collectRemoteTracks(
+      pc,
+      mids,
+      pending.length,
+      15_000,
+    );
 
-    if (pullResponse.requiresImmediateRenegotiation && pullResponse.sessionDescription) {
-      await pc.setRemoteDescription(new RTCSessionDescription(pullResponse.sessionDescription));
+    if (
+      pullResponse.requiresImmediateRenegotiation &&
+      pullResponse.sessionDescription
+    ) {
+      await pc.setRemoteDescription(
+        new RTCSessionDescription(pullResponse.sessionDescription),
+      );
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       await mediaJson(`${base}/media/renegotiate`, accessToken, {
@@ -281,12 +390,21 @@ export async function startConsultationMedia(options: {
       });
     }
 
-    const resolved = await resolvingTracks.catch(() => [] as MediaStreamTrack[]);
-    if (!stopped) attachRemoteTracks(remoteContainer, resolved);
+    const resolved = await resolvingTracks;
+    if (!stopped) {
+      attachRemoteTracks(remoteContainer, resolved);
+      await confirmIncomingMedia();
+    }
   }
 
   if (Array.isArray(session.remoteTracks) && session.remoteTracks.length > 0) {
-    await pull(session.remoteTracks);
+    try {
+      await pull(session.remoteTracks);
+    } catch (error) {
+      abort.abort();
+      cleanupFailedStart();
+      throw error;
+    }
   }
 
   return {

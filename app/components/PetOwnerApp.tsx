@@ -5690,6 +5690,8 @@ function CartDrawer({
 }: {
   cart: Record<string, number>;
   setCart: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+  onClose: () => void;
+  notify: Notify;
   productCatalog: Product[];
   currentLocation: LocationResult | null;
   onOpenLocation: () => void;
@@ -5904,6 +5906,7 @@ function CartDrawer({
               : undefined;
             if (!shippingBranchID) {
               selectedBranch = result.shipping_quotes[0];
+              if (!selectedBranch) return;
               setShippingBranchID(selectedBranch.branch_id);
               setShippingSelections({});
               return;
@@ -5914,14 +5917,10 @@ function CartDrawer({
                 (rate) => rate.service_code === requested,
               );
               const cheapest = cheapestCartShippingRate(selectedBranch);
-              const nextSelections: Record<string, string> =
-                selected || cheapest
-                  ? {
-                      [selectedBranch.branch_id]: (
-                        selected ?? cheapest
-                      ).service_code,
-                    }
-                  : {};
+              const chosenRate = selected ?? cheapest;
+              const nextSelections: Record<string, string> = chosenRate
+                ? { [selectedBranch.branch_id]: chosenRate.service_code }
+                : {};
               if (
                 JSON.stringify(nextSelections) !==
                 JSON.stringify(shippingSelections)
@@ -5938,11 +5937,8 @@ function CartDrawer({
                 (rate) => rate.service_code === requested,
               );
               const cheapest = cheapestCartShippingRate(shipment);
-              if (selected || cheapest) {
-                nextSelections[shipment.branch_id] = (
-                  selected ?? cheapest
-                ).service_code;
-              }
+              const chosenRate = selected ?? cheapest;
+              if (chosenRate) nextSelections[shipment.branch_id] = chosenRate.service_code;
             }
             if (
               JSON.stringify(nextSelections) !==

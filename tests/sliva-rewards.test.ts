@@ -119,6 +119,7 @@ test("shipping destination and service selections reach quote endpoint", async (
       },
       shipment_type: "PICKUP" as const,
       use_insurance: false,
+      branch_id: "44444444-4444-4444-8444-444444444444",
       selections: [
         {
           branch_id: "44444444-4444-4444-8444-444444444444",

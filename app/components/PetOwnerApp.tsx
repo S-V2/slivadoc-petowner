@@ -70,6 +70,7 @@ import {
   type PetOwnerBootstrap,
   type OrderQuote,
   type OrderShippingInput,
+  type ShippingQuote,
   type RegionOption,
   type CareReminder,
   type PublicCampaign,
@@ -5593,6 +5594,12 @@ function isCartAddressComplete(
     Object.values(regionIDs).every(Boolean)
   );
 }
+function cheapestCartShippingRate(quote: ShippingQuote) {
+  return quote.rates.reduce<ShippingQuote["rates"][number] | undefined>(
+    (best, rate) => (!best || rate.fee < best.fee ? rate : best),
+    undefined,
+  );
+}
 
 function CartDrawer({
   cart,
@@ -5637,6 +5644,8 @@ function CartDrawer({
   const [shippingSelections, setShippingSelections] = useState<
     Record<string, string>
   >({});
+  const [shippingBranchID, setShippingBranchID] = useState("");
+  const [shippingOptions, setShippingOptions] = useState<ShippingQuote[]>([]);
   const [shippingRequired, setShippingRequired] = useState(false);
   const [quoteErrorState, setQuoteErrorState] = useState<{
     key: string;
@@ -5687,6 +5696,7 @@ function CartDrawer({
       },
       shipment_type: "PICKUP",
       use_insurance: false,
+      branch_id: shippingBranchID || undefined,
       selections: Object.entries(shippingSelections).map(
         ([branch_id, service_code]) => ({ branch_id, service_code }),
       ),
@@ -5695,6 +5705,7 @@ function CartDrawer({
     account?.email,
     shippingAddress,
     shippingAddressComplete,
+    shippingBranchID,
     shippingRegionIDs,
     shippingRegions,
     shippingSelections,
@@ -5719,6 +5730,11 @@ function CartDrawer({
             ? "Lengkapi alamat pengiriman untuk menghitung total"
             : "";
   const shippingFormVisible = shippingRequired || quote?.shipping_ready === true;
+  const singleBranchOptions =
+    shippingOptions.length > 1 &&
+    new Set(shippingOptions.map((shipment) => shipment.business_id)).size === 1
+      ? shippingOptions
+      : [];
 
   useEffect(() => {
     if (!shippingFormVisible || shippingRegions.province.length > 0) return;
@@ -5769,28 +5785,76 @@ function CartDrawer({
           return;
         }
         if (shippingInput && result.shipping_quotes.length > 0) {
-          const nextSelections: Record<string, string> = {};
-          for (const shipment of result.shipping_quotes) {
-            const requested = shippingSelections[shipment.branch_id];
-            const selected = shipment.rates.find(
-              (rate) => rate.service_code === requested,
-            );
-            const cheapest = shipment.rates.reduce(
-              (best, rate) => (rate.fee < best.fee ? rate : best),
-              shipment.rates[0],
-            );
-            if (selected || cheapest) {
-              nextSelections[shipment.branch_id] = (
-                selected ?? cheapest
-              ).service_code;
+          const businessIDs = new Set(
+            result.shipping_quotes.map((shipment) => shipment.business_id),
+          );
+          if (businessIDs.size === 1) {
+            if (shippingOptions.length === 0 || result.shipping_quotes.length > 1) {
+              setShippingOptions(result.shipping_quotes);
             }
-          }
-          if (
-            JSON.stringify(nextSelections) !==
-            JSON.stringify(shippingSelections)
-          ) {
-            setShippingSelections(nextSelections);
-            return;
+            let selectedBranch = shippingBranchID
+              ? result.shipping_quotes.find(
+                  (shipment) => shipment.branch_id === shippingBranchID,
+                )
+              : undefined;
+            if (!shippingBranchID) {
+              selectedBranch = result.shipping_quotes.reduce(
+                (best, shipment) => {
+                  const bestRate = cheapestCartShippingRate(best);
+                  const rate = cheapestCartShippingRate(shipment);
+                  if (!bestRate) return shipment;
+                  if (!rate) return best;
+                  return rate.fee < bestRate.fee ? shipment : best;
+                },
+                result.shipping_quotes[0],
+              );
+              setShippingBranchID(selectedBranch.branch_id);
+              setShippingSelections({});
+              return;
+            }
+            if (selectedBranch) {
+              const requested = shippingSelections[selectedBranch.branch_id];
+              const selected = selectedBranch.rates.find(
+                (rate) => rate.service_code === requested,
+              );
+              const cheapest = cheapestCartShippingRate(selectedBranch);
+              const nextSelections: Record<string, string> =
+                selected || cheapest
+                  ? {
+                      [selectedBranch.branch_id]: (
+                        selected ?? cheapest
+                      ).service_code,
+                    }
+                  : {};
+              if (
+                JSON.stringify(nextSelections) !==
+                JSON.stringify(shippingSelections)
+              ) {
+                setShippingSelections(nextSelections);
+                return;
+              }
+            }
+          } else {
+            const nextSelections: Record<string, string> = {};
+            for (const shipment of result.shipping_quotes) {
+              const requested = shippingSelections[shipment.branch_id];
+              const selected = shipment.rates.find(
+                (rate) => rate.service_code === requested,
+              );
+              const cheapest = cheapestCartShippingRate(shipment);
+              if (selected || cheapest) {
+                nextSelections[shipment.branch_id] = (
+                  selected ?? cheapest
+                ).service_code;
+              }
+            }
+            if (
+              JSON.stringify(nextSelections) !==
+              JSON.stringify(shippingSelections)
+            ) {
+              setShippingSelections(nextSelections);
+              return;
+            }
           }
         }
         setShippingRequired(result.shipping_ready);
@@ -5829,7 +5893,10 @@ function CartDrawer({
   const minimumRedemption =
     quote?.min_redemption_points ?? rewardFormula.min_redemption_points ?? 0;
   const maximumRedeemable = quote?.max_redeemable_points ?? 0;
-  const update = (id: string, amount: number) =>
+  function update(id: string, amount: number) {
+    setShippingBranchID("");
+    setShippingOptions([]);
+    setShippingSelections({});
     setCart((current) => {
       const next = {
         ...current,
@@ -5838,6 +5905,7 @@ function CartDrawer({
       if (!next[id]) delete next[id];
       return next;
     });
+  }
   async function loadCartRegions(level: CartRegionLevel, parentID = "") {
     setShippingRegionLoading(level);
     try {
@@ -5867,6 +5935,8 @@ function CartDrawer({
   }
   function updateShippingAddress(field: keyof CartAddress, value: string) {
     setShippingAddress((current) => ({ ...current, [field]: value }));
+    setShippingBranchID("");
+    setShippingOptions([]);
     setShippingSelections({});
   }
   function selectShippingRegion(level: CartRegionLevel, value: string) {
@@ -5891,6 +5961,8 @@ function CartDrawer({
       }
       return next;
     });
+    setShippingBranchID("");
+    setShippingOptions([]);
     setShippingSelections({});
     if (value && index < levels.length - 1) {
       void loadCartRegions(levels[index + 1], value);
@@ -5915,6 +5987,7 @@ function CartDrawer({
           orderItems,
           applied,
           redeemPoints,
+          authenticatedForQuote,
           shippingInput ??
             (result.shipping_ready ? "shipping-required" : "no-shipping"),
         ]),
@@ -6170,7 +6243,45 @@ function CartDrawer({
                     placeholder="12345"
                   />
                 </label>
-                {quote?.shipping_quotes.map((shipment) => (
+                {singleBranchOptions.length > 0 && (
+                  <div className="cart-shipping-branches">
+                    <small className="cart-shipping-branch-label">
+                      PILIH CABANG PENGIRIMAN · DEFAULT TERDEKAT
+                    </small>
+                    <div className="cart-shipping-branch-options">
+                      {singleBranchOptions.map((branch) => {
+                        const cheapest = cheapestCartShippingRate(branch);
+                        return (
+                          <button
+                            className={
+                              shippingBranchID === branch.branch_id
+                                ? "selected"
+                                : ""
+                            }
+                            type="button"
+                            key={branch.branch_id}
+                            onClick={() => {
+                              setShippingBranchID(branch.branch_id);
+                              setShippingSelections({});
+                            }}
+                          >
+                            <b>{branch.branch_name}</b>
+                            <span>{branch.origin}</span>
+                            {cheapest && (
+                              <strong>{formatRupiah(cheapest.fee)}</strong>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {(singleBranchOptions.length > 0
+                  ? quote?.shipping_quotes.filter(
+                      (shipment) => shipment.branch_id === shippingBranchID,
+                    )
+                  : quote?.shipping_quotes
+                )?.map((shipment) => (
                   <div className="cart-shipping-origin" key={shipment.branch_id}>
                     <small>
                       DIKIRIM DARI {shipment.branch_name} · {shipment.origin}

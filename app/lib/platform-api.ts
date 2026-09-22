@@ -137,6 +137,7 @@ export type ShippingRate = {
 
 export type ShippingQuote = {
   branch_id: string;
+  business_id: string;
   branch_name: string;
   origin: string;
   destination: string;
@@ -158,9 +159,9 @@ export type OrderShippingInput = {
   };
   shipment_type: "PICKUP" | "DROPOFF";
   use_insurance: boolean;
+  branch_id?: string;
   selections: Array<{ branch_id: string; service_code: string }>;
 };
-
 // Authoritative cart breakdown from POST /api/v1/petowner/orders/quote. The
 // client renders these numbers instead of recomputing the fee or the discounts:
 // its own copy of that arithmetic is exactly what drifted from the server.

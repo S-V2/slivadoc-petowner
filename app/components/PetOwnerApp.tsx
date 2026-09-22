@@ -846,6 +846,8 @@ export default function PetOwnerApp() {
           onClose={() => setCartOpen(false)}
           notify={notify}
           productCatalog={productCatalog}
+          currentLocation={currentLocation}
+          onOpenLocation={() => setLocationOpen(true)}
           account={account}
           points={points}
           rewardFormula={rewardFormula}
@@ -5564,6 +5566,39 @@ const emptyCartRegions = (): CartRegions => ({
   district: [],
   village: [],
 });
+type CartShippingDraft = {
+  address: CartAddress;
+  regionIDs: CartRegionIDs;
+  regions: CartRegions;
+};
+
+const cartShippingDraftKey = "slivadoc.shipping_address";
+
+function readCartShippingDraft(): CartShippingDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = JSON.parse(
+      window.localStorage.getItem(cartShippingDraftKey) ?? "",
+    ) as Partial<CartShippingDraft>;
+    return value.address && value.regionIDs && value.regions
+      ? (value as CartShippingDraft)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCartShippingDraft(
+  address: CartAddress,
+  regionIDs: CartRegionIDs,
+  regions: CartRegions,
+) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    cartShippingDraftKey,
+    JSON.stringify({ address, regionIDs, regions }),
+  );
+}
 
 function cartRegionLabel(value: string, prefixes: string[]) {
   const normalized = value.trim().replace(/\s+/g, " ").toUpperCase();
@@ -5607,6 +5642,8 @@ function CartDrawer({
   onClose,
   notify,
   productCatalog,
+  currentLocation,
+  onOpenLocation,
   account,
   points,
   rewardFormula,
@@ -5614,9 +5651,9 @@ function CartDrawer({
 }: {
   cart: Record<string, number>;
   setCart: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-  onClose: () => void;
-  notify: Notify;
   productCatalog: Product[];
+  currentLocation: LocationResult | null;
+  onOpenLocation: () => void;
   account: PetOwnerBootstrap["user"] | null;
   points: number;
   rewardFormula: RewardFormula;
@@ -5627,18 +5664,28 @@ function CartDrawer({
   const [voucherBusy, setVoucherBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
+  const [checkoutStep, setCheckoutStep] = useState<"cart" | "shipping">(
+    "cart",
+  );
   const [busy, setBusy] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState(0);
-  const [shippingAddress, setShippingAddress] = useState<CartAddress>(() => ({
-    name: account?.full_name ?? "",
-    phone: account?.phone ?? "",
-    address: "",
-    post_code: "",
-  }));
-  const [shippingRegionIDs, setShippingRegionIDs] =
-    useState<CartRegionIDs>(emptyCartRegionIDs);
-  const [shippingRegions, setShippingRegions] =
-    useState<CartRegions>(emptyCartRegions);
+  const [shippingAddress, setShippingAddress] = useState<CartAddress>(() => {
+    const saved = readCartShippingDraft();
+    return (
+      saved?.address ?? {
+        name: account?.full_name ?? "",
+        phone: account?.phone ?? "",
+        address: "",
+        post_code: "",
+      }
+    );
+  });
+  const [shippingRegionIDs, setShippingRegionIDs] = useState<CartRegionIDs>(
+    () => readCartShippingDraft()?.regionIDs ?? emptyCartRegionIDs(),
+  );
+  const [shippingRegions, setShippingRegions] = useState<CartRegions>(
+    () => readCartShippingDraft()?.regions ?? emptyCartRegions(),
+  );
   const [shippingRegionLoading, setShippingRegionLoading] =
     useState<CartRegionLevel | null>(null);
   const [shippingSelections, setShippingSelections] = useState<
@@ -5671,6 +5718,10 @@ function CartDrawer({
       })),
     [items, cart],
   );
+  const cartSubtotal = useMemo(
+    () => items.reduce((total, item) => total + item.price * cart[item.id], 0),
+    [items, cart],
+  );
   const shippingAddressComplete = isCartAddressComplete(
     shippingAddress,
     shippingRegionIDs,
@@ -5693,6 +5744,9 @@ function CartDrawer({
         post_code: shippingAddress.post_code.trim(),
         area: cartShippingArea(district.name, regency.name),
         email: account?.email,
+        geoloc: currentLocation
+          ? `${currentLocation.latitude},${currentLocation.longitude}`
+          : undefined,
       },
       shipment_type: "PICKUP",
       use_insurance: false,
@@ -5703,6 +5757,7 @@ function CartDrawer({
     };
   }, [
     account?.email,
+    currentLocation,
     shippingAddress,
     shippingAddressComplete,
     shippingBranchID,
@@ -5716,20 +5771,23 @@ function CartDrawer({
     appliedVoucher,
     redeemPoints,
     authenticatedForQuote,
+    checkoutStep,
     shippingInput ?? (shippingRequired ? "shipping-required" : "no-shipping"),
   ]);
   const quote = quoted?.key === quoteKey ? quoted.value : null;
   const quoteError =
-    quote
-      ? ""
-      : quoteErrorState?.key === quoteKey
-        ? quoteErrorState.message
-        : orderItems.length > 0 && !authenticatedForQuote
-          ? "Login diperlukan untuk menghitung total keranjang"
-          : shippingRequired && !shippingInput
-            ? "Lengkapi alamat pengiriman untuk menghitung total"
-            : "";
-  const shippingFormVisible = shippingRequired || quote?.shipping_ready === true;
+    checkoutStep === "shipping"
+      ? quote
+        ? ""
+        : quoteErrorState?.key === quoteKey
+          ? quoteErrorState.message
+          : orderItems.length > 0 && !authenticatedForQuote
+            ? "Login diperlukan untuk menghitung total keranjang"
+            : shippingRequired && !shippingInput
+              ? "Lengkapi alamat pengiriman untuk menghitung total"
+              : ""
+      : "";
+  const shippingFormVisible = checkoutStep === "shipping";
   const singleBranchOptions =
     shippingOptions.length > 1 &&
     new Set(shippingOptions.map((shipment) => shipment.business_id)).size === 1
@@ -5765,6 +5823,7 @@ function CartDrawer({
   useEffect(() => {
     let live = true;
     if (
+      checkoutStep !== "shipping" ||
       orderItems.length === 0 ||
       !authenticatedForQuote ||
       (shippingRequired && !shippingInput)
@@ -5779,6 +5838,13 @@ function CartDrawer({
     })
       .then((result) => {
         if (!live) return;
+        if (shippingInput) {
+          writeCartShippingDraft(
+            shippingAddress,
+            shippingRegionIDs,
+            shippingRegions,
+          );
+        }
         if (result.shipping_ready && !shippingInput) {
           setShippingRequired(true);
           setQuoted(null);
@@ -5798,16 +5864,7 @@ function CartDrawer({
                 )
               : undefined;
             if (!shippingBranchID) {
-              selectedBranch = result.shipping_quotes.reduce(
-                (best, shipment) => {
-                  const bestRate = cheapestCartShippingRate(best);
-                  const rate = cheapestCartShippingRate(shipment);
-                  if (!bestRate) return shipment;
-                  if (!rate) return best;
-                  return rate.fee < bestRate.fee ? shipment : best;
-                },
-                result.shipping_quotes[0],
-              );
+              selectedBranch = result.shipping_quotes[0];
               setShippingBranchID(selectedBranch.branch_id);
               setShippingSelections({});
               return;
@@ -6058,12 +6115,27 @@ function CartDrawer({
         <header>
           <div>
             <span className="section-eyebrow">SLIVA PET SHOP</span>
-            <h2>{payment ? "Pembayaran" : "Keranjangmu"}</h2>
+            <h2>
+              {payment
+                ? "Pembayaran"
+                : checkoutStep === "shipping"
+                  ? "Pengiriman"
+                  : "Keranjangmu"}
+            </h2>
           </div>
           <button type="button" onClick={onClose}>
             <Icon name="close" />
           </button>
         </header>
+        {!payment && checkoutStep === "shipping" && (
+          <button
+            className="cart-back-button"
+            type="button"
+            onClick={() => setCheckoutStep("cart")}
+          >
+            ← Kembali ke keranjang
+          </button>
+        )}
         {payment ? (
           <BatpayPaymentPanel
             payment={payment}
@@ -6088,6 +6160,8 @@ function CartDrawer({
           </div>
         ) : (
           <>
+            {checkoutStep === "cart" ? (
+              <>
             <div className="cart-items">
               {items.map((item) => (
                 <div className="cart-item" key={item.id}>
@@ -6109,6 +6183,33 @@ function CartDrawer({
                 </div>
               ))}
             </div>
+                <div className="cart-summary cart-cart-summary">
+                  <span>
+                    <small>Subtotal produk</small>
+                    <b>{formatRupiah(cartSubtotal)}</b>
+                  </span>
+                </div>
+                <button
+                  className="primary-button full"
+                  type="button"
+                  onClick={() => setCheckoutStep("shipping")}
+                >
+                  Atur pengiriman <Icon name="arrow" size={16} />
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="cart-order-preview">
+                  <span>
+                    {items.length} produk · {formatRupiah(cartSubtotal)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCheckoutStep("cart")}
+                  >
+                    Ubah keranjang
+                  </button>
+                </div>
             {shippingFormVisible && (
               <section className="cart-shipping">
                 <div className="cart-shipping-heading">
@@ -6150,6 +6251,15 @@ function CartDrawer({
                     rows={3}
                   />
                 </label>
+                <div className="cart-location-row">
+                  <span>
+                    <small>Lokasi untuk menentukan cabang terdekat</small>
+                    <b>{currentLocation?.label ?? "Belum dipilih"}</b>
+                  </span>
+                  <button type="button" onClick={onOpenLocation}>
+                    {currentLocation ? "Ubah lokasi" : "Pilih lokasi"}
+                  </button>
+                </div>
                 <div className="cart-form-grid">
                   <label>
                     <span>Provinsi</span>
@@ -6441,6 +6551,8 @@ function CartDrawer({
               {busy ? "Membuat pembayaran…" : "Lanjut ke pembayaran"}{" "}
               <Icon name="arrow" size={16} />
             </button>
+          </>
+            )}
           </>
         )}
       </aside>

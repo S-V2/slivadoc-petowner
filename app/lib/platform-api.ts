@@ -141,6 +141,7 @@ export type ShippingQuote = {
   branch_name: string;
   origin: string;
   destination: string;
+  distance_km?: number;
   selected_service?: string;
   selected_fee?: number;
   selected_sla?: string;

@@ -422,6 +422,7 @@ export type ConsultationPlan = {
   id: string;
   veterinarian_id: string;
   doctor_name: string;
+  specialties: string[];
   name: string;
   mode: "chat" | "voice" | "video" | "bundle";
   description: string;
@@ -895,24 +896,48 @@ export const togglePetHubChannel = (channelId: string) =>
     `/api/v1/pethub/channels/${channelId}/follow`,
     { method: "POST" },
   );
-export const getVeterinarians = () =>
-  request<PlatformList<Veterinarian>>("/api/v1/public/veterinarians");
+const publicQuery = (
+  path: string,
+  values: Record<string, string | undefined>,
+) => {
+  const query = new URLSearchParams();
+  Object.entries(values).forEach(([key, value]) => {
+    if (value) query.set(key, value);
+  });
+  const suffix = query.toString();
+  return suffix ? `${path}?${suffix}` : path;
+};
 
-export const getConsultationPlans = (veterinarianId?: string) =>
-  request<PlatformList<ConsultationPlan>>(
-    `/api/v1/public/consultation-plans${
-      veterinarianId ? `?veterinarian_id=${veterinarianId}` : ""
-    }`,
+export const getVeterinarians = (specialty?: string) =>
+  request<PlatformList<Veterinarian>>(
+    publicQuery("/api/v1/public/veterinarians", { specialty }),
   );
 
-export const getTrainers = () =>
-  request<PlatformList<Trainer>>("/api/v1/public/trainers");
+export const getConsultationPlans = (
+  veterinarianId?: string,
+  specialty?: string,
+) =>
+  request<PlatformList<ConsultationPlan>>(
+    publicQuery("/api/v1/public/consultation-plans", {
+      veterinarian_id: veterinarianId,
+      specialty,
+    }),
+  );
 
-export const getTrainerConsultationPlans = (trainerId?: string) =>
+export const getTrainers = (specialty?: string) =>
+  request<PlatformList<Trainer>>(
+    publicQuery("/api/v1/public/trainers", { specialty }),
+  );
+
+export const getTrainerConsultationPlans = (
+  trainerId?: string,
+  specialty?: string,
+) =>
   request<PlatformList<TrainerConsultationPlan>>(
-    `/api/v1/public/trainer-consultation-plans${
-      trainerId ? `?trainer_id=${encodeURIComponent(trainerId)}` : ""
-    }`,
+    publicQuery("/api/v1/public/trainer-consultation-plans", {
+      trainer_id: trainerId,
+      specialty,
+    }),
   );
 
 export const getTrainerAvailability = (trainerId: string, planId: string) =>

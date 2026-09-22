@@ -47,3 +47,24 @@ test("trainer consultations reuse the paid realtime room", () => {
   assert.match(webMarketplace, /consultation:message/);
   assert.match(webMarketplace, /startConsultationMedia/);
 });
+
+test("web consultation catalog filters provider type and specialty", () => {
+  assert.match(webMarketplace, /type ConsultProviderFilter = [^;]*"all"/);
+  assert.match(webMarketplace, /chooseConsultProvider\("veterinarian"\)/);
+  assert.match(webMarketplace, /chooseConsultProvider\("trainer"\)/);
+  assert.match(webMarketplace, /consultationSpecialties/);
+  assert.match(webMarketplace, /hasSpecialty\(doctor\.specialties/);
+  assert.match(webMarketplace, /hasSpecialty\(trainer\.specialties/);
+  assert.match(webMarketplace, /Semua spesialisasi/);
+  assert.match(webApi, /specialties: string\[\]/);
+  assert.match(webApi, /specialty/);
+});
+
+test("mobile consultation catalog filters combined plans by provider and specialty", () => {
+  assert.match(mobileWorld, /type ConsultProviderFilter = [^;]*"all"/);
+  assert.match(mobileWorld, /item\.provider_type === consultProvider/);
+  assert.match(mobileWorld, /item\.specialties \?\? \[\]/);
+  assert.match(mobileWorld, /Semua spesialisasi/);
+  assert.match(mobileWorld, /visibleItems\.map/);
+  assert.match(mobileApi, /specialties\?: string\[\]/);
+});

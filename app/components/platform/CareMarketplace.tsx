@@ -51,6 +51,7 @@ import {
 } from "../payments/BatpayPayment";
 
 type PayableConsultation = Consultation & { batpay?: PaymentIntent };
+type ConsultProviderFilter = "all" | "veterinarian" | "trainer";
 
 type Props = {
   mode: "consult" | "adoption" | "documents";
@@ -78,6 +79,15 @@ function requireLogin(notify: (message: string) => void) {
   return false;
 }
 
+function hasSpecialty(specialties: string[] | undefined, selected: string) {
+  return (
+    selected === "all" ||
+    (specialties ?? []).some(
+      (specialty) => specialty.trim().toLocaleLowerCase("id") === selected,
+    )
+  );
+}
+
 export default function CareMarketplace({ mode, pet, notify }: Props) {
   const [doctors, setDoctors] = useState<Veterinarian[]>([]);
   const [plans, setPlans] = useState<ConsultationPlan[]>([]);
@@ -87,7 +97,6 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
   );
   const [adoptions, setAdoptions] = useState<AdoptionListing[]>([]);
   const [documents, setDocuments] = useState<DocumentProduct[]>([]);
-  const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Veterinarian | null>(
     null,
   );
@@ -105,9 +114,9 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
     useState<PayableConsultation | null>(null);
   const [room, setRoom] = useState<Consultation | null>(null);
   const [filter, setFilter] = useState("all");
-  const [consultProvider, setConsultProvider] = useState<
-    "veterinarian" | "trainer"
-  >("veterinarian");
+  const [consultProvider, setConsultProvider] =
+    useState<ConsultProviderFilter>("all");
+  const [consultSpecialty, setConsultSpecialty] = useState("all");
   const [adoptionComposer, setAdoptionComposer] = useState(false);
   const [adoptionSearch, setAdoptionSearch] = useState("");
   const [species, setSpecies] = useState("all");
@@ -124,15 +133,13 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
           getConsultationPlans(),
           getTrainers(),
           getTrainerConsultationPlans(),
-          ...(isPetOwnerAuthenticated() ? [getMyConsultations()] : []),
         ]);
         if (cancelled) return;
-        const [v, p, t, tp, c] = values;
+        const [v, p, t, tp] = values;
         if (v?.status === "fulfilled") setDoctors(v.value.data);
         if (p?.status === "fulfilled") setPlans(p.value.data);
         if (t?.status === "fulfilled") setTrainers(t.value.data);
         if (tp?.status === "fulfilled") setTrainerPlans(tp.value.data);
-        if (c?.status === "fulfilled") setConsultations(c.value.data);
       } else if (mode === "adoption") {
         const result = await getAdoptions();
         if (!cancelled) setAdoptions(result.data);
@@ -169,6 +176,48 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
         : trainerPlans,
     [selectedTrainer, trainerPlans],
   );
+  const consultationSpecialties = useMemo(() => {
+    const providers = [
+      ...(consultProvider !== "trainer" ? doctors : []),
+      ...(consultProvider !== "veterinarian" ? trainers : []),
+    ];
+    const specialties = new Map<string, string>();
+    providers.forEach((provider) =>
+      (provider.specialties ?? []).forEach((specialty) => {
+        const value = specialty.trim();
+        if (value) specialties.set(value.toLocaleLowerCase("id"), value);
+      }),
+    );
+    return [...specialties.entries()].sort((left, right) =>
+      left[1].localeCompare(right[1], "id"),
+    );
+  }, [consultProvider, doctors, trainers]);
+  const filteredDoctors = useMemo(
+    () =>
+      consultProvider === "trainer"
+        ? []
+        : doctors.filter(
+            (doctor) =>
+              (filter === "all" || doctor.availability_status === "online") &&
+              hasSpecialty(doctor.specialties, consultSpecialty),
+          ),
+    [consultProvider, consultSpecialty, doctors, filter],
+  );
+  const filteredTrainers = useMemo(
+    () =>
+      consultProvider === "veterinarian"
+        ? []
+        : trainers.filter(
+            (trainer) =>
+              (filter === "all" || trainer.availability_status === "online") &&
+              hasSpecialty(trainer.specialties, consultSpecialty),
+          ),
+    [consultProvider, consultSpecialty, filter, trainers],
+  );
+  const chooseConsultProvider = (provider: ConsultProviderFilter) => {
+    setConsultProvider(provider);
+    setConsultSpecialty("all");
+  };
   const adoptionCities = useMemo(
     () => [...new Set(adoptions.map((item) => item.city))].sort(),
     [adoptions],
@@ -225,7 +274,6 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
                 onClick={() => {
                   void getMyConsultations()
                     .then((response) => {
-                      setConsultations(response.data);
                       const latest = response.data[0];
                       if (!latest) notify("Belum ada konsultasi aktif");
                       else if (latest.payment_status === "refund_pending")
@@ -267,42 +315,77 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
           <span>📅 Slot jadwal real-time</span>
           <span>⚡ Provider online saat ini</span>
         </div>
-        <section id="consult-provider-list" className="section-title-world">
+        <section
+          id="consult-provider-list"
+          className="section-title-world consult-section-title"
+        >
           <div>
             <span>
               {consultProvider === "trainer"
                 ? "PET TRAINER TERSEDIA"
-                : "DOKTER TERSEDIA"}
+                : consultProvider === "veterinarian"
+                  ? "DOKTER HEWAN TERSEDIA"
+                  : "PROVIDER KONSULTASI TERSEDIA"}
             </span>
             <h2>
-              Pilih {consultProvider === "trainer" ? "trainer" : "dokter"} untuk{" "}
-              {pet.name}
+              {consultProvider === "trainer"
+                ? "Pilih pet trainer"
+                : consultProvider === "veterinarian"
+                  ? "Pilih dokter hewan"
+                  : "Pilih dokter atau pet trainer"}{" "}
+              untuk {pet.name}
             </h2>
           </div>
           <div className="consult-toolbar">
             <div className="hub-tabs" aria-label="Jenis provider konsultasi">
               <button
-                className={consultProvider === "veterinarian" ? "active" : ""}
-                onClick={() => setConsultProvider("veterinarian")}
+                className={consultProvider === "all" ? "active" : ""}
+                aria-pressed={consultProvider === "all"}
+                onClick={() => chooseConsultProvider("all")}
               >
-                Dokter
+                Semua
+              </button>
+              <button
+                className={consultProvider === "veterinarian" ? "active" : ""}
+                aria-pressed={consultProvider === "veterinarian"}
+                onClick={() => chooseConsultProvider("veterinarian")}
+              >
+                Dokter Hewan
               </button>
               <button
                 className={consultProvider === "trainer" ? "active" : ""}
-                onClick={() => setConsultProvider("trainer")}
+                aria-pressed={consultProvider === "trainer"}
+                onClick={() => chooseConsultProvider("trainer")}
               >
                 Pet Trainer
               </button>
             </div>
+            <label className="consult-specialty-filter">
+              <span>Spesialisasi</span>
+              <select
+                aria-label="Filter spesialisasi konsultasi"
+                value={consultSpecialty}
+                onChange={(event) => setConsultSpecialty(event.target.value)}
+              >
+                <option value="all">Semua spesialisasi</option>
+                {consultationSpecialties.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="hub-tabs" aria-label="Status provider">
               <button
                 className={filter === "all" ? "active" : ""}
+                aria-pressed={filter === "all"}
                 onClick={() => setFilter("all")}
               >
                 Semua
               </button>
               <button
                 className={filter === "online" ? "active" : ""}
+                aria-pressed={filter === "online"}
                 onClick={() => setFilter("online")}
               >
                 Online
@@ -310,13 +393,11 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
             </div>
           </div>
         </section>
-        {consultProvider === "veterinarian" ? (
-          <div className="doctor-grid">
-            {doctors
-              .filter(
-                (d) => filter === "all" || d.availability_status === "online",
-              )
-              .map((doctor, index) => (
+        {filteredDoctors.length > 0 && (
+          <section className="consult-provider-section">
+            {consultProvider === "all" && <h3>Dokter Hewan</h3>}
+            <div className="doctor-grid">
+              {filteredDoctors.map((doctor, index) => (
                 <article className="doctor-card" key={doctor.id}>
                   <div className={`doctor-photo doctor-${index % 3}`}>
                     {doctor.photo_url ? (
@@ -363,15 +444,14 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
                   </div>
                 </article>
               ))}
-          </div>
-        ) : (
-          <div className="doctor-grid">
-            {trainers
-              .filter(
-                (trainer) =>
-                  filter === "all" || trainer.availability_status === "online",
-              )
-              .map((trainer, index) => (
+            </div>
+          </section>
+        )}
+        {filteredTrainers.length > 0 && (
+          <section className="consult-provider-section">
+            {consultProvider === "all" && <h3>Pet Trainer</h3>}
+            <div className="doctor-grid">
+              {filteredTrainers.map((trainer, index) => (
                 <article className="doctor-card" key={trainer.id}>
                   <div className={`doctor-photo doctor-${index % 3}`}>
                     {trainer.photo_url ? (
@@ -421,6 +501,18 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
                   </div>
                 </article>
               ))}
+            </div>
+          </section>
+        )}
+        {filteredDoctors.length === 0 && filteredTrainers.length === 0 && (
+          <div className="consult-filter-empty" role="status">
+            <span>🔎</span>
+            <div>
+              <h3>Provider belum ditemukan</h3>
+              <p>
+                Coba pilih jenis provider, spesialisasi, atau status yang lain.
+              </p>
+            </div>
           </div>
         )}
         {selectedDoctor && (

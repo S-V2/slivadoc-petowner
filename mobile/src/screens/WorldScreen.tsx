@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Image,
@@ -78,6 +78,7 @@ type Mode =
   | "consult"
   | "adoption"
   | "documents";
+type ConsultProviderFilter = "all" | "veterinarian" | "trainer";
 type WorldPet = { id: string; name: string; breed: string };
 type AdoptionForm = {
   applicantName: string;
@@ -410,6 +411,9 @@ export function WorldScreen({
       : "Segera";
   const [mode, setMode] = useState<Mode>(intent?.mode ?? "academy");
   const [items, setItems] = useState<Record<Mode, WorldItem[]>>(emptyWorld);
+  const [consultProvider, setConsultProvider] =
+    useState<ConsultProviderFilter>("all");
+  const [consultSpecialty, setConsultSpecialty] = useState("all");
   const [selected, setSelected] = useState<WorldItem | null>(null);
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
@@ -442,6 +446,48 @@ export function WorldScreen({
   const [documentForm, setDocumentForm] =
     useState<DocumentForm>(emptyDocumentForm);
   const handledIntent = useRef(0);
+  const consultSpecialties = useMemo<Array<[string, string]>>(() => {
+    const specialties = new Map<string, string>();
+    items.consult
+      .filter(
+        (item) =>
+          consultProvider === "all" || item.provider_type === consultProvider,
+      )
+      .forEach((item) =>
+        (item.specialties ?? []).forEach((specialty) => {
+          const label = specialty.trim();
+          if (label) specialties.set(label.toLocaleLowerCase("id"), label);
+        }),
+      );
+    return [...specialties.entries()].sort((left, right) =>
+      left[1].localeCompare(right[1], "id"),
+    );
+  }, [consultProvider, items.consult]);
+  const consultSpecialtyOptions = useMemo<Array<[string, string]>>(
+    () => [["all", "Semua spesialisasi"], ...consultSpecialties],
+    [consultSpecialties],
+  );
+  const visibleItems = useMemo(
+    () =>
+      mode === "consult"
+        ? items.consult.filter(
+            (item) =>
+              (consultProvider === "all" ||
+                item.provider_type === consultProvider) &&
+              (consultSpecialty === "all" ||
+                (item.specialties ?? []).some(
+                  (specialty) =>
+                    specialty.trim().toLocaleLowerCase("id") ===
+                    consultSpecialty,
+                )),
+          )
+        : items[mode],
+    [consultProvider, consultSpecialty, items, mode],
+  );
+  const chooseConsultProvider = (provider: ConsultProviderFilter) => {
+    setConsultProvider(provider);
+    setConsultSpecialty("all");
+  };
   const loadTrainerSlots = useCallback(
     async (item: WorldItem) => {
       const requestID = ++trainerAvailabilityRequest.current;
@@ -1065,12 +1111,87 @@ export function WorldScreen({
             />
           </View>
         ) : null}
+        {mode === "consult" ? (
+          <View style={styles.consultFilters}>
+            <Text style={styles.consultFilterLabel}>Jenis provider</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.consultFilterRow}
+            >
+              {(
+                [
+                  ["all", "Semua"],
+                  ["veterinarian", "Dokter Hewan"],
+                  ["trainer", "Pet Trainer"],
+                ] as const
+              ).map(([value, label]) => (
+                <Pressable
+                  key={value}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: consultProvider === value }}
+                  onPress={() => chooseConsultProvider(value)}
+                  style={[
+                    styles.consultFilterChip,
+                    consultProvider === value && styles.consultFilterChipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.consultFilterChipText,
+                      consultProvider === value &&
+                        styles.consultFilterChipTextActive,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Text style={styles.consultFilterLabel}>Spesialisasi</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.consultFilterRow}
+            >
+              {consultSpecialtyOptions.map(([value, label]) => (
+                <Pressable
+                  key={value}
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: consultSpecialty === value,
+                  }}
+                  onPress={() => setConsultSpecialty(value)}
+                  style={[
+                    styles.consultFilterChip,
+                    consultSpecialty === value &&
+                      styles.consultFilterChipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.consultFilterChipText,
+                      consultSpecialty === value &&
+                        styles.consultFilterChipTextActive,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
         {loading ? (
           <Text style={styles.cardNote}>Memuat informasi terbaru…</Text>
         ) : busy ? (
           <Text style={styles.cardNote}>Memproses permintaan…</Text>
-        ) : items[mode].length === 0 ? (
-          <Text style={styles.cardNote}>Belum ada data pada kategori ini.</Text>
+        ) : visibleItems.length === 0 ? (
+          <Text style={styles.cardNote}>
+            {mode === "consult"
+              ? "Belum ada provider dengan filter tersebut."
+              : "Belum ada data pada kategori ini."}
+          </Text>
         ) : null}
         <View style={styles.sectionHead}>
           <View>
@@ -1122,7 +1243,7 @@ export function WorldScreen({
           />
         ) : (
           <View style={styles.list}>
-            {items[mode].map((item, index) => (
+            {visibleItems.map((item, index) => (
               <Pressable
                 key={item.id}
                 onPress={() => openItem(item)}
@@ -1176,7 +1297,9 @@ export function WorldScreen({
                   <Text numberOfLines={2} style={styles.cardNote}>
                     {mode === "pawdating"
                       ? `${item.breed} · ${item.sex === "female" ? "Betina" : "Jantan"} · ${item.city}`
-                      : item.description}
+                      : mode === "consult"
+                        ? `${item.trainer_name || item.doctor_name || "Provider"} · ${(item.specialties ?? []).join(" · ") || "Spesialisasi umum"}`
+                        : item.description}
                   </Text>
                   <View style={styles.cardFooter}>
                     <Text style={styles.cardPrice}>
@@ -2296,6 +2419,42 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   heroEmoji: { position: "absolute", right: -5, bottom: 2, fontSize: 56 },
+  consultFilters: {
+    gap: 7,
+    marginTop: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 18,
+    backgroundColor: colors.white,
+  },
+  consultFilterLabel: {
+    color: colors.muted,
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  consultFilterRow: { gap: 7, paddingRight: 10 },
+  consultFilterChip: {
+    minHeight: 34,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 11,
+    backgroundColor: colors.white,
+  },
+  consultFilterChipActive: {
+    borderColor: colors.sky400,
+    backgroundColor: colors.sky50,
+  },
+  consultFilterChipText: {
+    color: colors.muted,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  consultFilterChipTextActive: { color: colors.sky600 },
   sectionHead: {
     minHeight: 65,
     flexDirection: "row",

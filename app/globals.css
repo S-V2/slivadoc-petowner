@@ -44,6 +44,10 @@
   --tracking-title: -.025em;
 }
 
+.catalog-cover-image { object-fit:cover; }
+.home-service-visual>.catalog-cover-image,.service-result-cover>.catalog-cover-image,.service-detail-visual>.catalog-cover-image,.shop-product-visual>.catalog-cover-image,.product-visual>.catalog-cover-image { z-index:0; }
+.home-service-visual>span,.home-service-visual>button,.service-result-cover>em,.service-result-cover>button,.service-detail-visual>em,.service-detail-visual>i,.shop-product-visual>em,.shop-product-visual>button,.product-visual>em,.product-visual>button { z-index:2; }
+
 /* Pet Owner quality pass: legal consent, responsive content, Petship and Animal Fund. */
 .modal>.modal-close,.modal>header>.modal-close{left:auto!important;right:18px!important;top:18px!important}
 .legal-consents{display:grid;gap:10px;padding:13px;border:1px solid #dceaf2;border-radius:14px;background:#f7fbfe}.legal-consents label{display:flex;align-items:flex-start;gap:9px;color:var(--text);font-size:10px;line-height:1.55}.legal-consents input{width:17px;height:17px;flex:0 0 auto;margin-top:1px;accent-color:var(--sky-500)}.legal-consents button{display:inline;padding:0;border:0;color:var(--sky-600);background:none;font:inherit;text-decoration:underline;cursor:pointer}.legal-modal{width:min(640px,calc(100vw - 24px));max-height:min(86vh,760px);overflow-y:auto;padding-top:31px}.legal-modal>p{color:var(--muted)}.legal-modal>div{display:grid;gap:10px;margin:18px 0}.legal-modal article{padding:14px;border:1px solid var(--line);border-radius:13px;background:#f9fcfd}.legal-modal article p{margin:7px 0 0;color:#536a7e;line-height:1.7}

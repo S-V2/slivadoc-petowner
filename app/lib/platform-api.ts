@@ -207,6 +207,7 @@ export type DiscoveryService = {
   branch_name: string;
   name: string;
   category: string;
+  image_url: string;
   duration_minutes: number;
   price: number;
   address: string;
@@ -225,6 +226,7 @@ export type DiscoveryProduct = {
   barcode: string;
   category: string;
   description: string;
+  image_url: string;
   price: number;
   stock: number;
   minimum_stock: number;

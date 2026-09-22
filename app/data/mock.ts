@@ -66,6 +66,7 @@ export type Service = {
   price: string;
   status: string;
   address: string;
+  imageUrl?: string;
   emoji: string;
   accent: string;
   tags: string[];
@@ -80,6 +81,7 @@ export type Product = {
   rating: number;
   sold: string;
   emoji: string;
+  imageUrl?: string;
   category: string;
   badge?: string;
 };

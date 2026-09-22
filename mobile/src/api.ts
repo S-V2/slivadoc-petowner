@@ -485,6 +485,7 @@ export type MobileService = {
   business_id: string;
   name: string;
   category: string;
+  image_url: string;
   price: number;
   distance_km?: number | null;
   city: string;

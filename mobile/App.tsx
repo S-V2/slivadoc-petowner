@@ -225,6 +225,7 @@ function MobileApp() {
           : item.city,
       price: formatCurrency(item.price),
       status: "Tersedia untuk booking",
+      imageUrl: item.image_url,
       icon: item.category.toLowerCase().includes("groom")
         ? "🛁"
         : item.category.toLowerCase().includes("hotel")

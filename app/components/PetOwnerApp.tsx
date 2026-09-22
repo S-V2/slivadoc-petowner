@@ -324,6 +324,7 @@ export default function PetOwnerApp() {
     rating: 0,
     sold: `Stok ${item.stock}`,
     emoji: item.category.toLowerCase().includes("food") ? "🥣" : "🛍️",
+    imageUrl: item.image_url,
     category: item.category,
     badge: item.available ? undefined : "Stok habis",
   }));
@@ -509,6 +510,7 @@ export default function PetOwnerApp() {
                 item.price > 0 ? `Mulai ${formatRupiah(item.price)}` : "Gratis",
               status: "Tersedia untuk booking",
               address: `${item.branch_name} · ${item.address}`,
+              imageUrl: item.image_url,
               emoji:
                 type === "Grooming"
                   ? "🛁"
@@ -1905,7 +1907,18 @@ function HomeView({
                   <button type="button" aria-label={`Simpan ${service.name}`}>
                     <Icon name="heart" size={14} />
                   </button>
-                  <i>{service.emoji}</i>
+                  {service.imageUrl ? (
+                    <Image
+                      className="catalog-cover-image"
+                      src={service.imageUrl}
+                      alt={`Gambar ${service.name}`}
+                      fill
+                      sizes="220px"
+                      unoptimized
+                    />
+                  ) : (
+                    <i>{service.emoji}</i>
+                  )}
                 </div>
                 <div>
                   <b>{service.name}</b>
@@ -3089,7 +3102,18 @@ function DiscoverView({
         {result.map((service) => (
           <article className="service-result-card" key={service.id}>
             <div className={`service-result-cover ${service.accent}`}>
-              <span>{service.emoji}</span>
+              {service.imageUrl ? (
+                <Image
+                  className="catalog-cover-image"
+                  src={service.imageUrl}
+                  alt={`Gambar ${service.name}`}
+                  fill
+                  sizes="(max-width: 620px) 100vw, 155px"
+                  unoptimized
+                />
+              ) : (
+                <span>{service.emoji}</span>
+              )}
               <em>{service.type}</em>
               <button
                 type="button"
@@ -4157,7 +4181,18 @@ function ShopView({
           {filtered.map((product) => (
             <article className="shop-product-card" key={product.id}>
               <div className="shop-product-visual">
-                <span>{product.emoji}</span>
+                {product.imageUrl ? (
+                  <Image
+                    className="catalog-cover-image"
+                    src={product.imageUrl}
+                    alt={`Gambar ${product.name}`}
+                    fill
+                    sizes="(max-width: 580px) 50vw, 25vw"
+                    unoptimized
+                  />
+                ) : (
+                  <span>{product.emoji}</span>
+                )}
                 {product.badge && <em>{product.badge}</em>}
                 <button
                   className={favorites.includes(product.id) ? "favorite" : ""}
@@ -4519,7 +4554,18 @@ function ServiceDetail({
         </button>
         <header className="service-detail-hero">
           <div className={`service-detail-visual ${service.accent}`}>
-            <span>{service.emoji}</span>
+            {service.imageUrl ? (
+              <Image
+                className="catalog-cover-image"
+                src={service.imageUrl}
+                alt={`Gambar ${service.name}`}
+                fill
+                sizes="230px"
+                unoptimized
+              />
+            ) : (
+              <span>{service.emoji}</span>
+            )}
             <em>{service.type}</em>
             <i>✓ MITRA SLIVADOC</i>
           </div>
@@ -4727,7 +4773,18 @@ function FavoritesView({
             {services.map((service) => (
               <article className="service-result-card" key={service.id}>
                 <div className={`service-result-cover ${service.accent}`}>
-                  <span>{service.emoji}</span>
+                  {service.imageUrl ? (
+                    <Image
+                      className="catalog-cover-image"
+                      src={service.imageUrl}
+                      alt={`Gambar ${service.name}`}
+                      fill
+                      sizes="(max-width: 620px) 100vw, 155px"
+                      unoptimized
+                    />
+                  ) : (
+                    <span>{service.emoji}</span>
+                  )}
                   <em>{service.type}</em>
                   <button
                     className="favorite"
@@ -4767,7 +4824,18 @@ function FavoritesView({
             {products.map((product) => (
               <article className="product-card" key={product.id}>
                 <div className="product-visual">
-                  <span>{product.emoji}</span>
+                  {product.imageUrl ? (
+                    <Image
+                      className="catalog-cover-image"
+                      src={product.imageUrl}
+                      alt={`Gambar ${product.name}`}
+                      fill
+                      sizes="(max-width: 580px) 50vw, 25vw"
+                      unoptimized
+                    />
+                  ) : (
+                    <span>{product.emoji}</span>
+                  )}
                   <button
                     className="favorite"
                     onClick={() => void remove("product", product.id)}

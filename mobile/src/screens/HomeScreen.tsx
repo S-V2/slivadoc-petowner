@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -490,9 +491,10 @@ export function HomeScreen({
             {services.map((service) => (
               <Pressable key={service.id} onPress={() => onBook(service)} style={({ pressed }) => [styles.serviceCard, pressed && styles.pressed]}>
                 <LinearGradient colors={serviceGradient(service.tone)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.serviceVisual}>
+                  {service.imageUrl ? <Image source={{ uri: service.imageUrl }} alt={`Gambar ${service.name}`} style={styles.serviceImage} resizeMode="cover" /> : null}
                   <View style={styles.serviceShine} />
                   <View style={styles.serviceVisualTop}><Pill tone={service.tone === "peach" ? "yellow" : service.tone}>{service.category}</Pill><View style={styles.serviceFavorite}><Ionicons name="heart-outline" size={14} color={colors.navy} /></View></View>
-                  <View style={styles.serviceEmojiWrap}><Ionicons name={serviceIcon(service)} size={34} color={service.tone === "mint" ? "#14836E" : service.tone === "violet" ? "#6655C7" : service.tone === "peach" ? "#8B4A20" : colors.sky600} /></View>
+                  {!service.imageUrl ? <View style={styles.serviceEmojiWrap}><Ionicons name={serviceIcon(service)} size={34} color={service.tone === "mint" ? "#14836E" : service.tone === "violet" ? "#6655C7" : service.tone === "peach" ? "#8B4A20" : colors.sky600} /></View> : null}
                   <View style={styles.topPick}><Ionicons name="sparkles" size={10} color="#6757C9" /><Text style={styles.topPickText}>TOP PICK</Text></View>
                 </LinearGradient>
                 <View style={styles.serviceCardBody}>
@@ -648,6 +650,7 @@ const styles = StyleSheet.create({
   serviceScroll: { gap: 11, paddingRight: 16, paddingBottom: 7 },
   serviceCard: { width: 188, overflow: "hidden", borderWidth: 1, borderColor: colors.sky100, borderRadius: 22, backgroundColor: colors.white, shadowColor: "#396E91", shadowOpacity: 0.1, shadowRadius: 15, shadowOffset: { width: 0, height: 7 }, elevation: 3 },
   serviceVisual: { position: "relative", height: 112, overflow: "hidden", alignItems: "center", justifyContent: "center" },
+  serviceImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, width: "100%", height: "100%" },
   serviceVisualTop: { position: "absolute", zIndex: 2, left: 9, right: 9, top: 9, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   serviceFavorite: { width: 28, height: 28, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,.72)", borderRadius: 10, backgroundColor: "rgba(255,255,255,.76)" },
   serviceShine: { position: "absolute", right: -24, top: -34, width: 100, height: 100, borderRadius: 50, backgroundColor: "rgba(255,255,255,.62)" },

@@ -11,6 +11,7 @@ export type Service = {
   distance: string;
   price: string;
   status: string;
+  imageUrl?: string;
   icon: string;
   tone: "blue" | "mint" | "violet" | "peach";
   priceValue:number;

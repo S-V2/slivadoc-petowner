@@ -21,6 +21,7 @@ import PawDatingExperience from "./pawdating/PawDatingExperience";
 import { FundraisingView, PetshipView } from "./platform/PetshipFundraising";
 import type { LocationResult } from "../lib/petowner-api";
 import { ApiError } from "../lib/session";
+import ShippingAddressModal from "./ShippingAddressModal";
 import { downloadPetMedicalPDF } from "../lib/pet-pdf";
 import { finiteNumber } from "../lib/safe-number";
 import {
@@ -30,16 +31,13 @@ import {
   closeLostPetMode,
   createPetOwnerBooking,
   getDiscoveryProducts,
-  getPetOwnerDistricts,
-  getPetOwnerProvinces,
-  getPetOwnerRegencies,
-  getPetOwnerVillages,
   getDiscoveryServices,
   getMedicalRecords,
   globalSearch,
   getPetFamily,
   getLostPetMode,
   getPetOwnerBootstrap,
+  getPetOwnerShippingAddress,
   getCurrentUser,
   invitePetFamily,
   revokePetFamily,
@@ -51,7 +49,6 @@ import {
   readAllNotifications,
   readNotification,
   togglePetOwnerFavorite,
-  updatePetOwnerPet,
   updatePetOwnerProfile,
   getCareReminders,
   getPublicCampaigns,
@@ -67,8 +64,8 @@ import {
   type FamilyAccess,
   type MedicalRecord,
   type NotificationItem,
-  type GlobalSearchResult,
   type PetOwnerBootstrap,
+  type PetOwnerShippingAddress,
   type OrderQuote,
   type OrderShippingInput,
   type ShippingQuote,
@@ -791,6 +788,8 @@ export default function PetOwnerApp() {
               points={points}
               rewardFormula={rewardFormula}
               onChanged={loadBootstrap}
+              currentLocation={currentLocation}
+              onOpenLocation={() => setLocationOpen(true)}
               onLogout={async () => {
                 await logoutSession();
                 void loadBootstrap();
@@ -847,8 +846,10 @@ export default function PetOwnerApp() {
           onClose={() => setCartOpen(false)}
           notify={notify}
           productCatalog={productCatalog}
-          currentLocation={currentLocation}
-          onOpenLocation={() => setLocationOpen(true)}
+          onOpenAccount={() => {
+            setCartOpen(false);
+            navigate("profile");
+          }}
           account={account}
           points={points}
           rewardFormula={rewardFormula}
@@ -4305,6 +4306,8 @@ function ProfileView({
   rewardFormula,
   onLogout,
   onChanged,
+  currentLocation,
+  onOpenLocation,
 }: {
   notify: Notify;
   account: PetOwnerBootstrap["user"];
@@ -4313,6 +4316,8 @@ function ProfileView({
   rewardFormula: RewardFormula;
   onLogout: () => void;
   onChanged: () => Promise<void>;
+  currentLocation: LocationResult | null;
+  onOpenLocation: () => void;
 }) {
   const initials = account.full_name
     .split(" ")
@@ -4320,7 +4325,27 @@ function ProfileView({
     .slice(0, 2)
     .join("");
   const [edit, setEdit] = useState(false);
+  const [addressEdit, setAddressEdit] = useState(false);
+  const [shippingAddress, setShippingAddress] =
+    useState<PetOwnerShippingAddress | null>(null);
+  const [addressLoading, setAddressLoading] = useState(true);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void getPetOwnerShippingAddress()
+      .then((result) => {
+        if (live) setShippingAddress(result.address);
+      })
+      .catch((error) => {
+        if (live) notify(error instanceof Error ? error.message : "Alamat belum dapat dimuat");
+      })
+      .finally(() => {
+        if (live) setAddressLoading(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [notify]);
   return (
     <div className="profile-native profile-workspace">
       <header className="native-screen-header">
@@ -4401,6 +4426,37 @@ function ProfileView({
           </ul>
         </section>
 
+        <section className="profile-shipping-address">
+          <header>
+            <span>ALAMAT PENGIRIMAN</span>
+            <h3>Alamat utama</h3>
+          </header>
+          {addressLoading ? (
+            <p className="profile-address-muted">Memuat alamat tersimpan…</p>
+          ) : shippingAddress ? (
+            <div className="profile-address-content">
+              <div>
+                <b>{shippingAddress.recipient_name}</b>
+                <span>{shippingAddress.phone}</span>
+                <p>{shippingAddress.address}</p>
+                <small>
+                  {shippingAddress.village.name}, {shippingAddress.district.name},{" "}
+                  {shippingAddress.regency.name} · {shippingAddress.post_code}
+                </small>
+              </div>
+              <button type="button" onClick={() => setAddressEdit(true)}>
+                Ubah
+              </button>
+            </div>
+          ) : (
+            <div className="profile-address-empty">
+              <p>Belum ada alamat tersimpan. Checkout akan lebih cepat setelah alamat utama dibuat.</p>
+              <button type="button" onClick={() => setAddressEdit(true)}>
+                Tambah alamat
+              </button>
+            </div>
+          )}
+        </section>
         <div className="profile-actions-stack">
           <button
             className="profile-native-support"
@@ -4461,6 +4517,20 @@ function ProfileView({
           changed={onChanged}
         />
       )}{" "}
+      {addressEdit && (
+        <ShippingAddressModal
+          account={account}
+          current={shippingAddress}
+          currentLocation={currentLocation}
+          onOpenLocation={onOpenLocation}
+          close={() => setAddressEdit(false)}
+          notify={notify}
+          onSaved={(address) => {
+            setShippingAddress(address);
+            setAddressEdit(false);
+          }}
+        />
+      )}
       {confirmLogout && (
         <div
           className="modal-overlay"
@@ -5605,39 +5675,6 @@ const emptyCartRegions = (): CartRegions => ({
   district: [],
   village: [],
 });
-type CartShippingDraft = {
-  address: CartAddress;
-  regionIDs: CartRegionIDs;
-  regions: CartRegions;
-};
-
-const cartShippingDraftKey = "slivadoc.shipping_address";
-
-function readCartShippingDraft(): CartShippingDraft | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const value = JSON.parse(
-      window.localStorage.getItem(cartShippingDraftKey) ?? "",
-    ) as Partial<CartShippingDraft>;
-    return value.address && value.regionIDs && value.regions
-      ? (value as CartShippingDraft)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeCartShippingDraft(
-  address: CartAddress,
-  regionIDs: CartRegionIDs,
-  regions: CartRegions,
-) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(
-    cartShippingDraftKey,
-    JSON.stringify({ address, regionIDs, regions }),
-  );
-}
 
 function cartRegionLabel(value: string, prefixes: string[]) {
   const normalized = value.trim().replace(/\s+/g, " ").toUpperCase();
@@ -5681,8 +5718,7 @@ function CartDrawer({
   onClose,
   notify,
   productCatalog,
-  currentLocation,
-  onOpenLocation,
+  onOpenAccount,
   account,
   points,
   rewardFormula,
@@ -5693,8 +5729,7 @@ function CartDrawer({
   onClose: () => void;
   notify: Notify;
   productCatalog: Product[];
-  currentLocation: LocationResult | null;
-  onOpenLocation: () => void;
+  onOpenAccount: () => void;
   account: PetOwnerBootstrap["user"] | null;
   points: number;
   rewardFormula: RewardFormula;
@@ -5710,25 +5745,19 @@ function CartDrawer({
   );
   const [busy, setBusy] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState(0);
-  const [shippingAddress, setShippingAddress] = useState<CartAddress>(() => {
-    const saved = readCartShippingDraft();
-    return (
-      saved?.address ?? {
-        name: account?.full_name ?? "",
-        phone: account?.phone ?? "",
-        address: "",
-        post_code: "",
-      }
-    );
-  });
-  const [shippingRegionIDs, setShippingRegionIDs] = useState<CartRegionIDs>(
-    () => readCartShippingDraft()?.regionIDs ?? emptyCartRegionIDs(),
-  );
-  const [shippingRegions, setShippingRegions] = useState<CartRegions>(
-    () => readCartShippingDraft()?.regions ?? emptyCartRegions(),
-  );
-  const [shippingRegionLoading, setShippingRegionLoading] =
-    useState<CartRegionLevel | null>(null);
+  const [accountShippingAddress, setAccountShippingAddress] =
+    useState<PetOwnerShippingAddress | null>(null);
+  const [accountAddressLoading, setAccountAddressLoading] = useState(true);
+  const [shippingAddress, setShippingAddress] = useState<CartAddress>(() => ({
+    name: account?.full_name ?? "",
+    phone: account?.phone ?? "",
+    address: "",
+    post_code: "",
+  }));
+  const [shippingRegionIDs, setShippingRegionIDs] =
+    useState<CartRegionIDs>(emptyCartRegionIDs);
+  const [shippingRegions, setShippingRegions] =
+    useState<CartRegions>(emptyCartRegions);
   const [shippingSelections, setShippingSelections] = useState<
     Record<string, string>
   >({});
@@ -5747,6 +5776,53 @@ function CartDrawer({
     key: string;
     value: OrderQuote;
   } | null>(null);
+  useEffect(() => {
+    let live = true;
+    void getPetOwnerShippingAddress()
+      .then((result) => {
+        if (!live) return;
+        const address = result.address;
+        setAccountShippingAddress(address);
+        if (!address) {
+          setShippingAddress({
+            name: account?.full_name ?? "",
+            phone: account?.phone ?? "",
+            address: "",
+            post_code: "",
+          });
+          setShippingRegionIDs(emptyCartRegionIDs());
+          setShippingRegions(emptyCartRegions());
+          return;
+        }
+        setShippingAddress({
+          name: address.recipient_name,
+          phone: address.phone,
+          address: address.address,
+          post_code: address.post_code,
+        });
+        setShippingRegionIDs({
+          province: address.province.code,
+          regency: address.regency.code,
+          district: address.district.code,
+          village: address.village.code,
+        });
+        setShippingRegions({
+          province: [{ id: address.province.code, ...address.province }],
+          regency: [{ id: address.regency.code, ...address.regency }],
+          district: [{ id: address.district.code, ...address.district }],
+          village: [{ id: address.village.code, ...address.village }],
+        });
+      })
+      .catch((error) => {
+        if (live) notify(error instanceof Error ? error.message : "Alamat belum dapat dimuat");
+      })
+      .finally(() => {
+        if (live) setAccountAddressLoading(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [account?.full_name, account?.phone, notify]);
   const items = useMemo(
     () => productCatalog.filter((product) => cart[product.id]),
     [productCatalog, cart],
@@ -5785,9 +5861,11 @@ function CartDrawer({
         post_code: shippingAddress.post_code.trim(),
         area: cartShippingArea(district.name, regency.name),
         email: account?.email,
-        geoloc: currentLocation
-          ? `${currentLocation.latitude},${currentLocation.longitude}`
-          : undefined,
+        geoloc:
+          accountShippingAddress?.latitude != null &&
+          accountShippingAddress.longitude != null
+            ? `${accountShippingAddress.latitude},${accountShippingAddress.longitude}`
+            : undefined,
       },
       shipment_type: "PICKUP",
       use_insurance: false,
@@ -5798,7 +5876,7 @@ function CartDrawer({
     };
   }, [
     account?.email,
-    currentLocation,
+    accountShippingAddress,
     shippingAddress,
     shippingAddressComplete,
     shippingBranchID,
@@ -5824,9 +5902,13 @@ function CartDrawer({
           ? quoteErrorState.message
           : orderItems.length > 0 && !authenticatedForQuote
             ? "Login diperlukan untuk menghitung total keranjang"
-            : shippingRequired && !shippingInput
-              ? "Lengkapi alamat pengiriman untuk menghitung total"
-              : ""
+            : accountAddressLoading
+              ? "Memuat alamat pengiriman…"
+              : !accountShippingAddress
+                ? "Tambahkan alamat pengiriman di Akun"
+                : shippingRequired && !shippingInput
+                  ? "Alamat pengiriman belum siap dihitung"
+                  : ""
       : "";
   const shippingFormVisible = checkoutStep === "shipping";
   const singleBranchOptions =
@@ -5836,37 +5918,13 @@ function CartDrawer({
       : [];
 
   useEffect(() => {
-    if (!shippingFormVisible || shippingRegions.province.length > 0) return;
-    let live = true;
-    void getPetOwnerProvinces()
-      .then((result) => {
-        if (live) {
-          setShippingRegions((current) => ({
-            ...current,
-            province: result.data,
-          }));
-        }
-      })
-      .catch((error) => {
-        if (live) {
-          notify(
-            error instanceof Error
-              ? error.message
-              : "Provinsi belum dapat dimuat",
-          );
-        }
-      });
-    return () => {
-      live = false;
-    };
-  }, [notify, shippingFormVisible, shippingRegions.province.length]);
-
-  useEffect(() => {
     let live = true;
     if (
       checkoutStep !== "shipping" ||
       orderItems.length === 0 ||
       !authenticatedForQuote ||
+      accountAddressLoading ||
+      !accountShippingAddress ||
       (shippingRequired && !shippingInput)
     ) {
       return;
@@ -5879,13 +5937,6 @@ function CartDrawer({
     })
       .then((result) => {
         if (!live) return;
-        if (shippingInput) {
-          writeCartShippingDraft(
-            shippingAddress,
-            shippingRegionIDs,
-            shippingRegions,
-          );
-        }
         if (result.shipping_ready && !shippingInput) {
           setShippingRequired(true);
           setQuoted(null);
@@ -5997,68 +6048,6 @@ function CartDrawer({
       if (!next[id]) delete next[id];
       return next;
     });
-  }
-  async function loadCartRegions(level: CartRegionLevel, parentID = "") {
-    setShippingRegionLoading(level);
-    try {
-      const result =
-        level === "province"
-          ? await getPetOwnerProvinces()
-          : level === "regency"
-            ? await getPetOwnerRegencies(parentID)
-            : level === "district"
-              ? await getPetOwnerDistricts(parentID)
-              : await getPetOwnerVillages(parentID);
-      setShippingRegions((current) => ({
-        ...current,
-        [level]: result.data,
-      }));
-    } catch (error) {
-      notify(
-        error instanceof Error
-          ? error.message
-          : "Wilayah pengiriman belum dapat dimuat",
-      );
-    } finally {
-      setShippingRegionLoading((current) =>
-        current === level ? null : current,
-      );
-    }
-  }
-  function updateShippingAddress(field: keyof CartAddress, value: string) {
-    setShippingAddress((current) => ({ ...current, [field]: value }));
-    setShippingBranchID("");
-    setShippingOptions([]);
-    setShippingSelections({});
-  }
-  function selectShippingRegion(level: CartRegionLevel, value: string) {
-    const levels: CartRegionLevel[] = [
-      "province",
-      "regency",
-      "district",
-      "village",
-    ];
-    const index = levels.indexOf(level);
-    setShippingRegionIDs((current) => {
-      const next = { ...current, [level]: value };
-      for (let child = index + 1; child < levels.length; child += 1) {
-        next[levels[child]] = "";
-      }
-      return next;
-    });
-    setShippingRegions((current) => {
-      const next = { ...current };
-      for (let child = index + 1; child < levels.length; child += 1) {
-        next[levels[child]] = [];
-      }
-      return next;
-    });
-    setShippingBranchID("");
-    setShippingOptions([]);
-    setShippingSelections({});
-    if (value && index < levels.length - 1) {
-      void loadCartRegions(levels[index + 1], value);
-    }
   }
   async function applyVoucher() {
     const code = voucherInput.toUpperCase();
@@ -6249,145 +6238,35 @@ function CartDrawer({
               <section className="cart-shipping">
                 <div className="cart-shipping-heading">
                   <b>Alamat pengiriman</b>
-                  <small>
-                    Lengkapi tujuan untuk menghitung ongkir Lion Parcel.
-                  </small>
+                  <small>Alamat dikelola dari halaman Akun.</small>
                 </div>
-                <div className="cart-form-grid">
-                  <label>
-                    <span>Nama penerima</span>
-                    <input
-                      value={shippingAddress.name}
-                      onChange={(event) =>
-                        updateShippingAddress("name", event.target.value)
-                      }
-                      placeholder="Nama lengkap"
-                    />
-                  </label>
-                  <label>
-                    <span>No. WhatsApp</span>
-                    <input
-                      value={shippingAddress.phone}
-                      onChange={(event) =>
-                        updateShippingAddress("phone", event.target.value)
-                      }
-                      placeholder="08xxxxxxxxxx"
-                    />
-                  </label>
-                </div>
-                <label>
-                  <span>Alamat lengkap</span>
-                  <textarea
-                    value={shippingAddress.address}
-                    onChange={(event) =>
-                      updateShippingAddress("address", event.target.value)
-                    }
-                    placeholder="Nama jalan, nomor rumah, RT/RW"
-                    rows={3}
-                  />
-                </label>
-                <div className="cart-location-row">
-                  <span>
-                    <small>Lokasi untuk menentukan cabang terdekat</small>
-                    <b>{currentLocation?.label ?? "Belum dipilih"}</b>
-                  </span>
-                  <button type="button" onClick={onOpenLocation}>
-                    {currentLocation ? "Ubah lokasi" : "Pilih lokasi"}
-                  </button>
-                </div>
-                <div className="cart-form-grid">
-                  <label>
-                    <span>Provinsi</span>
-                    <select
-                      value={shippingRegionIDs.province}
-                      disabled={shippingRegionLoading === "province"}
-                      onChange={(event) =>
-                        selectShippingRegion("province", event.target.value)
-                      }
-                    >
-                      <option value="">Pilih provinsi</option>
-                      {shippingRegions.province.map((region) => (
-                        <option key={region.id} value={region.id}>
-                          {region.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span>Kabupaten / kota</span>
-                    <select
-                      value={shippingRegionIDs.regency}
-                      disabled={
-                        !shippingRegionIDs.province ||
-                        shippingRegionLoading === "regency"
-                      }
-                      onChange={(event) =>
-                        selectShippingRegion("regency", event.target.value)
-                      }
-                    >
-                      <option value="">Pilih kabupaten / kota</option>
-                      {shippingRegions.regency.map((region) => (
-                        <option key={region.id} value={region.id}>
-                          {region.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span>Kecamatan</span>
-                    <select
-                      value={shippingRegionIDs.district}
-                      disabled={
-                        !shippingRegionIDs.regency ||
-                        shippingRegionLoading === "district"
-                      }
-                      onChange={(event) =>
-                        selectShippingRegion("district", event.target.value)
-                      }
-                    >
-                      <option value="">Pilih kecamatan</option>
-                      {shippingRegions.district.map((region) => (
-                        <option key={region.id} value={region.id}>
-                          {region.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span>Kelurahan / desa</span>
-                    <select
-                      value={shippingRegionIDs.village}
-                      disabled={
-                        !shippingRegionIDs.district ||
-                        shippingRegionLoading === "village"
-                      }
-                      onChange={(event) =>
-                        selectShippingRegion("village", event.target.value)
-                      }
-                    >
-                      <option value="">Pilih kelurahan / desa</option>
-                      {shippingRegions.village.map((region) => (
-                        <option key={region.id} value={region.id}>
-                          {region.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <label>
-                  <span>Kode pos</span>
-                  <input
-                    value={shippingAddress.post_code}
-                    onChange={(event) =>
-                      updateShippingAddress(
-                        "post_code",
-                        event.target.value.replace(/\D/g, "").slice(0, 5),
-                      )
-                    }
-                    inputMode="numeric"
-                    placeholder="12345"
-                  />
-                </label>
+                {accountAddressLoading ? (
+                  <p className="profile-address-muted">Memuat alamat tersimpan…</p>
+                ) : accountShippingAddress ? (
+                  <div className="cart-shipping-saved">
+                    <div>
+                      <b>{accountShippingAddress.recipient_name}</b>
+                      <span>{accountShippingAddress.phone}</span>
+                      <p>{accountShippingAddress.address}</p>
+                      <small>
+                        {accountShippingAddress.village.name},{" "}
+                        {accountShippingAddress.district.name},{" "}
+                        {accountShippingAddress.regency.name} ·{" "}
+                        {accountShippingAddress.post_code}
+                      </small>
+                    </div>
+                    <button type="button" onClick={onOpenAccount}>
+                      Ubah di Akun
+                    </button>
+                  </div>
+                ) : (
+                  <div className="cart-shipping-empty">
+                    <p>Belum ada alamat tersimpan untuk checkout.</p>
+                    <button type="button" onClick={onOpenAccount}>
+                      Tambah alamat di Akun
+                    </button>
+                  </div>
+                )}
                 {singleBranchOptions.length > 0 && (
                   <div className="cart-shipping-branches">
                     <small className="cart-shipping-branch-label">
@@ -6412,9 +6291,11 @@ function CartDrawer({
                           >
                             <b>{branch.branch_name}</b>
                             <span>{branch.origin}</span>
-                            {cheapest && (
+                            {branch.distance_km != null ? (
+                              <small>{branch.distance_km.toFixed(1)} km dari alamat</small>
+                            ) : cheapest ? (
                               <strong>{formatRupiah(cheapest.fee)}</strong>
-                            )}
+                            ) : null}
                           </button>
                         );
                       })}

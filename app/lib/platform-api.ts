@@ -163,6 +163,30 @@ export type OrderShippingInput = {
   branch_id?: string;
   selections: Array<{ branch_id: string; service_code: string }>;
 };
+export type PetOwnerShippingRegion = {
+  code: string;
+  name: string;
+};
+
+export type PetOwnerShippingAddress = {
+  id: string;
+  recipient_name: string;
+  phone: string;
+  address: string;
+  post_code: string;
+  province: PetOwnerShippingRegion;
+  regency: PetOwnerShippingRegion;
+  district: PetOwnerShippingRegion;
+  village: PetOwnerShippingRegion;
+  area: string;
+  latitude?: number | null;
+  longitude?: number | null;
+};
+
+export type PetOwnerShippingAddressInput = Omit<
+  PetOwnerShippingAddress,
+  "id" | "area"
+>;
 // Authoritative cart breakdown from POST /api/v1/petowner/orders/quote. The
 // client renders these numbers instead of recomputing the fee or the discounts:
 // its own copy of that arithmetic is exactly what drifted from the server.
@@ -1391,6 +1415,21 @@ export const updatePetOwnerProfile = (input: {
     "/api/v1/petowner/profile",
     { method: "PATCH", body: JSON.stringify(input) },
   );
+export const getPetOwnerShippingAddress = () =>
+  request<{ address: PetOwnerShippingAddress | null }>(
+    "/api/v1/petowner/shipping-address",
+  );
+
+export const savePetOwnerShippingAddress = (
+  input: PetOwnerShippingAddressInput,
+) =>
+  request<{
+    address: PetOwnerShippingAddress;
+    message: string;
+  }>("/api/v1/petowner/shipping-address", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
 
 export const createPetOwnerPet = (input: Record<string, unknown>) =>
   request<{

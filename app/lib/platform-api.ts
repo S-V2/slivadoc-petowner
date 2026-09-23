@@ -61,6 +61,7 @@ export type PetSpecies = {
 
 export type PetOwnerUser = {
   id: string;
+  public_code?: string;
   email: string;
   full_name: string;
   phone: string;

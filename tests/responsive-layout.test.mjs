@@ -25,6 +25,6 @@ test("registration consent checkboxes do not inherit full-width text input style
 test("mobile authentication sheet is bounded by its viewport", () => {
   assert.match(
     css,
-    /\.petowner-login\{width:100%;max-width:100%;[^}]*overflow-x:hidden/,
+    /\.petowner-login\s*\{\s*width:\s*100%;\s*max-width:\s*100%;[^}]*overflow-x:\s*hidden/,
   );
 });

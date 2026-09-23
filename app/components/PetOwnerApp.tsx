@@ -5815,6 +5815,9 @@ function CartDrawer({
   rewardFormula: RewardFormula;
   onRewardChanged: () => Promise<void>;
 }) {
+  const [selectedCartIDs, setSelectedCartIDs] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [voucherInput, setVoucherInput] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState("");
   const [voucherBusy, setVoucherBusy] = useState(false);
@@ -5918,6 +5921,11 @@ function CartDrawer({
       })),
     [items, cart],
   );
+  const selectedCartItems = items.filter((item) =>
+    selectedCartIDs.has(item.id),
+  );
+  const allCartItemsSelected =
+    items.length > 0 && selectedCartItems.length === items.length;
   const cartSubtotal = useMemo(
     () => items.reduce((total, item) => total + item.price * cart[item.id], 0),
     [items, cart],
@@ -6123,6 +6131,14 @@ function CartDrawer({
     setShippingBranchID("");
     setShippingOptions([]);
     setShippingSelections({});
+    if ((cart[id] ?? 0) + amount <= 0) {
+      setSelectedCartIDs((current) => {
+        if (!current.has(id)) return current;
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }
     setCart((current) => {
       const next = {
         ...current,
@@ -6131,6 +6147,25 @@ function CartDrawer({
       if (!next[id]) delete next[id];
       return next;
     });
+  }
+  function toggleCartItem(id: string) {
+    setSelectedCartIDs((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function deleteSelectedCartItems() {
+    const ids = new Set(selectedCartItems.map((item) => item.id));
+    if (ids.size === 0) return;
+    setCart((current) =>
+      Object.fromEntries(Object.entries(current).filter(([id]) => !ids.has(id))),
+    );
+    setSelectedCartIDs(new Set());
+    setShippingBranchID("");
+    setShippingOptions([]);
+    setShippingSelections({});
   }
   async function applyVoucher() {
     const code = voucherInput.toUpperCase();
@@ -6269,27 +6304,71 @@ function CartDrawer({
           <>
             {checkoutStep === "cart" ? (
               <>
-            <div className="cart-items">
-              {items.map((item) => (
-                <div className="cart-item" key={item.id}>
-                  <span>{item.emoji}</span>
-                  <div>
-                    <small>{item.brand}</small>
-                    <b>{item.name}</b>
-                    <strong>{formatRupiah(item.price)}</strong>
-                  </div>
-                  <div className="quantity">
-                    <button type="button" onClick={() => update(item.id, -1)}>
-                      −
+                <div className="cart-bulk-actions">
+                  <button
+                    type="button"
+                    aria-pressed={allCartItemsSelected}
+                    onClick={() =>
+                      setSelectedCartIDs(
+                        allCartItemsSelected
+                          ? new Set()
+                          : new Set(items.map((item) => item.id)),
+                      )
+                    }
+                  >
+                    {allCartItemsSelected ? "Batalkan pilihan" : "Pilih semua"}
+                  </button>
+                  {selectedCartItems.length > 0 && (
+                    <button
+                      className="cart-delete-selected"
+                      type="button"
+                      onClick={deleteSelectedCartItems}
+                    >
+                      Hapus dipilih ({selectedCartItems.length})
                     </button>
-                    <b>{cart[item.id]}</b>
-                    <button type="button" onClick={() => update(item.id, 1)}>
-                      +
-                    </button>
-                  </div>
+                  )}
                 </div>
-              ))}
-            </div>
+                <div className="cart-items">
+                  {items.map((item) => {
+                    const selected = selectedCartIDs.has(item.id);
+                    return (
+                      <div className="cart-item" key={item.id}>
+                        <button
+                          className={`cart-item-select${selected ? " selected" : ""}`}
+                          type="button"
+                          aria-label={`${selected ? "Batalkan pilihan" : "Pilih"} ${item.name}`}
+                          aria-pressed={selected}
+                          onClick={() => toggleCartItem(item.id)}
+                        >
+                          <span>{item.emoji}</span>
+                          <small>
+                            {selected ? <Icon name="check" size={12} /> : "Pilih"}
+                          </small>
+                        </button>
+                        <div>
+                          <small>{item.brand}</small>
+                          <b>{item.name}</b>
+                          <strong>{formatRupiah(item.price)}</strong>
+                        </div>
+                        <div className="quantity">
+                          <button
+                            type="button"
+                            onClick={() => update(item.id, -1)}
+                          >
+                            −
+                          </button>
+                          <b>{cart[item.id]}</b>
+                          <button
+                            type="button"
+                            onClick={() => update(item.id, 1)}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
                 <div className="cart-summary cart-cart-summary">
                   <span>
                     <small>Subtotal produk</small>

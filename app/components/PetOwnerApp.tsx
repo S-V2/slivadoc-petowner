@@ -273,6 +273,8 @@ function apiPetToView(pet: PetOwnerBootstrap["pets"][number]): Pet {
   };
 }
 
+const checkoutSuccessStorageKey = "slivadoc.checkout-success";
+
 export default function PetOwnerApp() {
   const [activeView, setActiveView] = useState<AppView>("home");
   const [petProfiles, setPetProfiles] = useState<Pet[]>([]);
@@ -293,6 +295,7 @@ export default function PetOwnerApp() {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [addPetOpen, setAddPetOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<LocationResult | null>(
@@ -305,6 +308,15 @@ export default function PetOwnerApp() {
   const [cart, setCart] = useState<Record<string, number>>({});
   const [toast, setToast] = useState("");
   const [loginOpen, setLoginOpen] = useState(false);
+  function completeCheckout() {
+    window.sessionStorage.setItem(checkoutSuccessStorageKey, "1");
+    setCheckoutSuccess(true);
+    setCartOpen(false);
+  }
+  function dismissCheckoutSuccess() {
+    window.sessionStorage.removeItem(checkoutSuccessStorageKey);
+    setCheckoutSuccess(false);
+  }
 
   const selectedPet = petProfiles.find((pet) => pet.id === selectedPetId) ??
     petProfiles[0] ?? {
@@ -359,6 +371,8 @@ export default function PetOwnerApp() {
               ? savedView
               : "home";
         setActiveView(view);
+        if (window.sessionStorage.getItem(checkoutSuccessStorageKey) === "1")
+          setCheckoutSuccess(true);
       });
     } catch {
       window.localStorage.removeItem("slivadoc.location");
@@ -857,6 +871,7 @@ export default function PetOwnerApp() {
           account={account}
           points={points}
           rewardFormula={rewardFormula}
+          onCheckoutSuccess={completeCheckout}
           onRewardChanged={loadBootstrap}
         />
       )}
@@ -904,6 +919,38 @@ export default function PetOwnerApp() {
           notify={notify}
           onSuccess={loadBootstrap}
         />
+      )}
+      {checkoutSuccess && (
+        <div className="modal-overlay">
+          <div
+            className="modal success-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="checkout-success-title"
+          >
+            <button
+              className="modal-close"
+              type="button"
+              aria-label="Tutup"
+              onClick={dismissCheckoutSuccess}
+            >
+              <Icon name="close" />
+            </button>
+            <span className="success-animation">
+              <Icon name="check" size={34} />
+            </span>
+            <small>SLIVA PET SHOP</small>
+            <h2 id="checkout-success-title">Pembayaran berhasil</h2>
+            <p>Transaksi sudah tercatat dan pesanan sedang diproses.</p>
+            <button
+              className="primary-button full"
+              type="button"
+              onClick={dismissCheckoutSuccess}
+            >
+              Selesai
+            </button>
+          </div>
+        </div>
       )}
 
       {toast && (
@@ -5803,6 +5850,7 @@ function CartDrawer({
   points,
   rewardFormula,
   onRewardChanged,
+  onCheckoutSuccess,
 }: {
   cart: Record<string, number>;
   setCart: React.Dispatch<React.SetStateAction<Record<string, number>>>;
@@ -5814,6 +5862,7 @@ function CartDrawer({
   points: number;
   rewardFormula: RewardFormula;
   onRewardChanged: () => Promise<void>;
+  onCheckoutSuccess: () => void;
 }) {
   const [selectedCartIDs, setSelectedCartIDs] = useState<Set<string>>(
     () => new Set(),
@@ -6283,7 +6332,7 @@ function CartDrawer({
             payment={payment}
             onPaid={() => {
               setCart({});
-              notify("Pembayaran berhasil, pesanan sedang diproses");
+              onCheckoutSuccess();
               void onRewardChanged();
             }}
           />

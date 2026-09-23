@@ -65,7 +65,7 @@ const pendingPayment = {
   qr_string: "test",
 };
 
-test("paid checkout shows success after returning to the app", async ({ page }) => {
+test("mobile checkout keeps address readable and confirms paid orders", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("slivadoc.access_token", "payment-test-token");
     localStorage.setItem("slivadoc.refresh_token", "payment-test-refresh");
@@ -152,6 +152,7 @@ test("paid checkout shows success after returning to the app", async ({ page }) 
     return route.fulfill({ status: 404, body: "Unmocked API route" });
   });
 
+  await page.setViewportSize({ width: 428, height: 701 });
   await page.goto("/?view=shop", { waitUntil: "domcontentloaded" });
   await expect(
     page.getByRole("button", { name: "Tambah Test Food ke keranjang" }),
@@ -160,6 +161,34 @@ test("paid checkout shows success after returning to the app", async ({ page }) 
   await expect(page.locator(".cart-item")).toHaveCount(1);
   await page.getByRole("button", { name: "Atur pengiriman" }).click();
   await expect(page.locator(".cart-summary .total b")).toContainText("35.000");
+  const addressLayout = await page.evaluate(() => {
+    const rect = (selector: string) => {
+      const element = document.querySelector<HTMLElement>(selector);
+      if (!element) throw new Error(`Missing ${selector}`);
+      const bounds = element.getBoundingClientRect();
+      return {
+        top: bounds.top,
+        bottom: bounds.bottom,
+        left: bounds.left,
+        right: bounds.right,
+      };
+    };
+    return {
+      title: rect(".cart-shipping-heading b"),
+      hint: rect(".cart-shipping-heading small"),
+      recipient: rect(".cart-shipping-saved > div > b"),
+      phone: rect(".cart-shipping-saved > div > span"),
+      street: rect(".cart-shipping-saved p"),
+      region: rect(".cart-shipping-saved > div > small"),
+      orderSummary: rect(".cart-order-preview > span"),
+      changeCart: rect(".cart-order-preview button"),
+    };
+  });
+  expect(addressLayout.hint.top).toBeGreaterThanOrEqual(addressLayout.title.bottom);
+  expect(addressLayout.phone.top).toBeGreaterThanOrEqual(addressLayout.recipient.bottom);
+  expect(addressLayout.street.top).toBeGreaterThanOrEqual(addressLayout.phone.bottom);
+  expect(addressLayout.region.top).toBeGreaterThanOrEqual(addressLayout.street.bottom);
+  expect(addressLayout.changeCart.left - addressLayout.orderSummary.right).toBeGreaterThanOrEqual(8);
   await page.getByRole("button", { name: "Lanjut ke pembayaran" }).click();
   await expect(
     page.getByRole("heading", { name: "Keranjang masih kosong" }),

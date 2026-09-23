@@ -13,6 +13,6 @@ test("Jelajahi service detail is a structured responsive booking surface", () =>
   assert.match(app, /Pilih jadwal & booking/);
   assert.match(app, /role="dialog"/);
   assert.match(styles, /\.service-detail-highlight/);
-  assert.match(styles, /\.service-detail-modal\{overflow-x:hidden\}/);
-  assert.match(styles, /@media\(max-width:620px\)/);
+  assert.match(styles, /\.service-detail-modal\s*\{\s*overflow-x:\s*hidden\s*;/);
+  assert.match(styles, /@media\s*\(max-width:\s*620px\)/);
 });

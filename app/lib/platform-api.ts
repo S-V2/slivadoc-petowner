@@ -170,6 +170,7 @@ export type PetOwnerShippingRegion = {
 
 export type PetOwnerShippingAddress = {
   id: string;
+  label: string;
   recipient_name: string;
   phone: string;
   address: string;
@@ -181,12 +182,15 @@ export type PetOwnerShippingAddress = {
   area: string;
   latitude?: number | null;
   longitude?: number | null;
+  is_primary: boolean;
 };
 
 export type PetOwnerShippingAddressInput = Omit<
   PetOwnerShippingAddress,
-  "id" | "area"
->;
+  "id" | "area" | "is_primary"
+> & {
+  is_primary?: boolean;
+};
 // Authoritative cart breakdown from POST /api/v1/petowner/orders/quote. The
 // client renders these numbers instead of recomputing the fee or the discounts:
 // its own copy of that arithmetic is exactly what drifted from the server.
@@ -1415,21 +1419,39 @@ export const updatePetOwnerProfile = (input: {
     "/api/v1/petowner/profile",
     { method: "PATCH", body: JSON.stringify(input) },
   );
-export const getPetOwnerShippingAddress = () =>
-  request<{ address: PetOwnerShippingAddress | null }>(
-    "/api/v1/petowner/shipping-address",
+export const getPetOwnerShippingAddresses = () =>
+  request<{ addresses: PetOwnerShippingAddress[] }>(
+    "/api/v1/petowner/shipping-addresses",
   );
 
-export const savePetOwnerShippingAddress = (
+export const createPetOwnerShippingAddress = (
   input: PetOwnerShippingAddressInput,
 ) =>
-  request<{
-    address: PetOwnerShippingAddress;
-    message: string;
-  }>("/api/v1/petowner/shipping-address", {
-    method: "PUT",
-    body: JSON.stringify(input),
-  });
+  request<{ address: PetOwnerShippingAddress; message: string }>(
+    "/api/v1/petowner/shipping-addresses",
+    { method: "POST", body: JSON.stringify(input) },
+  );
+
+export const updatePetOwnerShippingAddress = (
+  addressID: string,
+  input: PetOwnerShippingAddressInput,
+) =>
+  request<{ address: PetOwnerShippingAddress; message: string }>(
+    `/api/v1/petowner/shipping-addresses/${addressID}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
+
+export const deletePetOwnerShippingAddress = (addressID: string) =>
+  request<{ message: string }>(
+    `/api/v1/petowner/shipping-addresses/${addressID}`,
+    { method: "DELETE" },
+  );
+
+export const setPrimaryPetOwnerShippingAddress = (addressID: string) =>
+  request<{ address: PetOwnerShippingAddress; message: string }>(
+    `/api/v1/petowner/shipping-addresses/${addressID}/primary`,
+    { method: "PATCH", body: "{}" },
+  );
 
 export const createPetOwnerPet = (input: Record<string, unknown>) =>
   request<{

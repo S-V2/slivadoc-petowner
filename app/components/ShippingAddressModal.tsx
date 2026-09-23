@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { Icon } from "./Icon";
 import type { LocationResult } from "../lib/petowner-api";
 import {
+  createPetOwnerShippingAddress,
   getPetOwnerDistricts,
   getPetOwnerProvinces,
   getPetOwnerRegencies,
   getPetOwnerVillages,
-  savePetOwnerShippingAddress,
+  updatePetOwnerShippingAddress,
   type PetOwnerShippingAddress,
   type RegionOption,
 } from "../lib/platform-api";
@@ -18,6 +19,7 @@ type RegionLevel = "province" | "regency" | "district" | "village";
 type RegionIDs = Record<RegionLevel, string>;
 type Regions = Record<RegionLevel, RegionOption[]>;
 type AddressForm = {
+  label: string;
   name: string;
   phone: string;
   address: string;
@@ -68,6 +70,7 @@ export default function ShippingAddressModal({
   onSaved: (address: PetOwnerShippingAddress) => void;
 }) {
   const [form, setForm] = useState<AddressForm>(() => ({
+    label: current?.label ?? "Rumah",
     name: current?.recipient_name ?? account.full_name,
     phone: current?.phone ?? account.phone,
     address: current?.address ?? "",
@@ -180,7 +183,8 @@ export default function ShippingAddressModal({
     }
     setBusy(true);
     try {
-      const result = await savePetOwnerShippingAddress({
+      const input = {
+        label: form.label.trim(),
         recipient_name: form.name.trim(),
         phone: form.phone.trim(),
         address: form.address.trim(),
@@ -191,7 +195,10 @@ export default function ShippingAddressModal({
         village: { code: selected.village!.code, name: selected.village!.name },
         latitude: currentLocation?.latitude ?? current?.latitude ?? null,
         longitude: currentLocation?.longitude ?? current?.longitude ?? null,
-      });
+      };
+      const result = current
+        ? await updatePetOwnerShippingAddress(current.id, input)
+        : await createPetOwnerShippingAddress(input);
       onSaved(result.address);
       notify(result.message);
     } catch (error) {
@@ -208,9 +215,13 @@ export default function ShippingAddressModal({
           <Icon name="close" />
         </button>
         <span className="section-eyebrow">ALAMAT PENGIRIMAN</span>
-        <h2>{current ? "Ubah alamat utama" : "Tambah alamat utama"}</h2>
+        <h2>{current ? "Ubah alamat" : "Tambah alamat"}</h2>
         <p className="shipping-address-help">Alamat ini dipakai cart untuk menghitung cabang terdekat dan ongkir.</p>
         <form className="world-form" onSubmit={submit}>
+          <label>
+            <span>Label alamat</span>
+            <input value={form.label} onChange={(event) => setForm((value) => ({ ...value, label: event.target.value }))} required placeholder="Rumah, kantor, kos" />
+          </label>
           <div className="form-row">
             <label>
               <span>Nama penerima</span>

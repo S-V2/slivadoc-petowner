@@ -37,7 +37,9 @@ import {
   getPetFamily,
   getLostPetMode,
   getPetOwnerBootstrap,
-  getPetOwnerShippingAddress,
+  getPetOwnerShippingAddresses,
+  deletePetOwnerShippingAddress,
+  setPrimaryPetOwnerShippingAddress,
   getCurrentUser,
   invitePetFamily,
   revokePetFamily,
@@ -4327,16 +4329,19 @@ function ProfileView({
     .slice(0, 2)
     .join("");
   const [edit, setEdit] = useState(false);
-  const [addressEdit, setAddressEdit] = useState(false);
-  const [shippingAddress, setShippingAddress] =
+  const [addressModalOpen, setAddressModalOpen] = useState(false);
+  const [editingAddress, setEditingAddress] =
     useState<PetOwnerShippingAddress | null>(null);
+  const [shippingAddresses, setShippingAddresses] = useState<
+    PetOwnerShippingAddress[]
+  >([]);
   const [addressLoading, setAddressLoading] = useState(true);
   const [confirmLogout, setConfirmLogout] = useState(false);
   useEffect(() => {
     let live = true;
-    void getPetOwnerShippingAddress()
+    void getPetOwnerShippingAddresses()
       .then((result) => {
-        if (live) setShippingAddress(result.address);
+        if (live) setShippingAddresses(result.addresses);
       })
       .catch((error) => {
         if (live) notify(error instanceof Error ? error.message : "Alamat belum dapat dimuat");
@@ -4348,6 +4353,30 @@ function ProfileView({
       live = false;
     };
   }, [notify]);
+  async function makePrimary(addressID: string) {
+    try {
+      const result = await setPrimaryPetOwnerShippingAddress(addressID);
+      setShippingAddresses((current) =>
+        current.map((address) => ({
+          ...address,
+          is_primary: address.id === result.address.id,
+        })),
+      );
+      notify(result.message);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Alamat utama belum dapat diubah");
+    }
+  }
+  async function removeAddress(address: PetOwnerShippingAddress) {
+    if (!window.confirm(`Hapus alamat ${address.label}?`)) return;
+    try {
+      const result = await deletePetOwnerShippingAddress(address.id);
+      setShippingAddresses((current) => current.filter((item) => item.id !== address.id));
+      notify(result.message);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Alamat belum dapat dihapus");
+    }
+  }
   return (
     <div className="profile-native profile-workspace">
       <header className="native-screen-header">
@@ -4431,29 +4460,73 @@ function ProfileView({
         <section className="profile-shipping-address">
           <header>
             <span>ALAMAT PENGIRIMAN</span>
-            <h3>Alamat utama</h3>
+            <div className="profile-address-heading-row">
+              <h3>Alamat tersimpan</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingAddress(null);
+                  setAddressModalOpen(true);
+                }}
+              >
+                Tambah
+              </button>
+            </div>
           </header>
           {addressLoading ? (
             <p className="profile-address-muted">Memuat alamat tersimpan…</p>
-          ) : shippingAddress ? (
-            <div className="profile-address-content">
-              <div>
-                <b>{shippingAddress.recipient_name}</b>
-                <span>{shippingAddress.phone}</span>
-                <p>{shippingAddress.address}</p>
-                <small>
-                  {shippingAddress.village.name}, {shippingAddress.district.name},{" "}
-                  {shippingAddress.regency.name} · {shippingAddress.post_code}
-                </small>
-              </div>
-              <button type="button" onClick={() => setAddressEdit(true)}>
-                Ubah
-              </button>
+          ) : shippingAddresses.length > 0 ? (
+            <div className="profile-address-list">
+              {shippingAddresses.map((address) => (
+                <article
+                  className={address.is_primary ? "profile-address-card primary" : "profile-address-card"}
+                  key={address.id}
+                >
+                  <div>
+                    <div className="profile-address-card-title">
+                      <b>{address.label}</b>
+                      {address.is_primary && <span>UTAMA</span>}
+                    </div>
+                    <strong>{address.recipient_name}</strong>
+                    <small>{address.phone}</small>
+                    <p>{address.address}</p>
+                    <small>
+                      {address.village.name}, {address.district.name},{" "}
+                      {address.regency.name} · {address.post_code}
+                    </small>
+                  </div>
+                  <div className="profile-address-card-actions">
+                    {!address.is_primary && (
+                      <button type="button" onClick={() => void makePrimary(address.id)}>
+                        Jadikan utama
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAddress(address);
+                        setAddressModalOpen(true);
+                      }}
+                    >
+                      Ubah
+                    </button>
+                    <button type="button" onClick={() => void removeAddress(address)}>
+                      Hapus
+                    </button>
+                  </div>
+                </article>
+              ))}
             </div>
           ) : (
             <div className="profile-address-empty">
-              <p>Belum ada alamat tersimpan. Checkout akan lebih cepat setelah alamat utama dibuat.</p>
-              <button type="button" onClick={() => setAddressEdit(true)}>
+              <p>Belum ada alamat tersimpan. Tambahkan alamat untuk checkout lebih cepat.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingAddress(null);
+                  setAddressModalOpen(true);
+                }}
+              >
                 Tambah alamat
               </button>
             </div>
@@ -4519,17 +4592,22 @@ function ProfileView({
           changed={onChanged}
         />
       )}{" "}
-      {addressEdit && (
+      {addressModalOpen && (
         <ShippingAddressModal
           account={account}
-          current={shippingAddress}
+          current={editingAddress}
           currentLocation={currentLocation}
           onOpenLocation={onOpenLocation}
-          close={() => setAddressEdit(false)}
+          close={() => setAddressModalOpen(false)}
           notify={notify}
           onSaved={(address) => {
-            setShippingAddress(address);
-            setAddressEdit(false);
+            setShippingAddresses((current) => {
+              const exists = current.some((item) => item.id === address.id);
+              return exists
+                ? current.map((item) => (item.id === address.id ? address : item))
+                : [address, ...current];
+            });
+            setAddressModalOpen(false);
           }}
         />
       )}
@@ -5780,10 +5858,13 @@ function CartDrawer({
   } | null>(null);
   useEffect(() => {
     let live = true;
-    void getPetOwnerShippingAddress()
+    void getPetOwnerShippingAddresses()
       .then((result) => {
         if (!live) return;
-        const address = result.address;
+        const address =
+          result.addresses.find((item) => item.is_primary) ??
+          result.addresses[0] ??
+          null;
         setAccountShippingAddress(address);
         if (!address) {
           setShippingAddress({

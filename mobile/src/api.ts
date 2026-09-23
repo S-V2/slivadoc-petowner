@@ -298,6 +298,7 @@ export type MobilePet = {
 };
 export type MobileOwner = {
   id: string;
+  public_code?: string;
   email: string;
   full_name: string;
   phone: string;

@@ -4472,6 +4472,7 @@ function ProfileView({
               <small>Sinkron</small>
             </span>
           </div>
+          {account.public_code && <div className="profile-public-code"><span>KODE MEMBER PET OWNER · TUNJUKKAN SAAT BAYAR DI PETCLINIC</span><strong>{account.public_code}</strong><button type="button" onClick={() => void navigator.clipboard.writeText(account.public_code ?? "").then(() => notify("Kode member disalin"))}>Salin kode</button></div>}
         </section>
 
         <section className="profile-native-points">

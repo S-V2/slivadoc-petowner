@@ -101,6 +101,8 @@ export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, ow
         <View style={styles.stats}><Stat value={String(petCount)} label="Hewan"/><Stat value={String(activityCount)} label="Aktivitas"/><Stat value={formatNumber(points)} label="Points"/><Stat value={points > 0 ? "Member" : "Regular"} label="Status" last/></View>
       </Card>
 
+      {owner.public_code && <Card style={styles.profileCard}><Text style={styles.meta}>KODE MEMBER PET OWNER · TUNJUKKAN SAAT BAYAR DI PETCLINIC</Text><Text selectable style={styles.name}>{owner.public_code}</Text></Card>}
+
       <SectionTitle eyebrow="SLIVA POINT" title="Saldo dan aturan klaim"/>
       <LinearGradient colors={[colors.sky600, "#0A6F9C", colors.violet]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.memberCard}>
         <View style={styles.memberTop}><View style={styles.shield}><Text style={styles.shieldText}>✦</Text></View><View style={styles.memberCopy}><Text style={styles.memberName}>{formatNumber(points)} Sliva Points</Text><Text style={styles.memberNote}>{points ? "Tersedia untuk klaim sesuai syarat" : "Belum ada transaksi lunas"}</Text></View><Pill tone="mint">AKTIF</Pill></View>

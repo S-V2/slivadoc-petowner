@@ -93,6 +93,30 @@ export type ActivityItem = {
   occurred_at: string;
 };
 
+export type PetOwnerActivityCenterItem = {
+  id: string;
+  type: "booking" | "order" | "consultation";
+  reference_id: string;
+  code: string;
+  title: string;
+  subtitle: string;
+  status: string;
+  payment_status: string;
+  amount: number;
+  state: "upcoming" | "ongoing" | "history";
+  scheduled_at?: string | null;
+  occurred_at: string;
+  updated_at: string;
+  description?: string;
+  pet_id?: string;
+  item_count?: number;
+  total_amount?: number;
+};
+
+export type PetOwnerActivityCenterResponse = PlatformList<PetOwnerActivityCenterItem> & {
+  summary: Record<PetOwnerActivityCenterItem["type"], number>;
+};
+
 export type FavoriteItem = {
   entity_type: string;
   entity_id: string;
@@ -1540,6 +1564,11 @@ export const togglePetOwnerFavorite = (
 export const getPetOwnerActivities = (category = "") =>
   request<PlatformList<ActivityItem>>(
     `/api/v1/petowner/activities?category=${encodeURIComponent(category)}`,
+  );
+export const getPetOwnerActivityCenter = () =>
+  request<PetOwnerActivityCenterResponse>(
+    "/api/v1/petowner/activities?view=center&type=all&state=all&limit=100",
+    { cache: "no-store" },
   );
 
 export const getPetOwnerPoints = () =>

@@ -37,6 +37,7 @@ import {
   getPetFamily,
   getLostPetMode,
   getPetOwnerBootstrap,
+  getPetOwnerActivityCenter,
   getPetOwnerShippingAddresses,
   deletePetOwnerShippingAddress,
   setPrimaryPetOwnerShippingAddress,
@@ -63,6 +64,7 @@ import {
   quotePetOwnerOrder,
   snoozeCareReminder,
   type ActivityItem,
+  type PetOwnerActivityCenterItem,
   type DiscoveryProduct,
   type FamilyAccess,
   type MedicalRecord,
@@ -92,6 +94,47 @@ import {
 } from "../data/mock";
 
 type Notify = (message: string) => void;
+
+type ActivityViewItem = ActivityItem & {
+  activity_state?: PetOwnerActivityCenterItem["state"];
+};
+
+function activityCenterToViewItem(
+  item: PetOwnerActivityCenterItem,
+): ActivityViewItem {
+  const isOrder = item.type === "order";
+  const total = item.total_amount ?? item.amount;
+  return {
+    id: item.id,
+    pet_id: item.pet_id ?? "",
+    category: item.type,
+    reference_id: item.reference_id,
+    title: item.title,
+    description: isOrder
+      ? [
+          item.subtitle,
+          item.item_count ? `${item.item_count} produk` : "",
+          formatRupiah(total),
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : item.subtitle || item.description || "",
+    status: item.status,
+    action_route: "",
+    action_label: isOrder ? "Beli lagi" : "",
+    metadata: isOrder
+      ? {
+          order_number: item.code,
+          payment_status: item.payment_status,
+          item_count: item.item_count ?? 0,
+          total_amount: total,
+        }
+      : {},
+    starts_at: item.scheduled_at ?? undefined,
+    occurred_at: item.occurred_at,
+    activity_state: item.state,
+  };
+}
 
 function rewardFormulaText(formula: RewardFormula) {
   if (!formula.enabled) return "SlivaRewards sedang tidak aktif.";
@@ -285,7 +328,7 @@ export default function PetOwnerApp() {
   const [authenticated, setAuthenticated] = useState(false);
   const [bootstrapLoading, setBootstrapLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [activities, setActivities] = useState<ActivityViewItem[]>([]);
   const [points, setPoints] = useState(0);
   const [rewardFormula, setRewardFormula] = useState<RewardFormula>({
     enabled: false,
@@ -438,7 +481,10 @@ export default function PetOwnerApp() {
       clearPlatformCache();
       const identity = await getCurrentUser();
       if (identity?.role === "official_brand") { window.location.assign("/brand"); return; }
-      const data = await getPetOwnerBootstrap();
+      const [data, activityCenter] = await Promise.all([
+        getPetOwnerBootstrap(),
+        getPetOwnerActivityCenter().catch(() => null),
+      ]);
       const mapped = data.pets.map(apiPetToView);
       setAccount(data.user);
       setPetProfiles(mapped);
@@ -448,7 +494,11 @@ export default function PetOwnerApp() {
           : (mapped[0]?.id ?? ""),
       );
       setNotifications(data.notifications);
-      setActivities(data.activities);
+      setActivities(
+        activityCenter
+          ? activityCenter.data.map(activityCenterToViewItem)
+          : data.activities,
+      );
       setFavoriteIds(data.favorites.map((item) => item.entity_id));
       setPoints(data.points.balance);
       setRewardFormula(data.points.formula);
@@ -468,11 +518,18 @@ export default function PetOwnerApp() {
     let cancelled = false;
     const sync = () => {
       clearPlatformCache();
-      void getPetOwnerBootstrap()
-        .then((data) => {
+      void Promise.all([
+        getPetOwnerBootstrap(),
+        getPetOwnerActivityCenter().catch(() => null),
+      ])
+        .then(([data, activityCenter]) => {
           if (cancelled) return;
           setNotifications(data.notifications);
-          setActivities(data.activities);
+          setActivities(
+            activityCenter
+              ? activityCenter.data.map(activityCenterToViewItem)
+              : data.activities,
+          );
           setPoints(data.points.balance);
           setRewardFormula(data.points.formula);
         })
@@ -3388,21 +3445,27 @@ function BookingsView({
   openBooking: (service?: Service) => void;
   setActiveView: (view: AppView) => void;
   notify: Notify;
-  activities: ActivityItem[];
+  activities: ActivityViewItem[];
   points: number;
   rewardFormula: RewardFormula;
 }) {
   const [tab, setTab] = useState("Mendatang");
   const [typeFilter, setTypeFilter] = useState("all");
-  const [detail, setDetail] = useState<ActivityItem | null>(null);
-  const upcoming = activities.filter(
-    (item) => item.starts_at && new Date(item.starts_at) > new Date(),
+  const [detail, setDetail] = useState<ActivityViewItem | null>(null);
+  const upcoming = activities.filter((item) =>
+    item.activity_state
+      ? item.activity_state === "upcoming"
+      : Boolean(item.starts_at && new Date(item.starts_at) > new Date()),
   );
   const live = activities.filter((item) =>
-    ["in_progress", "active", "on_the_way"].includes(item.status),
+    item.activity_state
+      ? item.activity_state === "ongoing"
+      : ["in_progress", "active", "on_the_way"].includes(item.status),
   );
-  const history = activities.filter(
-    (item) => !upcoming.includes(item) && !live.includes(item),
+  const history = activities.filter((item) =>
+    item.activity_state
+      ? item.activity_state === "history"
+      : !upcoming.includes(item) && !live.includes(item),
   );
   const stateItems =
     tab === "Mendatang" ? upcoming : tab === "Berlangsung" ? live : history;
@@ -4910,7 +4973,7 @@ function ActivityDetail({
   item,
   close,
 }: {
-  item: ActivityItem;
+  item: ActivityViewItem;
   close: () => void;
 }) {
   const icon =

@@ -14,6 +14,12 @@ const product = {
   available: true,
 };
 
+const availableProduct = {
+  ...product,
+  id: "available-product",
+  name: "Cat Food",
+};
+
 const address = {
   id: "address-1",
   label: "Rumah",
@@ -36,15 +42,20 @@ const stockError = {
   error: "product_unavailable",
   message:
     'Produk "Cat Teaser Feather" tidak tersedia atau stoknya berubah. Ubah jumlah atau hapus dari keranjang.',
+  product_id: "unavailable-product",
+  available_stock: 2,
 };
 
-test("stock alert names the unavailable cart product", async ({ page }) => {
+test("stock error returns to cart and marks affected product", async ({ page }) => {
   await page.setViewportSize({ width: 428, height: 701 });
   await page.addInitScript(() => {
     localStorage.setItem("slivadoc.access_token", "stock-test-token");
     localStorage.setItem("slivadoc.refresh_token", "stock-test-refresh");
     localStorage.setItem("slivadoc.access_expires_at", String(Date.now() + 3_600_000));
-    localStorage.setItem("slivadoc.cart", JSON.stringify({ "unavailable-product": 1 }));
+    localStorage.setItem(
+      "slivadoc.cart",
+      JSON.stringify({ "unavailable-product": 3, "available-product": 1 }),
+    );
   });
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -82,7 +93,7 @@ test("stock alert names the unavailable cart product", async ({ page }) => {
     if (path === "/api/v1/petowner/activities")
       return json({ data: [], count: 0, summary: { booking: 0, order: 0, consultation: 0 } });
     if (path === "/api/v1/public/discovery/products")
-      return json({ data: [product], count: 1 });
+      return json({ data: [product, availableProduct], count: 2 });
     if (
       path === "/api/v1/public/discovery/services" ||
       path === "/api/v1/public/campaigns" ||
@@ -108,10 +119,17 @@ test("stock alert names the unavailable cart product", async ({ page }) => {
   await page.getByRole("button", { name: "Keranjang", exact: true }).last().click();
   await page.getByRole("button", { name: "Atur pengiriman" }).click();
 
-  await expect(page.locator(".cart-quote-error")).toContainText(
-    "Cat Teaser Feather",
+  await expect(
+    page.getByRole("heading", { name: "Keranjangmu" }),
+  ).toBeVisible();
+  const unavailableRow = page
+    .locator(".cart-item")
+    .filter({ hasText: product.name });
+  const availableRow = page
+    .locator(".cart-item")
+    .filter({ hasText: availableProduct.name });
+  await expect(unavailableRow.locator(".cart-item-stock-warning")).toContainText(
+    "Stok tersedia: 2",
   );
-  await expect(page.locator(".cart-quote-error")).toContainText(
-    "stoknya berubah",
-  );
+  await expect(availableRow.locator(".cart-item-stock-warning")).toHaveCount(0);
 });

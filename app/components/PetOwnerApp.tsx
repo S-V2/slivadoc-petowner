@@ -5964,6 +5964,10 @@ function CartDrawer({
     key: string;
     message: string;
   } | null>(null);
+  const [stockError, setStockError] = useState<{
+    productID: string;
+    availableStock?: number;
+  } | null>(null);
   // The server's breakdown. Nothing in this drawer computes the platform fee or
   // a discount itself: the cart used to do exactly that and drifted away from
   // what checkout actually charged. The breakdown is stored with the cart it
@@ -6121,6 +6125,24 @@ function CartDrawer({
       ? shippingOptions
       : [];
 
+  function returnToCartForUnavailableProduct(error: unknown) {
+    if (
+      !(error instanceof ApiError) ||
+      error.code !== "product_unavailable" ||
+      !error.productID
+    ) {
+      return false;
+    }
+    setStockError({
+      productID: error.productID,
+      ...(error.availableStock == null
+        ? {}
+        : { availableStock: error.availableStock }),
+    });
+    setQuoteErrorState(null);
+    setCheckoutStep("cart");
+    return true;
+  }
   useEffect(() => {
     let live = true;
     if (
@@ -6205,11 +6227,14 @@ function CartDrawer({
           }
         }
         setShippingRequired(result.shipping_ready);
+        setQuoteErrorState(null);
+        setStockError(null);
         setQuoted({ key: quoteKey, value: result });
       })
       .catch((error) => {
         if (!live) return;
         setQuoted(null);
+        if (returnToCartForUnavailableProduct(error)) return;
         if (
           error instanceof ApiError &&
           error.code === "shipping_required"
@@ -6251,6 +6276,9 @@ function CartDrawer({
         next.delete(id);
         return next;
       });
+      setStockError((current) =>
+        current?.productID === id ? null : current,
+      );
     }
     setCart((current) => {
       const next = {
@@ -6272,6 +6300,9 @@ function CartDrawer({
   function deleteSelectedCartItems() {
     const ids = new Set(selectedCartItems.map((item) => item.id));
     if (ids.size === 0) return;
+    setStockError((current) =>
+      current && ids.has(current.productID) ? null : current,
+    );
     setCart((current) =>
       Object.fromEntries(Object.entries(current).filter(([id]) => !ids.has(id))),
     );
@@ -6293,6 +6324,8 @@ function CartDrawer({
       // A rejected code is not applied, so the breakdown that gets stored is
       // the one for an empty voucher: full price, plus the reason.
       const applied = result.voucher_error ? "" : code;
+      setQuoteErrorState(null);
+      setStockError(null);
       setShippingRequired(result.shipping_ready);
       setQuoted({
         key: JSON.stringify([
@@ -6314,6 +6347,7 @@ function CartDrawer({
         `Voucher ${code} dipakai · potongan ${formatRupiah(result.voucher_discount)}`,
       );
     } catch (error) {
+      if (returnToCartForUnavailableProduct(error)) return;
       if (error instanceof ApiError && error.code === "shipping_required") {
         setShippingRequired(true);
       }
@@ -6352,11 +6386,13 @@ function CartDrawer({
         await createPaymentIntent("shop_order", order.id, paymentMethod),
       );
     } catch (error) {
-      notify(
-        error instanceof Error
-          ? error.message
-          : "Checkout belum dapat diproses",
-      );
+      if (!returnToCartForUnavailableProduct(error)) {
+        notify(
+          error instanceof Error
+            ? error.message
+            : "Checkout belum dapat diproses",
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -6444,6 +6480,8 @@ function CartDrawer({
                 <div className="cart-items">
                   {items.map((item) => {
                     const selected = selectedCartIDs.has(item.id);
+                    const productStockError =
+                      stockError?.productID === item.id ? stockError : null;
                     return (
                       <div className="cart-item" key={item.id}>
                         <button
@@ -6462,6 +6500,16 @@ function CartDrawer({
                           <small>{item.brand}</small>
                           <b>{item.name}</b>
                           <strong>{formatRupiah(item.price)}</strong>
+                          {productStockError && (
+                            <small
+                              className="cart-item-stock-warning"
+                              role="status"
+                            >
+                              {productStockError.availableStock == null
+                                ? "Produk tidak tersedia atau stok berubah. Sesuaikan jumlah atau hapus produk ini."
+                                : `Stok tersedia: ${productStockError.availableStock.toLocaleString("id-ID")}. Sesuaikan jumlah lalu cek ulang pengiriman.`}
+                            </small>
+                          )}
                         </div>
                         <div className="quantity">
                           <button

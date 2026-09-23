@@ -26,12 +26,22 @@ export type UserIdentity = {
 export class ApiError extends Error {
   status: number;
   code?: string;
+  productID?: string;
+  availableStock?: number;
 
-  constructor(message: string, status: number, code?: string) {
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    productID?: string,
+    availableStock?: number,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.productID = productID;
+    this.availableStock = availableStock;
   }
 }
 
@@ -299,6 +309,8 @@ export async function apiRequest<T>(
       message?: string;
       code?: string;
       error?: string;
+      product_id?: string;
+      available_stock?: number;
     };
 
     if (!response.ok) {
@@ -306,6 +318,10 @@ export async function apiRequest<T>(
         data.message ?? data.error ?? `Permintaan gagal (${response.status})`,
         response.status,
         data.code ?? data.error,
+        typeof data.product_id === "string" ? data.product_id : undefined,
+        typeof data.available_stock === "number"
+          ? data.available_stock
+          : undefined,
       );
     }
 

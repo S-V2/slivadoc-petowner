@@ -5168,6 +5168,18 @@ kbd {
   color: var(--muted);
   font-size: 6px;
 }
+.cart-item small.cart-item-stock-warning {
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 3px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: #8a641e;
+  background: #fff4d8;
+  font-size: 7px;
+  font-weight: 700;
+  line-height: 1.4;
+}
 .cart-item b {
   max-width: 200px;
   font-size: 8px;

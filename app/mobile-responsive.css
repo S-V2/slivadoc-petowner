@@ -1423,8 +1423,6 @@
   }
 
   /* ActivityScreen */
-  .activity-type-filters,
-  .activity-state-tabs,
   .health-native-tabs,
   .health-record-filter,
   .shop-native-sort-row {
@@ -1434,57 +1432,13 @@
     scrollbar-width: none;
   }
 
-  .activity-type-filters::-webkit-scrollbar,
-  .activity-state-tabs::-webkit-scrollbar,
   .health-native-tabs::-webkit-scrollbar,
   .health-record-filter::-webkit-scrollbar,
   .shop-native-sort-row::-webkit-scrollbar {
     display: none;
   }
 
-  .activity-type-filters {
-    padding: 2px 0;
-  }
 
-  .activity-type-filters > button {
-    min-height: 36px;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    flex: 0 0 auto;
-    padding: 0 10px;
-    border: 1px solid var(--sky-100);
-    border-radius: 18px;
-    color: var(--sky-600);
-    background: var(--white);
-    font-size: 11px;
-    font-weight: 600;
-  }
-
-  .activity-type-filters > button.active {
-    border-color: var(--sky-600);
-    color: var(--white);
-    background: var(--sky-600);
-  }
-
-  .activity-type-filters > button i {
-    min-width: 17px;
-    height: 17px;
-    display: grid;
-    place-items: center;
-    border-radius: 9px;
-    color: var(--sky-600);
-    background: var(--sky-50);
-    font-size: 8px;
-    font-style: normal;
-  }
-
-  .activity-type-filters > button.active i {
-    color: var(--sky-600);
-    background: var(--white);
-  }
-
-  .activity-state-tabs,
   .health-native-tabs {
     padding: 4px;
     border: 1px solid var(--sky-100);
@@ -1493,7 +1447,6 @@
     box-shadow: var(--shadow);
   }
 
-  .activity-state-tabs > button,
   .health-native-tabs > button {
     min-height: 34px;
     flex: 1 0 auto;
@@ -1506,20 +1459,76 @@
     font-weight: 600;
   }
 
-  .activity-state-tabs > button.active,
   .health-native-tabs > button.active {
     color: var(--sky-600);
     background: var(--sky-50);
   }
 
-  .activity-state-tabs span,
   .health-native-tabs span {
     margin-left: 3px;
     color: inherit;
     font-size: 9px;
   }
+  .activity-controls {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
 
-  .activity-native-toolbar,
+  .activity-state-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px;
+    overflow: visible;
+  }
+
+  .activity-state-tabs > button {
+    gap: 4px;
+    padding: 0 4px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .activity-tab-count {
+    font-size: 10px;
+  }
+
+  .activity-type-filter {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .activity-native-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .activity-native-actions {
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .housing-activity {
+    gap: 10px;
+    padding: 13px;
+    border-radius: 16px;
+  }
+
+  .housing-activity article {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .housing-activity-payment {
+    min-width: 0;
+  }
+
+  .housing-activity-payment > button {
+    width: 100%;
+  }
+
+
   .health-native-section-header,
   .shop-native-section-header {
     align-items: flex-end;
@@ -1536,18 +1545,15 @@
   }
 
   .activity-points {
-    min-height: 32px;
-    padding: 0 8px;
-    border: 0;
-    border-radius: 11px;
-    color: var(--yellow);
-    background: var(--yellow-50);
-    font-size: 10px;
-    font-weight: 600;
+    min-height: 44px;
+    padding: 0 10px;
+    border-radius: 12px;
+    font-size: 12px;
   }
 
   .activity-native-toolbar .primary-button {
     min-width: auto;
+    min-height: 44px;
     padding-inline: 10px;
   }
 

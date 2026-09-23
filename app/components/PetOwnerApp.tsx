@@ -65,6 +65,7 @@ import {
   snoozeCareReminder,
   type ActivityItem,
   type PetOwnerActivityCenterItem,
+  type PetOwnerPetSpotReservation,
   type DiscoveryProduct,
   type FamilyAccess,
   type MedicalRecord,
@@ -3399,7 +3400,7 @@ function DiscoverView({
 }
 
 function HousingBookingsActivity({ notify }: { notify: Notify }) {
-  const [items, setItems] = useState<Awaited<ReturnType<typeof getMyPetSpotReservations>>["data"]>([]);
+  const [items, setItems] = useState<PetOwnerPetSpotReservation[]>([]);
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [method, setMethod] = useState("qris");
   const [busy, setBusy] = useState(false);
@@ -3419,18 +3420,34 @@ function HousingBookingsActivity({ notify }: { notify: Notify }) {
   if (!housing.length) return null;
   return <section className="housing-activity">
     <h3>Reservasi hunian</h3>
-    <p>Lihat tanggal tinggal, status DP, dan lanjutkan pembayaran booking yang masih aktif.</p>
+    <p>Lihat jadwal dan pembayaran reservasi hunian.</p>
     {payment && <BatpayPaymentPanel payment={payment} onPaid={() => { setPayment(null); refresh(); }} />}
-    {housing.map((item) => <article key={item.id}>
-      <div><b>{item.spot_name} · {item.resource_name}</b><small>{item.reservation_number}</small>
-        <span>{new Date(item.starts_at).toLocaleDateString("id-ID")} – {new Date(item.ends_at).toLocaleDateString("id-ID")}</span></div>
-      <div><b>{item.status.replaceAll("_", " ")}</b><small>DP {formatRupiah(item.deposit_amount)} · {item.payment_status}</small></div>
-      {item.payment_status === "pending" && item.status === "pending_payment" &&
-        new Date(item.hold_expires_at) > new Date() && <div>
+    {housing.map((item) => {
+      const canPay = item.payment_status === "pending" &&
+        item.status === "pending_payment" &&
+        new Date(item.hold_expires_at) > new Date();
+      const reservationStatus = item.status === "pending_payment"
+        ? "Menunggu pembayaran"
+        : item.status.replaceAll("_", " ");
+      const paymentStatus = item.payment_status === "pending"
+        ? "Belum dibayar"
+        : item.payment_status.replaceAll("_", " ");
+      return <article className={canPay ? "housing-activity--needs-action" : ""} key={item.id}>
+        <div className="housing-activity-booking">
+          <b>{item.spot_name}, {item.resource_name}</b>
+          <small>{item.reservation_number}</small>
+          <span>{new Date(item.starts_at).toLocaleDateString("id-ID")} sampai {new Date(item.ends_at).toLocaleDateString("id-ID")}</span>
+        </div>
+        <div className="housing-activity-status">
+          <b>{reservationStatus}</b>
+          <small>Uang muka {formatRupiah(item.deposit_amount)}, {paymentStatus}</small>
+        </div>
+        {canPay && <div className="housing-activity-payment">
           <PaymentMethodPicker value={method} onChange={setMethod} />
           <button type="button" disabled={busy} onClick={() => void pay(item.id)}>Bayar DP</button>
         </div>}
-    </article>)}
+      </article>;
+    })}
   </section>;
 }
 
@@ -3473,87 +3490,79 @@ function BookingsView({
     typeFilter === "all"
       ? stateItems
       : stateItems.filter((item) => item.category === typeFilter);
-  const typeOptions: Array<{ id: string; label: string; icon: IconName }> = [
-    { id: "all", label: "Semua", icon: "sparkle" },
-    { id: "booking", label: "Booking", icon: "calendar" },
-    { id: "order", label: "Belanja", icon: "bag" },
-    { id: "consultation", label: "Konsultasi", icon: "chat" },
+  const typeOptions = [
+    { id: "all", label: "Semua jenis" },
+    { id: "booking", label: "Booking" },
+    { id: "order", label: "Belanja" },
+    { id: "consultation", label: "Konsultasi" },
   ];
 
   return (
     <div className="activity-native">
       <header className="native-screen-header">
         <div>
-          <span>PUSAT AKTIVITAS</span>
-          <h2>Semua perjalanan pet-mu</h2>
-          <p>Pantau transaksi dan ulangi aktivitas dalam sekali tap.</p>
+          <h2>Aktivitas</h2>
+          <p>Booking, pesanan, dan konsultasi pet-mu.</p>
         </div>
       </header>
 
       <HousingBookingsActivity notify={notify} />
 
-      <div className="activity-type-filters" role="tablist" aria-label="Jenis aktivitas">
-        {typeOptions.map((item) => {
-          const active = typeFilter === item.id;
-          const count =
-            item.id === "all"
-              ? activities.length
-              : activities.filter((activity) => activity.category === item.id).length;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              className={active ? "active" : ""}
-              aria-selected={active}
-              onClick={() => setTypeFilter(item.id)}
-            >
-              <Icon name={item.icon} size={15} />
-              <span>{item.label}</span>
-              <i>{count}</i>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="activity-state-tabs" role="tablist" aria-label="Status aktivitas">
-        {[
-          ["Mendatang", upcoming.length],
-          ["Berlangsung", live.length],
-          ["Riwayat", history.length],
-        ].map(([label, count]) => (
-          <button
-            type="button"
-            key={String(label)}
-            className={tab === label ? "active" : ""}
-            aria-selected={tab === label}
-            onClick={() => setTab(String(label))}
-          >
-            {label} <span>{count}</span>
-          </button>
-        ))}
+      <div className="activity-controls">
+        <div className="activity-state-tabs" role="group" aria-label="Status aktivitas">
+          {[
+            ["Mendatang", upcoming.length],
+            ["Berlangsung", live.length],
+            ["Riwayat", history.length],
+          ].map(([label, count]) => {
+            const value = String(label);
+            return (
+              <button
+                type="button"
+                key={value}
+                className={tab === value ? "active" : ""}
+                aria-pressed={tab === value}
+                onClick={() => setTab(value)}
+              >
+                <span>{value}</span>
+                <span className="activity-tab-count">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+        <label className="activity-type-filter">
+          <span>Jenis aktivitas</span>
+          <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+            {typeOptions.map((item) => (
+              <option key={item.id} value={item.id}>{item.label}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <header className="activity-native-toolbar">
-        <div>
-          <span>DATA AKUNMU</span>
-          <h3>{visible.length} aktivitas</h3>
+        <div className="activity-native-summary">
+          <h3 aria-live="polite">{visible.length} aktivitas</h3>
         </div>
-        <button
-          className="activity-points"
-          type="button"
-          onClick={() =>
-            notify(
-              points
-                ? `Saldo ${points.toLocaleString("id-ID")} poin. ${rewardFormulaText(rewardFormula)}`
-                : "Belum ada transaksi terbayar, jadi Sliva Point masih 0.",
-            )
-          }
-        >
-          ✦ {points.toLocaleString("id-ID")}
-        </button>
-        <button className="primary-button small" type="button" onClick={() => openBooking()}>
-          <Icon name="plus" size={15} /> Buat baru
-        </button>
+        <div className="activity-native-actions">
+          <button
+            className="activity-points"
+            type="button"
+            onClick={() =>
+              notify(
+                points
+                  ? `Saldo ${points.toLocaleString("id-ID")} poin. ${rewardFormulaText(rewardFormula)}`
+                  : "Belum ada transaksi terbayar, jadi Sliva Point masih 0.",
+              )
+            }
+          >
+            <Icon name="sparkle" size={14} />
+            {points.toLocaleString("id-ID")} poin
+          </button>
+          <button className="primary-button small" type="button" onClick={() => openBooking()}>
+            <Icon name="plus" size={15} /> Buat booking
+          </button>
+        </div>
       </header>
 
       <div className="activity-native-list">
@@ -3627,11 +3636,12 @@ function BookingsView({
         ) : (
           <div className="empty-state activity-native-empty">
             <span><Icon name={typeFilter === "order" ? "bag" : typeFilter === "consultation" ? "chat" : "calendar"} size={28} /></span>
-            <h3>Belum ada aktivitas</h3>
-            <p>Filter ini masih kosong. Mulai aktivitas baru dan progresnya akan tampil otomatis di sini.</p>
-            <button className="primary-button small" type="button" onClick={() => openBooking()}>
-              Buat aktivitas baru
-            </button>
+            <h3>{activities.length ? "Tidak ada aktivitas yang cocok" : "Belum ada aktivitas"}</h3>
+            <p>
+              {activities.length
+                ? "Ubah status atau jenis aktivitas untuk melihat catatan lainnya."
+                : "Booking, belanja, dan konsultasi pet-mu akan muncul di sini."}
+            </p>
           </div>
         )}
       </div>

@@ -499,6 +499,15 @@ export type PetSpotReservation = {
   hold_expires_at: string;
   reference_type: string;
 };
+export type PetOwnerPetSpotReservation = PetSpotReservation & {
+  spot_name: string;
+  resource_name: string;
+  starts_at: string;
+  ends_at: string;
+  payment_status: string;
+  status: string;
+  category: string;
+};
 
 export type PetHubStream = {
   id: string;
@@ -1106,10 +1115,10 @@ export const createPetSpotReservation = (input: {
   });
 
 export const getMyPetSpotReservations = () =>
-  request<PlatformList<PetSpotReservation & {
-    spot_name: string; resource_name: string; starts_at: string; ends_at: string;
-    payment_status: string; status: string; category: string;
-  }>>("/api/v1/petowner/petspot-reservations", { cache: "no-store" });
+  request<PlatformList<PetOwnerPetSpotReservation>>(
+    "/api/v1/petowner/petspot-reservations",
+    { cache: "no-store" },
+  );
 
 export const getTrainerAvailability = (trainerId: string, planId: string) =>
   request<

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("paid Pet Shop orders appear in Activity > Belanja > Riwayat", async ({
+test("Activity highlights housing payments and filters order history", async ({
   page,
 }) => {
   const order = {
@@ -39,6 +39,22 @@ test("paid Pet Shop orders appear in Activity > Belanja > Riwayat", async ({
     occurred_at: "2026-09-24T00:00:00Z",
     updated_at: "2026-09-24T00:00:00Z",
     state: "ongoing",
+  };
+  const reservation = {
+    id: "stay-1",
+    reservation_number: "HOM-260923-1234",
+    deposit_amount: 100_000,
+    remaining_amount: 250_000,
+    subtotal: 350_000,
+    hold_expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+    reference_type: "petspot_reservation",
+    spot_name: "Pawstay Residence",
+    resource_name: "Kamar Garden",
+    starts_at: "2026-10-01T08:00:00Z",
+    ends_at: "2026-10-03T08:00:00Z",
+    payment_status: "pending",
+    status: "pending_payment",
+    category: "apartment",
   };
 
   await page.addInitScript(() => {
@@ -95,6 +111,8 @@ test("paid Pet Shop orders appear in Activity > Belanja > Riwayat", async ({
         count: 2,
         summary: { booking: 0, order: 2, consultation: 0 },
       });
+    if (path === "/api/v1/petowner/petspot-reservations")
+      return json({ data: [reservation], count: 1 });
     if (path === "/api/v1/petowner/activities")
       return json({ data: [], count: 0 });
 
@@ -102,11 +120,16 @@ test("paid Pet Shop orders appear in Activity > Belanja > Riwayat", async ({
   });
 
   await page.goto("/?view=bookings", { waitUntil: "domcontentloaded" });
-  await expect(page.locator(".activity-type-filters")).toBeVisible();
-  await page
-    .locator(".activity-type-filters")
-    .getByRole("button", { name: "Belanja" })
-    .click();
+  await expect(
+    page.getByRole("heading", { name: "Reservasi hunian" }),
+  ).toBeVisible();
+  await expect(page.getByText("Menunggu pembayaran")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Bayar DP" }),
+  ).toBeVisible();
+  const activityType = page.getByLabel("Jenis aktivitas");
+  await expect(activityType).toBeVisible();
+  await activityType.selectOption("order");
   await page
     .locator(".activity-state-tabs")
     .getByRole("button", { name: "Riwayat" })

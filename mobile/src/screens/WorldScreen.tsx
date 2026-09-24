@@ -208,9 +208,6 @@ const worldIcon = (
   return "play-circle-outline";
 };
 
-const speciesEmoji = (species?: string) =>
-  ({ dog: "🐕", cat: "🐈", rabbit: "🐇", bird: "🦜", reptile: "🦎", small_mammal: "🐹" } as Record<string, string>)[species ?? ""] ?? "🐾";
-
 function FormTextField({
   label,
   multiline,
@@ -1542,10 +1539,13 @@ export function WorldScreen({
                                   styles.eventPetCardActive,
                               ]}
                             >
-                              <Text style={styles.eventPetIcon}>
-                                {candidate.icon ||
-                                  speciesEmoji(candidate.species)}
-                              </Text>
+                              <View style={styles.eventPetIcon}>
+                                <Ionicons
+                                  name="paw-outline"
+                                  size={21}
+                                  color={colors.sky600}
+                                />
+                              </View>
                               <Text style={styles.eventPetName}>
                                 {candidate.name}
                               </Text>
@@ -3434,7 +3434,14 @@ const styles = StyleSheet.create({
     borderColor: colors.sky400,
     backgroundColor: "#EAF8FE",
   },
-  eventPetIcon: { fontSize: 27 },
+  eventPetIcon: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: colors.sky50,
+  },
   eventPetName: {
     marginTop: 4,
     color: colors.navy,
@@ -3460,7 +3467,7 @@ const styles = StyleSheet.create({
   eventTicketPrice: {
     color: colors.sky600,
     fontSize: 18,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   eventQris: {
     flexDirection: "row",

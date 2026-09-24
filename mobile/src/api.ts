@@ -1673,15 +1673,18 @@ export const registerMobileEvent = (
     amount: number;
     status: string;
     payment_status: "pending" | "paid" | "expired" | "refunded";
-  }>(`/api/v1/events/${eventId}/registrations`, {
-    method: "POST",
-    body: JSON.stringify({
-      participant_name: participantName,
-      participant_email: participantEmail,
-      ticket_quantity: 1,
-      ...(petId ? { pet_id: petId } : {}),
-    }),
-  });
+  }>(
+    `/api/v1/events/${eventId}/registrations`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        participant_name: participantName,
+        participant_email: participantEmail,
+        ticket_quantity: 1,
+        ...(petId ? { pet_id: petId } : {}),
+      }),
+    },
+  );
 export const createMobilePetHubPost = (content: string, authorName: string) =>
   platformRequest<{ id: string }>("/api/v1/pethub/posts", {
     method: "POST",

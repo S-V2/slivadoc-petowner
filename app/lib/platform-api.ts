@@ -113,10 +113,9 @@ export type PetOwnerActivityCenterItem = {
   total_amount?: number;
 };
 
-export type PetOwnerActivityCenterResponse =
-  PlatformList<PetOwnerActivityCenterItem> & {
-    summary: Record<PetOwnerActivityCenterItem["type"], number>;
-  };
+export type PetOwnerActivityCenterResponse = PlatformList<PetOwnerActivityCenterItem> & {
+  summary: Record<PetOwnerActivityCenterItem["type"], number>;
+};
 
 export type FavoriteItem = {
   entity_type: string;
@@ -990,10 +989,10 @@ export const registerEvent = (
     payment_status: "pending" | "paid" | "expired" | "refunded";
     payment_method: "qris";
     pet_name?: string;
-  }>(`/api/v1/events/${eventId}/registrations`, {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  }>(
+    `/api/v1/events/${eventId}/registrations`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
 
 export const getPetSpots = (options?: {
   latitude?: number;

@@ -46,11 +46,19 @@ import {
   BatpayPaymentPanel,
   PaymentMethodPicker,
 } from "../payments/BatpayPayment";
+import "../../event-checkout.css";
 
 export type DiscoveryMode = "academy" | "events" | "petspot" | "pethub";
 type Props = {
   mode: DiscoveryMode;
   petName: string;
+  pets?: Array<{
+    id: string;
+    name: string;
+    species: string;
+    breed: string;
+    avatar: string;
+  }>;
   ownerName?: string;
   ownerEmail?: string;
   notify: (message: string) => void;
@@ -73,6 +81,7 @@ const when = (value?: string) =>
 export default function PlatformDiscovery({
   mode,
   petName,
+  pets = [],
   ownerName = "Pet Parent",
   ownerEmail = "",
   notify,
@@ -485,6 +494,7 @@ export default function PlatformDiscovery({
             item={selectedEvent}
             ownerName={ownerName}
             ownerEmail={ownerEmail}
+            pets={pets}
             close={() => setSelectedEvent(null)}
             notify={notify}
           />
@@ -1089,20 +1099,38 @@ function EventModal({
   item,
   ownerName,
   ownerEmail,
+  pets,
   close,
   notify,
 }: {
   item: PetEvent;
   ownerName: string;
   ownerEmail: string;
+  pets: Array<{
+    id: string;
+    name: string;
+    species: string;
+    breed: string;
+    avatar: string;
+  }>;
   close: () => void;
   notify: (message: string) => void;
 }) {
   const [register, setRegister] = useState(false);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
+  const allowedPets =
+    item.ticket_unit === "owner_pet"
+      ? pets.filter(
+          (pet) =>
+            !item.allowed_pet_species.length ||
+            item.allowed_pet_species.includes(pet.species),
+        )
+      : pets;
+  const [selectedPetID, setSelectedPetID] = useState(
+    () => allowedPets[0]?.id ?? "",
+  );
   function start() {
     if (!isPetOwnerAuthenticated()) {
       notify("Login diperlukan untuk mengambil tiket event");
@@ -1120,19 +1148,21 @@ function EventModal({
       const registration = await registerEvent(item.id, {
         participant_name: String(values.participant_name),
         participant_email: String(values.participant_email),
-        ticket_quantity: Number(values.ticket_quantity),
+        ticket_quantity:
+          item.ticket_unit === "owner_pet" ? 1 : Number(values.ticket_quantity),
+        ...(item.ticket_unit === "owner_pet" ? { pet_id: selectedPetID } : {}),
       });
-      if (registration.amount > 0)
+      if (registration.amount > 0 && registration.payment_status !== "paid")
         setPayment(
           await createPaymentIntent(
             "event_registration",
             registration.id,
-            paymentMethod,
+            "qris",
           ),
         );
       else setDone(true);
       notify(
-        registration.amount > 0
+        registration.amount > 0 && registration.payment_status !== "paid"
           ? "Tiket dibuat, selesaikan pembayaran"
           : "Tiket event tersimpan di Aktivitas",
       );
@@ -1181,27 +1211,67 @@ function EventModal({
                 required
               />
             </label>
-            <label>
-              <span>Jumlah tiket</span>
-              <select name="ticket_quantity" defaultValue="1">
-                <option>1</option>
-                <option>2</option>
-                <option>3</option>
-                <option>4</option>
-              </select>
-            </label>
+            {item.ticket_unit === "owner_pet" ? (
+              <fieldset className="event-pet-picker">
+                <legend>Pet yang ikut</legend>
+                {allowedPets.length ? (
+                  <div>
+                    {allowedPets.map((pet) => (
+                      <button
+                        type="button"
+                        className={selectedPetID === pet.id ? "active" : ""}
+                        key={pet.id}
+                        onClick={() => setSelectedPetID(pet.id)}
+                      >
+                        <span>{pet.avatar}</span>
+                        <b>{pet.name}</b>
+                        <small>{pet.breed || speciesLabel(pet.species)}</small>
+                        <i>{selectedPetID === pet.id ? "✓" : "+"}</i>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p>
+                    Belum ada profil pet yang sesuai dengan jenis pet untuk
+                    event ini.
+                  </p>
+                )}
+              </fieldset>
+            ) : (
+              <label>
+                <span>Jumlah tiket</span>
+                <select name="ticket_quantity" defaultValue="1">
+                  <option>1</option>
+                  <option>2</option>
+                  <option>3</option>
+                  <option>4</option>
+                </select>
+              </label>
+            )}
             <div className="checkout-line">
-              <span>Harga per tiket</span>
+              <span>
+                {item.ticket_unit === "owner_pet"
+                  ? "1 owner + 1 pet"
+                  : "Harga per tiket"}
+              </span>
               <b>{item.price ? money.format(item.price) : "Gratis"}</b>
             </div>
-            {item.price > 0 && (
-              <PaymentMethodPicker
-                value={paymentMethod}
-                onChange={setPaymentMethod}
-                disabled={busy}
-              />
-            )}
-            <button className="primary-button full" disabled={busy}>
+            {item.price > 0 ? (
+              <div className="event-qris-note">
+                <span>▦</span>
+                <div>
+                  <b>Pembayaran QRIS</b>
+                  <small>QR tampil otomatis setelah tiket dibuat</small>
+                </div>
+                <i>✓</i>
+              </div>
+            ) : null}
+            <button
+              className="primary-button full"
+              disabled={
+                busy || (item.ticket_unit === "owner_pet" && !selectedPetID)
+              }
+            >
               {busy
                 ? "Membuat pembayaran…"
                 : item.price > 0
@@ -1214,6 +1284,15 @@ function EventModal({
             <small className="world-kicker">{when(item.starts_at)}</small>
             <h2>{item.title}</h2>
             <p>{item.description}</p>
+            {item.pet_spot_name ? (
+              <div className="event-host">
+                <span>✦</span>
+                <div>
+                  <small>Diselenggarakan oleh</small>
+                  <b>{item.pet_spot_name}</b>
+                </div>
+              </div>
+            ) : null}
             <div className="world-detail-grid">
               <span>
                 <small>Lokasi</small>
@@ -1223,7 +1302,11 @@ function EventModal({
               </span>
               <span>
                 <small>Tiket</small>
-                <b>{item.price ? money.format(item.price) : "Gratis"}</b>
+                <b>
+                  {item.price
+                    ? `${money.format(item.price)} / owner + pet`
+                    : "Gratis"}
+                </b>
               </span>
               <span>
                 <small>Kapasitas</small>
@@ -1236,6 +1319,30 @@ function EventModal({
                 <b>{item.status}</b>
               </span>
             </div>
+            {item.ticket_unit === "owner_pet" ? (
+              <>
+                <div className="event-species">
+                  <small>Pet yang dapat hadir</small>
+                  <div>
+                    {item.allowed_pet_species.map((species) => (
+                      <span key={species}>
+                        {speciesIcon(species)} {speciesLabel(species)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {item.pet_requirements.length ? (
+                  <div className="event-requirements">
+                    <small>Persiapan sebelum hadir</small>
+                    <ul>
+                      {item.pet_requirements.map((requirement) => (
+                        <li key={requirement}>✓ {requirement}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
             <button className="primary-button full" onClick={start}>
               Ambil tiket
             </button>
@@ -1244,6 +1351,22 @@ function EventModal({
       </div>
     </Modal>
   );
+}
+
+const eventSpecies = {
+  dog: ["🐕", "Anjing"],
+  cat: ["🐈", "Kucing"],
+  rabbit: ["🐇", "Kelinci"],
+  bird: ["🦜", "Burung"],
+  reptile: ["🦎", "Reptil"],
+  small_mammal: ["🐹", "Mamalia kecil"],
+  other: ["🐾", "Lainnya"],
+} as const;
+function speciesIcon(species: string) {
+  return eventSpecies[species as keyof typeof eventSpecies]?.[0] ?? "🐾";
+}
+function speciesLabel(species: string) {
+  return eventSpecies[species as keyof typeof eventSpecies]?.[1] ?? species;
 }
 function SpotModal({
   item,
@@ -1282,7 +1405,14 @@ function SpotModal({
     }
   }
   if (item.category === "boarding_house" || item.category === "apartment")
-    return <HousingBookingModal item={item} close={close} notify={notify} ownerName={ownerName} />;
+    return (
+      <HousingBookingModal
+        item={item}
+        close={close}
+        notify={notify}
+        ownerName={ownerName}
+      />
+    );
   return (
     <Modal close={close} className="world-modal spot-modal">
       <div className="modal-world-cover spot-modal-cover">
@@ -1364,54 +1494,78 @@ function HousingBookingModal({
   const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
-  const [reservation, setReservation] = useState<PetSpotReservation | null>(null);
+  const [reservation, setReservation] = useState<PetSpotReservation | null>(
+    null,
+  );
   const [done, setDone] = useState(false);
   const dateWindow = useMemo(() => {
     if (!startDate || !endDate) return null;
     const start = new Date(startDate + "T14:00:00");
     const end = new Date(endDate + "T14:00:00");
     const days = Math.ceil((end.getTime() - start.getTime()) / 86400000);
-    if (!Number.isFinite(days) || days < (isBoarding ? 30 : 1) || days > 366) return null;
+    if (!Number.isFinite(days) || days < (isBoarding ? 30 : 1) || days > 366)
+      return null;
     return { starts_at: start.toISOString(), ends_at: end.toISOString(), days };
   }, [startDate, endDate, isBoarding]);
   useEffect(() => {
     if (!dateWindow) return;
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      void getPetSpotAvailability(item.id, dateWindow.starts_at, dateWindow.ends_at, guests)
+      void getPetSpotAvailability(
+        item.id,
+        dateWindow.starts_at,
+        dateWindow.ends_at,
+        guests,
+      )
         .then((result) => {
           if (!cancelled) {
-            setUnits(result.data.filter((unit) => ["room", "unit"].includes(unit.resource_type)));
+            setUnits(
+              result.data.filter((unit) =>
+                ["room", "unit"].includes(unit.resource_type),
+              ),
+            );
             setChecking(false);
           }
         })
         .catch((cause: unknown) => {
           if (!cancelled) {
-            setError(cause instanceof Error ? cause.message : "Ketersediaan belum dapat dimuat");
+            setError(
+              cause instanceof Error
+                ? cause.message
+                : "Ketersediaan belum dapat dimuat",
+            );
             setChecking(false);
           }
         });
     }, 250);
-    return () => { cancelled = true; window.clearTimeout(timer); };
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [item.id, dateWindow, guests]);
   const canHost = (unit: PetSpotUnit) =>
     unit.available && pets <= Number(unit.pet_policy?.pet_limit ?? 99);
   const selected = units.find((unit) => unit.id === unitID && canHost(unit));
-  const periods = selected && dateWindow
-    ? selected.booking_rules?.rate_period === "month"
-      ? Math.ceil(dateWindow.days / 30)
-      : dateWindow.days
-    : 0;
+  const periods =
+    selected && dateWindow
+      ? selected.booking_rules?.rate_period === "month"
+        ? Math.ceil(dateWindow.days / 30)
+        : dateWindow.days
+      : 0;
   const subtotal = selected ? selected.base_price * periods : 0;
-  const depositType = selected?.minimum_deposit_type !== "inherit"
-    ? selected?.minimum_deposit_type
-    : item.deposit_type;
-  const depositValue = selected?.minimum_deposit_type !== "inherit"
-    ? selected?.minimum_deposit_value
-    : item.deposit_value;
-  const deposit = Math.ceil(depositType === "fixed"
-    ? Number(depositValue ?? 0)
-    : subtotal * Number(depositValue ?? 0) / 100);
+  const depositType =
+    selected?.minimum_deposit_type !== "inherit"
+      ? selected?.minimum_deposit_type
+      : item.deposit_type;
+  const depositValue =
+    selected?.minimum_deposit_type !== "inherit"
+      ? selected?.minimum_deposit_value
+      : item.deposit_value;
+  const deposit = Math.ceil(
+    depositType === "fixed"
+      ? Number(depositValue ?? 0)
+      : (subtotal * Number(depositValue ?? 0)) / 100,
+  );
   const today = new Date().toISOString().slice(0, 10);
 
   async function reserve(event: FormEvent) {
@@ -1421,7 +1575,10 @@ function HousingBookingModal({
       notify("Login untuk memesan unit");
       return;
     }
-    if (!selected || !dateWindow) { setError("Pilih tanggal dan unit yang tersedia"); return; }
+    if (!selected || !dateWindow) {
+      setError("Pilih tanggal dan unit yang tersedia");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -1437,88 +1594,313 @@ function HousingBookingModal({
       });
       setReservation(created);
       try {
-        setPayment(await createPaymentIntent("petspot_reservation", created.id, paymentMethod));
+        setPayment(
+          await createPaymentIntent(
+            "petspot_reservation",
+            created.id,
+            paymentMethod,
+          ),
+        );
       } catch (cause) {
-        setError((cause instanceof Error ? cause.message : "Pembayaran belum tersedia")
-          + ". Reservasi " + created.reservation_number + " tercatat; buka Aktivitas untuk melanjutkan sebelum batas DP.");
+        setError(
+          (cause instanceof Error
+            ? cause.message
+            : "Pembayaran belum tersedia") +
+            ". Reservasi " +
+            created.reservation_number +
+            " tercatat; buka Aktivitas untuk melanjutkan sebelum batas DP.",
+        );
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Reservasi belum dapat dibuat");
+      setError(
+        cause instanceof Error ? cause.message : "Reservasi belum dapat dibuat",
+      );
       // The availability may have changed while the guest was completing the form.
       if (dateWindow) {
         try {
-          const result = await getPetSpotAvailability(item.id, dateWindow.starts_at, dateWindow.ends_at, guests);
-          setUnits(result.data.filter((unit) => ["room", "unit"].includes(unit.resource_type)));
+          const result = await getPetSpotAvailability(
+            item.id,
+            dateWindow.starts_at,
+            dateWindow.ends_at,
+            guests,
+          );
+          setUnits(
+            result.data.filter((unit) =>
+              ["room", "unit"].includes(unit.resource_type),
+            ),
+          );
           setUnitID("");
-        } catch { /* The error above remains visible. */ }
+        } catch {
+          /* The error above remains visible. */
+        }
       }
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   }
   return (
     <Modal close={close} className="world-modal spot-modal housing-modal">
       <div className="modal-world-body">
         {done ? (
-          <Success title="Unit berhasil dipesan"
-            note={"Reservasi " + reservation?.reservation_number + " sudah terkonfirmasi. Detail tersedia di Aktivitas."}
-            close={close} />
+          <Success
+            title="Unit berhasil dipesan"
+            note={
+              "Reservasi " +
+              reservation?.reservation_number +
+              " sudah terkonfirmasi. Detail tersedia di Aktivitas."
+            }
+            close={close}
+          />
         ) : payment ? (
           <BatpayPaymentPanel payment={payment} onPaid={() => setDone(true)} />
         ) : (
           <>
-            {item.cover_url ? <div className="housing-cover" style={{ backgroundImage: "url(" + JSON.stringify(item.cover_url) + ")" }} /> : null}
-            <small className="world-kicker">{isBoarding ? "KOSAN / COLIVING" : "APARTEMEN"} · {item.city}</small>
+            {item.cover_url ? (
+              <div
+                className="housing-cover"
+                style={{
+                  backgroundImage:
+                    "url(" + JSON.stringify(item.cover_url) + ")",
+                }}
+              />
+            ) : null}
+            <small className="world-kicker">
+              {isBoarding ? "KOSAN / COLIVING" : "APARTEMEN"} · {item.city}
+            </small>
             <h2>{item.name}</h2>
             <p>{item.description}</p>
             <p className="housing-address">{item.address}</p>
-            {item.pet_facilities.length ? <div className="housing-chips">{item.pet_facilities.map((value) => <span key={value}>✓ {value}</span>)}</div> : null}
-            <form className="world-form housing-booking-form" onSubmit={(event) => void reserve(event)}>
+            {item.pet_facilities.length ? (
+              <div className="housing-chips">
+                {item.pet_facilities.map((value) => (
+                  <span key={value}>✓ {value}</span>
+                ))}
+              </div>
+            ) : null}
+            <form
+              className="world-form housing-booking-form"
+              onSubmit={(event) => void reserve(event)}
+            >
               <h3>Cari unit tersedia</h3>
               <div className="housing-form-row">
-                <label><span>Mulai tinggal</span><input required type="date" min={today} value={startDate}
-                  onChange={(event) => { setStartDate(event.target.value); setUnits([]); setUnitID(""); setChecking(true); setError(""); }} /></label>
-                <label><span>Selesai tinggal</span><input required type="date" min={startDate || today} value={endDate}
-                  onChange={(event) => { setEndDate(event.target.value); setUnits([]); setUnitID(""); setChecking(true); setError(""); }} /></label>
+                <label>
+                  <span>Mulai tinggal</span>
+                  <input
+                    required
+                    type="date"
+                    min={today}
+                    value={startDate}
+                    onChange={(event) => {
+                      setStartDate(event.target.value);
+                      setUnits([]);
+                      setUnitID("");
+                      setChecking(true);
+                      setError("");
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>Selesai tinggal</span>
+                  <input
+                    required
+                    type="date"
+                    min={startDate || today}
+                    value={endDate}
+                    onChange={(event) => {
+                      setEndDate(event.target.value);
+                      setUnits([]);
+                      setUnitID("");
+                      setChecking(true);
+                      setError("");
+                    }}
+                  />
+                </label>
               </div>
-              <p className="housing-hint">{isBoarding ? "Minimal 30 malam. Harga unit dapat berlaku per 30 malam." : "Harga unit berlaku per malam."}</p>
+              <p className="housing-hint">
+                {isBoarding
+                  ? "Minimal 30 malam. Harga unit dapat berlaku per 30 malam."
+                  : "Harga unit berlaku per malam."}
+              </p>
               <div className="housing-form-row">
-                <label><span>Penghuni</span><input type="number" min={1} max={20} value={guests} onChange={(event) => { setGuests(Number(event.target.value)); setUnits([]); setUnitID(""); setChecking(true); }} /></label>
-                <label><span>Hewan</span><input type="number" min={0} max={10} value={pets} onChange={(event) => { setPets(Number(event.target.value)); setUnitID(""); }} /></label>
+                <label>
+                  <span>Penghuni</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={guests}
+                    onChange={(event) => {
+                      setGuests(Number(event.target.value));
+                      setUnits([]);
+                      setUnitID("");
+                      setChecking(true);
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>Hewan</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={pets}
+                    onChange={(event) => {
+                      setPets(Number(event.target.value));
+                      setUnitID("");
+                    }}
+                  />
+                </label>
               </div>
-              {startDate && endDate && !dateWindow && <p className="housing-error">Pilih durasi {isBoarding ? "minimal 30" : "minimal 1"} dan maksimal 366 malam.</p>}
-              {dateWindow && <section className="housing-units" aria-label="Pilihan unit">
-                <h3>Unit {checking ? "sedang dicek…" : "(" + units.filter(canHost).length + " tersedia)"}</h3>
-                {!checking && !units.length && <p>Belum ada unit yang cocok. Coba tanggal atau jumlah penghuni lain.</p>}
-                {units.map((unit) => {
-                  const period = unit.booking_rules?.rate_period === "month" ? "30 malam" : "malam";
-                  return <button type="button" key={unit.id} disabled={!canHost(unit)}
-                    className={"housing-unit " + (unitID === unit.id ? "selected" : "")}
-                    onClick={() => setUnitID(unit.id)}>
-                    {unit.image_urls?.[0] ? <span className="housing-unit-photo" role="img" aria-label={unit.name}
-                      style={{ backgroundImage: "url(" + JSON.stringify(unit.image_urls[0]) + ")" }} /> : null}
-                    <span><b>{unit.name}</b><small>{unit.code} · {unit.floor_name || "Unit"} · {unit.capacity} penghuni</small>
-                    {unit.description ? <small>{unit.description}</small> : null}
-                    <span className="housing-chips">{(unit.amenities ?? []).slice(0, 6).map((facility) => <i key={facility}>{facility}</i>)}</span>
-                    <strong>{money.format(unit.base_price)} / {period}</strong></span>
-                    <em>{!unit.available ? "Terisi" : !canHost(unit) ? "Batas pet" : "Pilih"}</em>
-                  </button>;
-                })}
-              </section>}
-              {selected && <section className="housing-summary">
-                <b>Rincian {selected.name}</b>
-                <span>Sewa {periods} × {selected.booking_rules?.rate_period === "month" ? "30 malam" : "malam"} <strong>{money.format(subtotal)}</strong></span>
-                <span>DP untuk mengunci unit <strong>{money.format(deposit)}</strong></span>
-                <span>Sisa dibayar sesuai ketentuan pemilik <strong>{money.format(Math.max(subtotal - deposit, 0))}</strong></span>
-              </section>}
+              {startDate && endDate && !dateWindow && (
+                <p className="housing-error">
+                  Pilih durasi {isBoarding ? "minimal 30" : "minimal 1"} dan
+                  maksimal 366 malam.
+                </p>
+              )}
+              {dateWindow && (
+                <section className="housing-units" aria-label="Pilihan unit">
+                  <h3>
+                    Unit{" "}
+                    {checking
+                      ? "sedang dicek…"
+                      : "(" + units.filter(canHost).length + " tersedia)"}
+                  </h3>
+                  {!checking && !units.length && (
+                    <p>
+                      Belum ada unit yang cocok. Coba tanggal atau jumlah
+                      penghuni lain.
+                    </p>
+                  )}
+                  {units.map((unit) => {
+                    const period =
+                      unit.booking_rules?.rate_period === "month"
+                        ? "30 malam"
+                        : "malam";
+                    return (
+                      <button
+                        type="button"
+                        key={unit.id}
+                        disabled={!canHost(unit)}
+                        className={
+                          "housing-unit " +
+                          (unitID === unit.id ? "selected" : "")
+                        }
+                        onClick={() => setUnitID(unit.id)}
+                      >
+                        {unit.image_urls?.[0] ? (
+                          <span
+                            className="housing-unit-photo"
+                            role="img"
+                            aria-label={unit.name}
+                            style={{
+                              backgroundImage:
+                                "url(" +
+                                JSON.stringify(unit.image_urls[0]) +
+                                ")",
+                            }}
+                          />
+                        ) : null}
+                        <span>
+                          <b>{unit.name}</b>
+                          <small>
+                            {unit.code} · {unit.floor_name || "Unit"} ·{" "}
+                            {unit.capacity} penghuni
+                          </small>
+                          {unit.description ? (
+                            <small>{unit.description}</small>
+                          ) : null}
+                          <span className="housing-chips">
+                            {(unit.amenities ?? [])
+                              .slice(0, 6)
+                              .map((facility) => (
+                                <i key={facility}>{facility}</i>
+                              ))}
+                          </span>
+                          <strong>
+                            {money.format(unit.base_price)} / {period}
+                          </strong>
+                        </span>
+                        <em>
+                          {!unit.available
+                            ? "Terisi"
+                            : !canHost(unit)
+                              ? "Batas pet"
+                              : "Pilih"}
+                        </em>
+                      </button>
+                    );
+                  })}
+                </section>
+              )}
+              {selected && (
+                <section className="housing-summary">
+                  <b>Rincian {selected.name}</b>
+                  <span>
+                    Sewa {periods} ×{" "}
+                    {selected.booking_rules?.rate_period === "month"
+                      ? "30 malam"
+                      : "malam"}{" "}
+                    <strong>{money.format(subtotal)}</strong>
+                  </span>
+                  <span>
+                    DP untuk mengunci unit{" "}
+                    <strong>{money.format(deposit)}</strong>
+                  </span>
+                  <span>
+                    Sisa dibayar sesuai ketentuan pemilik{" "}
+                    <strong>
+                      {money.format(Math.max(subtotal - deposit, 0))}
+                    </strong>
+                  </span>
+                </section>
+              )}
               <h3>Data pemesan</h3>
               <div className="housing-form-row">
-                <label><span>Nama lengkap</span><input required value={name} onChange={(event) => setName(event.target.value)} /></label>
-                <label><span>Nomor HP</span><input required type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
+                <label>
+                  <span>Nama lengkap</span>
+                  <input
+                    required
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>Nomor HP</span>
+                  <input
+                    required
+                    type="tel"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                  />
+                </label>
               </div>
-              <label><span>Catatan untuk pemilik</span><textarea value={requestNote} onChange={(event) => setRequestNote(event.target.value)} /></label>
-              {reservation && !payment && <p>Nomor reservasi: <b>{reservation.reservation_number}</b>. Batas DP: {when(reservation.hold_expires_at)}.</p>}
-              {error && <p role="alert" className="housing-error">{error}</p>}
-              <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />
-              <button type="submit" className="primary-button" disabled={busy || !selected || !dateWindow || !!reservation}>
+              <label>
+                <span>Catatan untuk pemilik</span>
+                <textarea
+                  value={requestNote}
+                  onChange={(event) => setRequestNote(event.target.value)}
+                />
+              </label>
+              {reservation && !payment && (
+                <p>
+                  Nomor reservasi: <b>{reservation.reservation_number}</b>.
+                  Batas DP: {when(reservation.hold_expires_at)}.
+                </p>
+              )}
+              {error && (
+                <p role="alert" className="housing-error">
+                  {error}
+                </p>
+              )}
+              <PaymentMethodPicker
+                value={paymentMethod}
+                onChange={setPaymentMethod}
+              />
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={busy || !selected || !dateWindow || !!reservation}
+              >
                 {busy ? "Memproses…" : "Pesan unit & bayar DP"}
               </button>
             </form>

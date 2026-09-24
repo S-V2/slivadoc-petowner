@@ -113,9 +113,10 @@ export type PetOwnerActivityCenterItem = {
   total_amount?: number;
 };
 
-export type PetOwnerActivityCenterResponse = PlatformList<PetOwnerActivityCenterItem> & {
-  summary: Record<PetOwnerActivityCenterItem["type"], number>;
-};
+export type PetOwnerActivityCenterResponse =
+  PlatformList<PetOwnerActivityCenterItem> & {
+    summary: Record<PetOwnerActivityCenterItem["type"], number>;
+  };
 
 export type FavoriteItem = {
   entity_type: string;
@@ -447,6 +448,12 @@ export type PetEvent = {
   price: number;
   status: string;
   featured: boolean;
+  pet_spot_id?: string;
+  pet_spot_name?: string;
+  ticket_unit: "person" | "owner_pet";
+  allowed_pet_species: string[];
+  pet_requirements: string[];
+  terms: string;
 };
 
 export type PetSpot = {
@@ -972,12 +979,21 @@ export const registerEvent = (
     participant_name: string;
     participant_email: string;
     ticket_quantity: number;
+    pet_id?: string;
   },
 ) =>
-  request<{ id: string; qr_token: string; status: string; amount: number }>(
-    `/api/v1/events/${eventId}/registrations`,
-    { method: "POST", body: JSON.stringify(input) },
-  );
+  request<{
+    id: string;
+    qr_token: string;
+    status: string;
+    amount: number;
+    payment_status: "pending" | "paid" | "expired" | "refunded";
+    payment_method: "qris";
+    pet_name?: string;
+  }>(`/api/v1/events/${eventId}/registrations`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 
 export const getPetSpots = (options?: {
   latitude?: number;

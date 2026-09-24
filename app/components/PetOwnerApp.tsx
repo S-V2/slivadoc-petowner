@@ -293,7 +293,20 @@ function apiPetToView(pet: PetOwnerBootstrap["pets"][number]): Pet {
   return {
     id: pet.id,
     name: pet.name,
-    type: ({dog:"Dog",cat:"Cat",small_mammal:"Small Mammal",bird:"Bird",reptile:"Reptile",amphibian:"Amphibian",fish:"Fish",aquatic:"Aquatic",arachnid:"Arachnid",insect:"Insect",equine:"Equine",farm_animal:"Farm Animal"}[pet.species_group] ?? "Other") as Pet["type"],
+    type: ({
+      dog: "Dog",
+      cat: "Cat",
+      small_mammal: "Small Mammal",
+      bird: "Bird",
+      reptile: "Reptile",
+      amphibian: "Amphibian",
+      fish: "Fish",
+      aquatic: "Aquatic",
+      arachnid: "Arachnid",
+      insect: "Insect",
+      equine: "Equine",
+      farm_animal: "Farm Animal",
+    }[pet.species_group] ?? "Other") as Pet["type"],
     speciesCode: pet.species,
     speciesGroup: pet.species_group,
     breed: pet.breed,
@@ -462,7 +475,6 @@ export default function PetOwnerApp() {
     });
   }, [notify]);
 
-
   async function loadBootstrap() {
     setBootstrapLoading(true);
     const loggedIn = isPetOwnerAuthenticated();
@@ -481,7 +493,10 @@ export default function PetOwnerApp() {
     try {
       clearPlatformCache();
       const identity = await getCurrentUser();
-      if (identity?.role === "official_brand") { window.location.assign("/brand"); return; }
+      if (identity?.role === "official_brand") {
+        window.location.assign("/brand");
+        return;
+      }
       const [data, activityCenter] = await Promise.all([
         getPetOwnerBootstrap(),
         getPetOwnerActivityCenter().catch(() => null),
@@ -785,6 +800,13 @@ export default function PetOwnerApp() {
               notify={notify}
               productCatalog={productCatalog}
               petName={selectedPet.name}
+              pets={petProfiles.map((pet) => ({
+                id: pet.id,
+                name: pet.name,
+                species: pet.speciesCode ?? pet.speciesGroup ?? "other",
+                breed: pet.breed,
+                avatar: pet.avatar,
+              }))}
               favorites={favoriteIds}
               toggleFavorite={(id) => void toggleFavorite("product", id)}
             />
@@ -1122,7 +1144,10 @@ function PetOwnerLogin({
         expires_in: data.expires_in,
       });
       clearPlatformCache();
-      if (data.user?.role === "official_brand") { window.location.assign("/brand"); return; }
+      if (data.user?.role === "official_brand") {
+        window.location.assign("/brand");
+        return;
+      }
       await onSuccess();
       notify("Login berhasil. Selamat datang di Slivadoc.");
       close();
@@ -1137,21 +1162,26 @@ function PetOwnerLogin({
     setBusy(true);
     setMessage("");
     try {
-      const response = await fetch(`${PLATFORM_API_URL}/api/v1/auth/otp/resend`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: registrationEmail,
-          purpose: "registration",
-        }),
-      });
+      const response = await fetch(
+        `${PLATFORM_API_URL}/api/v1/auth/otp/resend`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: registrationEmail,
+            purpose: "registration",
+          }),
+        },
+      );
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.message || "OTP belum dapat dikirim ulang");
       setMessage("OTP baru sudah dikirim. Periksa inbox dan folder spam.");
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "OTP belum dapat dikirim ulang",
+        error instanceof Error
+          ? error.message
+          : "OTP belum dapat dikirim ulang",
       );
     } finally {
       setBusy(false);
@@ -1193,7 +1223,8 @@ function PetOwnerLogin({
             {mode === "verify" ? (
               <>
                 <div className="access-warning">
-                  Masukkan 6 digit OTP yang dikirim ke <b>{registrationEmail}</b>.
+                  Masukkan 6 digit OTP yang dikirim ke{" "}
+                  <b>{registrationEmail}</b>.
                 </div>
                 <label>
                   <span>Kode OTP</span>
@@ -1214,80 +1245,90 @@ function PetOwnerLogin({
                   />
                 </label>
               </>
-            ) : mode === "register" && (
-              <>
-                <label>
-                  <span>Nama lengkap</span>
-                  <input
-                    name="full_name"
-                    minLength={3}
-                    placeholder="Nama sesuai identitas"
-                    required
-                  />
-                </label>
-                <label>
-                  <span>WhatsApp</span>
-                  <input
-                    name="phone"
-                    type="tel"
-                    inputMode="numeric"
-                    value={phone}
-                    onChange={(event) =>
-                      setPhone(
-                        event.target.value.replace(/\D/g, "").slice(0, 16),
-                      )
-                    }
-                    pattern="0[0-9]{8,15}"
-                    minLength={9}
-                    maxLength={16}
-                    title="Nomor HP harus diawali 0 dan berisi 9–16 digit"
-                    placeholder="08xxxxxxxxxx"
-                    required
-                  />
-                  <small>Harus diawali angka 0, tanpa spasi atau simbol.</small>
-                </label>
-              </>
+            ) : (
+              mode === "register" && (
+                <>
+                  <label>
+                    <span>Nama lengkap</span>
+                    <input
+                      name="full_name"
+                      minLength={3}
+                      placeholder="Nama sesuai identitas"
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span>WhatsApp</span>
+                    <input
+                      name="phone"
+                      type="tel"
+                      inputMode="numeric"
+                      value={phone}
+                      onChange={(event) =>
+                        setPhone(
+                          event.target.value.replace(/\D/g, "").slice(0, 16),
+                        )
+                      }
+                      pattern="0[0-9]{8,15}"
+                      minLength={9}
+                      maxLength={16}
+                      title="Nomor HP harus diawali 0 dan berisi 9–16 digit"
+                      placeholder="08xxxxxxxxxx"
+                      required
+                    />
+                    <small>
+                      Harus diawali angka 0, tanpa spasi atau simbol.
+                    </small>
+                  </label>
+                </>
+              )
             )}
-            {mode !== "verify" && <label>
-              <span>Email</span>
-              <input
-                name="email"
-                type="email"
-                defaultValue={mode === "login" ? registrationEmail : undefined}
-                autoComplete="email"
-                placeholder="petparent@email.com"
-                required
-              />
-            </label>}
-            {mode !== "verify" && <label>
-              <span>Password</span>
-              <span className="password-input">
+            {mode !== "verify" && (
+              <label>
+                <span>Email</span>
                 <input
-                  name="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  type={visible ? "text" : "password"}
-                  autoComplete={
-                    mode === "login" ? "current-password" : "new-password"
+                  name="email"
+                  type="email"
+                  defaultValue={
+                    mode === "login" ? registrationEmail : undefined
                   }
-                  placeholder="Minimal 8 karakter"
-                  minLength={8}
-                  pattern="(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}"
-                  title="Wajib berisi huruf, angka, dan simbol"
+                  autoComplete="email"
+                  placeholder="petparent@email.com"
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setVisible((value) => !value)}
-                  aria-label={
-                    visible ? "Sembunyikan password" : "Tampilkan password"
-                  }
-                >
-                  {visible ? "◉" : "◎"}
-                </button>
-              </span>
-              <small>Gunakan kombinasi huruf, angka, dan simbol.</small>
-            </label>}
+              </label>
+            )}
+            {mode !== "verify" && (
+              <label>
+                <span>Password</span>
+                <span className="password-input">
+                  <input
+                    name="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    type={visible ? "text" : "password"}
+                    autoComplete={
+                      mode === "login" ? "current-password" : "new-password"
+                    }
+                    placeholder="Minimal 8 karakter"
+                    minLength={8}
+                    pattern="(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}"
+                    title="Wajib berisi huruf, angka, dan simbol"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setVisible((value) => !value)}
+                    aria-label={
+                      visible ? "Sembunyikan password" : "Tampilkan password"
+                    }
+                  >
+                    {visible ? "◉" : "◎"}
+                  </button>
+                </span>
+                <small>Gunakan kombinasi huruf, angka, dan simbol.</small>
+              </label>
+            )}
             {mode === "register" && (
               <div className="legal-consents">
                 <label>
@@ -1522,7 +1563,9 @@ function Sidebar({
           <Icon name="user" /> Masuk ke akun
         </button>
       )}
-      <Link href="/brand" className="side-login-button">Official Brand workspace →</Link>
+      <Link href="/brand" className="side-login-button">
+        Official Brand workspace →
+      </Link>
     </aside>
   );
 }
@@ -1880,7 +1923,8 @@ function HomeView({
       note: "Ke rumah",
       icon: "home",
       tone: "peach",
-      action: () => (homeCare ? openBooking(homeCare) : setActiveView("discover")),
+      action: () =>
+        homeCare ? openBooking(homeCare) : setActiveView("discover"),
     },
     {
       label: "Darurat",
@@ -1894,7 +1938,8 @@ function HomeView({
       note: "Terpercaya",
       icon: "paw",
       tone: "violet",
-      action: () => (petHotel ? openBooking(petHotel) : setActiveView("discover")),
+      action: () =>
+        petHotel ? openBooking(petHotel) : setActiveView("discover"),
     },
     {
       label: "Sliva World",
@@ -1932,8 +1977,14 @@ function HomeView({
             unoptimized
             sizes="(max-width: 980px) 100vw, 65vw"
           />
-          <span className="home-hero-orb home-hero-orb--large" aria-hidden="true" />
-          <span className="home-hero-orb home-hero-orb--small" aria-hidden="true" />
+          <span
+            className="home-hero-orb home-hero-orb--large"
+            aria-hidden="true"
+          />
+          <span
+            className="home-hero-orb home-hero-orb--small"
+            aria-hidden="true"
+          />
           <div className="home-daily-copy">
             <span className="home-daily-pill">DAILY PET MOMENT</span>
             <h2>Bikin hari mereka lebih happy.</h2>
@@ -2000,7 +2051,9 @@ function HomeView({
                 key={item.label}
                 onClick={item.action}
               >
-                <span className={`home-quick-mini-icon home-quick-mini-icon--${item.tone}`}>
+                <span
+                  className={`home-quick-mini-icon home-quick-mini-icon--${item.tone}`}
+                >
                   <Icon name={item.icon} size={20} />
                 </span>
                 <b>{item.label}</b>
@@ -2104,7 +2157,10 @@ function HomeView({
         )}
       </div>
 
-      <aside className="home-pet-rail home-health-and-care" aria-label="Ringkasan kesehatan dan jadwal">
+      <aside
+        className="home-pet-rail home-health-and-care"
+        aria-label="Ringkasan kesehatan dan jadwal"
+      >
         <section className="home-health-section">
           <header className="home-section-heading home-section-heading--action">
             <div>
@@ -2117,8 +2173,14 @@ function HomeView({
             </button>
           </header>
           <div className="home-health-card">
-            <span className="home-health-glow home-health-glow--large" aria-hidden="true" />
-            <span className="home-health-glow home-health-glow--small" aria-hidden="true" />
+            <span
+              className="home-health-glow home-health-glow--large"
+              aria-hidden="true"
+            />
+            <span
+              className="home-health-glow home-health-glow--small"
+              aria-hidden="true"
+            />
             <div className="home-health-top">
               <span className="home-health-avatar">
                 {selectedPet.avatar}
@@ -2242,7 +2304,7 @@ function HomeView({
                       ).toLocaleDateString("id-ID", {
                         day: "numeric",
                         month: "short",
-                       })}
+                      })}
                     </small>
                     <b>{care.title}</b>
                     <span>{care.description}</span>
@@ -2290,7 +2352,9 @@ function HomeView({
             className="home-rail-dock-action"
             onClick={() => setChatOpen(true)}
           >
-            <span><Icon name="chat" size={18} /></span>
+            <span>
+              <Icon name="chat" size={18} />
+            </span>
             <div>
               <b>Tanya Dokter Hewan 24/7</b>
               <small>Konsultasi online cepat dan ramah</small>
@@ -3406,49 +3470,102 @@ function HousingBookingsActivity({ notify }: { notify: Notify }) {
   const [busy, setBusy] = useState(false);
   const refresh = useCallback(() => {
     if (!isPetOwnerAuthenticated()) return;
-    void getMyPetSpotReservations().then((value) => setItems(value.data))
-      .catch((cause: unknown) => notify(cause instanceof Error ? cause.message : "Reservasi hunian belum dapat dimuat"));
+    void getMyPetSpotReservations()
+      .then((value) => setItems(value.data))
+      .catch((cause: unknown) =>
+        notify(
+          cause instanceof Error
+            ? cause.message
+            : "Reservasi hunian belum dapat dimuat",
+        ),
+      );
   }, [notify]);
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
   async function pay(id: string) {
     setBusy(true);
-    try { setPayment(await createPaymentIntent("petspot_reservation", id, method)); }
-    catch (cause) { notify(cause instanceof Error ? cause.message : "Pembayaran belum dapat dibuka"); }
-    finally { setBusy(false); }
+    try {
+      setPayment(await createPaymentIntent("petspot_reservation", id, method));
+    } catch (cause) {
+      notify(
+        cause instanceof Error
+          ? cause.message
+          : "Pembayaran belum dapat dibuka",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
-  const housing = items.filter((item) => item.category === "boarding_house" || item.category === "apartment");
+  const housing = items.filter(
+    (item) =>
+      item.category === "boarding_house" || item.category === "apartment",
+  );
   if (!housing.length) return null;
-  return <section className="housing-activity">
-    <h3>Reservasi hunian</h3>
-    <p>Lihat jadwal dan pembayaran reservasi hunian.</p>
-    {payment && <BatpayPaymentPanel payment={payment} onPaid={() => { setPayment(null); refresh(); }} />}
-    {housing.map((item) => {
-      const canPay = item.payment_status === "pending" &&
-        item.status === "pending_payment" &&
-        new Date(item.hold_expires_at) > new Date();
-      const reservationStatus = item.status === "pending_payment"
-        ? "Menunggu pembayaran"
-        : item.status.replaceAll("_", " ");
-      const paymentStatus = item.payment_status === "pending"
-        ? "Belum dibayar"
-        : item.payment_status.replaceAll("_", " ");
-      return <article className={canPay ? "housing-activity--needs-action" : ""} key={item.id}>
-        <div className="housing-activity-booking">
-          <b>{item.spot_name}, {item.resource_name}</b>
-          <small>{item.reservation_number}</small>
-          <span>{new Date(item.starts_at).toLocaleDateString("id-ID")} sampai {new Date(item.ends_at).toLocaleDateString("id-ID")}</span>
-        </div>
-        <div className="housing-activity-status">
-          <b>{reservationStatus}</b>
-          <small>Uang muka {formatRupiah(item.deposit_amount)}, {paymentStatus}</small>
-        </div>
-        {canPay && <div className="housing-activity-payment">
-          <PaymentMethodPicker value={method} onChange={setMethod} />
-          <button type="button" disabled={busy} onClick={() => void pay(item.id)}>Bayar DP</button>
-        </div>}
-      </article>;
-    })}
-  </section>;
+  return (
+    <section className="housing-activity">
+      <h3>Reservasi hunian</h3>
+      <p>Lihat jadwal dan pembayaran reservasi hunian.</p>
+      {payment && (
+        <BatpayPaymentPanel
+          payment={payment}
+          onPaid={() => {
+            setPayment(null);
+            refresh();
+          }}
+        />
+      )}
+      {housing.map((item) => {
+        const canPay =
+          item.payment_status === "pending" &&
+          item.status === "pending_payment" &&
+          new Date(item.hold_expires_at) > new Date();
+        const reservationStatus =
+          item.status === "pending_payment"
+            ? "Menunggu pembayaran"
+            : item.status.replaceAll("_", " ");
+        const paymentStatus =
+          item.payment_status === "pending"
+            ? "Belum dibayar"
+            : item.payment_status.replaceAll("_", " ");
+        return (
+          <article
+            className={canPay ? "housing-activity--needs-action" : ""}
+            key={item.id}
+          >
+            <div className="housing-activity-booking">
+              <b>
+                {item.spot_name}, {item.resource_name}
+              </b>
+              <small>{item.reservation_number}</small>
+              <span>
+                {new Date(item.starts_at).toLocaleDateString("id-ID")} sampai{" "}
+                {new Date(item.ends_at).toLocaleDateString("id-ID")}
+              </span>
+            </div>
+            <div className="housing-activity-status">
+              <b>{reservationStatus}</b>
+              <small>
+                Uang muka {formatRupiah(item.deposit_amount)}, {paymentStatus}
+              </small>
+            </div>
+            {canPay && (
+              <div className="housing-activity-payment">
+                <PaymentMethodPicker value={method} onChange={setMethod} />
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void pay(item.id)}
+                >
+                  Bayar DP
+                </button>
+              </div>
+            )}
+          </article>
+        );
+      })}
+    </section>
+  );
 }
 
 function BookingsView({
@@ -3509,7 +3626,11 @@ function BookingsView({
       <HousingBookingsActivity notify={notify} />
 
       <div className="activity-controls">
-        <div className="activity-state-tabs" role="group" aria-label="Status aktivitas">
+        <div
+          className="activity-state-tabs"
+          role="group"
+          aria-label="Status aktivitas"
+        >
           {[
             ["Mendatang", upcoming.length],
             ["Berlangsung", live.length],
@@ -3532,9 +3653,14 @@ function BookingsView({
         </div>
         <label className="activity-type-filter">
           <span>Jenis aktivitas</span>
-          <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+          <select
+            value={typeFilter}
+            onChange={(event) => setTypeFilter(event.target.value)}
+          >
             {typeOptions.map((item) => (
-              <option key={item.id} value={item.id}>{item.label}</option>
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
             ))}
           </select>
         </label>
@@ -3559,7 +3685,11 @@ function BookingsView({
             <Icon name="sparkle" size={14} />
             {points.toLocaleString("id-ID")} poin
           </button>
-          <button className="primary-button small" type="button" onClick={() => openBooking()}>
+          <button
+            className="primary-button small"
+            type="button"
+            onClick={() => openBooking()}
+          >
             <Icon name="plus" size={15} /> Buat booking
           </button>
         </div>
@@ -3574,13 +3704,15 @@ function BookingsView({
                 type="button"
                 onClick={() => setDetail(item)}
               >
-                <span className={`activity-native-icon activity-native-icon--${
-                  item.category === "consultation"
-                    ? "mint"
-                    : item.category === "order"
-                      ? "violet"
-                      : "sky"
-                }`}>
+                <span
+                  className={`activity-native-icon activity-native-icon--${
+                    item.category === "consultation"
+                      ? "mint"
+                      : item.category === "order"
+                        ? "violet"
+                        : "sky"
+                  }`}
+                >
                   <Icon
                     name={
                       item.category === "booking"
@@ -3603,14 +3735,19 @@ function BookingsView({
                   <span>{item.description}</span>
                   <small className="activity-native-date">
                     <Icon name="clock" size={13} />
-                    {new Date(item.starts_at || item.occurred_at).toLocaleString("id-ID")}
+                    {new Date(
+                      item.starts_at || item.occurred_at,
+                    ).toLocaleString("id-ID")}
                   </small>
                 </span>
                 <Icon name="chevron" size={17} />
               </button>
               <footer>
                 <span>
-                  <Icon name={item.category === "order" ? "bag" : "paw"} size={14} />
+                  <Icon
+                    name={item.category === "order" ? "bag" : "paw"}
+                    size={14}
+                  />
                   {item.category === "order" ? "Pesanan pet" : "Pet kamu"}
                 </span>
                 {item.metadata?.latitude ? (
@@ -3635,8 +3772,23 @@ function BookingsView({
           ))
         ) : (
           <div className="empty-state activity-native-empty">
-            <span><Icon name={typeFilter === "order" ? "bag" : typeFilter === "consultation" ? "chat" : "calendar"} size={28} /></span>
-            <h3>{activities.length ? "Tidak ada aktivitas yang cocok" : "Belum ada aktivitas"}</h3>
+            <span>
+              <Icon
+                name={
+                  typeFilter === "order"
+                    ? "bag"
+                    : typeFilter === "consultation"
+                      ? "chat"
+                      : "calendar"
+                }
+                size={28}
+              />
+            </span>
+            <h3>
+              {activities.length
+                ? "Tidak ada aktivitas yang cocok"
+                : "Belum ada aktivitas"}
+            </h3>
             <p>
               {activities.length
                 ? "Ubah status atau jenis aktivitas untuk melihat catatan lainnya."
@@ -3648,13 +3800,22 @@ function BookingsView({
 
       <section className="activity-native-cta">
         <div>
-          <span><Icon name="sparkle" size={17} /></span>
+          <span>
+            <Icon name="sparkle" size={17} />
+          </span>
           <p>
             <b>Butuh layanan lain?</b>
-            <small>Booking dokter, grooming, home care, atau hotel dalam beberapa langkah.</small>
+            <small>
+              Booking dokter, grooming, home care, atau hotel dalam beberapa
+              langkah.
+            </small>
           </p>
         </div>
-        <button className="secondary-button" type="button" onClick={() => setActiveView("discover")}>
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={() => setActiveView("discover")}
+        >
           Jelajahi layanan
         </button>
       </section>
@@ -3730,7 +3891,9 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
           <div>
             <small>HEALTH PROFILE ✦</small>
             <h2>{pet.name}</h2>
-            <p>{pet.breed} • {pet.weight}</p>
+            <p>
+              {pet.breed} • {pet.weight}
+            </p>
           </div>
         </div>
         <div className="health-hero-score">
@@ -3767,7 +3930,11 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
         </div>
       </section>
 
-      <div className="health-native-tabs" role="tablist" aria-label="Halaman kesehatan">
+      <div
+        className="health-native-tabs"
+        role="tablist"
+        aria-label="Halaman kesehatan"
+      >
         <button
           type="button"
           className={screen === "summary" ? "active" : ""}
@@ -3808,27 +3975,40 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
                 <span className={records.length ? "done" : ""}>
                   {records.length ? <Icon name="check" size={12} /> : "!"}
                 </span>
-                <b>{records.length ? "Rekam medis tersinkron" : "Belum ada rekam medis"}</b>
-                <small>{latest?.title || "Buat booking pemeriksaan untuk memulai record"}</small>
+                <b>
+                  {records.length
+                    ? "Rekam medis tersinkron"
+                    : "Belum ada rekam medis"}
+                </b>
+                <small>
+                  {latest?.title ||
+                    "Buat booking pemeriksaan untuk memulai record"}
+                </small>
               </p>
               <p>
                 <span className={pet.healthScore > 0 ? "done" : ""}>
                   {pet.healthScore > 0 ? <Icon name="check" size={12} /> : "!"}
                 </span>
                 <b>Health score {pet.healthScore || "belum tersedia"}</b>
-                <small>{pet.nextCare || "Lengkapi profil dan aktivitas pet"}</small>
+                <small>
+                  {pet.nextCare || "Lengkapi profil dan aktivitas pet"}
+                </small>
               </p>
             </div>
           </section>
 
           <section className="health-native-facts">
             <article>
-              <span><Icon name="shield" size={17} /></span>
+              <span>
+                <Icon name="shield" size={17} />
+              </span>
               <small>Microchip</small>
               <b>{pet.microchip}</b>
             </article>
             <article>
-              <span><Icon name="heart" size={17} /></span>
+              <span>
+                <Icon name="heart" size={17} />
+              </span>
               <small>Berat terbaru</small>
               <b>{latest?.weight_kg ? `${latest.weight_kg} kg` : pet.weight}</b>
             </article>
@@ -3850,13 +4030,19 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
                 type="button"
                 onClick={() => setDetail(latest)}
               >
-                <span><Icon name="heart" size={20} /></span>
+                <span>
+                  <Icon name="heart" size={20} />
+                </span>
                 <p>
-                  <small>{new Date(latest.occurred_at).toLocaleString("id-ID")}</small>
+                  <small>
+                    {new Date(latest.occurred_at).toLocaleString("id-ID")}
+                  </small>
                   <b>{latest.diagnosis || latest.complaint || latest.title}</b>
                   <span>{latest.doctor_name || "Dokter belum dicatat"}</span>
                 </p>
-                <i><Icon name="arrow" size={15} /></i>
+                <i>
+                  <Icon name="arrow" size={15} />
+                </i>
               </button>
             </>
           ) : null}
@@ -3876,7 +4062,9 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
                 ["scheduled", "snoozed"].includes(item.status),
               ).length ? (
                 reminders
-                  .filter((item) => ["scheduled", "snoozed"].includes(item.status))
+                  .filter((item) =>
+                    ["scheduled", "snoozed"].includes(item.status),
+                  )
                   .map((item) => (
                     <article key={item.id}>
                       <span>
@@ -3896,7 +4084,9 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
                             ? "Satu kali"
                             : `Berulang ${item.recurrence}`}
                         </small>
-                        <p>{item.notes || `Pengingat untuk ${item.pet_name}`}</p>
+                        <p>
+                          {item.notes || `Pengingat untuk ${item.pet_name}`}
+                        </p>
                       </div>
                       <div>
                         <button
@@ -3925,8 +4115,8 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
                   ))
               ) : (
                 <div className="empty-state compact health-native-reminder-empty">
-                  Belum ada pengingat. Tambahkan jadwal vaksin, obat, grooming, atau
-                  kontrol berikutnya.
+                  Belum ada pengingat. Tambahkan jadwal vaksin, obat, grooming,
+                  atau kontrol berikutnya.
                 </div>
               )}
             </div>
@@ -3934,10 +4124,16 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
 
           {(pet.notes || pet.allergies) && (
             <section className="health-special-note">
-              <span><Icon name="shield" size={18} /></span>
+              <span>
+                <Icon name="shield" size={18} />
+              </span>
               <div>
                 <small>CATATAN KHUSUS</small>
-                <b>{pet.allergies ? `Alergi: ${pet.allergies}` : "Catatan kesehatan"}</b>
+                <b>
+                  {pet.allergies
+                    ? `Alergi: ${pet.allergies}`
+                    : "Catatan kesehatan"}
+                </b>
                 <p>{pet.notes || "Tidak ada catatan medis tambahan."}</p>
               </div>
             </section>
@@ -3945,7 +4141,11 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
         </>
       ) : (
         <>
-          <div className="health-record-filter" role="tablist" aria-label="Jenis rekam medis">
+          <div
+            className="health-record-filter"
+            role="tablist"
+            aria-label="Jenis rekam medis"
+          >
             {categories.map((item) => (
               <button
                 type="button"
@@ -3984,7 +4184,9 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
                     key={record.id}
                     onClick={() => setDetail(record)}
                   >
-                    <span><Icon name="heart" size={20} /></span>
+                    <span>
+                      <Icon name="heart" size={20} />
+                    </span>
                     <p>
                       <small>
                         {record.record_type.toUpperCase()} ·{" "}
@@ -4004,9 +4206,14 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
               </div>
             ) : (
               <div className="empty-state health-native-record-empty">
-                <span><Icon name="heart" size={28} /></span>
+                <span>
+                  <Icon name="heart" size={28} />
+                </span>
                 <h3>Belum ada rekam medis</h3>
-                <p>Record akan muncul setelah pemeriksaan atau konsultasi untuk {pet.name}.</p>
+                <p>
+                  Record akan muncul setelah pemeriksaan atau konsultasi untuk{" "}
+                  {pet.name}.
+                </p>
               </div>
             )}
           </section>
@@ -4222,7 +4429,9 @@ function ShopView({
     .filter(
       (product) =>
         (category === "Semua" || product.category === category) &&
-        `${product.name} ${product.brand}`.toLowerCase().includes(query.toLowerCase()),
+        `${product.name} ${product.brand}`
+          .toLowerCase()
+          .includes(query.toLowerCase()),
     )
     .sort((left, right) => {
       if (sort === "rating") return right.rating - left.rating;
@@ -4256,7 +4465,11 @@ function ShopView({
           aria-label="Cari produk atau toko"
         />
         {query && (
-          <button type="button" aria-label="Hapus pencarian" onClick={() => setQuery("")}>
+          <button
+            type="button"
+            aria-label="Hapus pencarian"
+            onClick={() => setQuery("")}
+          >
             <Icon name="close" size={16} />
           </button>
         )}
@@ -4279,8 +4492,12 @@ function ShopView({
           </button>
         </div>
         <div className="shop-native-art" aria-hidden="true">
-          <span><Icon name="bag" size={48} /></span>
-          <i><Icon name="paw" size={18} /></i>
+          <span>
+            <Icon name="bag" size={48} />
+          </span>
+          <i>
+            <Icon name="paw" size={18} />
+          </i>
         </div>
       </section>
 
@@ -4294,7 +4511,11 @@ function ShopView({
         </button>
       </header>
 
-      <div className="shop-native-categories" role="tablist" aria-label="Kategori produk">
+      <div
+        className="shop-native-categories"
+        role="tablist"
+        aria-label="Kategori produk"
+      >
         {categories.map((item) => {
           const active = category === item;
           return (
@@ -4332,7 +4553,11 @@ function ShopView({
         </div>
       </header>
 
-      <div className="shop-native-sort-row" role="tablist" aria-label="Urutkan produk">
+      <div
+        className="shop-native-sort-row"
+        role="tablist"
+        aria-label="Urutkan produk"
+      >
         {[
           ["recommended", "Rekomendasi"],
           ["popular", "Terlaris"],
@@ -4372,7 +4597,11 @@ function ShopView({
                 <button
                   className={favorites.includes(product.id) ? "favorite" : ""}
                   type="button"
-                  aria-label={favorites.includes(product.id) ? "Hapus dari favorit" : "Simpan produk"}
+                  aria-label={
+                    favorites.includes(product.id)
+                      ? "Hapus dari favorit"
+                      : "Simpan produk"
+                  }
                   onClick={() => toggleFavorite(product.id)}
                 >
                   <Icon name="heart" size={17} />
@@ -4385,7 +4614,8 @@ function ShopView({
                 </span>
                 <div>
                   <p>
-                    <Icon name="star" size={10} /> {product.rating || "Baru"} · {product.sold}
+                    <Icon name="star" size={10} /> {product.rating || "Baru"} ·{" "}
+                    {product.sold}
                   </p>
                   <strong>{formatRupiah(product.price)}</strong>
                 </div>
@@ -4403,7 +4633,9 @@ function ShopView({
         </div>
       ) : (
         <div className="empty-state shop-native-empty">
-          <span><Icon name="search" size={28} /></span>
+          <span>
+            <Icon name="search" size={28} />
+          </span>
           <h3>Produk belum ditemukan</h3>
           <p>Coba kata kunci atau kategori lain.</p>
           <button
@@ -4464,7 +4696,12 @@ function ProfileView({
         if (live) setShippingAddresses(result.addresses);
       })
       .catch((error) => {
-        if (live) notify(error instanceof Error ? error.message : "Alamat belum dapat dimuat");
+        if (live)
+          notify(
+            error instanceof Error
+              ? error.message
+              : "Alamat belum dapat dimuat",
+          );
       })
       .finally(() => {
         if (live) setAddressLoading(false);
@@ -4484,17 +4721,25 @@ function ProfileView({
       );
       notify(result.message);
     } catch (error) {
-      notify(error instanceof Error ? error.message : "Alamat utama belum dapat diubah");
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Alamat utama belum dapat diubah",
+      );
     }
   }
   async function removeAddress(address: PetOwnerShippingAddress) {
     if (!window.confirm(`Hapus alamat ${address.label}?`)) return;
     try {
       const result = await deletePetOwnerShippingAddress(address.id);
-      setShippingAddresses((current) => current.filter((item) => item.id !== address.id));
+      setShippingAddresses((current) =>
+        current.filter((item) => item.id !== address.id),
+      );
       notify(result.message);
     } catch (error) {
-      notify(error instanceof Error ? error.message : "Alamat belum dapat dihapus");
+      notify(
+        error instanceof Error ? error.message : "Alamat belum dapat dihapus",
+      );
     }
   }
   return (
@@ -4505,7 +4750,6 @@ function ProfileView({
           <h2>Profil pet parent</h2>
         </div>
       </header>
-
       <div className="profile-identity-col">
         <section className="profile-main-card profile-native-card">
           <div className="profile-cover">
@@ -4515,7 +4759,9 @@ function ProfileView({
             <div className="profile-photo">{initials}</div>
             <div>
               <h2>{account.full_name}</h2>
-              <p>{account.email} · {account.phone || "Nomor telepon belum diisi"}</p>
+              <p>
+                {account.email} · {account.phone || "Nomor telepon belum diisi"}
+              </p>
               <span className="gold-member">✓ AKUN AKTIF</span>
             </div>
             <button
@@ -4545,7 +4791,24 @@ function ProfileView({
               <small>Sinkron</small>
             </span>
           </div>
-          {account.public_code && <div className="profile-public-code"><span>KODE MEMBER PET OWNER · TUNJUKKAN SAAT BAYAR DI PETCLINIC</span><strong>{account.public_code}</strong><button type="button" onClick={() => void navigator.clipboard.writeText(account.public_code ?? "").then(() => notify("Kode member disalin"))}>Salin kode</button></div>}
+          {account.public_code && (
+            <div className="profile-public-code">
+              <span>
+                KODE MEMBER PET OWNER · TUNJUKKAN SAAT BAYAR DI PETCLINIC
+              </span>
+              <strong>{account.public_code}</strong>
+              <button
+                type="button"
+                onClick={() =>
+                  void navigator.clipboard
+                    .writeText(account.public_code ?? "")
+                    .then(() => notify("Kode member disalin"))
+                }
+              >
+                Salin kode
+              </button>
+            </div>
+          )}
         </section>
 
         <section className="profile-native-points">
@@ -4554,7 +4817,9 @@ function ProfileView({
             <h3>Saldo dan aturan klaim</h3>
           </header>
           <div>
-            <span><Icon name="sparkle" size={19} /></span>
+            <span>
+              <Icon name="sparkle" size={19} />
+            </span>
             <p>
               <b>{points.toLocaleString("id-ID")} Sliva Points</b>
               <small>
@@ -4568,7 +4833,8 @@ function ProfileView({
           <ul>
             {(rewardFormula.rules?.length
               ? rewardFormula.rules
-              : [rewardFormulaText(rewardFormula)])
+              : [rewardFormulaText(rewardFormula)]
+            )
               .slice(0, 3)
               .map((rule) => (
                 <li key={rule}>
@@ -4600,7 +4866,11 @@ function ProfileView({
             <div className="profile-address-list">
               {shippingAddresses.map((address) => (
                 <article
-                  className={address.is_primary ? "profile-address-card primary" : "profile-address-card"}
+                  className={
+                    address.is_primary
+                      ? "profile-address-card primary"
+                      : "profile-address-card"
+                  }
                   key={address.id}
                 >
                   <div>
@@ -4618,7 +4888,10 @@ function ProfileView({
                   </div>
                   <div className="profile-address-card-actions">
                     {!address.is_primary && (
-                      <button type="button" onClick={() => void makePrimary(address.id)}>
+                      <button
+                        type="button"
+                        onClick={() => void makePrimary(address.id)}
+                      >
                         Jadikan utama
                       </button>
                     )}
@@ -4631,7 +4904,10 @@ function ProfileView({
                     >
                       Ubah
                     </button>
-                    <button type="button" onClick={() => void removeAddress(address)}>
+                    <button
+                      type="button"
+                      onClick={() => void removeAddress(address)}
+                    >
                       Hapus
                     </button>
                   </div>
@@ -4640,7 +4916,10 @@ function ProfileView({
             </div>
           ) : (
             <div className="profile-address-empty">
-              <p>Belum ada alamat tersimpan. Tambahkan alamat untuk checkout lebih cepat.</p>
+              <p>
+                Belum ada alamat tersimpan. Tambahkan alamat untuk checkout
+                lebih cepat.
+              </p>
               <button
                 type="button"
                 onClick={() => {
@@ -4659,8 +4938,13 @@ function ProfileView({
             type="button"
             onClick={() => notify("SlivaCare siap membantu kebutuhan pet-mu.")}
           >
-            <span><Icon name="chat" size={20} /></span>
-            <p><b>Chat Customer Support</b><small>Hubungi tim Slivadoc langsung dari aplikasi.</small></p>
+            <span>
+              <Icon name="chat" size={20} />
+            </span>
+            <p>
+              <b>Chat Customer Support</b>
+              <small>Hubungi tim Slivadoc langsung dari aplikasi.</small>
+            </p>
             <Icon name="arrow" size={16} />
           </button>
 
@@ -4669,13 +4953,17 @@ function ProfileView({
             type="button"
             onClick={() => setConfirmLogout(true)}
           >
-            <span><Icon name="logout" size={20} /></span>
-            <p><b>Keluar dari akun</b><small>Akhiri sesi hanya di perangkat ini.</small></p>
+            <span>
+              <Icon name="logout" size={20} />
+            </span>
+            <p>
+              <b>Keluar dari akun</b>
+              <small>Akhiri sesi hanya di perangkat ini.</small>
+            </p>
             <Icon name="chevron" size={17} />
           </button>
         </div>
       </div>
-
       <aside className="profile-settings-col">
         <section className="panel profile-native-settings">
           <header>
@@ -4683,28 +4971,60 @@ function ProfileView({
             <h3>Pengaturan akun</h3>
           </header>
           <button type="button" onClick={() => setEdit(true)}>
-            <span><Icon name="user" size={19} /></span>
-            <p><b>Profil pet parent</b><small>{account.full_name}</small></p>
+            <span>
+              <Icon name="user" size={19} />
+            </span>
+            <p>
+              <b>Profil pet parent</b>
+              <small>{account.full_name}</small>
+            </p>
             <Icon name="chevron" size={17} />
           </button>
-          <button type="button" onClick={() => notify("Notifikasi Slivadoc tersedia di ikon lonceng.")}>
-            <span><Icon name="bell" size={19} /></span>
-            <p><b>Notifikasi</b><small>Buka daftar dan detail update</small></p>
+          <button
+            type="button"
+            onClick={() =>
+              notify("Notifikasi Slivadoc tersedia di ikon lonceng.")
+            }
+          >
+            <span>
+              <Icon name="bell" size={19} />
+            </span>
+            <p>
+              <b>Notifikasi</b>
+              <small>Buka daftar dan detail update</small>
+            </p>
             <Icon name="chevron" size={17} />
           </button>
-          <button type="button" onClick={() => notify(`Email login: ${account.email}`)}>
-            <span><Icon name="shield" size={19} /></span>
-            <p><b>Privasi & keamanan</b><small>Verifikasi dan sesi perangkat</small></p>
+          <button
+            type="button"
+            onClick={() => notify(`Email login: ${account.email}`)}
+          >
+            <span>
+              <Icon name="shield" size={19} />
+            </span>
+            <p>
+              <b>Privasi & keamanan</b>
+              <small>Verifikasi dan sesi perangkat</small>
+            </p>
             <Icon name="chevron" size={17} />
           </button>
-          <button type="button" onClick={() => notify(`${petCount} profil pet terhubung ke akun ini.`)}>
-            <span><Icon name="users" size={19} /></span>
-            <p><b>Keluarga & akses</b><small>Kelola orang tepercaya untuk pet</small></p>
+          <button
+            type="button"
+            onClick={() =>
+              notify(`${petCount} profil pet terhubung ke akun ini.`)
+            }
+          >
+            <span>
+              <Icon name="users" size={19} />
+            </span>
+            <p>
+              <b>Keluarga & akses</b>
+              <small>Kelola orang tepercaya untuk pet</small>
+            </p>
             <Icon name="chevron" size={17} />
           </button>
         </section>
       </aside>
-
       {edit && (
         <ProfileEditModal
           account={account}
@@ -4725,7 +5045,9 @@ function ProfileView({
             setShippingAddresses((current) => {
               const exists = current.some((item) => item.id === address.id);
               return exists
-                ? current.map((item) => (item.id === address.id ? address : item))
+                ? current.map((item) =>
+                    item.id === address.id ? address : item,
+                  )
                 : [address, ...current];
             });
             setAddressModalOpen(false);
@@ -5884,20 +6206,20 @@ function cartRegionLabel(value: string, prefixes: string[]) {
 }
 
 function cartShippingArea(district: string, regency: string) {
-  return `${cartRegionLabel(district, ["KECAMATAN ", "KEC. "])}, ${cartRegionLabel(regency, [
-    "KABUPATEN ADMINISTRASI ",
-    "KOTA ADMINISTRASI ",
-    "KOTA ADM. ",
-    "KABUPATEN ",
-    "KAB. ",
-    "KOTA ",
-  ])}`;
+  return `${cartRegionLabel(district, ["KECAMATAN ", "KEC. "])}, ${cartRegionLabel(
+    regency,
+    [
+      "KABUPATEN ADMINISTRASI ",
+      "KOTA ADMINISTRASI ",
+      "KOTA ADM. ",
+      "KABUPATEN ",
+      "KAB. ",
+      "KOTA ",
+    ],
+  )}`;
 }
 
-function isCartAddressComplete(
-  address: CartAddress,
-  regionIDs: CartRegionIDs,
-) {
+function isCartAddressComplete(address: CartAddress, regionIDs: CartRegionIDs) {
   return (
     address.name.trim().length >= 2 &&
     address.phone.trim().length >= 8 &&
@@ -5946,9 +6268,7 @@ function CartDrawer({
   const [voucherBusy, setVoucherBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
-  const [checkoutStep, setCheckoutStep] = useState<"cart" | "shipping">(
-    "cart",
-  );
+  const [checkoutStep, setCheckoutStep] = useState<"cart" | "shipping">("cart");
   const [busy, setBusy] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState(0);
   const [accountShippingAddress, setAccountShippingAddress] =
@@ -6027,7 +6347,12 @@ function CartDrawer({
         });
       })
       .catch((error) => {
-        if (live) notify(error instanceof Error ? error.message : "Alamat belum dapat dimuat");
+        if (live)
+          notify(
+            error instanceof Error
+              ? error.message
+              : "Alamat belum dapat dimuat",
+          );
       })
       .finally(() => {
         if (live) setAccountAddressLoading(false);
@@ -6183,7 +6508,10 @@ function CartDrawer({
             result.shipping_quotes.map((shipment) => shipment.business_id),
           );
           if (businessIDs.size === 1) {
-            if (shippingOptions.length === 0 || result.shipping_quotes.length > 1) {
+            if (
+              shippingOptions.length === 0 ||
+              result.shipping_quotes.length > 1
+            ) {
               setShippingOptions(result.shipping_quotes);
             }
             let selectedBranch = shippingBranchID
@@ -6225,7 +6553,8 @@ function CartDrawer({
               );
               const cheapest = cheapestCartShippingRate(shipment);
               const chosenRate = selected ?? cheapest;
-              if (chosenRate) nextSelections[shipment.branch_id] = chosenRate.service_code;
+              if (chosenRate)
+                nextSelections[shipment.branch_id] = chosenRate.service_code;
             }
             if (
               JSON.stringify(nextSelections) !==
@@ -6245,10 +6574,7 @@ function CartDrawer({
         if (!live) return;
         setQuoted(null);
         if (returnToCartForUnavailableProduct(error)) return;
-        if (
-          error instanceof ApiError &&
-          error.code === "shipping_required"
-        ) {
+        if (error instanceof ApiError && error.code === "shipping_required") {
           setShippingRequired(true);
           setQuoteErrorState({
             key: quoteKey,
@@ -6286,9 +6612,7 @@ function CartDrawer({
         next.delete(id);
         return next;
       });
-      setStockError((current) =>
-        current?.productID === id ? null : current,
-      );
+      setStockError((current) => (current?.productID === id ? null : current));
     }
     setCart((current) => {
       const next = {
@@ -6314,7 +6638,9 @@ function CartDrawer({
       current && ids.has(current.productID) ? null : current,
     );
     setCart((current) =>
-      Object.fromEntries(Object.entries(current).filter(([id]) => !ids.has(id))),
+      Object.fromEntries(
+        Object.entries(current).filter(([id]) => !ids.has(id)),
+      ),
     );
     setSelectedCartIDs(new Set());
     setShippingBranchID("");
@@ -6503,7 +6829,11 @@ function CartDrawer({
                         >
                           <span>{item.emoji}</span>
                           <small>
-                            {selected ? <Icon name="check" size={12} /> : "Pilih"}
+                            {selected ? (
+                              <Icon name="check" size={12} />
+                            ) : (
+                              "Pilih"
+                            )}
                           </small>
                         </button>
                         <div>
@@ -6560,247 +6890,266 @@ function CartDrawer({
                   <span>
                     {items.length} produk · {formatRupiah(cartSubtotal)}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setCheckoutStep("cart")}
-                  >
+                  <button type="button" onClick={() => setCheckoutStep("cart")}>
                     Ubah keranjang
                   </button>
                 </div>
-            {shippingFormVisible && (
-              <section className="cart-shipping">
-                <div className="cart-shipping-heading">
-                  <b>Alamat pengiriman</b>
-                  <small>Alamat dikelola dari halaman Akun.</small>
-                </div>
-                {accountAddressLoading ? (
-                  <p className="profile-address-muted">Memuat alamat tersimpan…</p>
-                ) : accountShippingAddress ? (
-                  <div className="cart-shipping-saved">
-                    <div>
-                      <b>{accountShippingAddress.recipient_name}</b>
-                      <span>{accountShippingAddress.phone}</span>
-                      <p>{accountShippingAddress.address}</p>
-                      <small>
-                        {accountShippingAddress.village.name},{" "}
-                        {accountShippingAddress.district.name},{" "}
-                        {accountShippingAddress.regency.name} ·{" "}
-                        {accountShippingAddress.post_code}
-                      </small>
+                {shippingFormVisible && (
+                  <section className="cart-shipping">
+                    <div className="cart-shipping-heading">
+                      <b>Alamat pengiriman</b>
+                      <small>Alamat dikelola dari halaman Akun.</small>
                     </div>
-                    <button type="button" onClick={onOpenAccount}>
-                      Ubah di Akun
-                    </button>
-                  </div>
-                ) : (
-                  <div className="cart-shipping-empty">
-                    <p>Belum ada alamat tersimpan untuk checkout.</p>
-                    <button type="button" onClick={onOpenAccount}>
-                      Tambah alamat di Akun
-                    </button>
-                  </div>
-                )}
-                {singleBranchOptions.length > 0 && (
-                  <div className="cart-shipping-branches">
-                    <small className="cart-shipping-branch-label">
-                      PILIH CABANG PENGIRIMAN · DEFAULT TERDEKAT
-                    </small>
-                    <div className="cart-shipping-branch-options">
-                      {singleBranchOptions.map((branch) => {
-                        const cheapest = cheapestCartShippingRate(branch);
-                        return (
-                          <button
-                            className={
-                              shippingBranchID === branch.branch_id
-                                ? "selected"
-                                : ""
-                            }
-                            type="button"
-                            key={branch.branch_id}
-                            onClick={() => {
-                              setShippingBranchID(branch.branch_id);
-                              setShippingSelections({});
-                            }}
-                          >
-                            <b>{branch.branch_name}</b>
-                            <span>{branch.origin}</span>
-                            {branch.distance_km != null ? (
-                              <small>{branch.distance_km.toFixed(1)} km dari alamat</small>
-                            ) : cheapest ? (
-                              <strong>{formatRupiah(cheapest.fee)}</strong>
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                {(singleBranchOptions.length > 0
-                  ? quote?.shipping_quotes.filter(
-                      (shipment) => shipment.branch_id === shippingBranchID,
-                    )
-                  : quote?.shipping_quotes
-                )?.map((shipment) => (
-                  <div className="cart-shipping-origin" key={shipment.branch_id}>
-                    <small>
-                      DIKIRIM DARI {shipment.branch_name} · {shipment.origin}
-                    </small>
-                    <div className="cart-shipping-rates">
-                      {shipment.rates.map((rate) => (
-                        <button
-                          className={
-                            shippingSelections[shipment.branch_id] ===
-                            rate.service_code
-                              ? "selected"
-                              : ""
-                          }
-                          type="button"
-                          key={rate.service_code}
-                          onClick={() =>
-                            setShippingSelections((current) => ({
-                              ...current,
-                              [shipment.branch_id]: rate.service_code,
-                            }))
-                          }
-                        >
-                          <b>{rate.service_code}</b>
-                          <span>{formatRupiah(rate.fee)}</span>
-                          <small>{rate.estimated_sla || "Sesuai rute"}</small>
+                    {accountAddressLoading ? (
+                      <p className="profile-address-muted">
+                        Memuat alamat tersimpan…
+                      </p>
+                    ) : accountShippingAddress ? (
+                      <div className="cart-shipping-saved">
+                        <div>
+                          <b>{accountShippingAddress.recipient_name}</b>
+                          <span>{accountShippingAddress.phone}</span>
+                          <p>{accountShippingAddress.address}</p>
+                          <small>
+                            {accountShippingAddress.village.name},{" "}
+                            {accountShippingAddress.district.name},{" "}
+                            {accountShippingAddress.regency.name} ·{" "}
+                            {accountShippingAddress.post_code}
+                          </small>
+                        </div>
+                        <button type="button" onClick={onOpenAccount}>
+                          Ubah di Akun
                         </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </section>
-            )}
-            <label className="voucher">
-              <span>🎟️</span>
-              <input
-                value={voucherInput}
-                onChange={(event) => {
-                  setVoucherInput(
-                    event.target.value.replace(/[^A-Za-z0-9]/g, ""),
-                  );
-                  setAppliedVoucher("");
-                }}
-                minLength={6}
-                placeholder="Minimal 6 huruf/angka"
-              />
-              <button
-                type="button"
-                disabled={voucherInput.length < 6 || voucherBusy}
-                onClick={() => void applyVoucher()}
-              >
-                {voucherBusy ? "Memeriksa…" : "Pakai"}
-              </button>
-            </label>
-            {appliedVoucher && quote && quote.voucher_discount > 0 && (
-              <small className="voucher-applied">
-                Voucher {appliedVoucher} aktif · potongan{" "}
-                {formatRupiah(quote.voucher_discount)}
-                {quote.voucher_description ? ` · ${quote.voucher_description}` : ""}
-              </small>
-            )}
-            {rewardFormula.enabled && points > 0 && maximumRedeemable > 0 && (
-              <section className="points-redemption-card">
-                <div>
-                  <span>✦</span>
-                  <p>
-                    <b>Pakai SlivaPoints</b>
-                    <small>
-                      Saldo {points.toLocaleString("id-ID")} · maksimal checkout
-                      ini {maximumRedeemable.toLocaleString("id-ID")} poin
-                    </small>
-                  </p>
-                </div>
-                <label>
+                      </div>
+                    ) : (
+                      <div className="cart-shipping-empty">
+                        <p>Belum ada alamat tersimpan untuk checkout.</p>
+                        <button type="button" onClick={onOpenAccount}>
+                          Tambah alamat di Akun
+                        </button>
+                      </div>
+                    )}
+                    {singleBranchOptions.length > 0 && (
+                      <div className="cart-shipping-branches">
+                        <small className="cart-shipping-branch-label">
+                          PILIH CABANG PENGIRIMAN · DEFAULT TERDEKAT
+                        </small>
+                        <div className="cart-shipping-branch-options">
+                          {singleBranchOptions.map((branch) => {
+                            const cheapest = cheapestCartShippingRate(branch);
+                            return (
+                              <button
+                                className={
+                                  shippingBranchID === branch.branch_id
+                                    ? "selected"
+                                    : ""
+                                }
+                                type="button"
+                                key={branch.branch_id}
+                                onClick={() => {
+                                  setShippingBranchID(branch.branch_id);
+                                  setShippingSelections({});
+                                }}
+                              >
+                                <b>{branch.branch_name}</b>
+                                <span>{branch.origin}</span>
+                                {branch.distance_km != null ? (
+                                  <small>
+                                    {branch.distance_km.toFixed(1)} km dari
+                                    alamat
+                                  </small>
+                                ) : cheapest ? (
+                                  <strong>{formatRupiah(cheapest.fee)}</strong>
+                                ) : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {(singleBranchOptions.length > 0
+                      ? quote?.shipping_quotes.filter(
+                          (shipment) => shipment.branch_id === shippingBranchID,
+                        )
+                      : quote?.shipping_quotes
+                    )?.map((shipment) => (
+                      <div
+                        className="cart-shipping-origin"
+                        key={shipment.branch_id}
+                      >
+                        <small>
+                          DIKIRIM DARI {shipment.branch_name} ·{" "}
+                          {shipment.origin}
+                        </small>
+                        <div className="cart-shipping-rates">
+                          {shipment.rates.map((rate) => (
+                            <button
+                              className={
+                                shippingSelections[shipment.branch_id] ===
+                                rate.service_code
+                                  ? "selected"
+                                  : ""
+                              }
+                              type="button"
+                              key={rate.service_code}
+                              onClick={() =>
+                                setShippingSelections((current) => ({
+                                  ...current,
+                                  [shipment.branch_id]: rate.service_code,
+                                }))
+                              }
+                            >
+                              <b>{rate.service_code}</b>
+                              <span>{formatRupiah(rate.fee)}</span>
+                              <small>
+                                {rate.estimated_sla || "Sesuai rute"}
+                              </small>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </section>
+                )}
+                <label className="voucher">
+                  <span>🎟️</span>
                   <input
-                    type="number"
-                    min={minimumRedemption}
-                    max={maximumRedeemable}
-                    step="1"
-                    value={redeemPoints || ""}
-                    placeholder={`Min. ${minimumRedemption.toLocaleString("id-ID")}`}
-                    onChange={(event) =>
-                      setRedeemPoints(
-                        Math.max(
-                          0,
-                          Math.min(
-                            maximumRedeemable,
-                            Number(event.target.value || 0),
-                          ),
-                        ),
-                      )
-                    }
+                    value={voucherInput}
+                    onChange={(event) => {
+                      setVoucherInput(
+                        event.target.value.replace(/[^A-Za-z0-9]/g, ""),
+                      );
+                      setAppliedVoucher("");
+                    }}
+                    minLength={6}
+                    placeholder="Minimal 6 huruf/angka"
                   />
                   <button
                     type="button"
-                    onClick={() => setRedeemPoints(maximumRedeemable)}
+                    disabled={voucherInput.length < 6 || voucherBusy}
+                    onClick={() => void applyVoucher()}
                   >
-                    Maks
+                    {voucherBusy ? "Memeriksa…" : "Pakai"}
                   </button>
                 </label>
-                {redeemPoints > 0 && redeemPoints < minimumRedemption && (
-                  <small>
-                    Minimum penukaran {minimumRedemption.toLocaleString("id-ID")} poin.
+                {appliedVoucher && quote && quote.voucher_discount > 0 && (
+                  <small className="voucher-applied">
+                    Voucher {appliedVoucher} aktif · potongan{" "}
+                    {formatRupiah(quote.voucher_discount)}
+                    {quote.voucher_description
+                      ? ` · ${quote.voucher_description}`
+                      : ""}
                   </small>
                 )}
-              </section>
-            )}
-            {quoteError && <p className="cart-quote-error">{quoteError}</p>}
-            <div className="cart-summary">
-              <span>
-                <small>Subtotal</small>
-                <b>{quote ? formatRupiah(quote.subtotal) : "…"}</b>
-              </span>
-              <span>
-                <small>Pengiriman</small>
-                <b>{quote ? formatRupiah(quote.shipping_fee) : "—"}</b>
-              </span>
-              <span>
-                <small>Biaya layanan</small>
-                <b>{quote ? formatRupiah(quote.platform_fee) : "…"}</b>
-              </span>
-              {quote && quote.voucher_discount > 0 && (
-                <span>
-                  <small>Voucher ({quote.voucher_code})</small>
-                  <b className="good">−{formatRupiah(quote.voucher_discount)}</b>
-                </span>
-              )}
-              {quote && quote.points_discount > 0 && (
-                <span>
-                  <small>
-                    SlivaPoints ({quote.points_redeemed.toLocaleString("id-ID")})
-                  </small>
-                  <b className="good">−{formatRupiah(quote.points_discount)}</b>
-                </span>
-              )}
-              <span className="total">
-                <small>Total</small>
-                <b>
-                  {quote
-                    ? formatRupiah(quote.total_amount)
-                    : quoteError
-                      ? "Belum tersedia"
-                      : "Menghitung…"}
-                </b>
-              </span>
-            </div>
-            <PaymentMethodPicker
-              value={paymentMethod}
-              onChange={setPaymentMethod}
-              disabled={busy}
-            />
-            <button
-              className="primary-button full"
-              type="button"
-              disabled={busy}
-              onClick={() => void checkout()}
-            >
-              {busy ? "Membuat pembayaran…" : "Lanjut ke pembayaran"}{" "}
-              <Icon name="arrow" size={16} />
-            </button>
-          </>
+                {rewardFormula.enabled &&
+                  points > 0 &&
+                  maximumRedeemable > 0 && (
+                    <section className="points-redemption-card">
+                      <div>
+                        <span>✦</span>
+                        <p>
+                          <b>Pakai SlivaPoints</b>
+                          <small>
+                            Saldo {points.toLocaleString("id-ID")} · maksimal
+                            checkout ini{" "}
+                            {maximumRedeemable.toLocaleString("id-ID")} poin
+                          </small>
+                        </p>
+                      </div>
+                      <label>
+                        <input
+                          type="number"
+                          min={minimumRedemption}
+                          max={maximumRedeemable}
+                          step="1"
+                          value={redeemPoints || ""}
+                          placeholder={`Min. ${minimumRedemption.toLocaleString("id-ID")}`}
+                          onChange={(event) =>
+                            setRedeemPoints(
+                              Math.max(
+                                0,
+                                Math.min(
+                                  maximumRedeemable,
+                                  Number(event.target.value || 0),
+                                ),
+                              ),
+                            )
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setRedeemPoints(maximumRedeemable)}
+                        >
+                          Maks
+                        </button>
+                      </label>
+                      {redeemPoints > 0 && redeemPoints < minimumRedemption && (
+                        <small>
+                          Minimum penukaran{" "}
+                          {minimumRedemption.toLocaleString("id-ID")} poin.
+                        </small>
+                      )}
+                    </section>
+                  )}
+                {quoteError && <p className="cart-quote-error">{quoteError}</p>}
+                <div className="cart-summary">
+                  <span>
+                    <small>Subtotal</small>
+                    <b>{quote ? formatRupiah(quote.subtotal) : "…"}</b>
+                  </span>
+                  <span>
+                    <small>Pengiriman</small>
+                    <b>{quote ? formatRupiah(quote.shipping_fee) : "—"}</b>
+                  </span>
+                  <span>
+                    <small>Biaya layanan</small>
+                    <b>{quote ? formatRupiah(quote.platform_fee) : "…"}</b>
+                  </span>
+                  {quote && quote.voucher_discount > 0 && (
+                    <span>
+                      <small>Voucher ({quote.voucher_code})</small>
+                      <b className="good">
+                        −{formatRupiah(quote.voucher_discount)}
+                      </b>
+                    </span>
+                  )}
+                  {quote && quote.points_discount > 0 && (
+                    <span>
+                      <small>
+                        SlivaPoints (
+                        {quote.points_redeemed.toLocaleString("id-ID")})
+                      </small>
+                      <b className="good">
+                        −{formatRupiah(quote.points_discount)}
+                      </b>
+                    </span>
+                  )}
+                  <span className="total">
+                    <small>Total</small>
+                    <b>
+                      {quote
+                        ? formatRupiah(quote.total_amount)
+                        : quoteError
+                          ? "Belum tersedia"
+                          : "Menghitung…"}
+                    </b>
+                  </span>
+                </div>
+                <PaymentMethodPicker
+                  value={paymentMethod}
+                  onChange={setPaymentMethod}
+                  disabled={busy}
+                />
+                <button
+                  className="primary-button full"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void checkout()}
+                >
+                  {busy ? "Membuat pembayaran…" : "Lanjut ke pembayaran"}{" "}
+                  <Icon name="arrow" size={16} />
+                </button>
+              </>
             )}
           </>
         )}

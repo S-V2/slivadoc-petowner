@@ -79,13 +79,7 @@ type Mode =
   | "adoption"
   | "documents";
 type ConsultProviderFilter = "all" | "veterinarian" | "trainer";
-type WorldPet = {
-  id: string;
-  name: string;
-  species?: string;
-  breed: string;
-  icon?: string;
-};
+type WorldPet = { id: string; name: string; species?: string; breed: string; icon?: string };
 type AdoptionForm = {
   applicantName: string;
   phone: string;
@@ -137,20 +131,8 @@ const emptyPetSpotReservationForm = (
   return {
     date: target.toISOString().slice(0, 10),
     time: stayKind ? "14:00" : "18:00",
-    durationMinutes:
-      stayKind === "boarding_house"
-        ? 43200
-        : stayKind === "apartment"
-          ? 1440
-          : slotMinutes,
-    checkoutDate: stayKind
-      ? new Date(
-          target.getTime() +
-            (stayKind === "boarding_house" ? 30 : 1) * 86400000,
-        )
-          .toISOString()
-          .slice(0, 10)
-      : "",
+    durationMinutes: stayKind === "boarding_house" ? 43200 : stayKind === "apartment" ? 1440 : slotMinutes,
+    checkoutDate: stayKind ? new Date(target.getTime() + (stayKind === "boarding_house" ? 30 : 1) * 86400000).toISOString().slice(0, 10) : "",
     stayKind,
     guestCount: 2,
     petCount: 1,
@@ -165,57 +147,21 @@ const petSpotWindow = (form: PetSpotReservationForm) => {
   if (Number.isNaN(starts.getTime()) || Number.isNaN(ends.getTime()))
     throw new Error("Tanggal atau jam reservasi belum valid");
   const nights = (ends.getTime() - starts.getTime()) / 86400000;
-  if (
-    form.stayKind &&
-    (nights < (form.stayKind === "boarding_house" ? 30 : 1) || nights > 366)
-  )
-    throw new Error(
-      form.stayKind === "boarding_house"
-        ? "Kosan minimal 30 dan maksimal 366 malam"
-        : "Apartemen minimal 1 dan maksimal 366 malam",
-    );
+  if (form.stayKind && (nights < (form.stayKind === "boarding_house" ? 30 : 1) || nights > 366))
+    throw new Error(form.stayKind === "boarding_house" ? "Kosan minimal 30 dan maksimal 366 malam" : "Apartemen minimal 1 dan maksimal 366 malam");
   return { startsAt: starts.toISOString(), endsAt: ends.toISOString() };
 };
-const housingQuote = (
-  spot: WorldItem,
-  unit: MobilePetSpotResource,
-  form: PetSpotReservationForm,
-) => {
+const housingQuote = (spot: WorldItem, unit: MobilePetSpotResource, form: PetSpotReservationForm) => {
   try {
     const window = petSpotWindow(form);
-    const nights = Math.ceil(
-      (new Date(window.endsAt).getTime() -
-        new Date(window.startsAt).getTime()) /
-        86400000,
-    );
-    const periods =
-      unit.booking_rules?.rate_period === "month"
-        ? Math.ceil(nights / 30)
-        : nights;
+    const nights = Math.ceil((new Date(window.endsAt).getTime() - new Date(window.startsAt).getTime()) / 86400000);
+    const periods = unit.booking_rules?.rate_period === "month" ? Math.ceil(nights / 30) : nights;
     const subtotal = unit.base_price * periods;
-    const depositType =
-      unit.minimum_deposit_type === "inherit"
-        ? spot.deposit_type
-        : unit.minimum_deposit_type;
-    const depositValue =
-      unit.minimum_deposit_type === "inherit"
-        ? spot.deposit_value
-        : unit.minimum_deposit_value;
-    const deposit = Math.ceil(
-      depositType === "fixed"
-        ? Number(depositValue ?? 0)
-        : (subtotal * Number(depositValue ?? 0)) / 100,
-    );
-    return {
-      subtotal,
-      deposit,
-      balance: Math.max(0, subtotal - deposit),
-      periods,
-      nights,
-    };
-  } catch {
-    return null;
-  }
+    const depositType = unit.minimum_deposit_type === "inherit" ? spot.deposit_type : unit.minimum_deposit_type;
+    const depositValue = unit.minimum_deposit_type === "inherit" ? spot.deposit_value : unit.minimum_deposit_value;
+    const deposit = Math.ceil(depositType === "fixed" ? Number(depositValue ?? 0) : subtotal * Number(depositValue ?? 0) / 100);
+    return { subtotal, deposit, balance: Math.max(0, subtotal - deposit), periods, nights };
+  } catch { return null; }
 };
 const modes: Array<{
   id: Mode;
@@ -249,15 +195,13 @@ const worldIcon = (
   if (mode === "academy") return "school-outline";
   if (mode === "events") return "ticket-outline";
   if (mode === "petspot")
-    return item?.category === "boarding_house"
-      ? "home-outline"
-      : item?.category === "apartment"
+    return item?.category === "boarding_house" ? "home-outline"
+      : item?.category === "apartment" ? "business-outline"
+      : item?.category === "cafe"
+      ? "cafe-outline"
+      : item?.category === "mall"
         ? "business-outline"
-        : item?.category === "cafe"
-          ? "cafe-outline"
-          : item?.category === "mall"
-            ? "business-outline"
-            : "leaf-outline";
+        : "leaf-outline";
   if (mode === "consult") return "medical-outline";
   if (mode === "adoption") return "home-outline";
   if (mode === "documents") return "document-text-outline";
@@ -265,16 +209,7 @@ const worldIcon = (
 };
 
 const speciesEmoji = (species?: string) =>
-  (
-    ({
-      dog: "🐕",
-      cat: "🐈",
-      rabbit: "🐇",
-      bird: "🦜",
-      reptile: "🦎",
-      small_mammal: "🐹",
-    }) as Record<string, string>
-  )[species ?? ""] ?? "🐾";
+  ({ dog: "🐕", cat: "🐈", rabbit: "🐇", bird: "🦜", reptile: "🦎", small_mammal: "🐹" } as Record<string, string>)[species ?? ""] ?? "🐾";
 
 function FormTextField({
   label,
@@ -578,11 +513,7 @@ export function WorldScreen({
                 )),
           )
         : mode === "petspot"
-          ? items.petspot.filter(
-              (item) =>
-                spotCategoryFilter === "all" ||
-                item.category === spotCategoryFilter,
-            )
+          ? items.petspot.filter((item) => spotCategoryFilter === "all" || item.category === spotCategoryFilter)
           : items[mode],
     [consultProvider, consultSpecialty, items, mode, spotCategoryFilter],
   );
@@ -738,20 +669,13 @@ export function WorldScreen({
         window.endsAt,
         form.guestCount,
       );
-      const isHousing = ["boarding_house", "apartment"].includes(
-        spot.category ?? "",
-      );
-      const resources = result.data.filter(
-        (resource) =>
-          (!isHousing || ["room", "unit"].includes(resource.resource_type)) &&
-          form.petCount <= Number(resource.pet_policy?.pet_limit ?? 99),
-      );
+      const isHousing = ["boarding_house", "apartment"].includes(spot.category ?? "");
+      const resources = result.data.filter((resource) =>
+        (!isHousing || ["room", "unit"].includes(resource.resource_type)) &&
+        form.petCount <= Number(resource.pet_policy?.pet_limit ?? 99));
       setPetSpotResources(resources);
-      setSelectedPetSpotResource(
-        isHousing
-          ? undefined
-          : resources.find((resource) => resource.available),
-      );
+      setSelectedPetSpotResource(isHousing ? undefined :
+        resources.find((resource) => resource.available));
     } catch (cause) {
       setPetSpotResources([]);
       onAction(
@@ -793,9 +717,7 @@ export function WorldScreen({
     if (mode === "petspot" && item.reservable) {
       const form = emptyPetSpotReservationForm(
         item.reservation_policy?.slot_minutes ?? 90,
-        ["boarding_house", "apartment"].includes(item.category ?? "")
-          ? item.category
-          : "",
+        ["boarding_house", "apartment"].includes(item.category ?? "") ? item.category : "",
       );
       setPetSpotForm(form);
       setPetSpotResources([]);
@@ -957,7 +879,9 @@ export function WorldScreen({
           selected.id,
           owner!.full_name,
           owner!.email,
-          selected.ticket_unit === "owner_pet" ? selectedEventPetID : undefined,
+          selected.ticket_unit === "owner_pet"
+            ? selectedEventPetID
+            : undefined,
         );
         if (source.amount > 0 && source.payment_status !== "paid")
           setPayment(
@@ -1362,40 +1286,15 @@ export function WorldScreen({
             </Pressable>
           )}
         </View>
-        {mode === "petspot" ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.choiceRow}
-          >
-            {[
-              ["all", "Semua"],
-              ["cafe", "Cafe"],
-              ["restaurant", "Restoran"],
-              ["boarding_house", "Kosan / Coliving"],
-              ["apartment", "Apartemen"],
-              ["mall", "Mall"],
-            ].map(([id, label]) => (
-              <Pressable
-                key={id}
-                onPress={() => setSpotCategoryFilter(id ?? "all")}
-                style={[
-                  styles.choice,
-                  spotCategoryFilter === id && styles.choiceActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.choiceText,
-                    spotCategoryFilter === id && styles.choiceTextActive,
-                  ]}
-                >
-                  {label}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        ) : null}
+        {mode === "petspot" ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
+          {[
+            ["all", "Semua"], ["cafe", "Cafe"], ["restaurant", "Restoran"],
+            ["boarding_house", "Kosan / Coliving"], ["apartment", "Apartemen"], ["mall", "Mall"],
+          ].map(([id, label]) => <Pressable key={id} onPress={() => setSpotCategoryFilter(id ?? "all")}
+            style={[styles.choice, spotCategoryFilter === id && styles.choiceActive]}>
+            <Text style={[styles.choiceText, spotCategoryFilter === id && styles.choiceTextActive]}>{label}</Text>
+          </Pressable>)}
+        </ScrollView> : null}
         {mode === "pawdating" && items.pawdating.length > 0 ? (
           <MobilePawDatingDeck
             profiles={items.pawdating}
@@ -1418,13 +1317,7 @@ export function WorldScreen({
                     index % 3 === 2 && styles.visualViolet,
                   ]}
                 >
-                  {mode === "petspot" && item.cover_url ? (
-                    <Image
-                      source={{ uri: item.cover_url }}
-                      style={StyleSheet.absoluteFill}
-                      resizeMode="cover"
-                    />
-                  ) : null}
+                  {mode === "petspot" && item.cover_url ? <Image source={{ uri: item.cover_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
                   <Ionicons
                     name={worldIcon(mode, item)}
                     size={38}
@@ -1535,13 +1428,7 @@ export function WorldScreen({
                   contentContainerStyle={styles.sheetContent}
                 >
                   <View style={styles.sheetHero}>
-                    {mode === "petspot" && selected?.cover_url ? (
-                      <Image
-                        source={{ uri: selected.cover_url }}
-                        style={StyleSheet.absoluteFill}
-                        resizeMode="cover"
-                      />
-                    ) : null}
+                    {mode === "petspot" && selected?.cover_url ? <Image source={{ uri: selected.cover_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
                     <Ionicons
                       name={worldIcon(mode, selected)}
                       size={48}
@@ -1612,8 +1499,7 @@ export function WorldScreen({
                       </View>
                     ) : null}
                   </View>
-                  {mode === "events" &&
-                  selected?.ticket_unit === "owner_pet" ? (
+                  {mode === "events" && selected?.ticket_unit === "owner_pet" ? (
                     <View style={styles.eventSection}>
                       {selected.pet_spot_name ? (
                         <View style={styles.eventHost}>
@@ -1809,14 +1695,10 @@ export function WorldScreen({
                       <View style={styles.petSpotReservationHead}>
                         <View>
                           <Text style={styles.formTitle}>
-                            {petSpotForm.stayKind
-                              ? "Booking unit hunian"
-                              : "Reservasi PetSpot"}
+                            {petSpotForm.stayKind ? "Booking unit hunian" : "Reservasi PetSpot"}
                           </Text>
                           <Text style={styles.formNote}>
-                            {petSpotForm.stayKind
-                              ? "Pilih check-in dan check-out, lalu cek unit serta harga sewa."
-                              : "Pilih jadwal lalu lihat meja yang tersedia."}
+                            {petSpotForm.stayKind ? "Pilih check-in dan check-out, lalu cek unit serta harga sewa." : "Pilih jadwal lalu lihat meja yang tersedia."}
                           </Text>
                         </View>
                         <View style={styles.depositBadge}>
@@ -1831,17 +1713,12 @@ export function WorldScreen({
                       <View style={styles.dateRow}>
                         <View style={styles.dateField}>
                           <FormTextField
-                            label={
-                              petSpotForm.stayKind ? "Check-in" : "Tanggal"
-                            }
+                            label={petSpotForm.stayKind ? "Check-in" : "Tanggal"}
                             value={petSpotForm.date}
                             onChangeText={(date) => {
                               setSelectedPetSpotResource(undefined);
                               setPetSpotResources([]);
-                              setPetSpotForm((current) => ({
-                                ...current,
-                                date,
-                              }));
+                              setPetSpotForm((current) => ({ ...current, date }));
                             }}
                             placeholder="YYYY-MM-DD"
                           />
@@ -1849,68 +1726,51 @@ export function WorldScreen({
                         <View style={styles.dateField}>
                           <FormTextField
                             label={petSpotForm.stayKind ? "Check-out" : "Jam"}
-                            value={
-                              petSpotForm.stayKind
-                                ? petSpotForm.checkoutDate
-                                : petSpotForm.time
-                            }
+                            value={petSpotForm.stayKind ? petSpotForm.checkoutDate : petSpotForm.time}
                             onChangeText={(value) => {
                               setSelectedPetSpotResource(undefined);
                               setPetSpotResources([]);
-                              setPetSpotForm((current) =>
-                                petSpotForm.stayKind
-                                  ? { ...current, checkoutDate: value }
-                                  : { ...current, time: value },
-                              );
+                              setPetSpotForm((current) => petSpotForm.stayKind
+                                ? { ...current, checkoutDate: value }
+                                : { ...current, time: value });
                             }}
-                            placeholder={
-                              petSpotForm.stayKind ? "YYYY-MM-DD" : "18:00"
-                            }
+                            placeholder={petSpotForm.stayKind ? "YYYY-MM-DD" : "18:00"}
                           />
                         </View>
                       </View>
-                      {!petSpotForm.stayKind ? (
-                        <>
-                          <Text style={styles.formLabel}>Durasi</Text>
-                          <View style={styles.choiceRow}>
-                            {[60, 90, 120, 1440].map((durationMinutes) => (
-                              <Pressable
-                                key={durationMinutes}
-                                onPress={() =>
-                                  setPetSpotForm((current) => ({
-                                    ...current,
-                                    durationMinutes,
-                                  }))
-                                }
-                                style={[
-                                  styles.choice,
-                                  petSpotForm.durationMinutes ===
-                                    durationMinutes && styles.choiceActive,
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.choiceText,
-                                    petSpotForm.durationMinutes ===
-                                      durationMinutes &&
-                                      styles.choiceTextActive,
-                                  ]}
-                                >
-                                  {durationMinutes === 1440
-                                    ? "1 hari"
-                                    : `${durationMinutes} menit`}
-                                </Text>
-                              </Pressable>
-                            ))}
-                          </View>
-                        </>
-                      ) : (
-                        <Text style={styles.formNote}>
-                          {petSpotForm.stayKind === "boarding_house"
-                            ? "Minimal 30 malam · tarif dapat berlaku per 30 malam"
-                            : "Minimal 1 malam · tarif per malam"}
-                        </Text>
-                      )}
+                      {!petSpotForm.stayKind ? <>
+                      <Text style={styles.formLabel}>Durasi</Text>
+                      <View style={styles.choiceRow}>
+                        {[60, 90, 120, 1440].map((durationMinutes) => (
+                          <Pressable
+                            key={durationMinutes}
+                            onPress={() =>
+                              setPetSpotForm((current) => ({
+                                ...current,
+                                durationMinutes,
+                              }))
+                            }
+                            style={[
+                              styles.choice,
+                              petSpotForm.durationMinutes === durationMinutes &&
+                                styles.choiceActive,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.choiceText,
+                                petSpotForm.durationMinutes ===
+                                  durationMinutes && styles.choiceTextActive,
+                              ]}
+                            >
+                              {durationMinutes === 1440
+                                ? "1 hari"
+                                : `${durationMinutes} menit`}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                      </> : <Text style={styles.formNote}>{petSpotForm.stayKind === "boarding_house" ? "Minimal 30 malam · tarif dapat berlaku per 30 malam" : "Minimal 1 malam · tarif per malam"}</Text>}
                       <View style={styles.counterRow}>
                         {[
                           {
@@ -1985,156 +1845,102 @@ export function WorldScreen({
                         <Text style={styles.checkAvailabilityText}>
                           {availabilityLoading
                             ? "Memeriksa ketersediaan…"
-                            : petSpotForm.stayKind
-                              ? "Cek unit tersedia"
-                              : "Perbarui denah ketersediaan"}
+                            : petSpotForm.stayKind ? "Cek unit tersedia" : "Perbarui denah ketersediaan"}
                         </Text>
                       </Pressable>
                       {petSpotForm.stayKind ? (
                         <View style={styles.housingList}>
                           {petSpotResources.map((resource) => {
-                            const active =
-                              selectedPetSpotResource?.id === resource.id;
-                            return (
-                              <Pressable
-                                key={resource.id}
-                                disabled={!resource.available}
-                                onPress={() =>
-                                  setSelectedPetSpotResource(resource)
-                                }
-                                style={[
-                                  styles.housingCard,
-                                  active && styles.housingCardSelected,
-                                  !resource.available && styles.housingCardBusy,
-                                ]}
-                              >
-                                {resource.image_urls?.[0] ? (
-                                  <Image
-                                    source={{ uri: resource.image_urls[0] }}
-                                    style={styles.housingPhoto}
-                                  />
-                                ) : null}
-                                <View style={styles.housingCardBody}>
-                                  <Text style={styles.formTitle}>
-                                    {resource.name}
-                                  </Text>
-                                  <Text style={styles.formNote}>
-                                    {resource.code} ·{" "}
-                                    {resource.floor_name || "Unit"} ·{" "}
-                                    {resource.capacity} penghuni ·{" "}
-                                    {Number(
-                                      resource.pet_policy?.pet_limit ?? 0,
-                                    )}{" "}
-                                    pet
-                                  </Text>
-                                  {resource.description ? (
-                                    <Text style={styles.formNote}>
-                                      {resource.description}
-                                    </Text>
-                                  ) : null}
-                                  <Text style={styles.housingAmenities}>
-                                    {(resource.amenities ?? [])
-                                      .slice(0, 5)
-                                      .join(" · ")}
-                                  </Text>
-                                  <Text style={styles.housingPrice}>
-                                    {money(resource.base_price)} /{" "}
-                                    {resource.booking_rules?.rate_period ===
-                                    "month"
-                                      ? "30 malam"
-                                      : "malam"}
-                                  </Text>
-                                  <Text style={styles.formNote}>
-                                    {resource.available
-                                      ? active
-                                        ? "✓ Pilihanmu"
-                                        : "Pilih unit"
-                                      : "Terisi di tanggal ini"}
-                                  </Text>
-                                </View>
-                              </Pressable>
-                            );
+                            const active = selectedPetSpotResource?.id === resource.id;
+                            return <Pressable key={resource.id}
+                              disabled={!resource.available}
+                              onPress={() => setSelectedPetSpotResource(resource)}
+                              style={[styles.housingCard, active && styles.housingCardSelected, !resource.available && styles.housingCardBusy]}>
+                              {resource.image_urls?.[0] ? <Image source={{ uri: resource.image_urls[0] }} style={styles.housingPhoto} /> : null}
+                              <View style={styles.housingCardBody}>
+                                <Text style={styles.formTitle}>{resource.name}</Text>
+                                <Text style={styles.formNote}>{resource.code} · {resource.floor_name || "Unit"} · {resource.capacity} penghuni · {Number(resource.pet_policy?.pet_limit ?? 0)} pet</Text>
+                                {resource.description ? <Text style={styles.formNote}>{resource.description}</Text> : null}
+                                <Text style={styles.housingAmenities}>{(resource.amenities ?? []).slice(0, 5).join(" · ")}</Text>
+                                <Text style={styles.housingPrice}>{money(resource.base_price)} / {resource.booking_rules?.rate_period === "month" ? "30 malam" : "malam"}</Text>
+                                <Text style={styles.formNote}>{resource.available ? active ? "✓ Pilihanmu" : "Pilih unit" : "Terisi di tanggal ini"}</Text>
+                              </View>
+                            </Pressable>;
                           })}
-                          {!availabilityLoading && !petSpotResources.length ? (
-                            <Text style={styles.availabilityEmpty}>
-                              Belum ada unit untuk tanggal atau jumlah pet yang
-                              dipilih.
-                            </Text>
-                          ) : null}
+                          {!availabilityLoading && !petSpotResources.length ? <Text style={styles.availabilityEmpty}>Belum ada unit untuk tanggal atau jumlah pet yang dipilih.</Text> : null}
                         </View>
                       ) : (
                         <>
-                          <View style={styles.layoutLegend}>
-                            <Text style={styles.layoutLegendAvailable}>
-                              ● Tersedia
-                            </Text>
-                            <Text style={styles.layoutLegendReserved}>
-                              ● Sudah direservasi
-                            </Text>
-                            <Text style={styles.layoutLegendSelected}>
-                              ● Pilihanmu
+                      <View style={styles.layoutLegend}>
+                        <Text style={styles.layoutLegendAvailable}>
+                          ● Tersedia
+                        </Text>
+                        <Text style={styles.layoutLegendReserved}>
+                          ● Sudah direservasi
+                        </Text>
+                        <Text style={styles.layoutLegendSelected}>
+                          ● Pilihanmu
+                        </Text>
+                      </View>
+                      <View style={styles.petSpotLayout}>
+                        <View style={styles.layoutDoor}>
+                          <Text style={styles.layoutDoorText}>PINTU</Text>
+                        </View>
+                        {petSpotResources.map((resource) => {
+                          const active =
+                            selectedPetSpotResource?.id === resource.id;
+                          return (
+                            <Pressable
+                              key={resource.id}
+                              disabled={!resource.available}
+                              onPress={() =>
+                                setSelectedPetSpotResource(resource)
+                              }
+                              style={[
+                                styles.layoutResource,
+                                {
+                                  left: `${Math.min(82, Math.max(3, resource.x_percent))}%`,
+                                  top: `${Math.min(74, Math.max(5, resource.y_percent))}%`,
+                                },
+                                resource.shape === "round" &&
+                                  styles.layoutResourceRound,
+                                !resource.available &&
+                                  styles.layoutResourceReserved,
+                                active && styles.layoutResourceSelected,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.layoutResourceCode,
+                                  active && styles.layoutResourceCodeActive,
+                                ]}
+                              >
+                                {resource.code}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.layoutResourceCapacity,
+                                  active && styles.layoutResourceCodeActive,
+                                ]}
+                              >
+                                {resource.capacity} org
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                        {!availabilityLoading && !petSpotResources.length ? (
+                          <View style={styles.layoutEmpty}>
+                            <Ionicons
+                              name="calendar-outline"
+                              size={24}
+                              color={colors.muted}
+                            />
+                            <Text style={styles.formNote}>
+                              Belum ada resource untuk jadwal ini
                             </Text>
                           </View>
-                          <View style={styles.petSpotLayout}>
-                            <View style={styles.layoutDoor}>
-                              <Text style={styles.layoutDoorText}>PINTU</Text>
-                            </View>
-                            {petSpotResources.map((resource) => {
-                              const active =
-                                selectedPetSpotResource?.id === resource.id;
-                              return (
-                                <Pressable
-                                  key={resource.id}
-                                  disabled={!resource.available}
-                                  onPress={() =>
-                                    setSelectedPetSpotResource(resource)
-                                  }
-                                  style={[
-                                    styles.layoutResource,
-                                    {
-                                      left: `${Math.min(82, Math.max(3, resource.x_percent))}%`,
-                                      top: `${Math.min(74, Math.max(5, resource.y_percent))}%`,
-                                    },
-                                    resource.shape === "round" &&
-                                      styles.layoutResourceRound,
-                                    !resource.available &&
-                                      styles.layoutResourceReserved,
-                                    active && styles.layoutResourceSelected,
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.layoutResourceCode,
-                                      active && styles.layoutResourceCodeActive,
-                                    ]}
-                                  >
-                                    {resource.code}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.layoutResourceCapacity,
-                                      active && styles.layoutResourceCodeActive,
-                                    ]}
-                                  >
-                                    {resource.capacity} org
-                                  </Text>
-                                </Pressable>
-                              );
-                            })}
-                            {!availabilityLoading &&
-                            !petSpotResources.length ? (
-                              <View style={styles.layoutEmpty}>
-                                <Ionicons
-                                  name="calendar-outline"
-                                  size={24}
-                                  color={colors.muted}
-                                />
-                                <Text style={styles.formNote}>
-                                  Belum ada resource untuk jadwal ini
-                                </Text>
-                              </View>
-                            ) : null}
-                          </View>
+                        ) : null}
+                      </View>
                         </>
                       )}
                       {selectedPetSpotResource ? (
@@ -2146,11 +1952,7 @@ export function WorldScreen({
                             <Text style={styles.formNote}>
                               {selectedPetSpotResource.floor_name} · kapasitas{" "}
                               {selectedPetSpotResource.capacity} ·{" "}
-                              {money(selectedPetSpotResource.base_price)} /{" "}
-                              {selectedPetSpotResource.booking_rules
-                                ?.rate_period === "month"
-                                ? "30 malam"
-                                : "malam"}
+                              {money(selectedPetSpotResource.base_price)} / {selectedPetSpotResource.booking_rules?.rate_period === "month" ? "30 malam" : "malam"}
                             </Text>
                           </View>
                           <Ionicons
@@ -2160,58 +1962,12 @@ export function WorldScreen({
                           />
                         </View>
                       ) : null}
-                      {petSpotForm.stayKind &&
-                      selectedPetSpotResource &&
-                      housingQuote(
-                        selected,
-                        selectedPetSpotResource,
-                        petSpotForm,
-                      ) ? (
+                      {petSpotForm.stayKind && selectedPetSpotResource && housingQuote(selected, selectedPetSpotResource, petSpotForm) ? (
                         <View style={styles.housingQuote}>
                           <Text style={styles.formTitle}>Rincian biaya</Text>
-                          <Text style={styles.formNote}>
-                            Sewa{" "}
-                            {
-                              housingQuote(
-                                selected,
-                                selectedPetSpotResource,
-                                petSpotForm,
-                              )?.periods
-                            }{" "}
-                            ×{" "}
-                            {selectedPetSpotResource.booking_rules
-                              ?.rate_period === "month"
-                              ? "30 malam"
-                              : "malam"}
-                            :{" "}
-                            {money(
-                              housingQuote(
-                                selected,
-                                selectedPetSpotResource,
-                                petSpotForm,
-                              )?.subtotal ?? 0,
-                            )}
-                          </Text>
-                          <Text style={styles.formNote}>
-                            DP sekarang:{" "}
-                            {money(
-                              housingQuote(
-                                selected,
-                                selectedPetSpotResource,
-                                petSpotForm,
-                              )?.deposit ?? 0,
-                            )}
-                          </Text>
-                          <Text style={styles.formNote}>
-                            Sisa sesuai ketentuan pemilik:{" "}
-                            {money(
-                              housingQuote(
-                                selected,
-                                selectedPetSpotResource,
-                                petSpotForm,
-                              )?.balance ?? 0,
-                            )}
-                          </Text>
+                          <Text style={styles.formNote}>Sewa {housingQuote(selected, selectedPetSpotResource, petSpotForm)?.periods} × {selectedPetSpotResource.booking_rules?.rate_period === "month" ? "30 malam" : "malam"}: {money(housingQuote(selected, selectedPetSpotResource, petSpotForm)?.subtotal ?? 0)}</Text>
+                          <Text style={styles.formNote}>DP sekarang: {money(housingQuote(selected, selectedPetSpotResource, petSpotForm)?.deposit ?? 0)}</Text>
+                          <Text style={styles.formNote}>Sisa sesuai ketentuan pemilik: {money(housingQuote(selected, selectedPetSpotResource, petSpotForm)?.balance ?? 0)}</Text>
                         </View>
                       ) : null}
                       <FormTextField
@@ -2487,7 +2243,9 @@ export function WorldScreen({
                       ) : null}
                     </View>
                   ) : null}
-                  {(["academy", "consult", "documents"].includes(mode) &&
+                  {(["academy", "consult", "documents"].includes(
+                    mode,
+                  ) &&
                     Number(selected?.price || selected?.total_fee || 0) > 0) ||
                   (mode === "petspot" && selected?.reservable) ? (
                     <MobilePaymentMethods
@@ -3141,29 +2899,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   housingList: { gap: 10 },
-  housingCard: {
-    flexDirection: "row",
-    gap: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 14,
-    backgroundColor: colors.white,
-  },
+  housingCard: { flexDirection: "row", gap: 12, padding: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 14, backgroundColor: colors.white },
   housingCardSelected: { borderColor: colors.sky600, borderWidth: 2 },
   housingCardBusy: { opacity: 0.48 },
   housingPhoto: { width: 90, height: 100, borderRadius: 10 },
   housingCardBody: { flex: 1, gap: 5 },
   housingAmenities: { color: colors.sky600, fontSize: 11 },
   housingPrice: { color: colors.navy, fontSize: 15, fontWeight: "700" },
-  housingQuote: {
-    gap: 7,
-    padding: 13,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.sky100,
-    backgroundColor: colors.white,
-  },
+  housingQuote: { gap: 7, padding: 13, borderRadius: 12, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white },
   petSpotReservation: {
     gap: 11,
     marginBottom: 14,
@@ -3714,7 +3457,11 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     backgroundColor: colors.white,
   },
-  eventTicketPrice: { color: colors.sky600, fontSize: 18, fontWeight: "800" },
+  eventTicketPrice: {
+    color: colors.sky600,
+    fontSize: 18,
+    fontWeight: "800",
+  },
   eventQris: {
     flexDirection: "row",
     alignItems: "center",

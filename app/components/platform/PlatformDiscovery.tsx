@@ -46,11 +46,19 @@ import {
   BatpayPaymentPanel,
   PaymentMethodPicker,
 } from "../payments/BatpayPayment";
+import "../../event-checkout.css";
 
 export type DiscoveryMode = "academy" | "events" | "petspot" | "pethub";
 type Props = {
   mode: DiscoveryMode;
   petName: string;
+  pets?: Array<{
+    id: string;
+    name: string;
+    species: string;
+    breed: string;
+    avatar: string;
+  }>;
   ownerName?: string;
   ownerEmail?: string;
   notify: (message: string) => void;
@@ -73,6 +81,7 @@ const when = (value?: string) =>
 export default function PlatformDiscovery({
   mode,
   petName,
+  pets = [],
   ownerName = "Pet Parent",
   ownerEmail = "",
   notify,
@@ -485,6 +494,7 @@ export default function PlatformDiscovery({
             item={selectedEvent}
             ownerName={ownerName}
             ownerEmail={ownerEmail}
+            pets={pets}
             close={() => setSelectedEvent(null)}
             notify={notify}
           />
@@ -1089,20 +1099,25 @@ function EventModal({
   item,
   ownerName,
   ownerEmail,
+  pets,
   close,
   notify,
 }: {
   item: PetEvent;
   ownerName: string;
   ownerEmail: string;
+  pets: Array<{ id: string; name: string; species: string; breed: string; avatar: string }>;
   close: () => void;
   notify: (message: string) => void;
 }) {
   const [register, setRegister] = useState(false);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
+  const allowedPets = item.ticket_unit === "owner_pet"
+    ? pets.filter((pet) => !item.allowed_pet_species.length || item.allowed_pet_species.includes(pet.species))
+    : pets;
+  const [selectedPetID, setSelectedPetID] = useState(() => allowedPets[0]?.id ?? "");
   function start() {
     if (!isPetOwnerAuthenticated()) {
       notify("Login diperlukan untuk mengambil tiket event");
@@ -1120,19 +1135,20 @@ function EventModal({
       const registration = await registerEvent(item.id, {
         participant_name: String(values.participant_name),
         participant_email: String(values.participant_email),
-        ticket_quantity: Number(values.ticket_quantity),
+        ticket_quantity: item.ticket_unit === "owner_pet" ? 1 : Number(values.ticket_quantity),
+        ...(item.ticket_unit === "owner_pet" ? { pet_id: selectedPetID } : {}),
       });
-      if (registration.amount > 0)
+      if (registration.amount > 0 && registration.payment_status !== "paid")
         setPayment(
           await createPaymentIntent(
             "event_registration",
             registration.id,
-            paymentMethod,
+            "qris",
           ),
         );
       else setDone(true);
       notify(
-        registration.amount > 0
+        registration.amount > 0 && registration.payment_status !== "paid"
           ? "Tiket dibuat, selesaikan pembayaran"
           : "Tiket event tersimpan di Aktivitas",
       );
@@ -1181,27 +1197,28 @@ function EventModal({
                 required
               />
             </label>
-            <label>
-              <span>Jumlah tiket</span>
-              <select name="ticket_quantity" defaultValue="1">
-                <option>1</option>
-                <option>2</option>
-                <option>3</option>
-                <option>4</option>
-              </select>
-            </label>
+            {item.ticket_unit === "owner_pet" ? (
+              <fieldset className="event-pet-picker">
+                <legend>Pet yang ikut</legend>
+                {allowedPets.length ? (
+                  <div>
+                    {allowedPets.map((pet) => (
+                      <button type="button" className={selectedPetID === pet.id ? "active" : ""} key={pet.id} onClick={() => setSelectedPetID(pet.id)}>
+                        <span>{pet.avatar}</span><b>{pet.name}</b><small>{pet.breed || speciesLabel(pet.species)}</small><i>{selectedPetID === pet.id ? "✓" : "+"}</i>
+                      </button>
+                    ))}
+                  </div>
+                ) : <p>Belum ada profil pet yang sesuai dengan jenis pet untuk event ini.</p>}
+              </fieldset>
+            ) : (
+              <label><span>Jumlah tiket</span><select name="ticket_quantity" defaultValue="1"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+            )}
             <div className="checkout-line">
-              <span>Harga per tiket</span>
+              <span>{item.ticket_unit === "owner_pet" ? "1 owner + 1 pet" : "Harga per tiket"}</span>
               <b>{item.price ? money.format(item.price) : "Gratis"}</b>
             </div>
-            {item.price > 0 && (
-              <PaymentMethodPicker
-                value={paymentMethod}
-                onChange={setPaymentMethod}
-                disabled={busy}
-              />
-            )}
-            <button className="primary-button full" disabled={busy}>
+            {item.price > 0 ? <div className="event-qris-note"><span>▦</span><div><b>Pembayaran QRIS</b><small>QR tampil otomatis setelah tiket dibuat</small></div><i>✓</i></div> : null}
+            <button className="primary-button full" disabled={busy || (item.ticket_unit === "owner_pet" && !selectedPetID)}>
               {busy
                 ? "Membuat pembayaran…"
                 : item.price > 0
@@ -1214,6 +1231,7 @@ function EventModal({
             <small className="world-kicker">{when(item.starts_at)}</small>
             <h2>{item.title}</h2>
             <p>{item.description}</p>
+            {item.pet_spot_name ? <div className="event-host"><span>✦</span><div><small>Diselenggarakan oleh</small><b>{item.pet_spot_name}</b></div></div> : null}
             <div className="world-detail-grid">
               <span>
                 <small>Lokasi</small>
@@ -1223,7 +1241,7 @@ function EventModal({
               </span>
               <span>
                 <small>Tiket</small>
-                <b>{item.price ? money.format(item.price) : "Gratis"}</b>
+                <b>{item.price ? `${money.format(item.price)} / owner + pet` : "Gratis"}</b>
               </span>
               <span>
                 <small>Kapasitas</small>
@@ -1236,6 +1254,7 @@ function EventModal({
                 <b>{item.status}</b>
               </span>
             </div>
+            {item.ticket_unit === "owner_pet" ? <><div className="event-species"><small>Pet yang dapat hadir</small><div>{item.allowed_pet_species.map((species) => <span key={species}>{speciesIcon(species)} {speciesLabel(species)}</span>)}</div></div>{item.pet_requirements.length ? <div className="event-requirements"><small>Persiapan sebelum hadir</small><ul>{item.pet_requirements.map((requirement) => <li key={requirement}>✓ {requirement}</li>)}</ul></div> : null}</> : null}
             <button className="primary-button full" onClick={start}>
               Ambil tiket
             </button>
@@ -1245,6 +1264,13 @@ function EventModal({
     </Modal>
   );
 }
+
+const eventSpecies = {
+  dog: ["🐕", "Anjing"], cat: ["🐈", "Kucing"], rabbit: ["🐇", "Kelinci"],
+  bird: ["🦜", "Burung"], reptile: ["🦎", "Reptil"], small_mammal: ["🐹", "Mamalia kecil"], other: ["🐾", "Lainnya"],
+} as const;
+function speciesIcon(species: string) { return eventSpecies[species as keyof typeof eventSpecies]?.[0] ?? "🐾"; }
+function speciesLabel(species: string) { return eventSpecies[species as keyof typeof eventSpecies]?.[1] ?? species; }
 function SpotModal({
   item,
   close,

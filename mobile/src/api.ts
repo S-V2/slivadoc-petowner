@@ -1283,6 +1283,15 @@ export type WorldItem = {
   price?: number;
   next_schedule?: string;
   starts_at?: string;
+  ends_at?: string;
+  capacity?: number;
+  registered_count?: number;
+  pet_spot_id?: string;
+  pet_spot_name?: string;
+  ticket_unit?: "person" | "owner_pet";
+  allowed_pet_species?: string[];
+  pet_requirements?: string[];
+  terms?: string;
   venue?: string;
   address?: string;
   city?: string;
@@ -1656,8 +1665,15 @@ export const registerMobileEvent = (
   eventId: string,
   participantName: string,
   participantEmail: string,
+  petId?: string,
 ) =>
-  platformRequest<{ id: string; qr_token: string; amount: number }>(
+  platformRequest<{
+    id: string;
+    qr_token: string;
+    amount: number;
+    status: string;
+    payment_status: "pending" | "paid" | "expired" | "refunded";
+  }>(
     `/api/v1/events/${eventId}/registrations`,
     {
       method: "POST",
@@ -1665,6 +1681,7 @@ export const registerMobileEvent = (
         participant_name: participantName,
         participant_email: participantEmail,
         ticket_quantity: 1,
+        ...(petId ? { pet_id: petId } : {}),
       }),
     },
   );

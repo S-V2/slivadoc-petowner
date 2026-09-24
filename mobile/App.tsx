@@ -242,6 +242,7 @@ function MobileApp() {
   const pets: PetView[] = (bootstrap?.pets ?? []).map((item) => ({
     id: item.id,
     name: item.name,
+    species: item.species,
     breed: item.breed,
     age:
       item.age_months >= 12
@@ -678,6 +679,7 @@ function MobileApp() {
                   owner={bootstrap?.user}
                   petName={pet?.name}
                   pet={pet}
+                  pets={pets}
                   hasPet={hasPet}
                   onLogin={() => setLoginOpen(true)}
                   onRequirePet={() => {

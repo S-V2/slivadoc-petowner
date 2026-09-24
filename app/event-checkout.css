@@ -1,0 +1,171 @@
+.event-host {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 13px 0;
+  padding: 10px 12px;
+  border: 1px solid #d8eef6;
+  border-radius: 12px;
+  background: #f1fbff;
+}
+.event-host > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 10px;
+  color: #fff;
+  background: linear-gradient(135deg, #169ed7, #22bca4);
+}
+.event-host > div {
+  display: grid;
+  gap: 2px;
+}
+.event-host small,
+.event-species > small,
+.event-requirements > small {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 700;
+}
+.event-host b {
+  font-size: 10px;
+}
+.event-species,
+.event-requirements {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.event-species > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.event-species span {
+  padding: 6px 9px;
+  border-radius: 99px;
+  color: #187e9f;
+  background: #eaf8fd;
+  font-size: 8px;
+  font-weight: 800;
+}
+.event-requirements ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  color: #527489;
+  font-size: 8px;
+}
+.event-pet-picker {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.event-pet-picker legend {
+  margin-bottom: 7px;
+  font-size: 9px;
+  font-weight: 800;
+}
+.event-pet-picker > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+.event-pet-picker button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  min-height: 88px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  color: var(--navy);
+  background: #fff;
+}
+.event-pet-picker button.active {
+  border-color: var(--sky-400);
+  background: var(--sky-50);
+  box-shadow: inset 0 0 0 1px var(--sky-400);
+}
+.event-pet-picker button > span {
+  font-size: 27px;
+}
+.event-pet-picker button > b {
+  font-size: 9px;
+}
+.event-pet-picker button > small {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.event-pet-picker button > i {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--sky-500);
+  font-size: 8px;
+  font-style: normal;
+  line-height: 17px;
+}
+.event-pet-picker > p {
+  margin: 0;
+  padding: 12px;
+  border-radius: 11px;
+  color: #a15d20;
+  background: #fff5e7;
+  font-size: 8px;
+}
+.event-qris-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid #ccecf4;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #edfaff, #eefff9);
+}
+.event-qris-note > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 9px;
+  color: #fff;
+  background: #128fc9;
+}
+.event-qris-note > div {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+}
+.event-qris-note b {
+  font-size: 9px;
+}
+.event-qris-note small {
+  color: var(--muted);
+  font-size: 7px;
+}
+.event-qris-note > i {
+  color: #16a287;
+  font-style: normal;
+  font-weight: 900;
+}
+@media (max-width: 600px) {
+  .event-pet-picker > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

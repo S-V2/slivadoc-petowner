@@ -447,6 +447,12 @@ export type PetEvent = {
   price: number;
   status: string;
   featured: boolean;
+  pet_spot_id?: string;
+  pet_spot_name?: string;
+  ticket_unit: "person" | "owner_pet";
+  allowed_pet_species: string[];
+  pet_requirements: string[];
+  terms: string;
 };
 
 export type PetSpot = {
@@ -972,9 +978,18 @@ export const registerEvent = (
     participant_name: string;
     participant_email: string;
     ticket_quantity: number;
+    pet_id?: string;
   },
 ) =>
-  request<{ id: string; qr_token: string; status: string; amount: number }>(
+  request<{
+    id: string;
+    qr_token: string;
+    status: string;
+    amount: number;
+    payment_status: "pending" | "paid" | "expired" | "refunded";
+    payment_method: "qris";
+    pet_name?: string;
+  }>(
     `/api/v1/events/${eventId}/registrations`,
     { method: "POST", body: JSON.stringify(input) },
   );

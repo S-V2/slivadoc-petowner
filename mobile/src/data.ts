@@ -18,4 +18,4 @@ export type Service = {
   address:string;
 };
 
-export type PetView={id:string;name:string;breed:string;age:string;weight:string;icon:string;score:number;allergies:string;lastUpdated?:string};
+export type PetView={id:string;name:string;species?:string;breed:string;age:string;weight:string;icon:string;score:number;allergies:string;lastUpdated?:string};

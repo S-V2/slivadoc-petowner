@@ -79,7 +79,7 @@ type Mode =
   | "adoption"
   | "documents";
 type ConsultProviderFilter = "all" | "veterinarian" | "trainer";
-type WorldPet = { id: string; name: string; breed: string };
+type WorldPet = { id: string; name: string; species?: string; breed: string; icon?: string };
 type AdoptionForm = {
   applicantName: string;
   phone: string;
@@ -411,6 +411,7 @@ export function WorldScreen({
   owner,
   petName,
   pet,
+  pets = [],
   hasPet,
   onLogin,
   onRequirePet,
@@ -422,6 +423,7 @@ export function WorldScreen({
   owner?: MobileOwner;
   petName?: string;
   pet?: WorldPet;
+  pets?: WorldPet[];
   hasPet: boolean;
   onLogin: () => void;
   onRequirePet: () => void;
@@ -448,6 +450,7 @@ export function WorldScreen({
   const [busy, setBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<MobilePaymentIntent>();
+  const [selectedEventPetID, setSelectedEventPetID] = useState("");
   const [spotCategoryFilter, setSpotCategoryFilter] = useState("all");
   const [petSpotForm, setPetSpotForm] = useState<PetSpotReservationForm>(
     emptyPetSpotReservationForm,
@@ -700,6 +703,14 @@ export function WorldScreen({
     if (mode === "consult") {
       void loadTrainerSlots(item);
     }
+    if (mode === "events" && item.ticket_unit === "owner_pet") {
+      const eligible = pets.filter(
+        (candidate) =>
+          !item.allowed_pet_species?.length ||
+          item.allowed_pet_species.includes(candidate.species ?? "other"),
+      );
+      setSelectedEventPetID(eligible[0]?.id ?? "");
+    }
     if (mode === "petspot" && item.reservable) {
       const form = emptyPetSpotReservationForm(
         item.reservation_policy?.slot_minutes ?? 90,
@@ -857,17 +868,24 @@ export function WorldScreen({
           );
         else onAction("Pendaftaran academy berhasil tersinkron");
       } else if (mode === "events") {
+        if (selected.ticket_unit === "owner_pet" && !selectedEventPetID) {
+          onAction("Pilih pet yang akan dibawa ke event");
+          return;
+        }
         const source = await registerMobileEvent(
           selected.id,
           owner!.full_name,
           owner!.email,
+          selected.ticket_unit === "owner_pet"
+            ? selectedEventPetID
+            : undefined,
         );
-        if (source.amount > 0)
+        if (source.amount > 0 && source.payment_status !== "paid")
           setPayment(
             await createMobilePaymentIntent(
               "event_registration",
               source.id,
-              paymentMethod,
+              "qris",
             ),
           );
         else onAction("Tiket event gratis berhasil dibuat");
@@ -1478,6 +1496,125 @@ export function WorldScreen({
                       </View>
                     ) : null}
                   </View>
+                  {mode === "events" && selected?.ticket_unit === "owner_pet" ? (
+                    <View style={styles.eventSection}>
+                      {selected.pet_spot_name ? (
+                        <View style={styles.eventHost}>
+                          <View style={styles.eventHostIcon}>
+                            <Ionicons
+                              name="sparkles"
+                              size={16}
+                              color={colors.white}
+                            />
+                          </View>
+                          <View>
+                            <Text style={styles.formNote}>
+                              DISELENGGARAKAN OLEH
+                            </Text>
+                            <Text style={styles.formTitle}>
+                              {selected.pet_spot_name}
+                            </Text>
+                          </View>
+                        </View>
+                      ) : null}
+                      <Text style={styles.formLabel}>PET YANG IKUT</Text>
+                      <View style={styles.eventPetGrid}>
+                        {pets
+                          .filter(
+                            (candidate) =>
+                              !selected.allowed_pet_species?.length ||
+                              selected.allowed_pet_species.includes(
+                                candidate.species ?? "other",
+                              ),
+                          )
+                          .map((candidate) => (
+                            <Pressable
+                              key={candidate.id}
+                              onPress={() =>
+                                setSelectedEventPetID(candidate.id)
+                              }
+                              style={[
+                                styles.eventPetCard,
+                                selectedEventPetID === candidate.id &&
+                                  styles.eventPetCardActive,
+                              ]}
+                            >
+                              <View style={styles.eventPetIcon}>
+                                <Ionicons
+                                  name="paw-outline"
+                                  size={21}
+                                  color={colors.sky600}
+                                />
+                              </View>
+                              <Text style={styles.eventPetName}>
+                                {candidate.name}
+                              </Text>
+                              <Text numberOfLines={1} style={styles.formNote}>
+                                {candidate.breed}
+                              </Text>
+                              {selectedEventPetID === candidate.id ? (
+                                <Ionicons
+                                  name="checkmark-circle"
+                                  size={18}
+                                  color={colors.sky600}
+                                  style={styles.eventPetCheck}
+                                />
+                              ) : null}
+                            </Pressable>
+                          ))}
+                      </View>
+                      {!pets.some(
+                        (candidate) =>
+                          !selected.allowed_pet_species?.length ||
+                          selected.allowed_pet_species.includes(
+                            candidate.species ?? "other",
+                          ),
+                      ) ? (
+                        <Text style={styles.eventPetEmpty}>
+                          Belum ada pet yang sesuai dengan ketentuan event ini.
+                        </Text>
+                      ) : null}
+                      <View style={styles.eventTicketSummary}>
+                        <View>
+                          <Text style={styles.formNote}>1 TIKET</Text>
+                          <Text style={styles.formTitle}>1 owner + 1 pet</Text>
+                        </View>
+                        <Text style={styles.eventTicketPrice}>
+                          {money(selected.price)}
+                        </Text>
+                      </View>
+                      <View style={styles.eventQris}>
+                        <Ionicons
+                          name="qr-code-outline"
+                          size={22}
+                          color={colors.sky600}
+                        />
+                        <View>
+                          <Text style={styles.formTitle}>Pembayaran QRIS</Text>
+                          <Text style={styles.formNote}>
+                            QR tampil otomatis setelah tiket dibuat
+                          </Text>
+                        </View>
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={18}
+                          color="#128464"
+                        />
+                      </View>
+                      {selected.pet_requirements?.length ? (
+                        <View style={styles.requirements}>
+                          <Text style={styles.formLabel}>
+                            PERSIAPAN SEBELUM HADIR
+                          </Text>
+                          {selected.pet_requirements.map((requirement) => (
+                            <Text key={requirement} style={styles.requirement}>
+                              ✓ {requirement}
+                            </Text>
+                          ))}
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
                   {mode === "consult" &&
                   selected?.provider_type === "trainer" ? (
                     <View style={styles.formSection}>
@@ -2106,7 +2243,7 @@ export function WorldScreen({
                       ) : null}
                     </View>
                   ) : null}
-                  {(["academy", "events", "consult", "documents"].includes(
+                  {(["academy", "consult", "documents"].includes(
                     mode,
                   ) &&
                     Number(selected?.price || selected?.total_fee || 0) > 0) ||
@@ -2144,6 +2281,9 @@ export function WorldScreen({
                     onPress={runPrimaryAction}
                     disabled={
                       busy ||
+                      (mode === "events" &&
+                        selected?.ticket_unit === "owner_pet" &&
+                        !selectedEventPetID) ||
                       (mode === "consult" &&
                         selected?.provider_type === "trainer" &&
                         (trainerAvailabilityLoading ||
@@ -3252,4 +3392,91 @@ const styles = StyleSheet.create({
   vaccinePreview: { width: 54, height: 54, borderRadius: 10 },
   vaccinePickerCopy: { flex: 1 },
   vaccinePickerTitle: { color: colors.navy, fontSize: 12, fontWeight: "700" },
+  eventSection: {
+    gap: 12,
+    marginTop: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 18,
+    backgroundColor: colors.sky50,
+  },
+  eventHost: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 10,
+    borderRadius: 13,
+    backgroundColor: colors.white,
+  },
+  eventHostIcon: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 11,
+    backgroundColor: colors.sky600,
+  },
+  eventPetGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  eventPetCard: {
+    position: "relative",
+    width: "31%",
+    minHeight: 94,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 9,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    backgroundColor: colors.white,
+  },
+  eventPetCardActive: {
+    borderColor: colors.sky400,
+    backgroundColor: "#EAF8FE",
+  },
+  eventPetIcon: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: colors.sky50,
+  },
+  eventPetName: {
+    marginTop: 4,
+    color: colors.navy,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  eventPetCheck: { position: "absolute", right: 6, top: 6 },
+  eventPetEmpty: {
+    padding: 11,
+    borderRadius: 11,
+    color: "#A15D20",
+    backgroundColor: "#FFF5E7",
+    fontSize: 11,
+  },
+  eventTicketSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 13,
+    borderRadius: 13,
+    backgroundColor: colors.white,
+  },
+  eventTicketPrice: {
+    color: colors.sky600,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  eventQris: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 13,
+    backgroundColor: colors.white,
+  },
 });

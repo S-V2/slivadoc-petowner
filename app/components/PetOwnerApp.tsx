@@ -785,13 +785,6 @@ export default function PetOwnerApp() {
               notify={notify}
               productCatalog={productCatalog}
               petName={selectedPet.name}
-              pets={petProfiles.map((pet) => ({
-                id: pet.id,
-                name: pet.name,
-                species: pet.speciesCode ?? pet.speciesGroup ?? "other",
-                breed: pet.breed,
-                avatar: pet.avatar,
-              }))}
               favorites={favoriteIds}
               toggleFavorite={(id) => void toggleFavorite("product", id)}
             />
@@ -808,6 +801,13 @@ export default function PetOwnerApp() {
             <PlatformDiscovery
               mode={activeView as "academy" | "events" | "petspot" | "pethub"}
               petName={selectedPet.name}
+              pets={petProfiles.map((pet) => ({
+                id: pet.id,
+                name: pet.name,
+                species: pet.speciesCode ?? pet.speciesGroup ?? "other",
+                breed: pet.breed,
+                avatar: pet.avatar,
+              }))}
               ownerName={account?.full_name}
               ownerEmail={account?.email}
               notify={notify}

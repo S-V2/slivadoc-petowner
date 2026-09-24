@@ -18,6 +18,8 @@ test("PetSpot event tickets bind one eligible pet and use QRIS", () => {
 });
 
 test("Pet owner app supplies every pet profile to event checkout", () => {
-  assert.match(app, /pets=\{petProfiles\.map/);
-  assert.match(app, /species: pet\.speciesCode/);
+  const platformDiscovery = app.match(/<PlatformDiscovery[\s\S]*?\/>/)?.[0];
+  assert.ok(platformDiscovery, "PlatformDiscovery render was not found");
+  assert.match(platformDiscovery, /pets=\{petProfiles\.map/);
+  assert.match(platformDiscovery, /species: pet\.speciesCode/);
 });

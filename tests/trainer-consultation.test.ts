@@ -7,6 +7,7 @@ const read = (path: string) =>
 
 const webApi = read("app/lib/platform-api.ts");
 const webMarketplace = read("app/components/platform/CareMarketplace.tsx");
+const webApp = read("app/components/PetOwnerApp.tsx");
 const mobileApi = read("mobile/src/api.ts");
 const mobileWorld = read("mobile/src/screens/WorldScreen.tsx");
 
@@ -67,4 +68,22 @@ test("mobile consultation catalog filters combined plans by provider and special
   assert.match(mobileWorld, /Semua spesialisasi/);
   assert.match(mobileWorld, /visibleItems\.map/);
   assert.match(mobileApi, /specialties\?: string\[\]/);
+});
+
+
+test("trainer updates flow into Petowner Activity Center from database fields", () => {
+  for (const field of [
+    "provider_type",
+    "provider_name",
+    "trainer_name",
+    "doctor_notes",
+    "complaint",
+    "followup_days",
+  ]) {
+    assert.match(webApi, new RegExp(field));
+  }
+  assert.match(webApp, /item\.provider_type === "trainer" \? "Pet Trainer"/);
+  assert.match(webApp, /ringkasan_sesi:/);
+  assert.match(webApp, /item\.doctor_notes \|\| "Belum ada ringkasan dari provider"/);
+  assert.match(webApp, /status_pembayaran: item\.payment_status/);
 });

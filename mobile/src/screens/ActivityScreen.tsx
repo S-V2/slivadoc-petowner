@@ -676,9 +676,17 @@ function ActivityDetailSheet({
                   </Text>
                   <DetailRow
                     icon="person-outline"
-                    label="Dokter hewan"
+                    label={
+                      item.provider_type === "trainer"
+                        ? "Pet Trainer"
+                        : "Dokter hewan"
+                    }
                     value={
-                      item.doctor_name ? `drh. ${item.doctor_name}` : undefined
+                      item.provider_type === "trainer"
+                        ? item.trainer_name ||
+                          item.provider_name ||
+                          item.doctor_name
+                        : item.provider_name || item.doctor_name
                     }
                   />
                   <DetailRow
@@ -712,15 +720,37 @@ function ActivityDetailSheet({
                     label="Keluhan"
                     value={item.complaint}
                   />
-                  <DetailRow
-                    icon="clipboard-outline"
-                    label="Diagnosis"
-                    value={item.diagnosis || "Belum ada diagnosis"}
-                  />
+                  {item.provider_type !== "trainer" ? (
+                    <DetailRow
+                      icon="clipboard-outline"
+                      label="Diagnosis"
+                      value={item.diagnosis || "Belum ada diagnosis"}
+                    />
+                  ) : null}
                   <DetailRow
                     icon="document-text-outline"
-                    label="Catatan dokter"
-                    value={item.doctor_notes || "Belum ada catatan dokter"}
+                    label={
+                      item.provider_type === "trainer"
+                        ? "Rencana latihan"
+                        : "Catatan dokter"
+                    }
+                    value={
+                      item.doctor_notes ||
+                      (item.provider_type === "trainer"
+                        ? "Belum ada rencana latihan"
+                        : "Belum ada catatan dokter")
+                    }
+                  />
+                  <DetailRow
+                    icon="calendar-outline"
+                    label="Follow-up"
+                    value={
+                      item.followup_until
+                        ? formatActivityDate(item.followup_until, locale)
+                        : item.followup_days
+                          ? `${item.followup_days} hari setelah sesi`
+                          : undefined
+                    }
                   />
                 </View>
               ) : null}

@@ -111,6 +111,27 @@ export type PetOwnerActivityCenterItem = {
   pet_id?: string;
   item_count?: number;
   total_amount?: number;
+  provider_id?: string | null;
+  provider_type?: "trainer" | "veterinarian";
+  provider_name?: string;
+  trainer_id?: string | null;
+  trainer_name?: string;
+  veterinarian_id?: string | null;
+  doctor_name?: string;
+  plan_id?: string;
+  plan_name?: string;
+  mode?: string;
+  duration_minutes?: number;
+  followup_days?: number;
+  followup_until?: string | null;
+  plan_price?: number;
+  complaint?: string;
+  diagnosis?: string;
+  doctor_notes?: string;
+  started_at?: string | null;
+  ended_at?: string | null;
+  room_key?: string;
+  pet_name?: string;
 };
 
 export type PetOwnerActivityCenterResponse = PlatformList<PetOwnerActivityCenterItem> & {

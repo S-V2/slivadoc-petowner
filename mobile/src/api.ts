@@ -421,7 +421,12 @@ export type MobileActivityCenterItem = {
   items?: MobileActivityOrderItem[];
   shipments?: MobileShipment[];
   paid_at?: string | null;
-  veterinarian_id?: string;
+  provider_id?: string | null;
+  provider_type?: "trainer" | "veterinarian";
+  provider_name?: string;
+  trainer_id?: string | null;
+  trainer_name?: string;
+  veterinarian_id?: string | null;
   doctor_name?: string;
   plan_id?: string;
   plan_name?: string;
@@ -429,6 +434,7 @@ export type MobileActivityCenterItem = {
   description?: string;
   duration_minutes?: number;
   followup_days?: number;
+  followup_until?: string | null;
   plan_price?: number;
   complaint?: string;
   diagnosis?: string;

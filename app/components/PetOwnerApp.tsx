@@ -104,6 +104,7 @@ function activityCenterToViewItem(
   item: PetOwnerActivityCenterItem,
 ): ActivityViewItem {
   const isOrder = item.type === "order";
+  const isConsultation = item.type === "consultation";
   const total = item.total_amount ?? item.amount;
   return {
     id: item.id,
@@ -119,7 +120,15 @@ function activityCenterToViewItem(
         ]
           .filter(Boolean)
           .join(" · ")
-      : item.subtitle || item.description || "",
+      : isConsultation
+        ? [
+            item.pet_name,
+            item.provider_type === "trainer" ? "Pet Trainer" : "Dokter hewan",
+            item.provider_name,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : item.subtitle || item.description || "",
     status: item.status,
     action_route: "",
     action_label: isOrder ? "Beli lagi" : "",
@@ -130,7 +139,29 @@ function activityCenterToViewItem(
           item_count: item.item_count ?? 0,
           total_amount: total,
         }
-      : {},
+      : isConsultation
+        ? {
+            nomor_konsultasi: item.code,
+            pet: item.pet_name ?? "Pet",
+            provider: item.provider_name ?? item.subtitle,
+            jenis_provider:
+              item.provider_type === "trainer" ? "Pet Trainer" : "Dokter hewan",
+            mode: item.mode ?? "",
+            durasi_menit: item.duration_minutes ?? 0,
+            status_pembayaran: item.payment_status,
+            keluhan_atau_tujuan: item.complaint ?? "",
+            ringkasan_sesi:
+              item.doctor_notes || "Belum ada ringkasan dari provider",
+            diagnosis: item.diagnosis ?? "",
+            follow_up_hari: item.followup_days ?? 0,
+            jadwal_follow_up: item.followup_until
+              ? new Date(item.followup_until).toLocaleString("id-ID", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })
+              : "Belum dijadwalkan",
+          }
+        : {},
     starts_at: item.scheduled_at ?? undefined,
     occurred_at: item.occurred_at,
     activity_state: item.state,

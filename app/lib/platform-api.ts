@@ -123,6 +123,7 @@ export type PetOwnerActivityCenterItem = {
   mode?: string;
   duration_minutes?: number;
   followup_days?: number;
+  followup_until?: string | null;
   plan_price?: number;
   complaint?: string;
   diagnosis?: string;

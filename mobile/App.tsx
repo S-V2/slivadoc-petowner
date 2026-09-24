@@ -67,12 +67,7 @@ import {
   MobilePaymentMethods,
 } from "./src/components/BatpayPayment";
 import slivadocLogo from "./assets/slivadoc-logo.png";
-import {
-  LanguageProvider,
-  LocalizedText as Text,
-  LocalizedTextInput as TextInput,
-  useI18n,
-} from "./src/i18n";
+import { LanguageProvider, LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "./src/i18n";
 
 type Tab =
   | "home"
@@ -479,9 +474,7 @@ function MobileApp() {
     return intentTokenRef.current;
   };
   const consumeMarketplaceIntent = useCallback((token: number) => {
-    setMarketplaceIntent((current) =>
-      current?.token === token ? undefined : current,
-    );
+    setMarketplaceIntent((current) => current?.token === token ? undefined : current);
   }, []);
   const openMarketplace = (productId?: string) => {
     setMarketplaceIntent({ token: nextIntentToken(), productId });
@@ -785,8 +778,7 @@ function MobileApp() {
                     accessibilityState={{ selected: active }}
                     onPress={() => {
                       setMoreOpen(false);
-                      if (item.id === "marketplace")
-                        setMarketplaceIntent(undefined);
+                      if (item.id === "marketplace") setMarketplaceIntent(undefined);
                       navigateTo(item.id);
                     }}
                     style={({ pressed }) => [
@@ -920,11 +912,11 @@ function MobileApp() {
           );
         }}
         onOpenTarget={(item) => {
-          const route =
-            (String(item.action_route ?? "").split("?")[0] ?? "")
-              .split("/")
-              .filter(Boolean)
-              .at(-1) ?? "home";
+          const route = (String(item.action_route ?? "")
+            .split("?")[0] ?? "")
+            .split("/")
+            .filter(Boolean)
+            .at(-1) ?? "home";
           setNotificationsOpen(false);
           if (route === "consult") {
             openConsultation();
@@ -1049,9 +1041,7 @@ function MobileApp() {
             notify(result.message);
             return result;
           } catch (cause) {
-            notify(
-              cause instanceof Error ? cause.message : "OTP belum terkirim",
-            );
+            notify(cause instanceof Error ? cause.message : "OTP belum terkirim");
             throw cause;
           } finally {
             setSubmitting(false);
@@ -1117,45 +1107,21 @@ function notificationVisual(category: string): {
   color: string;
 } {
   if (category === "health") {
-    return {
-      icon: "pulse-outline",
-      backgroundColor: colors.mint50,
-      color: colors.mint,
-    };
+    return { icon: "pulse-outline", backgroundColor: colors.mint50, color: colors.mint };
   }
   if (category === "booking") {
-    return {
-      icon: "calendar-outline",
-      backgroundColor: colors.sky50,
-      color: colors.sky600,
-    };
+    return { icon: "calendar-outline", backgroundColor: colors.sky50, color: colors.sky600 };
   }
   if (category === "event") {
-    return {
-      icon: "ticket-outline",
-      backgroundColor: colors.violet50,
-      color: "#6757C9",
-    };
+    return { icon: "ticket-outline", backgroundColor: colors.violet50, color: "#6757C9" };
   }
   if (category === "community") {
-    return {
-      icon: "chatbubble-ellipses-outline",
-      backgroundColor: colors.pink50,
-      color: "#A52C65",
-    };
+    return { icon: "chatbubble-ellipses-outline", backgroundColor: colors.pink50, color: "#A52C65" };
   }
   if (category === "points") {
-    return {
-      icon: "sparkles",
-      backgroundColor: colors.yellow50,
-      color: colors.yellow,
-    };
+    return { icon: "sparkles", backgroundColor: colors.yellow50, color: colors.yellow };
   }
-  return {
-    icon: "notifications-outline",
-    backgroundColor: colors.sky50,
-    color: colors.sky600,
-  };
+  return { icon: "notifications-outline", backgroundColor: colors.sky50, color: colors.sky600 };
 }
 
 function formatNotificationTime(value: string, locale: string) {
@@ -1284,10 +1250,7 @@ function NotificationModal({
       onRequestClose={close}
     >
       <Pressable style={styles.modalBackdrop} onPress={close}>
-        <SafeAreaView
-          edges={["bottom", "left", "right"]}
-          style={styles.notificationSheetWrap}
-        >
+        <SafeAreaView edges={["bottom", "left", "right"]} style={styles.notificationSheetWrap}>
           <Pressable
             style={styles.notificationSheet}
             onPress={(event) => event.stopPropagation()}
@@ -1299,313 +1262,66 @@ function NotificationModal({
               onClose={close}
             />
             {selected ? (
-              <ScrollView
-                style={styles.notificationDetailScroll}
-                contentContainerStyle={styles.notificationDetailContent}
-                showsVerticalScrollIndicator={false}
-              >
+              <ScrollView style={styles.notificationDetailScroll} contentContainerStyle={styles.notificationDetailContent} showsVerticalScrollIndicator={false}>
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => setSelectedId("")}
-                  style={({ pressed }) => [
-                    styles.notificationBack,
-                    pressed && styles.pressed,
-                  ]}
+                  style={({ pressed }) => [styles.notificationBack, pressed && styles.pressed]}
                 >
-                  <Ionicons name="arrow-back" size={15} color={colors.sky600} />
-                  <Text style={styles.notificationBackText}>
-                    Kembali ke semua update
-                  </Text>
+                  <Ionicons name="arrow-back" size={15} color={colors.sky600}/>
+                  <Text style={styles.notificationBackText}>Kembali ke semua update</Text>
                 </Pressable>
                 {(() => {
                   const visual = notificationVisual(selected.category);
-                  return (
-                    <View style={styles.notificationDetailCard}>
-                      <View style={styles.notificationDetailTop}>
-                        <View
-                          style={[
-                            styles.notificationDetailIcon,
-                            { backgroundColor: visual.backgroundColor },
-                          ]}
-                        >
-                          <Ionicons
-                            name={visual.icon}
-                            size={24}
-                            color={visual.color}
-                          />
-                        </View>
-                        <View style={styles.notificationDetailTopCopy}>
-                          <Text style={styles.notificationDetailCategory}>
-                            {notificationCategoryLabel(selected.category)}
-                          </Text>
-                          <View style={styles.notificationDetailStatus}>
-                            <Ionicons
-                              name="checkmark-done"
-                              size={12}
-                              color="#13856F"
-                            />
-                            <Text style={styles.notificationDetailStatusText}>
-                              {selected.read_at
-                                ? "Sudah dibaca"
-                                : "Menandai dibaca…"}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                      <Text style={styles.notificationDetailTitle}>
-                        {selected.title}
-                      </Text>
-                      <Text style={styles.notificationDetailBody}>
-                        {selected.body}
-                      </Text>
-                      <View style={styles.notificationDetailMeta}>
-                        <View style={styles.notificationDetailMetaRow}>
-                          <Ionicons
-                            name="time-outline"
-                            size={15}
-                            color={colors.muted}
-                          />
-                          <View>
-                            <Text style={styles.notificationDetailMetaLabel}>
-                              Diterima
-                            </Text>
-                            <Text style={styles.notificationDetailMetaValue}>
-                              {formatNotificationTime(
-                                selected.created_at,
-                                locale,
-                              )}
-                            </Text>
-                          </View>
-                        </View>
-                        <View style={styles.notificationDetailMetaRow}>
-                          <Ionicons
-                            name="pricetag-outline"
-                            size={15}
-                            color={colors.muted}
-                          />
-                          <View>
-                            <Text style={styles.notificationDetailMetaLabel}>
-                              Kategori
-                            </Text>
-                            <Text style={styles.notificationDetailMetaValue}>
-                              {notificationCategoryLabel(selected.category)}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                      {selected.action_route ? (
-                        <Pressable
-                          accessibilityRole="button"
-                          onPress={() => onOpenTarget(selected)}
-                          style={({ pressed }) => [
-                            styles.notificationDetailAction,
-                            pressed && styles.pressed,
-                          ]}
-                        >
-                          <Text style={styles.notificationDetailActionText}>
-                            Buka halaman terkait
-                          </Text>
-                          <Ionicons
-                            name="arrow-forward"
-                            size={16}
-                            color={colors.white}
-                          />
-                        </Pressable>
-                      ) : null}
+                  return <View style={styles.notificationDetailCard}>
+                    <View style={styles.notificationDetailTop}>
+                      <View style={[styles.notificationDetailIcon, { backgroundColor: visual.backgroundColor }]}><Ionicons name={visual.icon} size={24} color={visual.color}/></View>
+                      <View style={styles.notificationDetailTopCopy}><Text style={styles.notificationDetailCategory}>{notificationCategoryLabel(selected.category)}</Text><View style={styles.notificationDetailStatus}><Ionicons name="checkmark-done" size={12} color="#13856F"/><Text style={styles.notificationDetailStatusText}>{selected.read_at ? "Sudah dibaca" : "Menandai dibaca…"}</Text></View></View>
                     </View>
-                  );
+                    <Text style={styles.notificationDetailTitle}>{selected.title}</Text>
+                    <Text style={styles.notificationDetailBody}>{selected.body}</Text>
+                    <View style={styles.notificationDetailMeta}><View style={styles.notificationDetailMetaRow}><Ionicons name="time-outline" size={15} color={colors.muted}/><View><Text style={styles.notificationDetailMetaLabel}>Diterima</Text><Text style={styles.notificationDetailMetaValue}>{formatNotificationTime(selected.created_at, locale)}</Text></View></View><View style={styles.notificationDetailMetaRow}><Ionicons name="pricetag-outline" size={15} color={colors.muted}/><View><Text style={styles.notificationDetailMetaLabel}>Kategori</Text><Text style={styles.notificationDetailMetaValue}>{notificationCategoryLabel(selected.category)}</Text></View></View></View>
+                    {selected.action_route ? <Pressable accessibilityRole="button" onPress={() => onOpenTarget(selected)} style={({ pressed }) => [styles.notificationDetailAction, pressed && styles.pressed]}><Text style={styles.notificationDetailActionText}>Buka halaman terkait</Text><Ionicons name="arrow-forward" size={16} color={colors.white}/></Pressable> : null}
+                  </View>;
                 })()}
-                <View style={styles.notificationDetailInfo}>
-                  <Ionicons
-                    name="shield-checkmark-outline"
-                    size={16}
-                    color={colors.sky600}
-                  />
-                  <Text style={styles.notificationDetailInfoText}>
-                    Update ini tersimpan di pusat notifikasi akunmu dan dapat
-                    dibuka lagi kapan saja.
-                  </Text>
-                </View>
+                <View style={styles.notificationDetailInfo}><Ionicons name="shield-checkmark-outline" size={16} color={colors.sky600}/><Text style={styles.notificationDetailInfoText}>Update ini tersimpan di pusat notifikasi akunmu dan dapat dibuka lagi kapan saja.</Text></View>
               </ScrollView>
             ) : (
               <>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.notificationFilters}
-                  contentContainerStyle={styles.notificationFiltersContent}
-                >
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => setCategory("")}
-                    style={({ pressed }) => [
-                      styles.notificationFilter,
-                      !category && styles.notificationFilterActive,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.notificationFilterText,
-                        !category && styles.notificationFilterTextActive,
-                      ]}
-                    >
-                      Semua
-                    </Text>
-                  </Pressable>
-                  {categories.map((value) => (
-                    <Pressable
-                      accessibilityRole="button"
-                      key={value}
-                      onPress={() => setCategory(value)}
-                      style={({ pressed }) => [
-                        styles.notificationFilter,
-                        category === value && styles.notificationFilterActive,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.notificationFilterText,
-                          category === value &&
-                            styles.notificationFilterTextActive,
-                        ]}
-                      >
-                        {notificationCategoryLabel(value)}
-                      </Text>
-                    </Pressable>
-                  ))}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.notificationFilters} contentContainerStyle={styles.notificationFiltersContent}>
+                  <Pressable accessibilityRole="button" onPress={() => setCategory("")} style={({ pressed }) => [styles.notificationFilter, !category && styles.notificationFilterActive, pressed && styles.pressed]}><Text style={[styles.notificationFilterText, !category && styles.notificationFilterTextActive]}>Semua</Text></Pressable>
+                  {categories.map((value) => <Pressable accessibilityRole="button" key={value} onPress={() => setCategory(value)} style={({ pressed }) => [styles.notificationFilter, category === value && styles.notificationFilterActive, pressed && styles.pressed]}><Text style={[styles.notificationFilterText, category === value && styles.notificationFilterTextActive]}>{notificationCategoryLabel(value)}</Text></Pressable>)}
                 </ScrollView>
                 <View style={styles.notificationToolbar}>
-                  <View style={styles.notificationSummary}>
-                    <View style={styles.notificationSummaryIcon}>
-                      <Ionicons
-                        name="mail-unread-outline"
-                        size={14}
-                        color={colors.sky600}
-                      />
-                    </View>
-                    <View>
-                      <Text style={styles.notificationSummaryTitle}>
-                        {visibleItems.length} update
-                      </Text>
-                      <Text style={styles.notificationSummaryNote}>
-                        {unreadCount} belum dibaca
-                      </Text>
-                    </View>
-                  </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={!items.some((item) => !item.read_at)}
-                    onPress={() => void onReadAll()}
-                    style={({ pressed }) => [
-                      styles.markReadButton,
-                      !items.some((item) => !item.read_at) &&
-                        styles.markReadButtonDisabled,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Ionicons
-                      name="checkmark-done"
-                      size={14}
-                      color={colors.sky600}
-                    />
-                    <Text style={styles.markRead}>Tandai dibaca</Text>
-                  </Pressable>
+                  <View style={styles.notificationSummary}><View style={styles.notificationSummaryIcon}><Ionicons name="mail-unread-outline" size={14} color={colors.sky600}/></View><View><Text style={styles.notificationSummaryTitle}>{visibleItems.length} update</Text><Text style={styles.notificationSummaryNote}>{unreadCount} belum dibaca</Text></View></View>
+                  <Pressable accessibilityRole="button" disabled={!items.some((item) => !item.read_at)} onPress={() => void onReadAll()} style={({ pressed }) => [styles.markReadButton, !items.some((item) => !item.read_at) && styles.markReadButtonDisabled, pressed && styles.pressed]}><Ionicons name="checkmark-done" size={14} color={colors.sky600}/><Text style={styles.markRead}>Tandai dibaca</Text></Pressable>
                 </View>
-                <ScrollView
-                  style={styles.notificationList}
-                  contentContainerStyle={styles.notificationListContent}
-                  showsVerticalScrollIndicator={false}
-                >
-                  {visibleItems.length ? (
-                    visibleItems.map((item) => {
-                      const visual = notificationVisual(item.category);
-                      return (
-                        <Pressable
-                          key={item.id}
-                          onPress={() => {
-                            void onRead(item);
-                            setSelectedId(item.id);
-                          }}
-                          style={({ pressed }) => [
-                            styles.notification,
-                            !item.read_at && styles.notificationUnread,
-                            pressed && styles.pressed,
-                          ]}
-                        >
-                          <View
-                            style={[
-                              styles.notificationIcon,
-                              { backgroundColor: visual.backgroundColor },
-                            ]}
-                          >
-                            <Ionicons
-                              name={visual.icon}
-                              size={19}
-                              color={visual.color}
-                            />
-                          </View>
-                          <View style={styles.notificationCopy}>
-                            <View style={styles.notificationHeadline}>
-                              <Text
-                                numberOfLines={2}
-                                style={styles.notificationTitle}
-                              >
-                                {item.title}
-                              </Text>
-                              {!item.read_at ? (
-                                <View style={styles.unreadDot} />
-                              ) : null}
-                            </View>
-                            <Text
-                              numberOfLines={3}
-                              style={styles.notificationNote}
-                            >
-                              {item.body}
-                            </Text>
-                            <View style={styles.notificationTimeRow}>
-                              <Ionicons
-                                name="time-outline"
-                                size={11}
-                                color={colors.muted}
-                              />
-                              <Text style={styles.notificationTime}>
-                                {formatNotificationTime(
-                                  item.created_at,
-                                  locale,
-                                )}
-                              </Text>
-                              <Text style={styles.notificationDetailHint}>
-                                Lihat detail
-                              </Text>
-                              <Ionicons
-                                name="chevron-forward"
-                                size={12}
-                                color={colors.sky600}
-                              />
-                            </View>
-                          </View>
-                        </Pressable>
-                      );
-                    })
-                  ) : (
-                    <View style={styles.notificationEmpty}>
-                      <View style={styles.notificationEmptyIcon}>
-                        <Ionicons
-                          name="notifications-off-outline"
-                          size={24}
-                          color={colors.sky600}
-                        />
+                <ScrollView style={styles.notificationList} contentContainerStyle={styles.notificationListContent} showsVerticalScrollIndicator={false}>
+                  {visibleItems.length ? visibleItems.map((item) => {
+                    const visual = notificationVisual(item.category);
+                    return (
+                    <Pressable
+                      key={item.id}
+                      onPress={() => {
+                        void onRead(item);
+                        setSelectedId(item.id);
+                      }}
+                      style={({ pressed }) => [styles.notification, !item.read_at && styles.notificationUnread, pressed && styles.pressed]}
+                    >
+                      <View style={[styles.notificationIcon, { backgroundColor: visual.backgroundColor }]}>
+                        <Ionicons name={visual.icon} size={19} color={visual.color} />
                       </View>
-                      <Text style={styles.notificationEmptyTitle}>
-                        Belum ada update
-                      </Text>
-                      <Text style={styles.notificationEmptyNote}>
-                        Notifikasi pada kategori ini akan muncul di sini.
-                      </Text>
-                    </View>
-                  )}
+                      <View style={styles.notificationCopy}>
+                        <View style={styles.notificationHeadline}>
+                          <Text numberOfLines={2} style={styles.notificationTitle}>{item.title}</Text>
+                          {!item.read_at ? <View style={styles.unreadDot} /> : null}
+                        </View>
+                        <Text numberOfLines={3} style={styles.notificationNote}>{item.body}</Text>
+                        <View style={styles.notificationTimeRow}><Ionicons name="time-outline" size={11} color={colors.muted}/><Text style={styles.notificationTime}>{formatNotificationTime(item.created_at, locale)}</Text><Text style={styles.notificationDetailHint}>Lihat detail</Text><Ionicons name="chevron-forward" size={12} color={colors.sky600}/></View>
+                      </View>
+                    </Pressable>
+                  );
+                  }) : <View style={styles.notificationEmpty}><View style={styles.notificationEmptyIcon}><Ionicons name="notifications-off-outline" size={24} color={colors.sky600}/></View><Text style={styles.notificationEmptyTitle}>Belum ada update</Text><Text style={styles.notificationEmptyNote}>Notifikasi pada kategori ini akan muncul di sini.</Text></View>}
                 </ScrollView>
               </>
             )}
@@ -2116,9 +1832,7 @@ function BookingModal({
                               date === value && styles.activeDateText,
                             ]}
                           >
-                            {formatDate(item, {
-                              weekday: "short",
-                            }).toUpperCase()}
+                            {formatDate(item, { weekday: "short" }).toUpperCase()}
                           </Text>
                           <Text
                             style={[
@@ -2538,15 +2252,8 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     backgroundColor: "#FAFCFE",
   },
-  notificationFilterActive: {
-    borderColor: "#BCEBDD",
-    backgroundColor: colors.mint50,
-  },
-  notificationFilterText: {
-    color: colors.muted,
-    fontSize: 10,
-    fontWeight: "600",
-  },
+  notificationFilterActive: { borderColor: "#BCEBDD", backgroundColor: colors.mint50 },
+  notificationFilterText: { color: colors.muted, fontSize: 10, fontWeight: "600" },
   notificationFilterTextActive: { color: "#13856F", fontWeight: "700" },
   notificationToolbar: {
     minHeight: 54,
@@ -2557,37 +2264,11 @@ const styles = StyleSheet.create({
     marginTop: 7,
     marginBottom: 8,
   },
-  notificationSummary: {
-    minWidth: 0,
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  notificationSummaryIcon: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 10,
-    backgroundColor: colors.sky50,
-  },
-  notificationSummaryTitle: {
-    color: colors.navy,
-    fontSize: 11,
-    fontWeight: "700",
-  },
+  notificationSummary: { minWidth: 0, flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  notificationSummaryIcon: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: colors.sky50 },
+  notificationSummaryTitle: { color: colors.navy, fontSize: 11, fontWeight: "700" },
   notificationSummaryNote: { marginTop: 1, color: colors.muted, fontSize: 9 },
-  markReadButton: {
-    minHeight: 34,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    borderRadius: 11,
-    backgroundColor: colors.sky50,
-  },
+  markReadButton: { minHeight: 34, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.sky50 },
   markReadButtonDisabled: { opacity: 0.45 },
   markRead: { color: colors.sky600, fontSize: 10, fontWeight: "600" },
   notificationList: { flex: 1 },
@@ -2603,10 +2284,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: "#FCFEFF",
   },
-  notificationUnread: {
-    borderColor: colors.sky100,
-    backgroundColor: "#F6FBFF",
-  },
+  notificationUnread: { borderColor: colors.sky100, backgroundColor: "#F6FBFF" },
   notificationIcon: {
     width: 40,
     height: 40,
@@ -2615,40 +2293,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   notificationCopy: { minWidth: 0, flex: 1 },
-  notificationHeadline: {
-    minWidth: 0,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 7,
-  },
-  notificationTitle: {
-    minWidth: 0,
-    flex: 1,
-    color: colors.navy,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "700",
-  },
+  notificationHeadline: { minWidth: 0, flexDirection: "row", alignItems: "flex-start", gap: 7 },
+  notificationTitle: { minWidth: 0, flex: 1, color: colors.navy, fontSize: 12, lineHeight: 16, fontWeight: "700" },
   notificationNote: {
     marginTop: 3,
     color: colors.muted,
     fontSize: 10,
     lineHeight: 15,
   },
-  notificationTimeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 6,
-  },
+  notificationTimeRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
   notificationTime: { color: colors.muted, fontSize: 9 },
-  notificationDetailHint: {
-    flex: 1,
-    color: colors.sky600,
-    fontSize: 9,
-    fontWeight: "600",
-    textAlign: "right",
-  },
+  notificationDetailHint: { flex: 1, color: colors.sky600, fontSize: 9, fontWeight: "600", textAlign: "right" },
   unreadDot: {
     marginTop: 4,
     width: 7,
@@ -2657,161 +2312,31 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: colors.sky600,
   },
-  notificationEmpty: {
-    minHeight: 260,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  notificationEmptyIcon: {
-    width: 54,
-    height: 54,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 18,
-    backgroundColor: colors.sky50,
-  },
-  notificationEmptyTitle: {
-    marginTop: 10,
-    color: colors.navy,
-    fontSize: typography.cardTitle,
-    fontWeight: "700",
-  },
-  notificationEmptyNote: {
-    maxWidth: 260,
-    marginTop: 4,
-    color: colors.muted,
-    fontSize: typography.caption,
-    lineHeight: 15,
-    textAlign: "center",
-  },
+  notificationEmpty: { minHeight: 260, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
+  notificationEmptyIcon: { width: 54, height: 54, alignItems: "center", justifyContent: "center", borderRadius: 18, backgroundColor: colors.sky50 },
+  notificationEmptyTitle: { marginTop: 10, color: colors.navy, fontSize: typography.cardTitle, fontWeight: "700" },
+  notificationEmptyNote: { maxWidth: 260, marginTop: 4, color: colors.muted, fontSize: typography.caption, lineHeight: 15, textAlign: "center" },
   notificationDetailScroll: { flex: 1 },
   notificationDetailContent: { paddingTop: 12, paddingBottom: 18 },
-  notificationBack: {
-    alignSelf: "flex-start",
-    minHeight: 36,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    borderRadius: 11,
-    backgroundColor: colors.sky50,
-  },
-  notificationBackText: {
-    color: colors.sky600,
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  notificationDetailCard: {
-    marginTop: 12,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: colors.sky100,
-    borderRadius: 20,
-    backgroundColor: "#FCFEFF",
-    ...shadow,
-  },
-  notificationDetailTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  notificationDetailIcon: {
-    width: 50,
-    height: 50,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 17,
-  },
+  notificationBack: { alignSelf: "flex-start", minHeight: 36, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.sky50 },
+  notificationBackText: { color: colors.sky600, fontSize: 10, fontWeight: "600" },
+  notificationDetailCard: { marginTop: 12, padding: 15, borderWidth: 1, borderColor: colors.sky100, borderRadius: 20, backgroundColor: "#FCFEFF", ...shadow },
+  notificationDetailTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+  notificationDetailIcon: { width: 50, height: 50, alignItems: "center", justifyContent: "center", borderRadius: 17 },
   notificationDetailTopCopy: { minWidth: 0, flex: 1, alignItems: "flex-start" },
-  notificationDetailCategory: {
-    color: colors.sky600,
-    fontSize: 9,
-    fontWeight: "600",
-    letterSpacing: 0.7,
-    textTransform: "uppercase",
-  },
-  notificationDetailStatus: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 5,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: colors.mint50,
-  },
-  notificationDetailStatusText: {
-    color: "#13856F",
-    fontSize: 8,
-    fontWeight: "600",
-  },
-  notificationDetailTitle: {
-    marginTop: 16,
-    color: colors.navy,
-    fontSize: 17,
-    lineHeight: 23,
-    fontWeight: "700",
-  },
-  notificationDetailBody: {
-    marginTop: 8,
-    color: colors.text,
-    fontSize: 12,
-    lineHeight: 19,
-  },
-  notificationDetailMeta: {
-    gap: 10,
-    marginTop: 18,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-  },
-  notificationDetailMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 9,
-  },
-  notificationDetailMetaLabel: {
-    color: colors.muted,
-    fontSize: 8,
-    fontWeight: "600",
-  },
-  notificationDetailMetaValue: {
-    marginTop: 2,
-    color: colors.navy,
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  notificationDetailAction: {
-    minHeight: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 7,
-    marginTop: 18,
-    borderRadius: 13,
-    backgroundColor: colors.sky600,
-  },
-  notificationDetailActionText: {
-    color: colors.white,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  notificationDetailInfo: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    marginTop: 10,
-    padding: 11,
-    borderRadius: 13,
-    backgroundColor: colors.sky50,
-  },
-  notificationDetailInfoText: {
-    flex: 1,
-    color: colors.muted,
-    fontSize: 9,
-    lineHeight: 14,
-  },
+  notificationDetailCategory: { color: colors.sky600, fontSize: 9, fontWeight: "600", letterSpacing: 0.7, textTransform: "uppercase" },
+  notificationDetailStatus: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 5, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 8, backgroundColor: colors.mint50 },
+  notificationDetailStatusText: { color: "#13856F", fontSize: 8, fontWeight: "600" },
+  notificationDetailTitle: { marginTop: 16, color: colors.navy, fontSize: 17, lineHeight: 23, fontWeight: "700" },
+  notificationDetailBody: { marginTop: 8, color: colors.text, fontSize: 12, lineHeight: 19 },
+  notificationDetailMeta: { gap: 10, marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.line },
+  notificationDetailMetaRow: { flexDirection: "row", alignItems: "center", gap: 9 },
+  notificationDetailMetaLabel: { color: colors.muted, fontSize: 8, fontWeight: "600" },
+  notificationDetailMetaValue: { marginTop: 2, color: colors.navy, fontSize: 10, fontWeight: "600" },
+  notificationDetailAction: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginTop: 18, borderRadius: 13, backgroundColor: colors.sky600 },
+  notificationDetailActionText: { color: colors.white, fontSize: 11, fontWeight: "700" },
+  notificationDetailInfo: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 10, padding: 11, borderRadius: 13, backgroundColor: colors.sky50 },
+  notificationDetailInfoText: { flex: 1, color: colors.muted, fontSize: 9, lineHeight: 14 },
   loginSheetWrap: { maxHeight: "88%" },
   loginSheet: {
     maxHeight: "100%",

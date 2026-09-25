@@ -123,10 +123,10 @@ jobs:
   # duplicated rather than referenced.
   verify-web:
     name: Verify web (lint, typecheck, test)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: useblacksmith/checkout@v1
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -139,13 +139,13 @@ jobs:
   # Mirrors the `petowner-api` job of ci.yml.
   verify-api:
     name: Verify Pet Owner API
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     defaults:
       run:
         working-directory: services/petowner-api
     steps:
-      - uses: actions/checkout@v4
+      - uses: useblacksmith/checkout@v1
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -157,16 +157,16 @@ jobs:
   web:
     name: Build, smoke and push slivadoc-petowner (web)
     needs: verify-web
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 30
     outputs:
       digest: ${{ steps.push.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: useblacksmith/checkout@v1
 
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
@@ -180,7 +180,7 @@ jobs:
       # linux/amd64 matches the deployment VM and the runner, so the loaded
       # image runs natively in the smoke step with no emulation.
       - name: Build (load, do not push)
-        uses: docker/build-push-action@v6
+        uses: useblacksmith/build-push-action@v2
         with:
           context: .
           file: ./Dockerfile
@@ -194,8 +194,6 @@ jobs:
             NEXT_PUBLIC_PETOWNER_API_URL=${{ vars.NEXT_PUBLIC_PETOWNER_API_URL }}
             NEXT_PUBLIC_PLATFORM_API_URL=${{ vars.NEXT_PUBLIC_PLATFORM_API_URL }}
             NEXT_PUBLIC_REALTIME_URL=${{ vars.NEXT_PUBLIC_REALTIME_URL }}
-          cache-from: type=gha,scope=petowner-web
-          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max,scope=petowner-web' || '' }}
           # Single-platform image: skip provenance/SBOM attestations so the pushed
           # tag is a plain image manifest rather than an index with an
           # unknown/unknown entry, which keeps `docker pull` on the VM simple.
@@ -312,16 +310,16 @@ jobs:
   api:
     name: Build, smoke and push slivadoc-petowner-api
     needs: verify-api
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 20
     outputs:
       digest: ${{ steps.push.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: useblacksmith/checkout@v1
 
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
@@ -334,7 +332,7 @@ jobs:
       # Context is the service directory, so services/petowner-api/.dockerignore
       # applies and the repo-root ignore file does not.
       - name: Build (load, do not push)
-        uses: docker/build-push-action@v6
+        uses: useblacksmith/build-push-action@v2
         with:
           context: ./services/petowner-api
           file: ./services/petowner-api/Dockerfile
@@ -344,8 +342,6 @@ jobs:
           tags: |
             ${{ env.API_IMAGE }}:latest
             ${{ env.API_IMAGE }}:${{ github.sha }}
-          cache-from: type=gha,scope=petowner-api
-          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max,scope=petowner-api' || '' }}
           provenance: false
 
       # The API does expose a health endpoint, so the equivalent gate here is a
@@ -424,7 +420,7 @@ jobs:
     name: Deploy to VM
     needs: [web, api]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
       - name: Deploy to production VM

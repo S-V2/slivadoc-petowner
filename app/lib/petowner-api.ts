@@ -77,7 +77,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function uploadImage(
   file: File,
-  folder: "pets" | "community" | "documents" = "pets",
+  folder: "pets" | "community" | "documents" | "purchase-order-proofs" = "pets",
 ) {
   const body = new FormData();
   body.append("file", file);

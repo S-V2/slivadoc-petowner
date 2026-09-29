@@ -7,6 +7,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { uploadImage } from "../../lib/petowner-api";
 import "./commerce-workspace.css";
 
 export type CommerceRequest = <T>(
@@ -22,9 +23,30 @@ type Context = {
   can_pay: boolean;
   can_manage: boolean;
 };
+type CommerceShippingQuote = {
+  quote_id: string;
+  status: string;
+  service_code: string;
+  shipping_fee: number;
+  insurance_fee: number;
+  max_shipping_fee: number;
+  estimated_sla: string;
+  expires_at: string;
+  subtotal: number;
+  payable_total: number;
+  sender?: Record<string, unknown>;
+  receiver?: Record<string, unknown>;
+};
 type Page = { data: Row[]; has_more: boolean; page: number };
 type Summary = { channels: Row[]; low_stock: Row[] };
-type Detail = { order: Row; items: Row[]; events: Row[]; payments: Row[] };
+type Detail = {
+  order: Row;
+  items: Row[];
+  events: Row[];
+  payments: Row[];
+  shipping_adjustments?: Row[];
+  shipment?: Record<string, unknown> | null;
+};
 type Field = {
   name: string;
   label: string;
@@ -176,6 +198,73 @@ export function CommerceField({
         />
       )}
     </label>
+  );
+}
+function PaymentProofUpload({
+  urlName = "payment_proof_url",
+  fileNameName = "payment_proof_file_name",
+  mimeName = "payment_proof_mime_type",
+  onBusyChange,
+}: {
+  urlName?: string;
+  fileNameName?: string;
+  mimeName?: string;
+  onBusyChange: (busy: boolean) => void;
+}) {
+  const [url, setURL] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [mime, setMIME] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function upload(file?: File) {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Gunakan JPG, PNG, atau WebP.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setError("Ukuran bukti transfer maksimal 8 MB.");
+      return;
+    }
+    setBusy(true);
+    onBusyChange(true);
+    setError("");
+    try {
+      const result = await uploadImage(file, "purchase-order-proofs");
+      setURL(result.url);
+      setFileName(file.name);
+      setMIME(file.type);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Bukti transfer gagal diunggah",
+      );
+    } finally {
+      setBusy(false);
+      onBusyChange(false);
+    }
+  }
+  return (
+    <div className="cw-wide">
+      <label>
+        Bukti transfer · JPG, PNG, WebP · maks 8 MB
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          disabled={busy}
+          onChange={(event) => void upload(event.currentTarget.files?.[0])}
+        />
+      </label>
+      {busy && <small role="status">Mengunggah bukti…</small>}
+      {url && <small>Bukti siap dikirim bersama PO: {fileName}</small>}
+      {error && (
+        <small role="alert" className="cw-error">
+          {error}
+        </small>
+      )}
+      <input type="hidden" name={urlName} value={url} />
+      <input type="hidden" name={fileNameName} value={fileName} />
+      <input type="hidden" name={mimeName} value={mime} />
+    </div>
   );
 }
 function Badge({ value }: { value: unknown }) {
@@ -1136,7 +1225,11 @@ export function CommerceWorkspace({ request }: { request: CommerceRequest }) {
                           <>
                             <Badge value={o.status} />
                             <small>
-                              {o.courier} {o.tracking_number}
+                              {o.provider_stt_no
+                                ? `Lion Parcel · STT ${o.provider_stt_no}`
+                                : o.shipping_status
+                                  ? `Lion Parcel · ${labels[String(o.shipping_status)] || o.shipping_status}`
+                                  : "Menunggu booking"}
                             </small>
                           </>
                         ),
@@ -1145,7 +1238,7 @@ export function CommerceWorkspace({ request }: { request: CommerceRequest }) {
                         title: "Nilai / terbayar",
                         cell: (o) => (
                           <>
-                            {money(o.subtotal)}
+                            {money(Number(o.subtotal) + Number(o.shipping_fee || 0))}
                             <small>{money(o.paid_amount)} dibayar</small>
                           </>
                         ),
@@ -1181,13 +1274,15 @@ export function CommerceWorkspace({ request }: { request: CommerceRequest }) {
               ctx={ctx}
               close={() => setDetailID("")}
               edit={setEditor}
+              mutate={mutate}
             />
           )}
         </>
       )}
       <p className="cw-footer">
         Akses dibatasi di server berdasarkan role, brand, bisnis, dan cabang.
-        Tracking manual tercatat — belum terhubung ke API kurir.
+        Booking dan pickup otomatis; tracking Lion Parcel masuk melalui
+        webhook. Buyer tetap mengonfirmasi penerimaan barang.
       </p>
     </div>
   );
@@ -1223,13 +1318,18 @@ function OrderDetail({
   ctx,
   close,
   edit,
+  mutate,
 }: {
   detail: Detail;
   ctx: Context;
   close: () => void;
   edit: (v: Editor) => void;
+  mutate: (path: string, method: string, payload: unknown) => Promise<boolean>;
 }) {
   const o = detail.order;
+  const shipmentEvents = Array.isArray(detail.shipment?.events)
+    ? (detail.shipment.events as Row[])
+    : [];
   const operator = [
     "operations",
     "operations_marketing",
@@ -1240,16 +1340,20 @@ function OrderDetail({
   const buyer =
     ["business_owner", "branch_admin"].includes(ctx.role) ||
     (o.channel === "slivadoc" && operator);
+  const paymentProofVerified =
+    o.channel !== "partner" || o.payment_proof_status === "verified";
   const next = (
     {
       submitted: "accepted",
       accepted: "packing",
-      packing: "shipped",
-      shipped: "delivered",
     } as Record<string, string>
   )[String(o.status)];
+  const canAdvance =
+    next === "accepted"
+      ? operator && paymentProofVerified
+      : next === "packing" && (o.channel === "partner" ? seller : operator);
   const actions = [
-    ...((seller || operator) && next ? [next] : []),
+    ...(canAdvance && next ? [next] : []),
     ...(buyer && o.status === "delivered" ? ["completed"] : []),
     ...(o.status === "submitted" && Number(o.paid_amount) === 0
       ? [
@@ -1281,8 +1385,18 @@ function OrderDetail({
           ["Alamat tujuan", o.shipping_address],
           ["Kontak", o.contact_phone],
           [
-            "Kurir / resi",
-            `${o.courier || "Belum dikirim"} ${o.tracking_number || ""}`,
+            "Carrier / service",
+            detail.shipment
+              ? `Lion Parcel · ${String(detail.shipment.service_code || "")}`
+              : "Menunggu booking",
+          ],
+          [
+            "Nomor STT",
+            String(
+              detail.shipment?.provider_stt_no ||
+                detail.shipment?.shipping_number ||
+                "Menunggu label",
+            ),
           ],
           ["Jatuh tempo", String(o.due_date).slice(0, 10)],
           ["Catatan", o.notes],
@@ -1321,9 +1435,99 @@ function OrderDetail({
         ]}
       />
       <p className="cw-total">
-        Total {money(o.subtotal)} · Terbayar {money(o.paid_amount)} · Sisa{" "}
-        {money(Number(o.subtotal) - Number(o.paid_amount))}
+        Total {money(Number(o.subtotal) + Number(o.shipping_fee || 0))} · Ongkir{" "}
+        {money(o.shipping_fee)} · Terbayar {money(o.paid_amount)} · Sisa{" "}
+        {money(Number(o.subtotal) + Number(o.shipping_fee || 0) - Number(o.paid_amount))}
       </p>
+      <section className="cw-shipment" aria-label="Tracking pengiriman PO">
+        <header className="cw-shipment-head">
+          <div>
+            <span>SHIPMENT CONTROL</span>
+            <h3>Tracking pengiriman</h3>
+            <p>
+              Label dibuat otomatis setelah PO diterima; pickup mengikuti status
+              packing. Transit dan POD hanya diperbarui dari webhook Lion Parcel.
+            </p>
+          </div>
+          <span className="cw-integration-badge">
+            <i aria-hidden="true" /> Lion Parcel terintegrasi
+          </span>
+        </header>
+        <div className="cw-shipment-summary">
+          <article>
+            <span>Nomor STT</span>
+            <strong>
+              {String(
+                detail.shipment?.provider_stt_no ||
+                  detail.shipment?.shipping_number ||
+                  "Menunggu label",
+              )}
+            </strong>
+            <small>
+              {String(detail.shipment?.service_code || "Layanan belum dipilih")}
+            </small>
+          </article>
+          <article>
+            <span>Sumber status</span>
+            <strong>
+              {detail.shipment ? "Lion Parcel API + webhook" : "Menunggu booking"}
+            </strong>
+            <small>
+              {String(detail.shipment?.provider_status || "Menunggu shipment")}
+            </small>
+          </article>
+          <article>
+            <span>Asuransi & freight</span>
+            <strong>
+              {detail.shipment?.use_insurance
+                ? "Asuransi aktif"
+                : "Menunggu booking"}
+            </strong>
+            <small>{money(o.shipping_fee)}</small>
+          </article>
+        </div>
+        {Boolean(detail.shipment?.print_url) && (
+          <a
+            href={String(detail.shipment?.print_url)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Cetak label Lion Parcel
+          </a>
+        )}
+        <ol className="cw-scan-events">
+          {shipmentEvents.length > 0 ? (
+            shipmentEvents.map((event, index) => (
+              <li key={`${String(event.status_code)}-${index}`}>
+                <i aria-hidden="true" />
+                <div>
+                  <strong>
+                    {String(
+                      event.description || event.status || event.status_code,
+                    )}
+                  </strong>
+                  <span>{String(event.location || "Lokasi belum dicatat")}</span>
+                </div>
+                <small>{date(event.occurred_at)}</small>
+              </li>
+            ))
+          ) : (
+            <li>
+              <i aria-hidden="true" />
+              <div>
+                <strong>Menunggu scan Lion Parcel</strong>
+                <span>Pergerakan paket akan tampil dari webhook provider.</span>
+              </div>
+            </li>
+          )}
+        </ol>
+      </section>
+      <BuyerShippingAdjustmentPanel
+        order={o}
+        adjustments={detail.shipping_adjustments || []}
+        buyer={buyer}
+        mutate={mutate}
+      />
       <div className="cw-actions">
         {actions.map((status) => (
           <button
@@ -1336,16 +1540,6 @@ function OrderDetail({
                 values: { status, version: o.version },
                 fields: [
                   note,
-                  ...(status === "shipped"
-                    ? [
-                        { name: "courier", label: "Kurir", maxLength: 100 },
-                        {
-                          name: "tracking_number",
-                          label: "Nomor resi",
-                          maxLength: 150,
-                        },
-                      ]
-                    : []),
                   {
                     name: "location",
                     label: "Lokasi",
@@ -1415,7 +1609,7 @@ function OrderDetail({
                     label: "Nominal rupiah",
                     type: "number",
                     min: 1,
-                    max: Number(o.subtotal),
+                    max: Number(o.subtotal) + Number(o.shipping_fee || 0),
                   },
                   {
                     name: "reference",
@@ -1466,8 +1660,8 @@ function OrderDetail({
       />
       <h3>Timeline pengiriman & aktivitas</h3>
       <p className="cw-muted">
-        Pembaruan manual oleh pihak berwenang; bukan posisi GPS atau status
-        langsung dari kurir.
+        Booking dan pickup mengikuti status PO secara otomatis; tracking
+        Lion Parcel masuk melalui webhook. Buyer tetap mengonfirmasi penerimaan.
       </p>
       <ol className="cw-timeline">
         {detail.events.map((e) => (
@@ -1484,6 +1678,151 @@ function OrderDetail({
   );
 }
 
+function BuyerShippingAdjustmentPanel({
+  order,
+  adjustments,
+  buyer,
+  mutate,
+}: {
+  order: Row;
+  adjustments: Row[];
+  buyer: boolean;
+  mutate: (path: string, method: string, payload: unknown) => Promise<boolean>;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [busyID, setBusyID] = useState("");
+  const [error, setError] = useState("");
+  if (!adjustments.length) return null;
+  return (
+    <Card title="Penyesuaian ongkir & settlement">
+      {error && (
+        <p className="cw-error" role="alert">
+          {error}
+        </p>
+      )}
+      {adjustments.map((adjustment) => {
+        const id = String(adjustment.id);
+        const status = String(adjustment.status);
+        const previousFee = Number(adjustment.previous_shipping_fee || 0);
+        const revisedFee = Number(adjustment.revised_shipping_fee || 0);
+        const delta = Math.abs(revisedFee - previousFee);
+        const proofStatus = String(adjustment.payment_proof_status || "not_required");
+        return (
+          <article className="cw-total" key={id}>
+            <strong>
+              Ongkir {money(previousFee)} → {money(revisedFee)} ·{" "}
+              {String(adjustment.revised_service_code || "Lion Parcel")}
+            </strong>
+            <p>
+              Perubahan {money(delta)} · SLA {String(adjustment.estimated_sla || "—")} ·{" "}
+              {labels[status] || status}
+            </p>
+            {status === "buyer_confirmation" && buyer && (
+              <div>
+                <p>
+                  Konfirmasi top-up {money(delta)}. Booking menunggu pembayaran
+                  tambahan dan verifikasi Finance.
+                </p>
+                <button
+                  className="cw-primary"
+                  disabled={busyID === id}
+                  onClick={async () => {
+                    setBusyID(id);
+                    await mutate(
+                      `${api}/orders/${order.id}/shipping-adjustments/${id}/confirmation`,
+                      "POST",
+                      { confirmed: true },
+                    );
+                    setBusyID("");
+                  }}
+                >
+                  Konfirmasi ongkir baru
+                </button>
+              </div>
+            )}
+            {status === "payment_pending" && buyer && (
+              proofStatus === "submitted" ? (
+                <p role="status">
+                  Bukti top-up {adjustment.payment_transfer_reference} dikirim;
+                  menunggu verifikasi Finance.
+                </p>
+              ) : (
+                <form
+                  className="cw-form"
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    const values = Object.fromEntries(
+                      new FormData(event.currentTarget),
+                    );
+                    if (!values.file_url) {
+                      setError("Unggah bukti transfer top-up sebelum mengirim.");
+                      return;
+                    }
+                    setBusyID(id);
+                    await mutate(
+                      `${api}/orders/${order.id}/shipping-adjustments/${id}/proof`,
+                      "POST",
+                      values,
+                    );
+                    setBusyID("");
+                  }}
+                >
+                  <fieldset disabled={uploading || busyID === id}>
+                    <CommerceField
+                      field={{
+                        name: "transfer_reference",
+                        label: "Referensi transfer top-up",
+                        maxLength: 120,
+                      }}
+                    />
+                    <PaymentProofUpload
+                      urlName="file_url"
+                      fileNameName="file_name"
+                      mimeName="mime_type"
+                      onBusyChange={setUploading}
+                    />
+                    <CommerceField
+                      field={{
+                        name: "note",
+                        label: "Catatan pembayaran top-up",
+                        type: "textarea",
+                        maxLength: 2000,
+                      }}
+                    />
+                    <button className="cw-primary" type="submit">
+                      Kirim bukti top-up
+                    </button>
+                  </fieldset>
+                </form>
+              )
+            )}
+            {status === "refund_pending" && (
+              <p className="cw-muted">
+                Finance akan memproses refund manual {money(delta)} dan mencatat
+                referensinya pada ledger.
+              </p>
+            )}
+            {status === "operations_review" && (
+              <p className="cw-muted">
+                Menunggu persetujuan Operations untuk pengecualian cap.
+              </p>
+            )}
+            {status === "settled" && (
+              <p role="status">
+                Settlement tercatat · {String(adjustment.finance_reference || "referensi tidak tersedia")}
+              </p>
+            )}
+            {status === "rejected" && (
+              <p className="cw-error">
+                Penyesuaian ditolak: {String(adjustment.operations_note || "")}
+              </p>
+            )}
+          </article>
+        );
+      })}
+    </Card>
+  );
+}
 function OrderComposer({
   request,
   ctx,
@@ -1502,6 +1841,15 @@ function OrderComposer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [items, setItems] = useState<{ product: Row; quantity: number }[]>([]);
+  const [branchID, setBranchID] = useState("");
+  const [quote, setQuote] = useState<CommerceShippingQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState("");
+  const [quoteConfirmed, setQuoteConfirmed] = useState(false);
+  const [quoteExpired, setQuoteExpired] = useState(false);
+  const [quoteRefresh, setQuoteRefresh] = useState(0);
+  const [proofUploading, setProofUploading] = useState(false);
+  const quoteRequestID = useRef(0);
   const key = useRef<string | null>(null);
   const channel = ["business_owner", "branch_admin"].includes(ctx.role)
     ? "partner"
@@ -1531,6 +1879,104 @@ function OrderComposer({
       current = false;
     };
   }, [request, search, page]);
+  const brandID = String(items[0]?.product.brand_id || "");
+  const quoteItemsKey = JSON.stringify(
+    items.map((item) => ({
+      product_id: String(item.product.id),
+      quantity: item.quantity,
+    })),
+  );
+  const selectedBranch = ctx.branches.find(
+    (branch) => String(branch.id) === branchID,
+  );
+  useEffect(() => {
+    const requestID = ++quoteRequestID.current;
+    setQuote(null);
+    setQuoteError("");
+    setQuoteConfirmed(false);
+    setQuoteExpired(false);
+    if (
+      !brandID ||
+      !items.length ||
+      items.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1) ||
+      (channel === "partner" && !branchID)
+    ) {
+      setQuoteLoading(false);
+      return;
+    }
+    let current = true;
+    const timer = window.setTimeout(async () => {
+      setQuoteLoading(true);
+      try {
+        const result = await request<CommerceShippingQuote>(
+          `${api}/shipping/quote`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              brand_id: brandID,
+              ...(channel === "partner" ? { branch_id: branchID } : {}),
+              channel,
+              items: JSON.parse(quoteItemsKey),
+            }),
+          },
+        );
+        if (current && requestID === quoteRequestID.current) setQuote(result);
+      } catch (cause) {
+        if (current && requestID === quoteRequestID.current)
+          setQuoteError(
+            cause instanceof Error ? cause.message : "Quote ongkir gagal dimuat",
+          );
+      } finally {
+        if (current && requestID === quoteRequestID.current)
+          setQuoteLoading(false);
+      }
+    }, 300);
+    return () => {
+      current = false;
+      window.clearTimeout(timer);
+    };
+  }, [request, channel, brandID, branchID, quoteItemsKey, quoteRefresh]);
+  useEffect(() => {
+    if (!quote || quote.status !== "pending_approval") return;
+    let current = true;
+    let polling = false;
+    const timer = window.setInterval(async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const updated = await request<CommerceShippingQuote>(
+          `${api}/shipping/quotes/${quote.quote_id}`,
+        );
+        if (current) setQuote(updated);
+      } catch (cause) {
+        if (current)
+          setQuoteError(
+            cause instanceof Error ? cause.message : "Status persetujuan quote gagal dimuat",
+          );
+      } finally {
+        polling = false;
+      }
+    }, 3000);
+    return () => {
+      current = false;
+      window.clearInterval(timer);
+    };
+  }, [request, quote?.quote_id, quote?.status]);
+  useEffect(() => {
+    if (!quote) return;
+    const delay = Date.parse(quote.expires_at) - Date.now();
+    if (quote.status === "expired" || delay <= 0) {
+      setQuoteExpired(true);
+      setQuoteConfirmed(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setQuoteExpired(true);
+      setQuoteConfirmed(false);
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [quote?.quote_id, quote?.expires_at, quote?.status]);
   function add(product: Row) {
     if (items.some((i) => i.product.id === product.id) || items.length >= 100)
       return;
@@ -1546,20 +1992,60 @@ function OrderComposer({
   }
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!items.length || busy) return;
-    key.current ||= crypto.randomUUID();
+    if (!items.length || busy || proofUploading) return;
+    if (
+      !quote ||
+      !["ready", "approved"].includes(quote.status) ||
+      !quoteConfirmed ||
+      quoteExpired ||
+      Date.parse(quote.expires_at) <= Date.now()
+    ) {
+      setError("Konfirmasi quote ongkir yang masih berlaku sebelum mengirim PO.");
+      return;
+    }
     const form = Object.fromEntries(new FormData(e.currentTarget));
+    if (channel === "partner" && !form.payment_proof_url) {
+      setError("Unggah bukti transfer terlebih dahulu sebelum mengirim PO.");
+      return;
+    }
+    key.current ||= crypto.randomUUID();
     await save({
       ...form,
       idempotency_key: key.current,
-      brand_id: items[0].product.brand_id,
+      brand_id: brandID,
+      ...(channel === "partner" ? { branch_id: branchID } : {}),
       channel,
-      items: items.map((i) => ({
-        product_id: i.product.id,
-        quantity: i.quantity,
+      shipping_quote_id: quote.quote_id,
+      items: items.map((item) => ({
+        product_id: item.product.id,
+        quantity: item.quantity,
       })),
     });
   }
+  const estimatedTotal = items.reduce(
+    (sum, item) =>
+      sum + item.quantity * Number(item.product[`${channel}_price`]),
+    0,
+  );
+  const quoteCanSubmit = Boolean(
+    quote &&
+      ["ready", "approved"].includes(quote.status) &&
+      !quoteExpired &&
+      Date.parse(quote.expires_at) > Date.now(),
+  );
+  const destinationProfile = selectedBranch || quote?.receiver;
+  const destinationText = destinationProfile
+    ? [
+        destinationProfile.address,
+        destinationProfile.district,
+        destinationProfile.city,
+        destinationProfile.province,
+        destinationProfile.postal_code || destinationProfile.post_code,
+      ]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+        .join(", ")
+    : "";
   return (
     <Card title={`Buat PO · ${labels[channel]}`}>
       <p className="cw-muted">
@@ -1684,33 +2170,48 @@ function OrderComposer({
             </div>
           ))}
           {channel === "partner" && (
-            <label>
-              Cabang penerima
-              <select name="branch_id" required>
-                <option value="">Pilih cabang</option>
-                {ctx.branches.map((b) => (
-                  <option key={String(b.id)} value={String(b.id)}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <>
+              <label>
+                Cabang penerima
+                <select
+                  name="branch_id"
+                  required
+                  value={branchID}
+                  onChange={(event) => setBranchID(event.target.value)}
+                >
+                  <option value="">Pilih cabang</option>
+                  {ctx.branches.map((branch) => (
+                    <option key={String(branch.id)} value={String(branch.id)}>
+                      {branch.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedBranch && (
+                <p className="cw-muted cw-wide" aria-label="Profil tujuan cabang">
+                  Tujuan dari profil cabang: {destinationText || "Alamat belum lengkap"}.
+                  {selectedBranch.phone ? ` Telepon: ${selectedBranch.phone}.` : ""}
+                </p>
+              )}
+              <CommerceField
+                field={{
+                  name: "transfer_reference",
+                  label: "Referensi transfer",
+                  maxLength: 120,
+                }}
+              />
+              <PaymentProofUpload onBusyChange={setProofUploading} />
+              <CommerceField
+                field={{
+                  name: "payment_proof_note",
+                  label: "Catatan pembayaran",
+                  type: "textarea",
+                  maxLength: 2000,
+                  optional: true,
+                }}
+              />
+            </>
           )}
-          <CommerceField
-            field={{
-              name: "shipping_address",
-              label: "Alamat pengiriman lengkap",
-              type: "textarea",
-              maxLength: 2000,
-            }}
-          />
-          <CommerceField
-            field={{
-              name: "contact_phone",
-              label: "Telepon penerima",
-              maxLength: 30,
-            }}
-          />
           <CommerceField
             field={{
               name: "due_date",
@@ -1718,6 +2219,106 @@ function OrderComposer({
               type: "date",
             }}
           />
+          <section
+            className="cw-total cw-wide"
+            aria-label="Quote ongkir berasuransi"
+          >
+            <strong>Quote ongkir Lion Parcel</strong>
+            {quoteLoading && <p role="status">Meminta tarif berasuransi…</p>}
+            {quoteError && (
+              <p role="alert" className="cw-error">
+                {quoteError}
+              </p>
+            )}
+            {!quote && !quoteLoading && !quoteError && (
+              <p className="cw-muted">
+                {channel === "partner" && !branchID
+                  ? "Pilih cabang penerima untuk menghitung ongkir dari profil resmi."
+                  : "Pilih item PO untuk menghitung ongkir berasuransi."}
+              </p>
+            )}
+            {quote && (
+              <>
+                <p className="cw-muted">
+                  {quote.status === "pending_approval"
+                    ? "Ongkir melewati cap. Menunggu persetujuan Operations; PO belum dapat dikirim."
+                    : quote.status === "approved"
+                      ? "Operations menyetujui pengecualian cap. Konfirmasi total sebelum mengirim PO."
+                      : quote.status === "expired" || quoteExpired
+                        ? "Quote kedaluwarsa. Hitung ulang dan konfirmasi total baru."
+                        : quote.status === "rejected"
+                          ? "Operations menolak pengecualian cap. Perbarui item atau hubungi Operations."
+                          : channel === "partner"
+                            ? "Transfer awal wajib mencakup nilai PO dan ongkir berasuransi."
+                            : "Freight ditanggung Slivadoc, bukan dibebankan ke buyer."}
+                </p>
+                <dl className="cw-facts">
+                  <div>
+                    <dt>Layanan & SLA</dt>
+                    <dd>{quote.service_code} · {quote.estimated_sla}</dd>
+                  </div>
+                  <div>
+                    <dt>Asal</dt>
+                    <dd>
+                      {String(quote.sender?.name || "Gudang Official Brand")}
+                      {quote.sender?.address ? ` · ${String(quote.sender.address)}` : ""}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Tujuan</dt>
+                    <dd>
+                      {String(destinationProfile?.name || "Lokasi penerimaan Slivadoc")}
+                      {destinationText ? ` · ${destinationText}` : ""}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Ongkir berasuransi</dt>
+                    <dd>
+                      {money(quote.shipping_fee)} · asuransi {money(quote.insurance_fee)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Subtotal PO</dt>
+                    <dd>{money(estimatedTotal)}</dd>
+                  </div>
+                  <div>
+                    <dt>Total saat ini</dt>
+                    <dd>{money(quote.payable_total)}</dd>
+                  </div>
+                  <div>
+                    <dt>Quote berlaku sampai</dt>
+                    <dd>{date(quote.expires_at)}</dd>
+                  </div>
+                </dl>
+                {quoteCanSubmit && (
+                  <label className="cw-wide">
+                    <input
+                      type="checkbox"
+                      checked={quoteConfirmed}
+                      onChange={(event) =>
+                        setQuoteConfirmed(event.currentTarget.checked)
+                      }
+                    />
+                    <span>
+                      Saya konfirmasi ongkir berasuransi {money(quote.shipping_fee)} dan total {money(quote.payable_total)}.
+                    </span>
+                  </label>
+                )}
+              </>
+            )}
+            <button
+              type="button"
+              disabled={
+                quoteLoading ||
+                !items.length ||
+                !brandID ||
+                (channel === "partner" && !branchID)
+              }
+              onClick={() => setQuoteRefresh((value) => value + 1)}
+            >
+              Hitung ulang ongkir
+            </button>
+          </section>
           <CommerceField
             field={{
               name: "notes",
@@ -1728,17 +2329,31 @@ function OrderComposer({
             }}
           />
           <p className="cw-total cw-wide">
-            Estimasi{" "}
-            {money(
-              items.reduce(
-                (sum, i) =>
-                  sum + i.quantity * Number(i.product[`${channel}_price`]),
-                0,
-              ),
-            )}
+            Nilai PO {money(estimatedTotal)} · Ongkir berasuransi{" "}
+            {quote ? money(quote.shipping_fee) : "Menunggu quote"} · Total{" "}
+            {quote ? money(quote.payable_total) : money(estimatedTotal)}
           </p>
-          <button className="cw-primary" disabled={!items.length} type="submit">
-            {busy ? "Membuat PO…" : "Buat PO & reservasi stok"}
+          <button
+            className="cw-primary"
+            disabled={
+              !items.length ||
+              !quoteCanSubmit ||
+              !quoteConfirmed ||
+              quoteLoading ||
+              proofUploading ||
+              busy
+            }
+            type="submit"
+          >
+            {busy
+              ? "Membuat PO…"
+              : quote?.status === "pending_approval"
+                ? "Menunggu persetujuan Operations…"
+                : !quoteCanSubmit
+                  ? "Menunggu quote ongkir yang berlaku"
+                  : !quoteConfirmed
+                    ? "Konfirmasi ongkir untuk lanjut"
+                    : "Buat PO & reservasi stok"}
           </button>
         </fieldset>
       </form>

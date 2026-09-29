@@ -13,6 +13,7 @@
     "android": "npm --prefix mobile run android --",
     "ios": "npm --prefix mobile run ios --",
     "test": "npm run build && node --experimental-strip-types --test tests/*.test.mjs tests/*.test.ts",
+    "test:coverage": "npm run build && mkdir -p coverage && node --experimental-strip-types --test --experimental-test-coverage --test-coverage-include='app/**' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/node.lcov tests/*.test.mjs tests/*.test.ts",
     "test:responsive": "playwright test",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
@@ -45,7 +46,8 @@
     "typescript": "5.9.3",
     "vinext": "1.0.0-beta.8",
     "vite": "8.2.2",
-    "wrangler": "4.127.0"
+    "wrangler": "4.127.0",
+    "yaml": "^2.9.1"
   },
   "type": "module",
   "displayName": "Slivadoc Pet Owner"

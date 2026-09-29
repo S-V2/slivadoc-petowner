@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const product = {
   id: "payment-test-product",
@@ -54,7 +54,7 @@ const quote = {
 const pendingPayment = {
   id: "payment-1",
   order_id: "order-1",
-  provider: "mock",
+  provider: "batpay",
   method: "qris",
   status: "pending",
   payment_status: "pending",
@@ -80,9 +80,9 @@ test("mobile checkout keeps address readable and confirms paid orders", async ({
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
-    const json = (body: unknown) =>
+    const json = (body: unknown, status = 200) =>
       route.fulfill({
-        status: 200,
+        status,
         contentType: "application/json",
         body: JSON.stringify(body),
       });
@@ -109,7 +109,22 @@ test("mobile checkout keeps address readable and confirms paid orders", async ({
         unread_notifications: 0,
         activities: [],
         favorites: [],
-        points: { balance: 0, earned: 0, redeemed: 0, formula: { enabled: false } },
+        points: {
+          balance: 0,
+          earned: 0,
+          redeemed: 0,
+          pending: 0,
+          formula: {
+            enabled: false,
+            point_value_rupiah: 1,
+            earn_divisor_rupiah: 10_000,
+            expiry_days: 365,
+            settlement_hold_days: 7,
+            max_redemption_bps: 5_000,
+            min_redemption_points: 100,
+            rules: [],
+          },
+        },
       });
     if (path === "/api/v1/public/discovery/products")
       return json({ data: [product], count: 1 });
@@ -122,14 +137,17 @@ test("mobile checkout keeps address readable and confirms paid orders", async ({
       return json({ addresses: [address] });
     if (path === "/api/v1/petowner/orders/quote") return json(quote);
     if (path === "/api/v1/petowner/orders")
-      return json({
-        ...quote,
-        id: "order-1",
-        order_number: "SO-1",
-        status: "pending",
-        payment_status: "pending",
-        reference_type: "shop_order",
-      });
+      return json(
+        {
+          ...quote,
+          id: "order-1",
+          order_number: "SO-1",
+          status: "pending_payment",
+          payment_status: "pending",
+          reference_type: "shop_order",
+        },
+        201,
+      );
     if (path === "/api/v1/payment-methods")
       return json({
         data: [{ code: "qris", method: "qris", label: "QRIS", description: "QRIS" }],
@@ -138,7 +156,7 @@ test("mobile checkout keeps address readable and confirms paid orders", async ({
         currency: "IDR",
       });
     if (path === "/api/v1/payment-intents" && request.method() === "POST")
-      return json(pendingPayment);
+      return json(pendingPayment, 201);
     if (path === "/api/v1/payment-intents/payment-1")
       return json({
         ...pendingPayment,
@@ -147,7 +165,22 @@ test("mobile checkout keeps address readable and confirms paid orders", async ({
         paid_at: "2026-09-23T00:00:00Z",
       });
     if (path === "/api/v1/petowner/points")
-      return json({ balance: 0, earned: 0, redeemed: 0, formula: { enabled: false } });
+      return json({
+        balance: 0,
+        earned: 0,
+        redeemed: 0,
+        pending: 0,
+        formula: {
+          enabled: false,
+          point_value_rupiah: 1,
+          earn_divisor_rupiah: 10_000,
+          expiry_days: 365,
+          settlement_hold_days: 7,
+          max_redemption_bps: 5_000,
+          min_redemption_points: 100,
+          rules: [],
+        },
+      });
 
     return route.fulfill({ status: 404, body: "Unmocked API route" });
   });

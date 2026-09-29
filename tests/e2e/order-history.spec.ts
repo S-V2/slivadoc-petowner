@@ -94,7 +94,22 @@ test("Activity highlights housing payments and filters order history", async ({
         unread_notifications: 0,
         activities: [],
         favorites: [],
-        points: { balance: 0, earned: 0, redeemed: 0, formula: { enabled: false } },
+        points: {
+          balance: 0,
+          earned: 0,
+          redeemed: 0,
+          pending: 0,
+          formula: {
+            enabled: false,
+            point_value_rupiah: 1,
+            earn_divisor_rupiah: 10_000,
+            expiry_days: 365,
+            settlement_hold_days: 7,
+            max_redemption_bps: 5_000,
+            min_redemption_points: 100,
+            rules: [],
+          },
+        },
       });
     if (
       path === "/api/v1/public/discovery/services" ||

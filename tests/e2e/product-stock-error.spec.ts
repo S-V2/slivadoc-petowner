@@ -39,7 +39,6 @@ const address = {
 
 const stockError = {
   code: "product_unavailable",
-  error: "product_unavailable",
   message:
     'Produk "Cat Teaser Feather" tidak tersedia atau stoknya berubah. Ubah jumlah atau hapus dari keranjang.',
   product_id: "unavailable-product",
@@ -88,7 +87,22 @@ test("stock error returns to cart and marks affected product", async ({ page }) 
         unread_notifications: 0,
         activities: [],
         favorites: [],
-        points: { balance: 0, earned: 0, redeemed: 0, formula: { enabled: false } },
+        points: {
+          balance: 0,
+          earned: 0,
+          redeemed: 0,
+          pending: 0,
+          formula: {
+            enabled: false,
+            point_value_rupiah: 1,
+            earn_divisor_rupiah: 10_000,
+            expiry_days: 365,
+            settlement_hold_days: 7,
+            max_redemption_bps: 5_000,
+            min_redemption_points: 100,
+            rules: [],
+          },
+        },
       });
     if (path === "/api/v1/petowner/activities")
       return json({ data: [], count: 0, summary: { booking: 0, order: 0, consultation: 0 } });
@@ -104,7 +118,7 @@ test("stock error returns to cart and marks affected product", async ({ page }) 
       return json({ addresses: [address] });
     if (path === "/api/v1/petowner/orders/quote")
       return route.fulfill({
-        status: 409,
+        status: 422,
         contentType: "application/json",
         body: JSON.stringify(stockError),
       });

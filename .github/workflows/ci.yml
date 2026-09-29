@@ -33,7 +33,7 @@ jobs:
       - run: node scripts/js-coverage.mjs coverage/node.lcov --all app --summary "$GITHUB_STEP_SUMMARY" --baseline .github/coverage-baseline.json --key js_lines
       # The mocked specs check every exchange they fake against
       # slivadoc-backend's api/openapi.yaml at main (tests/e2e/fixtures.ts).
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app
         with:
           app-id: ${{ secrets.CI_APP_ID }}

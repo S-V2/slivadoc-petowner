@@ -13,6 +13,7 @@
     "android": "npm --prefix mobile run android --",
     "ios": "npm --prefix mobile run ios --",
     "test": "npm run build && node --experimental-strip-types --test tests/*.test.mjs tests/*.test.ts",
+    "test:coverage": "npm run build && mkdir -p coverage && node --experimental-strip-types --test --experimental-test-coverage --test-coverage-include='app/**' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/node.lcov tests/*.test.mjs tests/*.test.ts",
     "test:responsive": "playwright test",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",

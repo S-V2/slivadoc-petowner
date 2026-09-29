@@ -1,0 +1,37 @@
+name: e2e-system
+
+# Starts the shared full-stack suite for this pull request's head. The suite
+# lives in the private slivadoc-frontend repository, and a public repository
+# cannot call a private workflow, so this job dispatches it there: it runs
+# privately, keeping its logs and failure artifacts private, and posts the
+# "e2e / full-stack" commit status on this head when it finishes. Merging to
+# main deploys to production, so that status is the gate.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    name: start the full-stack suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Mint a token that can start workflows in slivadoc-frontend
+        id: app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: S-V2
+          repositories: slivadoc-frontend
+          permission-actions: write
+      - name: Start the full-stack suite for this head
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          PR: ${{ github.event.pull_request.number }}
+        run: >-
+          gh workflow run e2e-system.yml --repo S-V2/slivadoc-frontend --ref main
+          -f repository=slivadoc-petowner -f ref="$HEAD" -f pr="$PR"

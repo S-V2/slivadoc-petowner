@@ -63,9 +63,9 @@ import {
 } from "./src/api";
 import { SlivaCareModal } from "./src/components/SlivaCareModal";
 import {
-  MobileBatpayModal,
+  MobileQrisModal,
   MobilePaymentMethods,
-} from "./src/components/BatpayPayment";
+} from "./src/components/QrisPayment";
 import slivadocLogo from "./assets/slivadoc-logo.png";
 import { LanguageProvider, LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "./src/i18n";
 
@@ -979,7 +979,7 @@ function MobileApp() {
           }}
         />
       ) : null}
-      <MobileBatpayModal
+      <MobileQrisModal
         payment={payment}
         onClose={() => setPayment(undefined)}
         onPaid={() => {

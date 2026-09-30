@@ -34,9 +34,9 @@ import {
   type MobileRegionOption,
 } from "../api";
 import {
-  MobileBatpayModal,
+  MobileQrisModal,
   MobilePaymentMethods,
-} from "../components/BatpayPayment";
+} from "../components/QrisPayment";
 import { RegionSelectSheet } from "../components/RegionSelectSheet";
 import {
   EmptyState,
@@ -1316,7 +1316,7 @@ export function MarketplaceScreen({
         onCheckout={() => void checkout()}
       />
 
-      <MobileBatpayModal
+      <MobileQrisModal
         payment={payment}
         onClose={() => setPayment(undefined)}
         onPaid={() => {

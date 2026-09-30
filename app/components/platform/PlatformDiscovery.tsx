@@ -43,9 +43,9 @@ import {
   type PaymentIntent,
 } from "../../lib/platform-api";
 import {
-  BatpayPaymentPanel,
+  QrisPaymentPanel,
   PaymentMethodPicker,
-} from "../payments/BatpayPayment";
+} from "../payments/QrisPayment";
 import "../../event-checkout.css";
 
 export type DiscoveryMode = "academy" | "events" | "petspot" | "pethub";
@@ -1014,7 +1014,7 @@ function ProgramModal({
             close={close}
           />
         ) : payment ? (
-          <BatpayPaymentPanel payment={payment} onPaid={() => setDone(true)} />
+          <QrisPaymentPanel payment={payment} onPaid={() => setDone(true)} />
         ) : !enroll ? (
           <>
             <small className="world-kicker">
@@ -1176,7 +1176,7 @@ function EventModal({
             close={close}
           />
         ) : payment ? (
-          <BatpayPaymentPanel payment={payment} onPaid={() => setDone(true)} />
+          <QrisPaymentPanel payment={payment} onPaid={() => setDone(true)} />
         ) : register ? (
           <form className="world-form" onSubmit={submit}>
             <h2>Pesan tiket event</h2>
@@ -1488,7 +1488,7 @@ function HousingBookingModal({
             note={"Reservasi " + reservation?.reservation_number + " sudah terkonfirmasi. Detail tersedia di Aktivitas."}
             close={close} />
         ) : payment ? (
-          <BatpayPaymentPanel payment={payment} onPaid={() => setDone(true)} />
+          <QrisPaymentPanel payment={payment} onPaid={() => setDone(true)} />
         ) : (
           <>
             {item.cover_url ? <div className="housing-cover" style={{ backgroundImage: "url(" + JSON.stringify(item.cover_url) + ")" }} /> : null}

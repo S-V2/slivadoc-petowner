@@ -83,9 +83,9 @@ import {
   type RewardFormula,
 } from "../lib/platform-api";
 import {
-  BatpayPaymentPanel,
+  QrisPaymentPanel,
   PaymentMethodPicker,
-} from "./payments/BatpayPayment";
+} from "./payments/QrisPayment";
 import {
   formatRupiah,
   type AppView,
@@ -3459,7 +3459,7 @@ function HousingBookingsActivity({ notify }: { notify: Notify }) {
   return <section className="housing-activity">
     <h3>Reservasi hunian</h3>
     <p>Lihat jadwal dan pembayaran reservasi hunian.</p>
-    {payment && <BatpayPaymentPanel payment={payment} onPaid={() => { setPayment(null); refresh(); }} />}
+    {payment && <QrisPaymentPanel payment={payment} onPaid={() => { setPayment(null); refresh(); }} />}
     {housing.map((item) => {
       const canPay = item.payment_status === "pending" &&
         item.status === "pending_payment" &&
@@ -5690,11 +5690,11 @@ function BookingModal({
   if (payment)
     return (
       <div className="modal-overlay">
-        <div className="modal booking-modal batpay-modal">
+        <div className="modal booking-modal qris-modal">
           <button className="modal-close" type="button" onClick={onClose}>
             <Icon name="close" />
           </button>
-          <BatpayPaymentPanel
+          <QrisPaymentPanel
             payment={payment}
             onPaid={() => {
               void onBooked().then(() => setSuccess(true));
@@ -6476,7 +6476,7 @@ function CartDrawer({
           </button>
         )}
         {payment ? (
-          <BatpayPaymentPanel
+          <QrisPaymentPanel
             payment={payment}
             onPaid={() => {
               setCart({});

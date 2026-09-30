@@ -46,11 +46,11 @@ import {
   type Veterinarian,
 } from "../../lib/platform-api";
 import {
-  BatpayPaymentPanel,
+  QrisPaymentPanel,
   PaymentMethodPicker,
-} from "../payments/BatpayPayment";
+} from "../payments/QrisPayment";
 
-type PayableConsultation = Consultation & { batpay?: PaymentIntent };
+type PayableConsultation = Consultation & { qrisPayment?: PaymentIntent };
 type ConsultProviderFilter = "all" | "veterinarian" | "trainer";
 
 type Props = {
@@ -1009,9 +1009,9 @@ function ConsultationPayment({
         <button className="modal-close" onClick={close}>
           ×
         </button>
-        {consultation.batpay ? (
-          <BatpayPaymentPanel
-            payment={consultation.batpay}
+        {consultation.qrisPayment ? (
+          <QrisPaymentPanel
+            payment={consultation.qrisPayment}
             onPaid={() => {
               notify("Pembayaran berhasil. Ruang konsultasi sudah aktif.");
               openRoom({
@@ -1065,7 +1065,7 @@ function ConsultBooking({
           ? new Date(String(v.scheduled_at)).toISOString()
           : undefined,
       });
-      const batpay =
+      const qrisPayment =
         result.amount > 0
           ? await createPaymentIntent("consultation", result.id, paymentMethod)
           : undefined;
@@ -1076,7 +1076,7 @@ function ConsultBooking({
       );
       complete({
         ...result,
-        batpay,
+        qrisPayment,
         doctor_name: doctor.full_name,
         plan_name: plan.name,
         mode: plan.mode,
@@ -1207,7 +1207,7 @@ function TrainerConsultBooking({
           .filter(Boolean),
         scheduled_at: selectedSlot || undefined,
       });
-      const batpay =
+      const qrisPayment =
         result.amount > 0
           ? await createPaymentIntent("consultation", result.id, paymentMethod)
           : undefined;
@@ -1218,7 +1218,7 @@ function TrainerConsultBooking({
       );
       complete({
         ...result,
-        batpay,
+        qrisPayment,
         doctor_name: trainer.full_name,
         trainer_name: trainer.full_name,
         provider_name: trainer.full_name,
@@ -2026,7 +2026,7 @@ function DocumentModal({
             </button>
           </div>
         ) : payment ? (
-          <BatpayPaymentPanel
+          <QrisPaymentPanel
             payment={payment}
             onPaid={() => setDone(requestNumber)}
           />

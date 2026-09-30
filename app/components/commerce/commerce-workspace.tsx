@@ -1891,20 +1891,26 @@ function OrderComposer({
   );
   useEffect(() => {
     const requestID = ++quoteRequestID.current;
-    setQuote(null);
-    setQuoteError("");
-    setQuoteConfirmed(false);
-    setQuoteExpired(false);
-    if (
-      !brandID ||
-      !items.length ||
-      items.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1) ||
-      (channel === "partner" && !branchID)
-    ) {
-      setQuoteLoading(false);
-      return;
-    }
     let current = true;
+    const quoteRequestValid =
+      Boolean(brandID) &&
+      items.length > 0 &&
+      !items.some(
+        (item) =>
+          !Number.isInteger(item.quantity) || item.quantity < 1,
+      ) &&
+      (channel !== "partner" || Boolean(branchID));
+    queueMicrotask(() => {
+      if (!current || requestID !== quoteRequestID.current) return;
+      setQuote(null);
+      setQuoteError("");
+      setQuoteConfirmed(false);
+      setQuoteExpired(false);
+      if (!quoteRequestValid) setQuoteLoading(false);
+    });
+    if (!quoteRequestValid) return () => {
+      current = false;
+    };
     const timer = window.setTimeout(async () => {
       setQuoteLoading(true);
       try {
@@ -1936,9 +1942,12 @@ function OrderComposer({
       current = false;
       window.clearTimeout(timer);
     };
-  }, [request, channel, brandID, branchID, quoteItemsKey, quoteRefresh]);
+  }, [request, channel, brandID, branchID, quoteItemsKey, quoteRefresh, items]);
+  const quoteID = quote?.quote_id;
+  const quoteStatus = quote?.status;
+  const quoteExpiresAt = quote?.expires_at;
   useEffect(() => {
-    if (!quote || quote.status !== "pending_approval") return;
+    if (!quoteID || quoteStatus !== "pending_approval") return;
     let current = true;
     let polling = false;
     const timer = window.setInterval(async () => {
@@ -1946,7 +1955,7 @@ function OrderComposer({
       polling = true;
       try {
         const updated = await request<CommerceShippingQuote>(
-          `${api}/shipping/quotes/${quote.quote_id}`,
+          `${api}/shipping/quotes/${quoteID}`,
         );
         if (current) setQuote(updated);
       } catch (cause) {
@@ -1962,21 +1971,19 @@ function OrderComposer({
       current = false;
       window.clearInterval(timer);
     };
-  }, [request, quote?.quote_id, quote?.status]);
+  }, [request, quoteID, quoteStatus]);
   useEffect(() => {
-    if (!quote) return;
-    const delay = Date.parse(quote.expires_at) - Date.now();
-    if (quote.status === "expired" || delay <= 0) {
-      setQuoteExpired(true);
-      setQuoteConfirmed(false);
-      return;
-    }
+    if (!quoteID || !quoteExpiresAt) return;
+    const delay =
+      quoteStatus === "expired"
+        ? 0
+        : Date.parse(quoteExpiresAt) - Date.now();
     const timer = window.setTimeout(() => {
       setQuoteExpired(true);
       setQuoteConfirmed(false);
-    }, delay);
+    }, Math.max(0, delay));
     return () => window.clearTimeout(timer);
-  }, [quote?.quote_id, quote?.expires_at, quote?.status]);
+  }, [quoteID, quoteExpiresAt, quoteStatus]);
   function add(product: Row) {
     if (items.some((i) => i.product.id === product.id) || items.length >= 100)
       return;
@@ -2028,10 +2035,7 @@ function OrderComposer({
     0,
   );
   const quoteCanSubmit = Boolean(
-    quote &&
-      ["ready", "approved"].includes(quote.status) &&
-      !quoteExpired &&
-      Date.parse(quote.expires_at) > Date.now(),
+    quote && ["ready", "approved"].includes(quote.status) && !quoteExpired,
   );
   const destinationProfile = selectedBranch || quote?.receiver;
   const destinationText = destinationProfile

@@ -54,7 +54,8 @@ const quote = {
 const pendingPayment = {
   id: "payment-1",
   order_id: "order-1",
-  provider: "yokke",
+  // "batpay" validates against both the pre- and post-cutover backend spec.
+  provider: "batpay",
   method: "qris",
   status: "pending",
   payment_status: "pending",

@@ -579,8 +579,6 @@ const copy: Record<string, Copy> = {
   "Memuat metode pembayaran…": ["Loading payment methods…", "正在加载付款方式…"],
   "Metode pembayaran belum tersedia": ["Payment methods are not available yet", "暂无可用付款方式"],
   "Scan QR untuk membayar": ["Scan the QR code to pay", "扫描二维码付款"],
-  "Transfer ke Virtual Account": ["Transfer to Virtual Account", "转账至虚拟账户"],
-  "Nomor Virtual Account": ["Virtual Account number", "虚拟账户号码"],
   "Pembayaran berhasil": ["Payment successful", "付款成功"],
   "Transaksi sudah tercatat dan layanan sedang diproses.": ["The transaction is recorded and the service is being processed.", "交易已记录，服务正在处理中。"],
   "Pembayaran gagal atau kedaluwarsa": ["Payment failed or expired", "付款失败或已过期"],

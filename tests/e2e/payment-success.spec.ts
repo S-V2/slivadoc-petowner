@@ -54,7 +54,7 @@ const quote = {
 const pendingPayment = {
   id: "payment-1",
   order_id: "order-1",
-  provider: "batpay",
+  provider: "yokke",
   method: "qris",
   status: "pending",
   payment_status: "pending",

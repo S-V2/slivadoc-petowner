@@ -64,9 +64,9 @@ import {
   TopHeader,
 } from "../components/ui";
 import {
-  MobileBatpayModal,
+  MobileQrisModal,
   MobilePaymentMethods,
-} from "../components/BatpayPayment";
+} from "../components/QrisPayment";
 import { PetHubExperience } from "./PetHubExperience";
 
 type Mode =
@@ -2296,7 +2296,7 @@ export function WorldScreen({
           </KeyboardAvoidingView>
         </Pressable>
       </Modal>
-      <MobileBatpayModal
+      <MobileQrisModal
         payment={payment}
         onClose={() => setPayment(undefined)}
         onPaid={() => {

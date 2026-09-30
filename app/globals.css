@@ -9008,26 +9008,26 @@ textarea {
     max-width: calc(100% - 40px);
   }
 }
-.batpay-methods {
+.qris-methods {
   min-width: 0;
   margin: 16px 0 4px;
   padding: 0;
   border: 0;
 }
-.batpay-methods legend {
+.qris-methods legend {
   margin-bottom: 9px;
   color: #3c5368;
   font-size: 12px;
   font-weight: 900;
 }
-.batpay-methods > div {
+.qris-methods > div {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   max-height: 190px;
   overflow: auto;
 }
-.batpay-methods button {
+.qris-methods button {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -9039,12 +9039,12 @@ textarea {
   border-radius: 13px;
   background: #fff;
 }
-.batpay-methods button.active {
+.qris-methods button.active {
   border-color: #36aeea;
   background: #f0faff;
   box-shadow: inset 0 0 0 1px #8bd3f5;
 }
-.batpay-methods button > span {
+.qris-methods button > span {
   display: grid;
   width: 32px;
   height: 32px;
@@ -9053,19 +9053,19 @@ textarea {
   border-radius: 10px;
   background: #eaf7fd;
 }
-.batpay-methods button p {
+.qris-methods button p {
   min-width: 0;
   flex: 1;
   margin: 0;
 }
-.batpay-methods button b,
-.batpay-methods button small {
+.qris-methods button b,
+.qris-methods button small {
   display: block;
 }
-.batpay-methods button b {
+.qris-methods button b {
   font-size: 11px;
 }
-.batpay-methods button small {
+.qris-methods button small {
   margin-top: 3px;
   overflow: hidden;
   color: #73889a;
@@ -9073,12 +9073,12 @@ textarea {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.batpay-methods button i {
+.qris-methods button i {
   color: #1598d6;
   font-style: normal;
   font-weight: 900;
 }
-.batpay-method-message {
+.qris-method-message {
   margin: 0;
   padding: 12px;
   border-radius: 11px;
@@ -9086,28 +9086,29 @@ textarea {
   background: #f4f8fa;
   font-size: 11px;
 }
-.batpay-result {
+.qris-result {
   display: grid;
   justify-items: center;
   gap: 10px;
   text-align: center;
 }
-.batpay-result > small {
+.qris-result > small {
   color: #1598d6;
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.1em;
 }
-.batpay-result h3,
-.batpay-result p {
+.qris-result h3,
+.qris-result p {
   margin: 0;
 }
-.batpay-result > p {
+.qris-result > p {
   color: #73889a;
   font-size: 12px;
 }
-.batpay-result > img,
-.batpay-code-placeholder {
+.qris-result > img,
+.qris-code,
+.qris-code-placeholder {
   width: 210px;
   height: 210px;
   margin: 6px 0;
@@ -9116,7 +9117,16 @@ textarea {
   border-radius: 14px;
   background: #fff;
 }
-.batpay-code-placeholder {
+.qris-code {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.qris-code svg {
+  width: 100%;
+  height: 100%;
+}
+.qris-code-placeholder {
   display: grid;
   place-items: center;
   color: #1598d6;
@@ -9124,10 +9134,10 @@ textarea {
   font-size: 28px;
   font-weight: 900;
 }
-.batpay-result > strong {
+.qris-result > strong {
   font-size: 23px;
 }
-.batpay-result > em {
+.qris-result > em {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -9136,47 +9146,15 @@ textarea {
   font-style: normal;
   font-weight: 800;
 }
-.batpay-result > em i {
+.qris-result > em i {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: #e8872d;
-  animation: batpayPulse 1.2s infinite;
+  animation: qrisPulse 1.2s infinite;
 }
-.batpay-va {
-  display: grid;
-  justify-items: center;
-  gap: 7px;
-  width: 100%;
-  margin: 8px 0;
-  padding: 20px;
-  border: 1px solid #bde3f5;
-  border-radius: 15px;
-  background: #f0faff;
-}
-.batpay-va small,
-.batpay-va span {
-  color: #73889a;
-  font-size: 10px;
-}
-.batpay-va b {
-  color: #087fb8;
-  font-size: 23px;
-  letter-spacing: 0.05em;
-  overflow-wrap: anywhere;
-}
-.batpay-va button {
-  margin-top: 4px;
-  padding: 8px 12px;
-  border: 1px solid #bde3f5;
-  border-radius: 9px;
-  color: #087fb8;
-  background: white;
-  font-size: 10px;
-  font-weight: 900;
-}
-.batpay-result.paid > span,
-.batpay-result.failed > span {
+.qris-result.paid > span,
+.qris-result.failed > span {
   display: grid;
   width: 58px;
   height: 58px;
@@ -9187,10 +9165,10 @@ textarea {
   font-size: 28px;
   font-weight: 900;
 }
-.batpay-result.failed > span {
+.qris-result.failed > span {
   background: #e45d68;
 }
-@keyframes batpayPulse {
+@keyframes qrisPulse {
   50% {
     opacity: 0.3;
     transform: scale(0.7);

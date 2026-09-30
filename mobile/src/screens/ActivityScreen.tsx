@@ -33,7 +33,7 @@ import {
   PrimaryButton,
   Screen,
 } from "../components/ui";
-import { MobileBatpayModal, MobilePaymentMethods } from "../components/BatpayPayment";
+import { MobileQrisModal, MobilePaymentMethods } from "../components/QrisPayment";
 import { LocalizedText as Text, useI18n } from "../i18n";
 import { colors, shadow, typography } from "../theme";
 
@@ -1125,7 +1125,7 @@ export function ActivityScreen({
           </Card>
         )}
       </Screen>
-      <MobileBatpayModal payment={housingPayment} onClose={() => setHousingPayment(undefined)}
+      <MobileQrisModal payment={housingPayment} onClose={() => setHousingPayment(undefined)}
         onPaid={() => { setHousingPayment(undefined); void loadHousing(); void loadActivities(true); }} />
       <ActivityDetailSheet
         item={selected}

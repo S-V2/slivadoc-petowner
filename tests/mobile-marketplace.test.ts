@@ -32,7 +32,7 @@ test("bottom navigation opens a clean marketplace without replaying cart intents
   assert.match(app, /current\?\.token === token \? undefined : current/);
 });
 
-test("mobile marketplace uses live catalogue, authoritative checkout, and BatPay", () => {
+test("mobile marketplace uses live catalogue, authoritative checkout, and QRIS", () => {
   assert.match(marketplace, /getMobileProducts/);
   assert.match(
     marketplace,

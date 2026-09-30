@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import QRCode from "react-native-qrcode-svg";
 import { Ionicons } from "@expo/vector-icons";
 import {
   getMobilePaymentIntent,
@@ -18,17 +19,9 @@ import {
 import { LocalizedText as Text, useI18n } from "../i18n";
 import { colors, shadow } from "../theme";
 
-const providerBrandPattern = /\bbat[\s-]?pay\b/gi;
-
-function paymentMethodLabel(method: MobilePaymentMethod) {
-  if (method.method === "qris") return "QRIS";
-  return `${method.bank_code || "Bank"} Virtual Account`;
-}
-
-function paymentMethodDescription(method: MobilePaymentMethod) {
-  if (method.method === "qris") return "Bayar dengan aplikasi pilihan Anda";
-  return "Transfer melalui kanal bank pilihan Anda";
-}
+// No provider name may reach a customer. BatPay stays in the pattern because errors
+// and references written before the Yokke cutover can still carry it.
+const providerBrandPattern = /\b(?:bat[\s-]?pay|yokke)\b/gi;
 
 function neutralPaymentMessage(value: unknown, fallback: string) {
   const message = value instanceof Error ? value.message : String(value || "");
@@ -53,9 +46,12 @@ export function MobilePaymentMethods({
     void getMobilePaymentMethods()
       .then((result) => {
         if (!active) return;
-        setMethods(result.data);
-        const first = result.data[0];
-        if (first && !result.data.some((item) => item.code === value))
+        // Only QRIS is collected. A backend that predates the cutover still lists
+        // other methods while frontends roll out first, so narrow the list here too.
+        const qris = result.data.filter((item) => item.method === "qris");
+        setMethods(qris);
+        const first = qris[0];
+        if (first && !qris.some((item) => item.code === value))
           onChange(first.code);
       })
       .catch(
@@ -86,18 +82,14 @@ export function MobilePaymentMethods({
           >
             <View style={styles.methodIcon}>
               <Ionicons
-                name={
-                  item.method === "qris"
-                    ? "qr-code-outline"
-                    : "business-outline"
-                }
+                name="qr-code-outline"
                 size={18}
                 color={colors.sky600}
               />
             </View>
-            <Text style={styles.methodLabel}>{paymentMethodLabel(item)}</Text>
+            <Text style={styles.methodLabel}>QRIS</Text>
             <Text numberOfLines={1} style={styles.methodNote}>
-              {paymentMethodDescription(item)}
+              Bayar dengan aplikasi pilihan Anda
             </Text>
             {item.code === value ? (
               <Ionicons
@@ -119,7 +111,7 @@ export function MobilePaymentMethods({
   );
 }
 
-export function MobileBatpayModal({
+export function MobileQrisModal({
   payment,
   onClose,
   onPaid,
@@ -130,7 +122,7 @@ export function MobileBatpayModal({
 }) {
   if (!payment) return null;
   return (
-    <MobileBatpayModalState
+    <MobileQrisModalState
       key={payment.id}
       payment={payment}
       onClose={onClose}
@@ -139,7 +131,7 @@ export function MobileBatpayModal({
   );
 }
 
-function MobileBatpayModalState({
+function MobileQrisModalState({
   payment,
   onClose,
   onPaid,
@@ -206,21 +198,21 @@ function MobileBatpayModalState({
               </View>
             ) : (
               <View style={styles.center}>
-                <Text style={styles.kicker}>
-                  PEMBAYARAN ·{" "}
-                  {current.method === "qris"
-                    ? "QRIS"
-                    : `${current.bank_code || "BANK"} VA`}
-                </Text>
-                <Text style={styles.title}>
-                  {current.method === "qris"
-                    ? "Scan QR untuk membayar"
-                    : "Transfer ke Virtual Account"}
-                </Text>
+                <Text style={styles.kicker}>PEMBAYARAN · QRIS</Text>
+                <Text style={styles.title}>Scan QR untuk membayar</Text>
                 <Text style={styles.note}>
                   {current.order_id} · berlaku 15 menit
                 </Text>
-                {current.method === "qris" && current.qr_url ? (
+                {current.qr_string ? (
+                  <View
+                    accessible
+                    accessibilityLabel="Kode QRIS pembayaran"
+                    style={[styles.qr, styles.qrCode]}
+                  >
+                    <QRCode value={current.qr_string} size={185} ecl="M" />
+                  </View>
+                ) : current.qr_url ? (
+                  // Rows written before the cutover carry an image URL and no EMV string.
                   // React Native Image uses accessibilityLabel rather than HTML alt.
                   // eslint-disable-next-line jsx-a11y/alt-text
                   <Image
@@ -229,14 +221,8 @@ function MobileBatpayModalState({
                     style={styles.qr}
                   />
                 ) : (
-                  <View style={styles.va}>
-                    <Text style={styles.vaLabel}>Nomor Virtual Account</Text>
-                    <Text selectable style={styles.vaNumber}>
-                      {current.va_number || "—"}
-                    </Text>
-                    {current.va_name ? (
-                      <Text style={styles.note}>a.n. {current.va_name}</Text>
-                    ) : null}
+                  <View style={[styles.qr, styles.qrCode]}>
+                    <Text style={styles.note}>QR belum tersedia</Text>
                   </View>
                 )}
                 <Text style={styles.amount}>
@@ -379,25 +365,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: colors.white,
   },
-  va: {
-    width: "100%",
-    alignItems: "center",
-    gap: 8,
-    marginVertical: 18,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: colors.sky100,
-    borderRadius: 16,
-    backgroundColor: colors.sky50,
-  },
-  vaLabel: { color: colors.muted, fontSize: 11 },
-  vaNumber: {
-    color: colors.sky600,
-    fontSize: 19,
-    fontWeight: "700",
-    letterSpacing: 1,
-    textAlign: "center",
-  },
+  qrCode: { alignItems: "center", justifyContent: "center" },
   amount: { color: colors.navy, fontSize: 19, fontWeight: "700" },
   wait: { color: colors.yellow, fontSize: 12, fontWeight: "600" },
   failed: { color: colors.red, fontSize: 12, fontWeight: "600" },

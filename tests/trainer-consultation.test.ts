@@ -12,7 +12,7 @@ const mobileApi = read("mobile/src/api.ts");
 const mobileWorld = read("mobile/src/screens/WorldScreen.tsx");
 const mobileActivity = read("mobile/src/screens/ActivityScreen.tsx");
 
-test("web pet owners can choose a trainer package, live slot, and BatPay method", () => {
+test("web pet owners can choose a trainer package, live slot, and QRIS method", () => {
   assert.match(webApi, /\/api\/v1\/public\/trainers/);
   assert.match(webApi, /\/api\/v1\/public\/trainer-consultation-plans/);
   assert.match(webApi, /\/api\/v1\/trainer-consultations/);

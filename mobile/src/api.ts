@@ -660,8 +660,8 @@ export type MobileMedicalRecord = {
 };
 export type MobilePaymentMethod = {
   code: string;
-  method: "qris" | "virtual_account";
-  bank_code?: string;
+  /** "qris" from the current backend; a backend that predates the cutover may list others. */
+  method: string;
   label: string;
   description: string;
 };
@@ -669,17 +669,16 @@ export type MobilePaymentIntent = {
   id: string;
   order_id: string;
   provider: string;
-  method: "qris" | "virtual_account";
-  bank_code?: string;
+  /** "qris"; rows written before the cutover can carry other legacy methods. */
+  method: string;
   status: string;
   payment_status: string;
   amount: number;
   currency: string;
   reference_type: string;
   reference_id: string;
+  qr_string?: string;
   qr_url?: string;
-  va_number?: string;
-  va_name?: string;
   expires_at?: string;
 };
 

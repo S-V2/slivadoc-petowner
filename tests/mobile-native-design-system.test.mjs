@@ -34,7 +34,7 @@ const activity = await readFile(
   "utf8",
 );
 const iconSources = await Promise.all([
-  "../mobile/src/components/BatpayPayment.tsx",
+  "../mobile/src/components/QrisPayment.tsx",
   "../mobile/src/components/SlivaCareModal.tsx",
   "../mobile/src/screens/ActivityScreen.tsx",
   "../mobile/src/screens/CommunityGroups.tsx",

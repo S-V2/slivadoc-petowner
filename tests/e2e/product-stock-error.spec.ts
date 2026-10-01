@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures";
+import { paymentMethods } from "./mock-data";
 
 const product = {
   id: "unavailable-product",
@@ -110,10 +111,10 @@ test("stock error returns to cart and marks affected product", async ({ page }) 
       return json({ data: [product, availableProduct], count: 2 });
     if (
       path === "/api/v1/public/discovery/services" ||
-      path === "/api/v1/public/campaigns" ||
-      path === "/api/v1/payment-methods"
+      path === "/api/v1/public/campaigns"
     )
       return json({ data: [], count: 0 });
+    if (path === "/api/v1/payment-methods") return json(paymentMethods());
     if (path === "/api/v1/petowner/shipping-addresses")
       return json({ addresses: [address] });
     if (path === "/api/v1/petowner/orders/quote")

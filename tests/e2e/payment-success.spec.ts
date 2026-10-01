@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures";
+import { paymentIntent, paymentMethods } from "./mock-data";
 
 const product = {
   id: "payment-test-product",
@@ -31,7 +32,7 @@ const address = {
   is_primary: true,
 };
 
-const quote = {
+const pricing = {
   subtotal: 35_000,
   platform_fee: 0,
   shipping_fee: 0,
@@ -47,24 +48,18 @@ const quote = {
   point_value_rupiah: 0,
   min_redemption_points: 0,
   max_redemption_bps: 0,
-  shipping_ready: false,
-  shipping_quotes: [],
 };
 
-const pendingPayment = {
-  id: "payment-1",
-  order_id: "order-1",
-  // "batpay" validates against both the pre- and post-cutover backend spec.
-  provider: "batpay",
-  method: "qris",
-  status: "pending",
-  payment_status: "pending",
-  amount: 35_000,
-  currency: "IDR",
-  reference_type: "shop_order",
-  reference_id: "order-1",
-  qr_string: "test",
-};
+// The quote also reports Lion Parcel readiness; the created order only its pricing.
+const quote = { ...pricing, shipping_ready: false, shipping_quotes: [] };
+
+const orderID = "6a000000-0000-4000-8000-000000000001";
+
+const pendingPayment = paymentIntent({
+  id: "6b000000-0000-4000-8000-000000000001",
+  reference_id: orderID,
+  amount: pricing.total_amount,
+});
 
 test("mobile checkout keeps address readable and confirms paid orders", async ({ page }) => {
   await page.addInitScript(() => {
@@ -140,30 +135,24 @@ test("mobile checkout keeps address readable and confirms paid orders", async ({
     if (path === "/api/v1/petowner/orders")
       return json(
         {
-          ...quote,
-          id: "order-1",
-          order_number: "SO-1",
+          ...pricing,
+          id: orderID,
+          order_number: "SHOP-260923000000-6A0000",
           status: "pending_payment",
           payment_status: "pending",
           reference_type: "shop_order",
         },
         201,
       );
-    if (path === "/api/v1/payment-methods")
-      return json({
-        data: [{ code: "qris", method: "qris", label: "QRIS", description: "QRIS" }],
-        count: 1,
-        provider: "mock",
-        currency: "IDR",
-      });
+    if (path === "/api/v1/payment-methods") return json(paymentMethods());
     if (path === "/api/v1/payment-intents" && request.method() === "POST")
       return json(pendingPayment, 201);
-    if (path === "/api/v1/payment-intents/payment-1")
+    if (path === `/api/v1/payment-intents/${pendingPayment.id}`)
       return json({
         ...pendingPayment,
         status: "paid",
         payment_status: "paid",
-        paid_at: "2026-09-23T00:00:00Z",
+        paid_at: "2026-09-23T00:01:00Z",
       });
     if (path === "/api/v1/petowner/points")
       return json({

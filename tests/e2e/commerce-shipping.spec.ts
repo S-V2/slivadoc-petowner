@@ -1,28 +1,12 @@
 import { expect, test } from "./fixtures";
+import { commerceDashboard, purchaseOrder } from "./mock-data";
 
+const brandID = "51000000-0000-4000-8000-000000000091";
 const orderID = "53000000-0000-4000-8000-000000000091";
 const productID = "52000000-0000-4000-8000-000000000091";
-const order = {
-  id: orderID,
-  number: "BPO-PET-QA-001",
-  channel: "partner",
-  brand_name: "Brand QA",
-  buyer_name: "Pet Shop QA",
-  status: "packing",
-  subtotal: 50000,
-  shipping_fee: 16000,
-  paid_amount: 66000,
-  payment_proof_status: "verified",
-  version: 3,
-  shipping_address: "Jl. QA nomor 10, Jakarta",
-  contact_phone: "081234567890",
-  due_date: "2026-09-30",
-  notes: "Kirim pada jam kerja",
-  created_at: "2026-09-07T08:00:00Z",
-};
 
 const shipment = {
-  id: "shipment-pet-qa-001",
+  id: "56000000-0000-4000-8000-000000000091",
   shipping_number: "SLV-PO-PET-QA-001",
   context_type: "purchase_order",
   provider_shipment_id: "C1QA-PET-001",
@@ -46,6 +30,35 @@ const shipment = {
     },
   ],
 };
+
+const order = purchaseOrder({
+  id: orderID,
+  number: "BPO-PET-QA-001",
+  brand_id: brandID,
+  status: "packing",
+  shipping_fee: 16000,
+  paid_amount: 66000,
+  version: 3,
+  notes: "Kirim pada jam kerja",
+  transfer_reference: "TRF-PET-QA-001",
+  shipment_id: shipment.id,
+  shipping_quote_id: "57000000-0000-4000-8000-000000000091",
+  shipping_number: shipment.shipping_number,
+  provider_shipment_id: shipment.provider_shipment_id,
+  provider_stt_no: shipment.provider_stt_no,
+  shipping_status: shipment.status,
+  shipping_provider_status: shipment.provider_status,
+  pickup_status: shipment.pickup_status,
+  shipping_service: shipment.service_code,
+  estimated_sla: shipment.estimated_sla,
+  shipping_label_url: shipment.print_url,
+  invoice_number: "INV-PET-QA-001",
+  evidence_count: 1,
+  payment_proof_status: "verified",
+  payment_proof_url: "https://storage.slivadoc.test/evidence/TRF-PET-QA-001.pdf",
+  payment_proof_file_name: "TRF-PET-QA-001.pdf",
+  approval_ready: true,
+});
 
 test("Official Brand portal shows automatic Lion Parcel scans for PO", async ({
   page,
@@ -82,10 +95,10 @@ test("Official Brand portal shows automatic Lion Parcel scans for PO", async ({
     if (path === "/api/v1/commerce/context")
       return json({
         role: "official_brand",
-        brand_id: "51000000-0000-4000-8000-000000000091",
+        brand_id: brandID,
         profiles: [
           {
-            id: "51000000-0000-4000-8000-000000000091",
+            id: brandID,
             name: "Brand QA",
             status: "active",
           },
@@ -96,7 +109,7 @@ test("Official Brand portal shows automatic Lion Parcel scans for PO", async ({
         can_configure_cooperation: false,
       });
     if (path === "/api/v1/commerce/dashboard")
-      return json({ channels: [], low_stock: [] });
+      return json(commerceDashboard());
     if (path === "/api/v1/commerce/orders")
       return json({ data: [order], page: 1, has_more: false });
     if (path === `/api/v1/commerce/orders/${orderID}`)

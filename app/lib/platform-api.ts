@@ -1373,7 +1373,7 @@ export const updatePawDatingProfile = (
 ) =>
   request<{ id: string; message: string }>(
     `/api/v1/pawdating/profiles/${profileId}`,
-    { method: "PATCH", body: JSON.stringify(input) },
+    { method: "PUT", body: JSON.stringify(input) },
   );
 
 export const createPawDatingHealthReport = (

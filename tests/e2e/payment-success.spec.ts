@@ -1,5 +1,10 @@
 import { expect, test } from "./fixtures";
-import { paymentIntent, paymentMethods } from "./mock-data";
+import {
+  paymentIntent,
+  paymentMethods,
+  petOwner,
+  petOwnerBootstrap,
+} from "./mock-data";
 
 const product = {
   id: "payment-test-product",
@@ -85,43 +90,11 @@ test("mobile checkout keeps address readable and confirms paid orders", async ({
 
     if (path === "/api/v1/auth/me")
       return json({
-        id: "user-1",
-        email: "pet@example.test",
-        full_name: "Pet Parent",
-        phone: address.phone,
+        ...petOwner,
         role: "pet_owner",
       });
     if (path === "/api/v1/petowner/bootstrap")
-      return json({
-        user: {
-          id: "user-1",
-          email: "pet@example.test",
-          full_name: "Pet Parent",
-          phone: address.phone,
-          member_since: "2026-01-01",
-        },
-        pets: [],
-        notifications: [],
-        unread_notifications: 0,
-        activities: [],
-        favorites: [],
-        points: {
-          balance: 0,
-          earned: 0,
-          redeemed: 0,
-          pending: 0,
-          formula: {
-            enabled: false,
-            point_value_rupiah: 1,
-            earn_divisor_rupiah: 10_000,
-            expiry_days: 365,
-            settlement_hold_days: 7,
-            max_redemption_bps: 5_000,
-            min_redemption_points: 100,
-            rules: [],
-          },
-        },
-      });
+      return json(petOwnerBootstrap());
     if (path === "/api/v1/public/discovery/products")
       return json({ data: [product], count: 1 });
     if (

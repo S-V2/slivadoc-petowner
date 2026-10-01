@@ -2,6 +2,50 @@
 // builder returns what the backend handler sends; tests override only the
 // fields their story needs.
 
+/** The signed-in pet owner, as GET /api/v1/auth/me and the bootstrap describe them. */
+export const petOwner = {
+  id: "58000000-0000-4000-8000-000000000001",
+  email: "pet@example.test",
+  full_name: "Pet Parent",
+  phone: "081234567890",
+};
+
+/**
+ * GET /api/v1/petowner/bootstrap for a pet owner without pets, notifications
+ * or points. public_code is the six-character base36 member code every
+ * account gets (users.public_code, NOT NULL).
+ */
+export function petOwnerBootstrap() {
+  return {
+    user: {
+      ...petOwner,
+      public_code: "7K2Q9M",
+      member_since: "2026-01-01T08:00:00Z",
+    },
+    pets: [],
+    notifications: [],
+    unread_notifications: 0,
+    activities: [],
+    favorites: [],
+    points: {
+      balance: 0,
+      earned: 0,
+      redeemed: 0,
+      pending: 0,
+      formula: {
+        enabled: false,
+        point_value_rupiah: 1,
+        earn_divisor_rupiah: 10_000,
+        expiry_days: 365,
+        settlement_hold_days: 7,
+        max_redemption_bps: 5_000,
+        min_redemption_points: 100,
+        rules: [],
+      },
+    },
+  };
+}
+
 /** GET /api/v1/payment-methods: Yokke offers QRIS only. */
 export function paymentMethods() {
   return {

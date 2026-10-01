@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures";
+import { petOwner, petOwnerBootstrap } from "./mock-data";
 
 test("Activity highlights housing payments and filters order history", async ({
   page,
@@ -40,21 +41,25 @@ test("Activity highlights housing payments and filters order history", async ({
     updated_at: "2026-09-24T00:00:00Z",
     state: "ongoing",
   };
+  // A row of GET /petowner/petspot-reservations; the app pays it as a
+  // petspot_reservation without the list naming a reference_type.
   const reservation = {
-    id: "stay-1",
+    id: "5c000000-0000-4000-8000-000000000001",
     reservation_number: "HOM-260923-1234",
-    deposit_amount: 100_000,
-    remaining_amount: 250_000,
-    subtotal: 350_000,
-    hold_expires_at: new Date(Date.now() + 3_600_000).toISOString(),
-    reference_type: "petspot_reservation",
     spot_name: "Pawstay Residence",
+    category: "apartment",
     resource_name: "Kamar Garden",
+    resource_code: "GDN-01",
     starts_at: "2026-10-01T08:00:00Z",
     ends_at: "2026-10-03T08:00:00Z",
+    guest_count: 1,
+    pet_count: 1,
+    subtotal: 350_000,
+    deposit_amount: 100_000,
+    remaining_amount: 250_000,
     payment_status: "pending",
     status: "pending_payment",
-    category: "apartment",
+    hold_expires_at: new Date(Date.now() + 3_600_000).toISOString(),
   };
 
   await page.addInitScript(() => {
@@ -74,43 +79,11 @@ test("Activity highlights housing payments and filters order history", async ({
 
     if (path === "/api/v1/auth/me")
       return json({
-        id: "user-1",
-        email: "pet@example.test",
-        full_name: "Pet Parent",
-        phone: "081234567890",
+        ...petOwner,
         role: "pet_owner",
       });
     if (path === "/api/v1/petowner/bootstrap")
-      return json({
-        user: {
-          id: "user-1",
-          email: "pet@example.test",
-          full_name: "Pet Parent",
-          phone: "081234567890",
-          member_since: "2026-01-01",
-        },
-        pets: [],
-        notifications: [],
-        unread_notifications: 0,
-        activities: [],
-        favorites: [],
-        points: {
-          balance: 0,
-          earned: 0,
-          redeemed: 0,
-          pending: 0,
-          formula: {
-            enabled: false,
-            point_value_rupiah: 1,
-            earn_divisor_rupiah: 10_000,
-            expiry_days: 365,
-            settlement_hold_days: 7,
-            max_redemption_bps: 5_000,
-            min_redemption_points: 100,
-            rules: [],
-          },
-        },
-      });
+      return json(petOwnerBootstrap());
     if (
       path === "/api/v1/public/discovery/services" ||
       path === "/api/v1/public/discovery/products" ||

@@ -1,24 +1,16 @@
 import { expect, test } from "./fixtures";
 import {
+  marketplaceProduct,
   paymentIntent,
   paymentMethods,
   petOwner,
   petOwnerBootstrap,
 } from "./mock-data";
 
-const product = {
-  id: "payment-test-product",
+const product = marketplaceProduct({
+  id: "52000000-0000-4000-8000-000000000201",
   name: "Test Food",
-  sku: "TEST",
-  barcode: "",
-  category: "Food",
-  description: "",
-  image_url: "",
-  price: 35_000,
-  stock: 10,
-  minimum_stock: 1,
-  available: true,
-};
+});
 
 const address = {
   id: "address-1",
@@ -67,16 +59,13 @@ const pendingPayment = paymentIntent({
 });
 
 test("mobile checkout keeps address readable and confirms paid orders", async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.addInitScript((productID) => {
     localStorage.setItem("slivadoc.access_token", "payment-test-token");
     localStorage.setItem("slivadoc.refresh_token", "payment-test-refresh");
     localStorage.setItem("slivadoc.access_expires_at", String(Date.now() + 3_600_000));
     if (!localStorage.getItem("slivadoc.cart"))
-      localStorage.setItem(
-        "slivadoc.cart",
-        JSON.stringify({ "payment-test-product": 1 }),
-      );
-  });
+      localStorage.setItem("slivadoc.cart", JSON.stringify({ [productID]: 1 }));
+  }, product.id);
 
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();

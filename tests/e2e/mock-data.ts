@@ -46,6 +46,36 @@ export function petOwnerBootstrap() {
   };
 }
 
+/**
+ * A row of GET /api/v1/public/discovery/products: a petshop's product with
+ * its live stock, the active branch holding most of it, its published review
+ * average and the units sold on paid orders.
+ */
+export function marketplaceProduct(
+  overrides: { id: string; name: string } & Record<string, unknown>,
+) {
+  return {
+    business_id: "59000000-0000-4000-8000-000000000101",
+    business_name: "Sliva Pet Shop",
+    branch_id: "55000000-0000-4000-8000-000000000101",
+    branch_name: "Sliva Pet Shop Kemang",
+    city: "Jakarta Selatan",
+    sku: "TEST",
+    barcode: "",
+    category: "Makanan",
+    description: "",
+    image_url: "",
+    price: 35_000,
+    stock: 10,
+    minimum_stock: 1,
+    available: true,
+    rating: 4.8,
+    review_count: 12,
+    sold_count: 40,
+    ...overrides,
+  };
+}
+
 /** GET /api/v1/payment-methods: Yokke offers QRIS only. */
 export function paymentMethods() {
   return {

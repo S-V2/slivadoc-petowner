@@ -577,7 +577,7 @@ export default function PetOwnerApp() {
               : data.activities,
           );
           setPoints(data.points.balance);
-      setMembership(data.points.membership ?? starterMembership);
+          setMembership(data.points.membership ?? starterMembership);
           setRewardFormula(data.points.formula);
         })
         .catch(() => undefined);

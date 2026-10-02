@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./revamp-home.css";
 import "./mobile-responsive.css";
+import "./marketplace.css";
 import "./seo.css";
 import { SEO, absoluteUrl } from "./lib/seo-config";
 

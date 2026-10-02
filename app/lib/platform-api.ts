@@ -352,6 +352,11 @@ export type DiscoveryService = {
 
 export type DiscoveryProduct = {
   id: string;
+  business_id: string;
+  business_name: string;
+  branch_id?: string;
+  branch_name: string;
+  city: string;
   name: string;
   sku: string;
   barcode: string;
@@ -362,6 +367,25 @@ export type DiscoveryProduct = {
   stock: number;
   minimum_stock: number;
   available: boolean;
+  rating: number;
+  review_count: number;
+  sold_count: number;
+};
+
+export type ProductReview = {
+  id: string;
+  product_id: string;
+  user_id: string;
+  reviewer_name: string;
+  rating: number;
+  comment: string;
+  verified_purchase: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProductReviewList = PlatformList<ProductReview> & {
+  rating: number;
 };
 export type RegionOption = {
   id: string;
@@ -1667,6 +1691,18 @@ export const getDiscoveryProducts = (search = "", category = "") =>
     `/api/v1/public/discovery/products?search=${encodeURIComponent(
       search,
     )}&category=${encodeURIComponent(category)}`,
+  );
+
+export const getProductReviews = (productId: string) =>
+  request<ProductReviewList>(`/api/v1/public/products/${productId}/reviews`);
+
+export const saveProductReview = (
+  productId: string,
+  input: { rating: number; comment: string },
+) =>
+  request<{ id: string; message: string }>(
+    `/api/v1/petowner/products/${productId}/reviews`,
+    { method: "POST", body: JSON.stringify(input) },
   );
 
 export const getPetOwnerProvinces = () =>

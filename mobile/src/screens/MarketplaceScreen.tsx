@@ -205,7 +205,7 @@ function ProductCard({
   onAdd: () => void;
   onFavorite: () => void;
 }) {
-  const { formatCurrency } = useI18n();
+  const { formatCurrency, formatNumber } = useI18n();
   return (
     <Pressable
       accessibilityRole="button"
@@ -240,6 +240,9 @@ function ProductCard({
         ) : null}
       </View>
       <View style={styles.productCardBody}>
+        <Text numberOfLines={1} style={styles.productCategory}>
+          {product.category}
+        </Text>
         <Text numberOfLines={2} style={styles.productName}>
           {product.name}
         </Text>
@@ -281,6 +284,23 @@ function ProductCard({
             <Ionicons name="bag-add-outline" size={16} color={colors.white} />
             <Text style={styles.addButtonText}>Tambah</Text>
           </Pressable>
+        </View>
+        <View style={styles.productFulfillment}>
+          <View style={styles.productFulfillmentItem}>
+            <Ionicons name="location-outline" size={10} color={colors.muted} />
+            <Text numberOfLines={1} style={styles.productFulfillmentText}>
+              {product.city || "Indonesia"}
+            </Text>
+          </View>
+          <Text style={styles.productStockText}>
+            {product.available ? `Stok ${compactNumber(product.stock)}` : "Habis"}
+          </Text>
+        </View>
+        <View style={styles.productReward}>
+          <Ionicons name="sparkles-outline" size={11} color="#087B68" />
+          <Text numberOfLines={1} style={styles.productRewardText}>
+            +{formatNumber(Math.max(0, Math.floor(product.price / 1000)))} Sliva Point
+          </Text>
         </View>
       </View>
     </Pressable>
@@ -1411,8 +1431,16 @@ function ProductDetailSheet({
   onBuy: () => void;
   onSubmitReview: () => void;
 }) {
-  const { formatCurrency, formatDate } = useI18n();
+  const { formatCurrency, formatDate, formatNumber } = useI18n();
   if (!product) return null;
+  const reviewAverage = reviews.length
+    ? reviews.reduce((total, review) => total + review.rating, 0) /
+      reviews.length
+    : product.rating;
+  const reviewDistribution = [5, 4, 3, 2, 1].map((score) => ({
+    score,
+    count: reviews.filter((review) => review.rating === score).length,
+  }));
   return (
     <SheetFrame
       visible
@@ -1461,6 +1489,33 @@ function ProductDetailSheet({
             "Produk pilihan dari partner Slivadoc untuk kebutuhan harian pet-mu."}
         </Text>
 
+        <View style={styles.detailFacts}>
+          <View style={styles.detailFact}>
+            <Text style={styles.detailFactLabel}>SKU</Text>
+            <Text numberOfLines={1} style={styles.detailFactValue}>
+              {product.sku || "-"}
+            </Text>
+          </View>
+          <View style={styles.detailFact}>
+            <Text style={styles.detailFactLabel}>Kategori</Text>
+            <Text numberOfLines={1} style={styles.detailFactValue}>
+              {product.category}
+            </Text>
+          </View>
+          <View style={styles.detailFact}>
+            <Text style={styles.detailFactLabel}>Dikirim dari</Text>
+            <Text numberOfLines={1} style={styles.detailFactValue}>
+              {product.city || "Indonesia"}
+            </Text>
+          </View>
+          <View style={styles.detailFact}>
+            <Text style={styles.detailFactLabel}>Sliva Point</Text>
+            <Text numberOfLines={1} style={styles.detailFactValue}>
+              +{formatNumber(Math.max(0, Math.floor(product.price / 1000)))} poin
+            </Text>
+          </View>
+        </View>
+
         <View style={styles.reviewHeader}>
           <View>
             <Text style={styles.detailSectionTitle}>Ulasan & komentar</Text>
@@ -1469,6 +1524,33 @@ function ProductDetailSheet({
             </Text>
           </View>
           <Text style={styles.reviewCount}>{reviews.length}</Text>
+        </View>
+        <View style={styles.reviewSummary}>
+          <View style={styles.reviewSummaryScore}>
+            <Text style={styles.reviewSummaryValue}>
+              {reviews.length ? reviewAverage.toFixed(1) : "–"}
+            </Text>
+            <Text style={styles.reviewSummaryLabel}>dari 5</Text>
+            <Stars value={reviewAverage} size={10} />
+          </View>
+          <View style={styles.reviewDistribution}>
+            {reviewDistribution.map(({ score, count }) => (
+              <View key={score} style={styles.reviewDistributionRow}>
+                <Text style={styles.reviewDistributionScore}>{score}★</Text>
+                <View style={styles.reviewDistributionTrack}>
+                  <View
+                    style={[
+                      styles.reviewDistributionFill,
+                      {
+                        width: `${reviews.length ? (count / reviews.length) * 100 : 0}%`,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.reviewDistributionCount}>{count}</Text>
+              </View>
+            ))}
+          </View>
         </View>
         {reviewsLoading ? (
           <ActivityIndicator
@@ -2376,6 +2458,15 @@ const styles = StyleSheet.create({
   },
   soldOutText: { color: colors.white, fontSize: 8, fontWeight: "600" },
   productCardBody: { padding: 11 },
+  productCategory: {
+    marginBottom: 3,
+    color: colors.sky600,
+    fontSize: 8,
+    lineHeight: 11,
+    fontWeight: "700",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+  },
   productName: {
     minHeight: 36,
     color: colors.navy,
@@ -2444,6 +2535,49 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sky600,
   },
   addButtonText: { color: colors.white, fontSize: 9, fontWeight: "600" },
+  productFulfillment: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 5,
+    marginTop: 8,
+  },
+  productFulfillmentItem: {
+    minWidth: 0,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  productFulfillmentText: {
+    minWidth: 0,
+    flex: 1,
+    color: colors.muted,
+    fontSize: 8,
+  },
+  productStockText: {
+    color: colors.muted,
+    fontSize: 8,
+    fontWeight: "600",
+  },
+  productReward: {
+    minHeight: 25,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 7,
+    paddingHorizontal: 7,
+    borderRadius: 9,
+    backgroundColor: "#EDFBF7",
+  },
+  productRewardText: {
+    minWidth: 0,
+    flex: 1,
+    color: "#087B68",
+    fontSize: 8,
+    fontWeight: "700",
+  },
   disabledButton: { opacity: 0.42 },
   stars: { flexDirection: "row", alignItems: "center", gap: 1 },
   modalBackdrop: {
@@ -2549,6 +2683,26 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 17,
   },
+  detailFacts: {
+    overflow: "hidden",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    backgroundColor: colors.line,
+    gap: 1,
+  },
+  detailFact: {
+    width: "49.8%",
+    minWidth: 0,
+    gap: 3,
+    padding: 10,
+    backgroundColor: colors.white,
+  },
+  detailFactLabel: { color: colors.muted, fontSize: 8 },
+  detailFactValue: { color: colors.navy, fontSize: 10, fontWeight: "700" },
   reviewHeader: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -2571,6 +2725,62 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     textAlign: "center",
+  },
+  reviewSummary: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 15,
+    backgroundColor: colors.sky50,
+  },
+  reviewSummaryScore: {
+    width: 82,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRightWidth: 1,
+    borderRightColor: colors.line,
+  },
+  reviewSummaryValue: {
+    color: colors.navy,
+    fontSize: 27,
+    lineHeight: 31,
+    fontWeight: "700",
+  },
+  reviewSummaryLabel: { marginBottom: 3, color: colors.muted, fontSize: 8 },
+  reviewDistribution: { minWidth: 0, flex: 1, gap: 4 },
+  reviewDistributionRow: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  reviewDistributionScore: {
+    width: 18,
+    color: colors.navy,
+    fontSize: 8,
+    fontWeight: "600",
+  },
+  reviewDistributionTrack: {
+    minWidth: 0,
+    height: 5,
+    flex: 1,
+    overflow: "hidden",
+    borderRadius: 3,
+    backgroundColor: "#DFEAF0",
+  },
+  reviewDistributionFill: {
+    height: "100%",
+    borderRadius: 3,
+    backgroundColor: colors.yellow,
+  },
+  reviewDistributionCount: {
+    width: 17,
+    color: colors.muted,
+    fontSize: 8,
+    textAlign: "right",
   },
   reviewLoader: { marginVertical: 18 },
   emptyReviews: {

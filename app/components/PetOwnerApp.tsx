@@ -22,6 +22,7 @@ import { FundraisingView, PetshipView } from "./platform/PetshipFundraising";
 import type { LocationResult } from "../lib/petowner-api";
 import { ApiError } from "../lib/session";
 import ShippingAddressModal from "./ShippingAddressModal";
+import ShopMarketplace from "./marketplace/ShopMarketplace";
 import { downloadPetMedicalPDF } from "../lib/pet-pdf";
 import { finiteNumber } from "../lib/safe-number";
 import {
@@ -425,18 +426,46 @@ export default function PetOwnerApp() {
     0,
   );
   const serviceCatalog = remoteServices;
-  const productCatalog: Product[] = remoteProducts.map((item) => ({
-    id: item.id,
-    name: item.name,
-    brand: item.category,
-    price: item.price,
-    rating: 0,
-    sold: `Stok ${item.stock}`,
-    emoji: item.category.toLowerCase().includes("food") ? "🥣" : "🛍️",
-    imageUrl: item.image_url,
-    category: item.category,
-    badge: item.available ? undefined : "Stok habis",
-  }));
+  const productCatalog: Product[] = useMemo(
+    () =>
+      remoteProducts.map((item) => ({
+        id: item.id,
+        name: item.name,
+        brand:
+          item.business_name || item.branch_name || "Pet Partner Slivadoc",
+        businessId: item.business_id || item.branch_id || item.id,
+        branchName:
+          item.branch_name || item.business_name || "Partner Slivadoc",
+        city: item.city || "Indonesia",
+        sku: item.sku || "-",
+        barcode: item.barcode || "",
+        description: item.description || "",
+        price: Math.max(0, finiteNumber(item.price) ?? 0),
+        rating: Math.min(5, Math.max(0, finiteNumber(item.rating) ?? 0)),
+        reviewCount: Math.max(0, finiteNumber(item.review_count) ?? 0),
+        soldCount: Math.max(0, finiteNumber(item.sold_count) ?? 0),
+        stock: Math.max(0, Math.floor(finiteNumber(item.stock) ?? 0)),
+        minimumStock: Math.max(
+          0,
+          finiteNumber(item.minimum_stock) ?? 0,
+        ),
+        available:
+          typeof item.available === "boolean"
+            ? item.available
+            : (finiteNumber(item.stock) ?? 0) > 0,
+        sold: `${Math.max(0, finiteNumber(item.sold_count) ?? 0).toLocaleString("id-ID")} terjual`,
+        emoji: item.category.toLowerCase().includes("food") ? "🥣" : "🛍️",
+        imageUrl: item.image_url || undefined,
+        category: item.category || "Kebutuhan pet",
+        badge:
+          (typeof item.available === "boolean"
+            ? item.available
+            : (finiteNumber(item.stock) ?? 0) > 0)
+            ? undefined
+            : "Stok habis",
+      })),
+    [remoteProducts],
+  );
 
   useEffect(() => {
     const savedLocation = window.localStorage.getItem("slivadoc.location");
@@ -674,6 +703,7 @@ export default function PetOwnerApp() {
     setActiveView(view);
     window.localStorage.setItem("slivadoc.active_view", view);
     const url = new URL(window.location.href);
+    url.searchParams.delete("product");
     if (view === "home") url.searchParams.delete("view");
     else url.searchParams.set("view", view);
     window.history.pushState(
@@ -722,9 +752,22 @@ export default function PetOwnerApp() {
     }
   };
 
-  const addToCart = (id: string) => {
-    setCart((current) => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
-    notify("Produk ditambahkan ke keranjang");
+  const addToCart = (id: string, quantity = 1) => {
+    const product = productCatalog.find((item) => item.id === id);
+    if (!product?.available) {
+      notify("Produk sedang tidak tersedia");
+      return;
+    }
+    const safeQuantity = Math.max(1, Math.floor(quantity));
+    setCart((current) => ({
+      ...current,
+      [id]: Math.min(product.stock, (current[id] ?? 0) + safeQuantity),
+    }));
+    notify(
+      safeQuantity > 1
+        ? `${safeQuantity} produk ditambahkan ke keranjang`
+        : "Produk ditambahkan ke keranjang",
+    );
   };
 
   if (bootstrapLoading)
@@ -825,13 +868,16 @@ export default function PetOwnerApp() {
             <HealthView pet={selectedPet} notify={notify} />
           )}
           {activeView === "shop" && (
-            <ShopView
+            <ShopMarketplace
               addToCart={addToCart}
               setCartOpen={setCartOpen}
+              cartCount={cartCount}
               notify={notify}
               productCatalog={productCatalog}
               petName={selectedPet.name}
               favorites={favoriteIds}
+              authenticated={authenticated}
+              onRequireLogin={() => setLoginOpen(true)}
               toggleFavorite={(id) => void toggleFavorite("product", id)}
             />
           )}
@@ -4248,234 +4294,6 @@ function ReminderModal({
     </div>
   );
 }
-function ShopView({
-  addToCart,
-  setCartOpen,
-  notify,
-  productCatalog,
-  petName,
-  favorites,
-  toggleFavorite,
-}: {
-  addToCart: (id: string) => void;
-  setCartOpen: (value: boolean) => void;
-  notify: Notify;
-  productCatalog: Product[];
-  petName: string;
-  favorites: string[];
-  toggleFavorite: (id: string) => void;
-}) {
-  const [category, setCategory] = useState("Semua");
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState("recommended");
-  const categories = [
-    "Semua",
-    ...Array.from(new Set(productCatalog.map((item) => item.category))),
-  ];
-  const filtered = productCatalog
-    .filter(
-      (product) =>
-        (category === "Semua" || product.category === category) &&
-        `${product.name} ${product.brand}`.toLowerCase().includes(query.toLowerCase()),
-    )
-    .sort((left, right) => {
-      if (sort === "rating") return right.rating - left.rating;
-      if (sort === "price") return left.price - right.price;
-      if (sort === "popular") return right.sold.localeCompare(left.sold);
-      return Number(Boolean(right.badge)) - Number(Boolean(left.badge));
-    });
-  return (
-    <div className="shop-native">
-      <header className="native-screen-header shop-native-header">
-        <div>
-          <span>SLIVA MARKET</span>
-          <h2>Belanja kebutuhan pet</h2>
-        </div>
-        <button
-          className="native-header-icon"
-          type="button"
-          aria-label="Buka keranjang"
-          onClick={() => setCartOpen(true)}
-        >
-          <Icon name="bag" size={20} />
-        </button>
-      </header>
-
-      <label className="shop-native-search">
-        <Icon name="search" size={18} />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Cari makanan, vitamin, atau toko"
-          aria-label="Cari produk atau toko"
-        />
-        {query && (
-          <button type="button" aria-label="Hapus pencarian" onClick={() => setQuery("")}>
-            <Icon name="close" size={16} />
-          </button>
-        )}
-      </label>
-
-      <section className="shop-native-hero">
-        <div>
-          <span className="shop-native-pill">BELANJA AMAN</span>
-          <h2>Satu keranjang, banyak toko pet.</h2>
-          <p>Produk petshop dan klinik terhubung langsung dengan stok asli.</p>
-          <button
-            className="shop-native-hero-action"
-            type="button"
-            onClick={() => {
-              setCategory("Semua");
-              notify(`Rekomendasi untuk ${petName} sudah ditampilkan`);
-            }}
-          >
-            Lihat rekomendasi {petName}
-          </button>
-        </div>
-        <div className="shop-native-art" aria-hidden="true">
-          <span><Icon name="bag" size={48} /></span>
-          <i><Icon name="paw" size={18} /></i>
-        </div>
-      </section>
-
-      <header className="shop-native-section-header">
-        <div>
-          <span>KATEGORI KEBUTUHAN</span>
-          <h3>Belanja dari petshop favorit</h3>
-        </div>
-        <button type="button" onClick={() => setCartOpen(true)}>
-          <Icon name="cart" size={16} /> Keranjang
-        </button>
-      </header>
-
-      <div className="shop-native-categories" role="tablist" aria-label="Kategori produk">
-        {categories.map((item) => {
-          const active = category === item;
-          return (
-            <button
-              type="button"
-              className={active ? "active" : ""}
-              aria-selected={active}
-              onClick={() => setCategory(item)}
-              key={item}
-            >
-              <span>
-                <Icon
-                  name={
-                    item === "Semua"
-                      ? "sparkle"
-                      : item === "Kesehatan" || item === "Vitamin"
-                        ? "heart"
-                        : item === "Mainan"
-                          ? "paw"
-                          : "bag"
-                  }
-                  size={18}
-                />
-              </span>
-              {item}
-            </button>
-          );
-        })}
-      </div>
-
-      <header className="shop-native-section-header shop-native-catalog-header">
-        <div>
-          <span>PILIHAN BUAT {petName.toUpperCase()}</span>
-          <h3>{filtered.length} produk ditemukan</h3>
-        </div>
-      </header>
-
-      <div className="shop-native-sort-row" role="tablist" aria-label="Urutkan produk">
-        {[
-          ["recommended", "Rekomendasi"],
-          ["popular", "Terlaris"],
-          ["rating", "Rating"],
-          ["price", "Harga termurah"],
-        ].map(([id, label]) => (
-          <button
-            type="button"
-            key={id}
-            className={sort === id ? "active" : ""}
-            aria-selected={sort === id}
-            onClick={() => setSort(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {filtered.length ? (
-        <div className="shop-native-grid">
-          {filtered.map((product) => (
-            <article className="shop-product-card" key={product.id}>
-              <div className="shop-product-visual">
-                {product.imageUrl ? (
-                  <Image
-                    className="catalog-cover-image"
-                    src={product.imageUrl}
-                    alt={`Gambar ${product.name}`}
-                    fill
-                    sizes="(max-width: 580px) 50vw, 25vw"
-                    unoptimized
-                  />
-                ) : (
-                  <span>{product.emoji}</span>
-                )}
-                {product.badge && <em>{product.badge}</em>}
-                <button
-                  className={favorites.includes(product.id) ? "favorite" : ""}
-                  type="button"
-                  aria-label={favorites.includes(product.id) ? "Hapus dari favorit" : "Simpan produk"}
-                  onClick={() => toggleFavorite(product.id)}
-                >
-                  <Icon name="heart" size={17} />
-                </button>
-              </div>
-              <div className="shop-product-body">
-                <b>{product.name}</b>
-                <span>
-                  <Icon name="bag" size={12} /> {product.brand}
-                </span>
-                <div>
-                  <p>
-                    <Icon name="star" size={10} /> {product.rating || "Baru"} · {product.sold}
-                  </p>
-                  <strong>{formatRupiah(product.price)}</strong>
-                </div>
-                <button
-                  type="button"
-                  disabled={product.badge === "Stok habis"}
-                  onClick={() => addToCart(product.id)}
-                  aria-label={`Tambah ${product.name} ke keranjang`}
-                >
-                  <Icon name="bag" size={15} /> Tambah
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <div className="empty-state shop-native-empty">
-          <span><Icon name="search" size={28} /></span>
-          <h3>Produk belum ditemukan</h3>
-          <p>Coba kata kunci atau kategori lain.</p>
-          <button
-            className="primary-button small"
-            type="button"
-            onClick={() => {
-              setQuery("");
-              setCategory("Semua");
-            }}
-          >
-            Reset pencarian
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function ProfileView({
   notify,
   account,

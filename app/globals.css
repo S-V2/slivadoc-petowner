@@ -10672,3 +10672,62 @@ textarea {
 .profile-public-code span { flex-basis: 100%; font-size: 11px; font-weight: 700; letter-spacing: .04em; }
 .profile-public-code strong { font-size: 27px; letter-spacing: .2em; }
 .profile-public-code button { margin-left: auto; padding: 7px 12px; border: 0; border-radius: 9px; background: #0b86b3; color: white; cursor: pointer; }
+
+
+/* Loyalty membership progress */
+.profile-native-points > .profile-membership-rank {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+.profile-native-points > .profile-membership-rank > span {
+  grid-row: 1 / span 2;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  font-size: 22px;
+}
+.profile-membership-rank p {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+.profile-membership-rank p b,
+.profile-membership-rank > strong {
+  color: #fff !important;
+  font-size: 13px;
+}
+.profile-membership-rank p small {
+  color: rgba(255, 255, 255, 0.82) !important;
+  white-space: normal;
+}
+.profile-membership-rank progress {
+  grid-column: 2 / -1;
+  width: 100%;
+  height: 7px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  appearance: none;
+}
+.profile-membership-rank progress::-webkit-progress-bar {
+  background: rgba(255, 255, 255, 0.18);
+}
+.profile-membership-rank progress::-webkit-progress-value {
+  border-radius: 999px;
+  background: linear-gradient(90deg, #8de5ff, #c7ffdb);
+}
+.profile-membership-rank progress::-moz-progress-bar {
+  border-radius: 999px;
+  background: linear-gradient(90deg, #8de5ff, #c7ffdb);
+}

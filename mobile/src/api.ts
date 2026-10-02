@@ -453,6 +453,15 @@ type LegacyMobileActivityResponse = {
   data: MobileActivity[];
   count: number;
 };
+export type MobileMembership = {
+  id: string;
+  name: string;
+  icon: string;
+  min_points: number;
+  next_level_points: number | null;
+  points_to_next: number;
+};
+
 export type MobileBootstrap = {
   user: MobileOwner;
   pets: MobilePet[];
@@ -467,6 +476,7 @@ export type MobileBootstrap = {
     balance: number;
     earned: number;
     redeemed: number;
+    membership?: MobileMembership;
     formula: {
       enabled: boolean;
       point_value_rupiah?: number;
@@ -474,6 +484,13 @@ export type MobileBootstrap = {
       settlement_hold_days?: number;
       max_redemption_bps?: number;
       min_redemption_points?: number;
+      membership_levels?: Array<{
+        id: string;
+        name: string;
+        icon: string;
+        min_points: number;
+        max_points: number | null;
+      }>;
       payment_methods?: Array<{
         method: string;
         label: string;

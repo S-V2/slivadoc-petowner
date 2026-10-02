@@ -144,6 +144,19 @@ export type FavoriteItem = {
   created_at: string;
 };
 
+export type MembershipLevel = {
+  id: string;
+  name: string;
+  icon: string;
+  min_points: number;
+  max_points: number | null;
+};
+
+export type MembershipStatus = Omit<MembershipLevel, "max_points"> & {
+  next_level_points: number | null;
+  points_to_next: number;
+};
+
 export type RewardFormula = {
   enabled: boolean;
   point_value_rupiah?: number;
@@ -152,6 +165,7 @@ export type RewardFormula = {
   settlement_hold_days?: number;
   max_redemption_bps?: number;
   min_redemption_points?: number;
+  membership_levels?: MembershipLevel[];
   payment_methods?: Array<{
     method: string;
     label: string;
@@ -168,6 +182,7 @@ export type PointsSummary = {
   earned: number;
   redeemed: number;
   pending?: number;
+  membership?: MembershipStatus;
   formula: RewardFormula;
 };
 

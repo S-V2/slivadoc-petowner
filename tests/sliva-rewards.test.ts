@@ -58,8 +58,8 @@ const serverQuote = {
   total_amount: 22_500,
   amount: 22_500,
   max_redeemable_points: 300,
-  point_value_rupiah: 100,
-  min_redemption_points: 100,
+  point_value_rupiah: 1,
+  min_redemption_points: 1,
   max_redemption_bps: 3_000,
 };
 
@@ -238,13 +238,13 @@ test("server-side redemption limits surface as the Indonesian message", async ()
 test("bootstrap and points expose reward settings as a structured formula", async () => {
   const formula = {
     enabled: true,
-    point_value_rupiah: 100,
-    earn_divisor_rupiah: 10_000,
+    point_value_rupiah: 1,
+    earn_divisor_rupiah: 1_000,
     expiry_days: 365,
     settlement_hold_days: 7,
     max_redemption_bps: 3_000,
-    min_redemption_points: 100,
-    rules: ["1 poin setiap Rp10.000 nilai transaksi bersih yang sudah dibayar"],
+    min_redemption_points: 1,
+    rules: ["1 poin setiap Rp1.000 nilai transaksi bersih yang sudah dibayar"],
   };
   const transport = stubTransport(200, {
     user: {
@@ -259,16 +259,24 @@ test("bootstrap and points expose reward settings as a structured formula", asyn
     unread_notifications: 0,
     activities: [],
     favorites: [],
-    points: { balance: 1_000, earned: 1_300, redeemed: 300, pending: 50, formula },
+    points: { balance: 1_000, earned: 1_300, redeemed: 300, pending: 50, membership: {
+      id: "playful_pup",
+      name: "Playful Pup",
+      icon: "🐶",
+      min_points: 1_000,
+      next_level_points: 5_000,
+      points_to_next: 3_700,
+    }, formula },
   });
   try {
     const bootstrap = await getPetOwnerBootstrap();
     assert.equal(typeof bootstrap.points.formula, "object");
     assert.equal(bootstrap.points.formula.enabled, true);
     assert.equal(bootstrap.points.formula.max_redemption_bps, 3_000);
-    assert.equal(bootstrap.points.formula.min_redemption_points, 100);
+    assert.equal(bootstrap.points.formula.min_redemption_points, 1);
     assert.equal(bootstrap.points.formula.settlement_hold_days, 7);
     assert.equal(bootstrap.points.pending, 50);
+    assert.equal(bootstrap.points.membership.id, "playful_pup");
   } finally {
     transport.restore();
   }
@@ -278,6 +286,14 @@ test("bootstrap and points expose reward settings as a structured formula", asyn
     earned: 1_300,
     redeemed: 300,
     pending: 50,
+    membership: {
+      id: "playful_pup",
+      name: "Playful Pup",
+      icon: "🐶",
+      min_points: 1_000,
+      next_level_points: 5_000,
+      points_to_next: 3_700,
+    },
     formula,
     transactions: [
       {
@@ -296,10 +312,11 @@ test("bootstrap and points expose reward settings as a structured formula", asyn
   try {
     const summary = await getPetOwnerPoints();
     assert.equal(summary.formula.enabled, true);
-    assert.equal(summary.formula.earn_divisor_rupiah, 10_000);
+    assert.equal(summary.formula.earn_divisor_rupiah, 1_000);
     // The hold has to be visible per row, not just as a global setting.
     assert.equal(summary.transactions[0].available_at, "2026-09-08T00:00:00Z");
     assert.equal(summary.transactions[0].points, 17);
+    assert.equal(summary.membership.name, "Playful Pup");
   } finally {
     points.restore();
   }

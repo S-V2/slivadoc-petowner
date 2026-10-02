@@ -754,6 +754,7 @@ function MobileApp() {
                   petCount={pets.length}
                   activityCount={bootstrap?.activities.length ?? 0}
                   points={bootstrap?.points.balance ?? 0}
+                  membership={bootstrap?.points.membership}
                   rewardFormula={bootstrap?.points.formula}
                   onLogin={() => setLoginOpen(true)}
                   onLogout={async () => {

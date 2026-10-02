@@ -61,7 +61,7 @@ function maskPhone(value: string) {
   return value.length < 7 ? value : `${value.slice(0, 4)} •••• ${value.slice(-3)}`;
 }
 
-export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, owner, pets, petCount, activityCount, points, membership, rewardFormula, onLogin, onLogout }: ProfileProps {
+export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, owner, pets, petCount, activityCount, points, membership, rewardFormula, onLogin, onLogout }: ProfileProps) {
   const { formatDate, formatNumber, language } = useI18n();
   const [page, setPage] = useState<ProfilePage>("main");
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);

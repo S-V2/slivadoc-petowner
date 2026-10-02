@@ -739,7 +739,12 @@ export default function ShopMarketplace({
           />
           {query && <button type="button" aria-label="Hapus pencarian" onClick={() => setQuery("")}><Icon name="close" size={15} /></button>}
         </label>
-        <button className="market-cart-button" type="button" onClick={() => setCartOpen(true)}>
+        <button
+          className="market-cart-button"
+          type="button"
+          aria-label="Keranjang"
+          onClick={() => setCartOpen(true)}
+        >
           <Icon name="cart" size={18} />
           <span>Keranjang</span>
           {cartCount > 0 && <b>{cartCount}</b>}

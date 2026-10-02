@@ -81,6 +81,7 @@ import {
   type PublicCampaign,
   type PaymentIntent,
   type RewardFormula,
+  type MembershipStatus,
 } from "../lib/platform-api";
 import {
   QrisPaymentPanel,
@@ -95,6 +96,15 @@ import {
 } from "../data/mock";
 
 type Notify = (message: string) => void;
+
+const starterMembership: MembershipStatus = {
+  id: "paw_starter",
+  name: "Paw Starter",
+  icon: "🐾",
+  min_points: 0,
+  next_level_points: 1000,
+  points_to_next: 1000,
+};
 
 type ActivityViewItem = ActivityItem & {
   activity_state?: PetOwnerActivityCenterItem["state"];
@@ -362,6 +372,8 @@ export default function PetOwnerApp() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [activities, setActivities] = useState<ActivityViewItem[]>([]);
   const [points, setPoints] = useState(0);
+  const [membership, setMembership] =
+    useState<MembershipStatus>(starterMembership);
   const [rewardFormula, setRewardFormula] = useState<RewardFormula>({
     enabled: false,
   });
@@ -505,6 +517,7 @@ export default function PetOwnerApp() {
       setActivities([]);
       setFavoriteIds([]);
       setPoints(0);
+      setMembership(starterMembership);
       setRewardFormula({ enabled: false });
       setBootstrapLoading(false);
       return;
@@ -533,6 +546,7 @@ export default function PetOwnerApp() {
       );
       setFavoriteIds(data.favorites.map((item) => item.entity_id));
       setPoints(data.points.balance);
+      setMembership(data.points.membership ?? starterMembership);
       setRewardFormula(data.points.formula);
       setAuthenticated(true);
     } catch (error) {
@@ -563,6 +577,7 @@ export default function PetOwnerApp() {
               : data.activities,
           );
           setPoints(data.points.balance);
+      setMembership(data.points.membership ?? starterMembership);
           setRewardFormula(data.points.formula);
         })
         .catch(() => undefined);
@@ -900,6 +915,7 @@ export default function PetOwnerApp() {
               account={account}
               petCount={petProfiles.length}
               points={points}
+              membership={membership}
               rewardFormula={rewardFormula}
               onChanged={loadBootstrap}
               currentLocation={currentLocation}
@@ -4465,6 +4481,7 @@ function ProfileView({
   account,
   petCount,
   points,
+  membership,
   rewardFormula,
   onLogout,
   onChanged,
@@ -4475,6 +4492,7 @@ function ProfileView({
   account: PetOwnerBootstrap["user"];
   petCount: number;
   points: number;
+  membership: MembershipStatus;
   rewardFormula: RewardFormula;
   onLogout: () => void;
   onChanged: () => Promise<void>;
@@ -4495,6 +4513,21 @@ function ProfileView({
   >([]);
   const [addressLoading, setAddressLoading] = useState(true);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const membershipProgress = membership.next_level_points
+    ? Math.max(
+        0,
+        Math.min(
+          100,
+          Math.round(
+            ((membership.next_level_points -
+              membership.points_to_next -
+              membership.min_points) /
+              (membership.next_level_points - membership.min_points)) *
+              100,
+          ),
+        ),
+      )
+    : 100;
   useEffect(() => {
     let live = true;
     void getPetOwnerShippingAddresses()
@@ -4575,8 +4608,8 @@ function ProfileView({
               <small>Points</small>
             </span>
             <span>
-              <b>{points > 0 ? "Member" : "Regular"}</b>
-              <small>Status</small>
+              <b>{membership.icon} {membership.name}</b>
+              <small>Level member</small>
             </span>
             <span>
               <b>Aktif</b>
@@ -4602,6 +4635,19 @@ function ProfileView({
               </small>
             </p>
             <i>AKTIF</i>
+          </div>
+          <div className="profile-membership-rank">
+            <span aria-hidden="true">{membership.icon}</span>
+            <p>
+              <b>{membership.name}</b>
+              <small>
+                {membership.next_level_points
+                  ? `${membership.points_to_next.toLocaleString("id-ID")} poin lagi ke level berikutnya`
+                  : "Level tertinggi—terima kasih, Pet Royalty!"}
+              </small>
+            </p>
+            <strong>{membershipProgress}%</strong>
+            <progress max={100} value={membershipProgress} />
           </div>
           <ul>
             {(rewardFormula.rules?.length

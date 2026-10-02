@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import {
+  clearPlatformCache,
+  getProductReviews,
+  saveProductReview,
+} from "../app/lib/platform-api.ts";
 
 const web = readFileSync(
   new URL("../app/components/marketplace/ShopMarketplace.tsx", import.meta.url),
@@ -58,4 +63,48 @@ test("native marketplace mirrors richer card and review detail data", () => {
   assert.match(mobile, /detailFacts/);
   assert.match(mobile, /reviewDistribution/);
   assert.match(mobile, /saveMobileProductReview/);
+});
+
+test("marketplace review client reads public comments and posts verified comments", async () => {
+  const original = globalThis.fetch;
+  const calls: Array<{ url: string; method: string; body?: unknown }> = [];
+  globalThis.fetch = (async (input: string, init: RequestInit = {}) => {
+    calls.push({
+      url: String(input),
+      method: String(init.method ?? "GET").toUpperCase(),
+      body: init.body ? JSON.parse(String(init.body)) : undefined,
+    });
+    return {
+      ok: true,
+      status: 200,
+      json: async () =>
+        init.method === "POST"
+          ? { id: "review-1", message: "Ulasan tersimpan" }
+          : { data: [], count: 0, average_rating: 0 },
+    } as Response;
+  }) as typeof globalThis.fetch;
+  clearPlatformCache();
+
+  try {
+    const reviews = await getProductReviews("product-1");
+    const saved = await saveProductReview("product-1", {
+      rating: 5,
+      comment: "Makanan cocok dan pengiriman cepat.",
+    });
+
+    assert.deepEqual(reviews, { data: [], count: 0, average_rating: 0 });
+    assert.equal(saved.id, "review-1");
+    assert.equal(calls.length, 2);
+    assert.match(calls[0].url, /\/api\/v1\/public\/products\/product-1\/reviews$/);
+    assert.equal(calls[0].method, "GET");
+    assert.match(calls[1].url, /\/api\/v1\/petowner\/products\/product-1\/reviews$/);
+    assert.equal(calls[1].method, "POST");
+    assert.deepEqual(calls[1].body, {
+      rating: 5,
+      comment: "Makanan cocok dan pengiriman cepat.",
+    });
+  } finally {
+    globalThis.fetch = original;
+    clearPlatformCache();
+  }
 });

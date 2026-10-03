@@ -131,6 +131,7 @@ Development memakai geolocation browser/native serta OpenStreetMap/Nominatim mel
 | --- | --- |
 | Health/config | `GET /health`, `GET /api/config/status` |
 | Upload foto | `POST /api/uploads/images` multipart |
+| Upload dokumen | `POST /api/uploads/documents` multipart, PDF/JPG/PNG maks 10 MB, disimpan apa adanya (Cloudinary `raw`) |
 | Lokasi | `GET /api/location/search`, `GET /api/location/reverse` |
 | SlivaCare | `POST /api/assistant/chat` |
 | Komunitas | `GET/POST /api/community/posts`, like, comments |

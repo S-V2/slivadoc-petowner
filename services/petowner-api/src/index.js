@@ -145,6 +145,17 @@ const mediaUpload = multer({
     ),
 });
 
+// Tax and commercial documents (faktur, invoice, bukti potong) are kept as
+// uploaded: Cloudinary "raw" resources, so PDFs are neither transformed nor
+// caught by the account's PDF delivery restriction for image resources.
+const documentFormats = ["application/pdf", "image/jpeg", "image/png"];
+const documentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_request, file, callback) =>
+    callback(null, documentFormats.includes(file.mimetype)),
+});
+
 const cloudinary = cloudinaryPackage.v2;
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -271,6 +282,51 @@ app.post(
         publicId: result.public_id,
         width: result.width,
         height: result.height,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+app.post(
+  "/api/uploads/documents",
+  requirePlatformUser,
+  documentUpload.single("file"),
+  async (request, response, next) => {
+    try {
+      if (!request.file)
+        return response.status(400).json({
+          error: "document_required",
+          message: "Pilih berkas PDF, JPG, atau PNG maksimal 10 MB",
+        });
+      if (
+        !process.env.CLOUDINARY_CLOUD_NAME ||
+        !process.env.CLOUDINARY_API_KEY ||
+        !process.env.CLOUDINARY_API_SECRET
+      ) {
+        return response.status(503).json({
+          error: "cloudinary_not_configured",
+          message: "Penyimpanan dokumen belum dikonfigurasi",
+        });
+      }
+      const requestedFolder = String(request.body.folder || "documents")
+        .replace(/[^a-z0-9/_-]/gi, "")
+        .slice(0, 80);
+      const folder = `${process.env.CLOUDINARY_FOLDER || "slivadoc/petowner"}/${requestedFolder || "documents"}`;
+      const result = await new Promise((resolveUpload, rejectUpload) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder, resource_type: "raw" },
+          (error, uploaded) =>
+            error ? rejectUpload(error) : resolveUpload(uploaded),
+        );
+        stream.end(request.file.buffer);
+      });
+      response.status(201).json({
+        url: result.secure_url,
+        publicId: result.public_id,
+        mimeType: request.file.mimetype,
+        bytes: request.file.size,
       });
     } catch (error) {
       next(error);

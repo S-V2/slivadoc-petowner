@@ -1694,9 +1694,9 @@ function Sidebar({
             {group.items
               .map((id) => navItems.find((item) => item.id === id))
               .filter(
-                (item): item is (typeof navItems)[number] =>
-                  Boolean(item) && (authenticated || item.id !== "profile"),
+                (item): item is (typeof navItems)[number] => item !== undefined,
               )
+              .filter((item) => authenticated || item.id !== "profile")
               .map((item) => (
                 <button
                   type="button"

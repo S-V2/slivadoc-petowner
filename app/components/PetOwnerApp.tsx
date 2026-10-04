@@ -7593,30 +7593,6 @@ function Progress({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
-function SummaryCard({
-  icon,
-  value,
-  label,
-  tone,
-  onClick,
-}: {
-  icon: string;
-  value: string;
-  label: string;
-  tone: string;
-  onClick?: () => void;
-}) {
-  return (
-    <button className="activity-summary-card" type="button" onClick={onClick}>
-      <span className={tone}>{icon}</span>
-      <p>
-        <b>{value}</b>
-        <small>{label}</small>
-      </p>
-      <Icon name="chevron" size={16} />
-    </button>
-  );
-}
 function Notification({
   icon,
   tone,

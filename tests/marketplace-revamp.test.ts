@@ -2,10 +2,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  createPetOwnerSupportTicket,
   clearPlatformCache,
+  getDiscoveryService,
+  getDiscoveryServiceAvailability,
+  getPetOwnerSupportTickets,
   getProductReviews,
   saveProductReview,
 } from "../app/lib/platform-api.ts";
+import { formatRupiah } from "../app/lib/petowner-domain.ts";
 
 const web = readFileSync(
   new URL("../app/components/marketplace/ShopMarketplace.tsx", import.meta.url),
@@ -107,4 +112,96 @@ test("marketplace review client reads public comments and posts verified comment
     globalThis.fetch = original;
     clearPlatformCache();
   }
+});
+
+test("service detail, live availability, and support use their API handlers", async () => {
+  const original = globalThis.fetch;
+  const calls: Array<{ url: string; method: string; body?: unknown }> = [];
+  const service = {
+    id: "grooming-1",
+    branch_id: "branch-1",
+    name: "Grooming Lengkap",
+    category: "grooming",
+  };
+  const availability = {
+    service_id: "grooming-1",
+    branch_id: "branch-1",
+    timezone: "Asia/Jakarta",
+    slots: [{ starts_at: "2026-10-05T09:00:00+07:00", available_capacity: 2 }],
+  };
+  const tickets = { data: [], meta: { page: 1, page_size: 20, total: 0 } };
+  const createdTicket = {
+    id: "ticket-1",
+    ticket_number: "SLV-001",
+    status: "open",
+    response_due_at: "2026-10-05T17:00:00+07:00",
+    message: "Tiket dukungan dibuat",
+  };
+
+  globalThis.fetch = (async (input: string, init: RequestInit = {}) => {
+    const url = String(input);
+    const method = String(init.method ?? "GET").toUpperCase();
+    calls.push({
+      url,
+      method,
+      body: init.body ? JSON.parse(String(init.body)) : undefined,
+    });
+    const payload = url.includes("/availability")
+      ? availability
+      : url.endsWith("/support-tickets") && method === "POST"
+        ? createdTicket
+        : url.endsWith("/support-tickets")
+          ? tickets
+          : service;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => payload,
+    } as Response;
+  }) as typeof globalThis.fetch;
+  clearPlatformCache();
+
+  try {
+    assert.deepEqual(await getDiscoveryService("grooming/1", "branch & 1"), service);
+    assert.deepEqual(
+      await getDiscoveryServiceAvailability("grooming/1", "branch & 1", {
+        from: "2026-10-05",
+        days: 7,
+      }),
+      availability,
+    );
+    assert.deepEqual(await getPetOwnerSupportTickets(), tickets);
+    assert.deepEqual(
+      await createPetOwnerSupportTicket({
+        category: "booking",
+        subject: "Jadwal grooming",
+        description: "Saya perlu memastikan ulang waktu kedatangan.",
+        reference_type: "booking",
+        reference_id: "booking-1",
+      }),
+      createdTicket,
+    );
+
+    assert.match(calls[0].url, /services\/grooming%2F1\?branch_id=branch%20%26%201$/);
+    assert.match(
+      calls[1].url,
+      /services\/grooming%2F1\/availability\?branch_id=branch\+%26\+1&from=2026-10-05&days=7$/,
+    );
+    assert.equal(calls[2].method, "GET");
+    assert.equal(calls[3].method, "POST");
+    assert.deepEqual(calls[3].body, {
+      category: "booking",
+      subject: "Jadwal grooming",
+      description: "Saya perlu memastikan ulang waktu kedatangan.",
+      reference_type: "booking",
+      reference_id: "booking-1",
+    });
+  } finally {
+    globalThis.fetch = original;
+    clearPlatformCache();
+  }
+});
+
+test("marketplace currency labels use Indonesian rupiah without fractions", () => {
+  assert.equal(formatRupiah(125_000), "Rp\u00a0125.000");
 });

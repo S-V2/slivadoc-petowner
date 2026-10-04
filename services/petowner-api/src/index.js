@@ -12,7 +12,6 @@ import { answerPetQuestion } from "./pet-agent.js";
 import {
   createCorsOriginValidator,
   isOriginAllowed,
-  parseAllowedOrigins,
   resolveAllowedOrigins,
 } from "./cors.js";
 import {

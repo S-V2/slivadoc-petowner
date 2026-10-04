@@ -9,7 +9,6 @@ import {
   getRefreshToken,
   hasSession,
   logoutSession,
-  refreshSession,
   saveTokens,
 } from "../app/lib/session.ts";
 

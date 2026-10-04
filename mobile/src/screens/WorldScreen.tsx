@@ -1314,7 +1314,7 @@ export function WorldScreen({
                     index % 3 === 2 && styles.visualViolet,
                   ]}
                 >
-                  {mode === "petspot" && item.cover_url ? <Image source={{ uri: item.cover_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
+                  {mode === "petspot" && item.cover_url ? <Image alt="" source={{ uri: item.cover_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
                   <Ionicons
                     name={worldIcon(mode, item)}
                     size={38}
@@ -1425,7 +1425,7 @@ export function WorldScreen({
                   contentContainerStyle={styles.sheetContent}
                 >
                   <View style={styles.sheetHero}>
-                    {mode === "petspot" && selected?.cover_url ? <Image source={{ uri: selected.cover_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
+                    {mode === "petspot" && selected?.cover_url ? <Image alt="" source={{ uri: selected.cover_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
                     <Ionicons
                       name={worldIcon(mode, selected)}
                       size={48}
@@ -1856,7 +1856,7 @@ export function WorldScreen({
                               disabled={!resource.available}
                               onPress={() => setSelectedPetSpotResource(resource)}
                               style={[styles.housingCard, active && styles.housingCardSelected, !resource.available && styles.housingCardBusy]}>
-                              {resource.image_urls?.[0] ? <Image source={{ uri: resource.image_urls[0] }} style={styles.housingPhoto} /> : null}
+                              {resource.image_urls?.[0] ? <Image alt={resource.name} source={{ uri: resource.image_urls[0] }} style={styles.housingPhoto} /> : null}
                               <View style={styles.housingCardBody}>
                                 <Text style={styles.formTitle}>{resource.name}</Text>
                                 <Text style={styles.formNote}>{resource.code} · {resource.floor_name || "Unit"} · {resource.capacity} penghuni · {Number(resource.pet_policy?.pet_limit ?? 0)} pet</Text>

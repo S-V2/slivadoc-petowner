@@ -4,6 +4,7 @@ import "./revamp-home.css";
 import "./mobile-responsive.css";
 import "./marketplace.css";
 import "./seo.css";
+import "./genz-revamp.css";
 import { SEO, absoluteUrl } from "./lib/seo-config";
 
 export const metadata: Metadata = {

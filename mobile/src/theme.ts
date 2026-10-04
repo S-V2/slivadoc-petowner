@@ -20,14 +20,25 @@ export const colors = {
   yellow50: "#FFF7DE",
   peach50: "#FFF1E9",
   pink50: "#FFF0F7",
+  sky25: "#F8FDFF",
+  sky200: "#BDEAFF",
+  sky300: "#85D8FC",
+  sky700: "#07547E",
+  aqua: "#2FC9B1",
+  aqua50: "#E9FBF7",
+  lavender: "#8874EF",
+  lavender50: "#F1EFFF",
+  coral: "#E9576B",
+  coral50: "#FFF0F3",
+  inkStrong: "#123653",
 };
 
 export const shadow = {
   shadowColor: "#2879A7",
-  shadowOpacity: 0.065,
+  shadowOpacity: 0.1,
   shadowRadius: 16,
-  shadowOffset: { width: 0, height: 6 },
-  elevation: 2,
+  shadowOffset: { width: 0, height: 8 },
+  elevation: 3,
 };
 
 export const typography = {
@@ -49,11 +60,13 @@ export const spacing = {
   md: 12,
   lg: 16,
   xl: 20,
+  xxl: 24,
 } as const;
 
 export const radius = {
-  sm: 12,
-  md: 16,
+  sm: 14,
+  md: 18,
   lg: 22,
+  xl: 30,
   pill: 999,
 } as const;

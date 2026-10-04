@@ -251,6 +251,39 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
   { id: "profile", label: "Akun", icon: "user" },
 ];
 
+const navGroups: { label: string; items: AppView[] }[] = [
+  {
+    label: "Hari-hari bareng pet",
+    items: ["home", "pets", "bookings", "health"],
+  },
+  {
+    label: "Cari & seru-seruan",
+    items: [
+      "discover",
+      "shop",
+      "community",
+      "consult",
+      "academy",
+      "events",
+      "petspot",
+      "pethub",
+    ],
+  },
+  {
+    label: "Lebih banyak",
+    items: [
+      "favorites",
+      "adoption",
+      "documents",
+      "pawdating",
+      "petship",
+      "fundraising",
+      "support",
+      "profile",
+    ],
+  },
+];
+
 const titles: Record<AppView, { title: string; subtitle: string }> = {
   home: {
     title: "Selamat datang di Slivadoc",
@@ -1654,22 +1687,30 @@ function Sidebar({
           </span>
         </button>
       )}
-      <p className="nav-eyebrow">MENU UTAMA</p>
       <nav className="side-nav" aria-label="Navigasi utama">
-        {navItems
-          .filter((item) => authenticated || item.id !== "profile")
-          .map((item) => (
-            <button
-              type="button"
-              key={item.id}
-              className={activeView === item.id ? "active" : ""}
-              onClick={() => setActiveView(item.id)}
-            >
-              <Icon name={item.icon} size={19} />
-              <span>{item.label}</span>
-              {item.id === "bookings" && <em>3</em>}
-            </button>
-          ))}
+        {navGroups.map((group) => (
+          <div className="side-nav-group" key={group.label}>
+            <p className="nav-eyebrow">{group.label}</p>
+            {group.items
+              .map((id) => navItems.find((item) => item.id === id))
+              .filter(
+                (item): item is (typeof navItems)[number] =>
+                  Boolean(item) && (authenticated || item.id !== "profile"),
+              )
+              .map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  className={activeView === item.id ? "active" : ""}
+                  onClick={() => setActiveView(item.id)}
+                >
+                  <Icon name={item.icon} size={19} />
+                  <span>{item.label}</span>
+                  {item.id === "bookings" && <em>3</em>}
+                </button>
+              ))}
+          </div>
+        ))}
       </nav>
       <div className="side-spacer" />
       <button
@@ -2109,11 +2150,11 @@ function HomeView({
       <div className="home-main-col">
         <section className="home-greeting" aria-label="Sapaan">
           <div>
-            <h2>{firstName ? `Hai, ${firstName}!` : "Hai, Pet Parent!"}</h2>
+            <h2>{firstName ? `Hai, ${firstName}! 🐾` : "Hai, Pet Parent! 🐾"}</h2>
             <p>
               {firstName
-                ? "Yuk, cek kebutuhan pet-mu hari ini."
-                : "Semua kebutuhan pet jadi lebih gampang."}
+                ? `Yuk, bikin hari ${selectedPet.name} makin sehat dan happy.`
+                : "Satu tempat buat semua momen sehat dan happy bareng pet."}
             </p>
           </div>
           <span className="home-greeting-sparkle" aria-hidden="true">
@@ -2141,10 +2182,10 @@ function HomeView({
           />
           <div className="home-daily-copy">
             <span className="home-daily-pill">DAILY PET MOMENT</span>
-            <h2>Bikin hari mereka lebih happy.</h2>
+            <h2>Small care, big happy.</h2>
             <p>
-              Mulai dari momen kecil untuk {selectedPet.name} yang lebih sehat
-              dan ceria.
+              Momen kecil hari ini bisa bikin {selectedPet.name} lebih sehat,
+              dekat, dan ceria.
             </p>
             <div className="home-daily-moment">
               <span>

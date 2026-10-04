@@ -55,7 +55,9 @@
         {
           "photosPermission": "Izinkan Slivadoc memilih foto hewan dan dokumen kesehatan."
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-video"
     ]
   }
 }

@@ -784,6 +784,7 @@ function MobileApp() {
                     }}
                     style={({ pressed }) => [
                       styles.tabItem,
+                      active && styles.activeTabItem,
                       pressed && styles.pressed,
                     ]}
                   >
@@ -793,7 +794,7 @@ function MobileApp() {
                       <Ionicons
                         name={active ? item.activeIcon : item.icon}
                         size={22}
-                        color={active ? colors.sky600 : colors.muted}
+                        color={active ? colors.white : colors.muted}
                       />
                       {item.id === "activity" &&
                       Boolean(bootstrap?.activities.length) ? (
@@ -819,6 +820,8 @@ function MobileApp() {
                 onPress={() => setMoreOpen(true)}
                 style={({ pressed }) => [
                   styles.tabItem,
+                  (moreOpen || moreTabs.some((item) => item.id === tab)) &&
+                    styles.activeTabItem,
                   pressed && styles.pressed,
                 ]}
               >
@@ -838,7 +841,7 @@ function MobileApp() {
                     size={22}
                     color={
                       moreOpen || moreTabs.some((item) => item.id === tab)
-                        ? colors.sky600
+                        ? colors.white
                         : "#8294A5"
                     }
                   />
@@ -2007,16 +2010,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 12,
     paddingHorizontal: 28,
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.sky25,
   },
   brandLoadingMark: {
-    width: 112,
-    height: 112,
+    width: 118,
+    height: 118,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.sky100,
-    borderRadius: 32,
+    borderRadius: 38,
+    borderBottomLeftRadius: 18,
     backgroundColor: colors.white,
     ...shadow,
   },
@@ -2036,7 +2040,7 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     textAlign: "center",
   },
-  safeArea: { flex: 1, backgroundColor: colors.canvas },
+  safeArea: { flex: 1, backgroundColor: colors.sky25 },
   app: { flex: 1, backgroundColor: colors.canvas },
   screenStage: { flex: 1 },
   backBar: {
@@ -2045,7 +2049,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.sky25,
   },
   backButton: {
     minWidth: 96,
@@ -2068,9 +2072,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 5,
     borderWidth: 1,
-    borderColor: "#DCEAF2",
+    borderColor: colors.sky100,
     borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,.98)",
+    backgroundColor: "rgba(255,255,255,.985)",
     ...shadow,
   },
   tabItem: {
@@ -2082,6 +2086,9 @@ const styles = StyleSheet.create({
     gap: 2,
     borderRadius: 16,
   },
+  activeTabItem: {
+    transform: [{ translateY: -1 }],
+  },
   tabIcon: {
     position: "relative",
     width: 36,
@@ -2090,7 +2097,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 11,
   },
-  activeTabIcon: { backgroundColor: colors.sky50 },
+  activeTabIcon: { backgroundColor: colors.sky600, shadowColor: colors.sky600, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
   tabLabel: { color: colors.muted, fontSize: 10, fontWeight: "600" },
   activeTabLabel: { color: colors.sky600, fontWeight: "700" },
   activityDot: {
@@ -2113,7 +2120,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     paddingHorizontal: 14,
-    borderRadius: 14,
+    borderRadius: 18,
+    borderBottomLeftRadius: 9,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.white,
@@ -2143,8 +2151,8 @@ const styles = StyleSheet.create({
   sheet: {
     paddingHorizontal: 16,
     paddingBottom: 20,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     backgroundColor: colors.white,
   },
   notificationSheetWrap: {

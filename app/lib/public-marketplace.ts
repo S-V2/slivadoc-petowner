@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 const PLATFORM_API_URL = (
   process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? "http://localhost:8080"
 ).replace(/\/$/, "");
@@ -137,4 +139,3 @@ export const getPublicProduct = cache(async (slug: string) => {
   const products = await getPublicProducts();
   return products.find((product) => product.id === productID) ?? null;
 });
-import { cache } from "react";

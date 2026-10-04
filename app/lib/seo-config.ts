@@ -26,8 +26,13 @@ export function pageMetadata(input: {
   keywords?: string[];
   type?: "website" | "article";
   noIndex?: boolean;
+  image?: { url: string; alt: string };
 }): Metadata {
   const canonical = absoluteUrl(input.path);
+  const socialImage = input.image ?? {
+    url: absoluteUrl("/slivadoc-pet-hero.png"),
+    alt: "Slivadoc, ekosistem layanan dan kesehatan hewan",
+  };
   return {
     title: input.title,
     description: input.description,
@@ -53,18 +58,13 @@ export function pageMetadata(input: {
       title: input.title,
       description: input.description,
       url: canonical,
-      images: [
-        {
-          url: absoluteUrl("/slivadoc-pet-hero.png"),
-          alt: "Slivadoc, ekosistem layanan dan kesehatan hewan",
-        },
-      ],
+      images: [socialImage],
     },
     twitter: {
       card: "summary_large_image",
       title: input.title,
       description: input.description,
-      images: [absoluteUrl("/slivadoc-pet-hero.png")],
+      images: [socialImage.url],
     },
   };
 }

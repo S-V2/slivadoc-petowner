@@ -3,6 +3,7 @@
 import NextImage from "next/image";
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -30,6 +31,7 @@ import {
   getDocumentProducts,
   getMyConsultations,
   getTrainerAvailability,
+  getVeterinarianAvailability,
   getTrainerConsultationPlans,
   getTrainers,
   getVeterinarians,
@@ -44,6 +46,7 @@ import {
   type TrainerAvailabilitySlot,
   type TrainerConsultationPlan,
   type Veterinarian,
+  type VeterinarianAvailabilitySlot,
 } from "../../lib/platform-api";
 import {
   QrisPaymentPanel,
@@ -117,6 +120,7 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
   const [consultProvider, setConsultProvider] =
     useState<ConsultProviderFilter>("all");
   const [consultSpecialty, setConsultSpecialty] = useState("all");
+  const [consultQuery, setConsultQuery] = useState("");
   const [adoptionComposer, setAdoptionComposer] = useState(false);
   const [adoptionSearch, setAdoptionSearch] = useState("");
   const [species, setSpecies] = useState("all");
@@ -124,6 +128,7 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
   const [size, setSize] = useState("all");
   const [city, setCity] = useState("all");
   const [health, setHealth] = useState("all");
+  const deferredConsultQuery = useDeferredValue(consultQuery);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -193,26 +198,36 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
     );
   }, [consultProvider, doctors, trainers]);
   const filteredDoctors = useMemo(
-    () =>
-      consultProvider === "trainer"
-        ? []
-        : doctors.filter(
-            (doctor) =>
-              (filter === "all" || doctor.availability_status === "online") &&
-              hasSpecialty(doctor.specialties, consultSpecialty),
-          ),
-    [consultProvider, consultSpecialty, doctors, filter],
+    () => {
+      if (consultProvider === "trainer") return [];
+      const query = deferredConsultQuery.trim().toLocaleLowerCase("id");
+      return doctors.filter(
+        (doctor) =>
+          (filter === "all" || doctor.availability_status === "online") &&
+          hasSpecialty(doctor.specialties, consultSpecialty) &&
+          (!query ||
+            `${doctor.full_name} ${doctor.strv_number} ${(doctor.specialties ?? []).join(" ")} ${(doctor.languages ?? []).join(" ")} ${doctor.bio}`
+              .toLocaleLowerCase("id")
+              .includes(query)),
+      );
+    },
+    [consultProvider, consultSpecialty, deferredConsultQuery, doctors, filter],
   );
   const filteredTrainers = useMemo(
-    () =>
-      consultProvider === "veterinarian"
-        ? []
-        : trainers.filter(
-            (trainer) =>
-              (filter === "all" || trainer.availability_status === "online") &&
-              hasSpecialty(trainer.specialties, consultSpecialty),
-          ),
-    [consultProvider, consultSpecialty, filter, trainers],
+    () => {
+      if (consultProvider === "veterinarian") return [];
+      const query = deferredConsultQuery.trim().toLocaleLowerCase("id");
+      return trainers.filter(
+        (trainer) =>
+          (filter === "all" || trainer.availability_status === "online") &&
+          hasSpecialty(trainer.specialties, consultSpecialty) &&
+          (!query ||
+            `${trainer.full_name} ${trainer.certification} ${(trainer.specialties ?? []).join(" ")} ${(trainer.languages ?? []).join(" ")} ${trainer.bio}`
+              .toLocaleLowerCase("id")
+              .includes(query)),
+      );
+    },
+    [consultProvider, consultSpecialty, deferredConsultQuery, filter, trainers],
   );
   const chooseConsultProvider = (provider: ConsultProviderFilter) => {
     setConsultProvider(provider);
@@ -315,6 +330,14 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
           <span>📅 Slot jadwal real-time</span>
           <span>⚡ Provider online saat ini</span>
         </div>
+        <aside className="consult-safety-note" role="note">
+          <b>Butuh pertolongan darurat?</b>
+          <span>
+            Konsultasi online bukan layanan gawat darurat. Segera bawa pet ke
+            klinik atau rumah sakit hewan terdekat bila sulit bernapas, kejang,
+            perdarahan berat, atau tidak sadar.
+          </span>
+        </aside>
         <section
           id="consult-provider-list"
           className="section-title-world consult-section-title"
@@ -337,6 +360,16 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
             </h2>
           </div>
           <div className="consult-toolbar">
+            <label className="consult-provider-search">
+              <span className="sr-only">Cari provider konsultasi</span>
+              <input
+                type="search"
+                value={consultQuery}
+                onChange={(event) => setConsultQuery(event.target.value)}
+                placeholder="Cari nama, spesialisasi, gejala, atau bahasa…"
+                aria-label="Cari dokter hewan atau pet trainer"
+              />
+            </label>
             <div className="hub-tabs" aria-label="Jenis provider konsultasi">
               <button
                 className={consultProvider === "all" ? "active" : ""}
@@ -429,6 +462,11 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
                       </span>
                       <span>{doctor.experience_years} tahun</span>
                     </div>
+                    <span className="consult-provider-credential">
+                      STRV {doctor.strv_number} ·{" "}
+                      {(doctor.languages ?? []).join(", ") ||
+                        "Bahasa Indonesia"}
+                    </span>
                     <em>{doctor.bio}</em>
                     <footer>
                       <span>
@@ -483,6 +521,11 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
                       </span>
                       <span>{trainer.experience_years} tahun</span>
                     </div>
+                    <span className="consult-provider-credential">
+                      {trainer.certification || "Trainer terverifikasi"} ·{" "}
+                      {(trainer.languages ?? []).join(", ") ||
+                        "Bahasa Indonesia"}
+                    </span>
                     <em>{trainer.bio}</em>
                     <footer>
                       <span>
@@ -581,6 +624,7 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
               </div>
               {selectedPlan && (
                 <ConsultBooking
+                  key={selectedPlan.id}
                   pet={pet}
                   doctor={selectedDoctor}
                   plan={selectedPlan}
@@ -1046,10 +1090,43 @@ function ConsultBooking({
   complete: (c: PayableConsultation) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [slots, setSlots] = useState<VeterinarianAvailabilitySlot[]>([]);
+  const [timezone, setTimezone] = useState("Asia/Jakarta");
+  const [selectedSlot, setSelectedSlot] = useState("");
+  const [availabilityLoading, setAvailabilityLoading] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState("qris");
+
+  useEffect(() => {
+    let cancelled = false;
+    getVeterinarianAvailability(doctor.id, plan.id)
+      .then((result) => {
+        if (cancelled) return;
+        setSlots(result.data);
+        setTimezone(result.timezone || "Asia/Jakarta");
+      })
+      .catch((error) => {
+        if (!cancelled)
+          notify(
+            error instanceof Error
+              ? error.message
+              : "Slot jadwal dokter belum dapat dimuat",
+          );
+      })
+      .finally(() => {
+        if (!cancelled) setAvailabilityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [doctor.id, notify, plan.id]);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!requireLogin(notify)) return;
+    if (plan.mode !== "chat" && !selectedSlot) {
+      notify("Pilih slot jadwal yang tersedia untuk telepon atau video call.");
+      return;
+    }
     setBusy(true);
     const v = Object.fromEntries(new FormData(event.currentTarget));
     try {
@@ -1061,9 +1138,7 @@ function ConsultBooking({
         symptoms: String(v.symptoms || "")
           .split(",")
           .filter(Boolean),
-        scheduled_at: v.scheduled_at
-          ? new Date(String(v.scheduled_at)).toISOString()
-          : undefined,
+        scheduled_at: selectedSlot || undefined,
       });
       const qrisPayment =
         result.amount > 0
@@ -1081,6 +1156,7 @@ function ConsultBooking({
         plan_name: plan.name,
         mode: plan.mode,
         pet_name: pet.name,
+        scheduled_at: selectedSlot || undefined,
       });
     } catch (error) {
       notify(
@@ -1109,10 +1185,37 @@ function ConsultBooking({
           <input name="symptoms" placeholder="gatal, nafsu makan turun" />
         </label>
         <label>
-          <span>Jadwal</span>
-          <input name="scheduled_at" type="datetime-local" required />
+          <span>Slot jadwal · {timezone}</span>
+          <select
+            value={selectedSlot}
+            onChange={(event) => setSelectedSlot(event.target.value)}
+            required={plan.mode !== "chat"}
+            disabled={availabilityLoading}
+          >
+            {plan.mode === "chat" && <option value="">Mulai segera</option>}
+            {plan.mode !== "chat" && <option value="">Pilih jadwal</option>}
+            {slots.map((slot) => (
+              <option value={slot.starts_at} key={slot.starts_at}>
+                {new Intl.DateTimeFormat("id-ID", {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  timeZone: timezone,
+                }).format(new Date(slot.starts_at))}{" "}
+                · {slot.duration_minutes} menit
+              </option>
+            ))}
+          </select>
         </label>
       </div>
+      {!availabilityLoading && plan.mode !== "chat" && slots.length === 0 && (
+        <p className="consult-slot-empty">
+          Belum ada slot dokter untuk 14 hari ke depan. Pilih paket chat atau
+          dokter lain.
+        </p>
+      )}
       <div className="checkout-line">
         <span>Total paket</span>
         {plan.discount_percent > 0 ? (
@@ -1131,7 +1234,12 @@ function ConsultBooking({
           disabled={busy}
         />
       )}
-      <button className="primary-button full" disabled={busy}>
+      <button
+        className="primary-button full"
+        disabled={
+          busy || availabilityLoading || (plan.mode !== "chat" && !slots.length)
+        }
+      >
         {busy
           ? "Membuat pembayaran…"
           : planCharge(plan) > 0

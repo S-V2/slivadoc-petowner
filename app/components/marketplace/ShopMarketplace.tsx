@@ -3,6 +3,7 @@
 import Image from "next/image";
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -566,17 +567,25 @@ export default function ShopMarketplace({
   const [reviewAverage, setReviewAverage] = useState(0);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const reviewRequest = useRef(0);
+  const deferredQuery = useDeferredValue(query);
 
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>([["Semua", productCatalog.length]]);
+    productCatalog.forEach((product) =>
+      counts.set(product.category, (counts.get(product.category) ?? 0) + 1),
+    );
+    return counts;
+  }, [productCatalog]);
   const categories = useMemo(
-    () => ["Semua", ...Array.from(new Set(productCatalog.map((item) => item.category).filter(Boolean)))],
-    [productCatalog],
+    () => ["Semua", ...categoryCounts.keys()].filter((item, index, values) => values.indexOf(item) === index),
+    [categoryCounts],
   );
   const stores = useMemo(
     () => ["Semua toko", ...Array.from(new Set(productCatalog.map((item) => item.brand).filter(Boolean)))],
     [productCatalog],
   );
   const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
+    const needle = deferredQuery.trim().toLocaleLowerCase("id");
     return productCatalog
       .filter(
         (product) =>
@@ -584,7 +593,7 @@ export default function ShopMarketplace({
           (store === "Semua toko" || product.brand === store) &&
           (!needle ||
             `${product.name} ${product.brand} ${product.category} ${product.description} ${product.city}`
-              .toLowerCase()
+              .toLocaleLowerCase("id")
               .includes(needle)),
       )
       .sort((left, right) => {
@@ -593,7 +602,7 @@ export default function ShopMarketplace({
         if (sort === "popular") return right.soldCount - left.soldCount;
         return Number(right.available) - Number(left.available) || right.soldCount - left.soldCount || right.rating - left.rating;
       });
-  }, [category, productCatalog, query, sort, store]);
+  }, [category, deferredQuery, productCatalog, sort, store]);
 
   const loadReviews = useCallback(async (product: Product) => {
     const requestId = reviewRequest.current + 1;
@@ -767,7 +776,7 @@ export default function ShopMarketplace({
             >
               <span><Icon name={categoryIcons[item] || "bag"} size={20} /></span>
               <b>{item}</b>
-              <small>{item === "Semua" ? productCatalog.length : productCatalog.filter((product) => product.category === item).length} produk</small>
+              <small>{categoryCounts.get(item) ?? 0} produk</small>
             </button>
           ))}
         </div>

@@ -673,6 +673,8 @@ export type TrainerAvailabilitySlot = {
   duration_minutes: number;
 };
 
+export type VeterinarianAvailabilitySlot = TrainerAvailabilitySlot;
+
 export type Consultation = {
   id: string;
   order_number: string;
@@ -1202,6 +1204,20 @@ export const getTrainerAvailability = (trainerId: string, planId: string) =>
     }
   >(
     `/api/v1/public/trainers/${trainerId}/availability?plan_id=${encodeURIComponent(planId)}&days=14`,
+  );
+
+export const getVeterinarianAvailability = (
+  veterinarianId: string,
+  planId: string,
+) =>
+  request<
+    PlatformList<VeterinarianAvailabilitySlot> & {
+      timezone: string;
+      from: string;
+      until: string;
+    }
+  >(
+    `/api/v1/public/veterinarians/${veterinarianId}/availability?plan_id=${encodeURIComponent(planId)}&days=14`,
   );
 
 export const createTrainerConsultation = (input: Record<string, unknown>) =>

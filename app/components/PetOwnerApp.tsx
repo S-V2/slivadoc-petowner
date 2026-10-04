@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   useCallback,
   useEffect,
@@ -16,13 +17,11 @@ import CommunityExperience from "./integrations/CommunityExperience";
 import LocationModal from "./integrations/LocationModal";
 import SlivaCareDrawer from "./integrations/SlivaCareDrawer";
 import PlatformDiscovery from "./platform/PlatformDiscovery";
-import CareMarketplace from "./platform/CareMarketplace";
 import PawDatingExperience from "./pawdating/PawDatingExperience";
 import { FundraisingView, PetshipView } from "./platform/PetshipFundraising";
 import type { LocationResult } from "../lib/petowner-api";
 import { ApiError } from "../lib/session";
 import ShippingAddressModal from "./ShippingAddressModal";
-import ShopMarketplace from "./marketplace/ShopMarketplace";
 import { downloadPetMedicalPDF } from "../lib/pet-pdf";
 import { finiteNumber } from "../lib/safe-number";
 import {
@@ -95,6 +94,26 @@ import {
   type Product,
   type Service,
 } from "../data/mock";
+
+function MarketplaceLoading() {
+  return (
+    <section className="marketplace-loading" aria-live="polite" aria-busy="true">
+      <span className="loading-spinner" aria-hidden="true" />
+      <div>
+        <b>Menyiapkan pengalaman terbaik…</b>
+        <small>Katalog dan jadwal dimuat saat dibutuhkan.</small>
+      </div>
+    </section>
+  );
+}
+
+const ShopMarketplace = dynamic(
+  () => import("./marketplace/ShopMarketplace"),
+  { loading: MarketplaceLoading },
+);
+const CareMarketplace = dynamic(() => import("./platform/CareMarketplace"), {
+  loading: MarketplaceLoading,
+});
 
 type Notify = (message: string) => void;
 
@@ -5841,7 +5860,7 @@ function CartDrawer({
   onCheckoutSuccess: () => void;
 }) {
   const [selectedCartIDs, setSelectedCartIDs] = useState<Set<string>>(
-    () => new Set(),
+    () => new Set(Object.keys(cart)),
   );
   const [voucherInput, setVoucherInput] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState("");
@@ -5942,22 +5961,27 @@ function CartDrawer({
     () => productCatalog.filter((product) => cart[product.id]),
     [productCatalog, cart],
   );
+  const selectedCartItems = useMemo(
+    () => items.filter((item) => selectedCartIDs.has(item.id)),
+    [items, selectedCartIDs],
+  );
   const orderItems = useMemo(
     () =>
-      items.map((product) => ({
+      selectedCartItems.map((product) => ({
         product_id: product.id,
         quantity: cart[product.id],
       })),
-    [items, cart],
-  );
-  const selectedCartItems = items.filter((item) =>
-    selectedCartIDs.has(item.id),
+    [selectedCartItems, cart],
   );
   const allCartItemsSelected =
     items.length > 0 && selectedCartItems.length === items.length;
   const cartSubtotal = useMemo(
-    () => items.reduce((total, item) => total + item.price * cart[item.id], 0),
-    [items, cart],
+    () =>
+      selectedCartItems.reduce(
+        (total, item) => total + item.price * cart[item.id],
+        0,
+      ),
+    [selectedCartItems, cart],
   );
   const shippingAddressComplete = isCartAddressComplete(
     shippingAddress,
@@ -6202,6 +6226,9 @@ function CartDrawer({
     });
   }
   function toggleCartItem(id: string) {
+    setShippingBranchID("");
+    setShippingOptions([]);
+    setShippingSelections({});
     setSelectedCartIDs((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
@@ -6444,23 +6471,30 @@ function CartDrawer({
                 </div>
                 <div className="cart-summary cart-cart-summary">
                   <span>
-                    <small>Subtotal produk</small>
+                    <small>
+                      Subtotal {selectedCartItems.length} produk dipilih
+                    </small>
                     <b>{formatRupiah(cartSubtotal)}</b>
                   </span>
                 </div>
                 <button
                   className="primary-button full"
                   type="button"
+                  disabled={selectedCartItems.length === 0}
                   onClick={() => setCheckoutStep("shipping")}
                 >
-                  Atur pengiriman <Icon name="arrow" size={16} />
+                  {selectedCartItems.length === 0
+                    ? "Pilih produk untuk checkout"
+                    : "Atur pengiriman"}{" "}
+                  <Icon name="arrow" size={16} />
                 </button>
               </>
             ) : (
               <>
                 <div className="cart-order-preview">
                   <span>
-                    {items.length} produk · {formatRupiah(cartSubtotal)}
+                    {selectedCartItems.length} produk dipilih ·{" "}
+                    {formatRupiah(cartSubtotal)}
                   </span>
                   <button
                     type="button"

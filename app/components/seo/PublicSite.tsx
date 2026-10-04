@@ -10,6 +10,7 @@ export function PublicHeader() {
       </Link>
       <nav aria-label="Navigasi publik Slivadoc">
         <Link href="/layanan">Layanan</Link>
+        <Link href="/belanja">Belanja</Link>
         <Link href="/kota">Kota</Link>
         <Link href="/tempat">Tempat</Link>
         <Link href="/panduan">Panduan</Link>
@@ -30,6 +31,7 @@ export function PublicFooter() {
       <div>
         <strong>Jelajahi</strong>
         <Link href="/layanan">Layanan pet care</Link>
+        <Link href="/belanja">Belanja kebutuhan pet</Link>
         <Link href="/kota">Layanan berdasarkan kota</Link>
         <Link href="/tempat">Direktori tempat</Link>
         <Link href="/panduan">Panduan pet parent</Link>
@@ -74,11 +76,11 @@ export function DiscoveryLinks() {
       <div className="seo-discovery-heading">
         <span>Jelajahi Slivadoc</span>
         <h2 id="seo-discovery-title">Semua kebutuhan anabul, lebih mudah ditemukan</h2>
-        <p>Temukan layanan, panduan, dan area pet care yang relevan sebelum melanjutkan ke aplikasi.</p>
+        <p>Temukan layanan, produk, panduan, dan area pet care yang relevan sebelum melanjutkan ke aplikasi.</p>
       </div>
       <div className="seo-discovery-columns">
         <div><strong>Layanan populer</strong>{servicePages.slice(0, 5).map((item) => <Link key={item.slug} href={`/layanan/${item.slug}`}>{item.name}</Link>)}</div>
-        <div><strong>Panduan terbaru</strong>{guidePages.slice(0, 4).map((item) => <Link key={item.slug} href={`/panduan/${item.slug}`}>{item.title}</Link>)}</div>
+        <div><strong>Belanja & panduan</strong><Link href="/belanja">Katalog kebutuhan pet</Link>{guidePages.slice(0, 3).map((item) => <Link key={item.slug} href={`/panduan/${item.slug}`}>{item.title}</Link>)}</div>
         <div><strong>Area layanan</strong>{cityPages.slice(0, 5).map((item) => <Link key={item.slug} href={`/kota/${item.slug}`}>Pet care {item.name}</Link>)}</div>
       </div>
     </section>

@@ -2,7 +2,7 @@
 
 import NextImage from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Pet } from "../../data/mock";
+import type { Pet } from "../../lib/petowner-domain";
 import {
   createPetOwnerPet,
   getPetSpecies,
@@ -32,7 +32,7 @@ const groupLabels: Record<string, string> = {
   other: "Spesies lainnya",
 };
 const groupToPetType = (group: string): Pet["type"] =>
-  ({
+  (({
     dog: "Dog",
     cat: "Cat",
     small_mammal: "Small Mammal",
@@ -45,7 +45,7 @@ const groupToPetType = (group: string): Pet["type"] =>
     insect: "Insect",
     equine: "Equine",
     farm_animal: "Farm Animal",
-  })[group] as Pet["type"] ?? "Other";
+  })[group] as Pet["type"]) ?? "Other";
 
 export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
   const [speciesOptions, setSpeciesOptions] = useState<PetSpecies[]>([]);
@@ -194,7 +194,9 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
             onChange={(event) => choosePhoto(event.target.files?.[0])}
           />
         </div>
-        <label className="field-label" htmlFor="pet-species">Jenis hewan *</label>
+        <label className="field-label" htmlFor="pet-species">
+          Jenis hewan *
+        </label>
         <div className="species-picker">
           <span aria-hidden="true">{species?.emoji ?? "🐾"}</span>
           <select
@@ -218,7 +220,8 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
         </div>
         {species && (
           <p className="species-hint">
-            {groupLabels[species.group] ?? species.group} · profil perawatan {species.care_profile.replaceAll("_", " ")}
+            {groupLabels[species.group] ?? species.group} · profil perawatan{" "}
+            {species.care_profile.replaceAll("_", " ")}
           </p>
         )}
         <div className="form-grid">
@@ -226,11 +229,21 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
             <>
               <label>
                 <span>Nama umum spesies *</span>
-                <input value={customSpecies} onChange={(event) => setCustomSpecies(event.target.value)} placeholder="Contoh: kelabang gurun" />
+                <input
+                  value={customSpecies}
+                  onChange={(event) => setCustomSpecies(event.target.value)}
+                  placeholder="Contoh: kelabang gurun"
+                />
               </label>
               <label>
                 <span>Nama ilmiah (opsional)</span>
-                <input value={customScientificName} onChange={(event) => setCustomScientificName(event.target.value)} placeholder="Genus species" />
+                <input
+                  value={customScientificName}
+                  onChange={(event) =>
+                    setCustomScientificName(event.target.value)
+                  }
+                  placeholder="Genus species"
+                />
               </label>
             </>
           )}

@@ -7,7 +7,9 @@ const styles = readFileSync(new URL("../app/globals.css", import.meta.url), "utf
 
 test("Jelajahi service detail is a structured responsive booking surface", () => {
   assert.match(app, /service-detail-hero/);
-  assert.match(app, /Layanan terverifikasi/);
+  assert.match(app, /Izin usaha terverifikasi/);
+  assert.match(app, /getDiscoveryServiceAvailability/);
+  assert.match(app, /cancellationPolicy/);
   assert.match(app, /Yang tersedia untuk pet-mu/);
   assert.match(app, /Booking lebih tenang bersama Slivadoc/);
   assert.match(app, /Pilih jadwal & booking/);

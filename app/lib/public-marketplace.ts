@@ -24,6 +24,22 @@ type ProductPayload = {
   rating?: unknown;
   review_count?: unknown;
   sold_count?: unknown;
+  brand_name?: unknown;
+  manufacturer?: unknown;
+  origin_country?: unknown;
+  net_content?: unknown;
+  ingredients?: unknown;
+  usage_instructions?: unknown;
+  storage_instructions?: unknown;
+  warnings?: unknown;
+  package_contents?: unknown;
+  return_policy?: unknown;
+  warranty_policy?: unknown;
+  registration_type?: unknown;
+  registration_number?: unknown;
+  halal_certificate_number?: unknown;
+  sni_number?: unknown;
+  business_license_status?: unknown;
 };
 
 export type PublicProduct = {
@@ -47,9 +63,26 @@ export type PublicProduct = {
   rating: number;
   reviewCount: number;
   soldCount: number;
+  brandName: string;
+  manufacturer: string;
+  originCountry: string;
+  netContent: string;
+  ingredients: string;
+  usageInstructions: string;
+  storageInstructions: string;
+  warnings: string;
+  packageContents: string;
+  returnPolicy: string;
+  warrantyPolicy: string;
+  registrationType: string;
+  registrationNumber: string;
+  halalCertificateNumber: string;
+  sniNumber: string;
+  businessLicenseStatus: string;
 };
 
-const UUID_AT_END = /([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
+const UUID_AT_END =
+  /([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
 
 function text(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -91,9 +124,7 @@ function normalizeProduct(value: ProductPayload): PublicProduct | null {
     sku: text(value.sku),
     barcode: text(value.barcode),
     category: text(value.category) || "Kebutuhan pet",
-    description:
-      text(value.description) ||
-      "Produk kebutuhan pet dari partner terverifikasi Slivadoc.",
+    description: text(value.description),
     imageUrl: text(value.image_url),
     price: Math.max(0, finite(value.price)),
     stock: Math.max(0, finite(value.stock)),
@@ -102,6 +133,22 @@ function normalizeProduct(value: ProductPayload): PublicProduct | null {
     rating: Math.max(0, Math.min(5, finite(value.rating))),
     reviewCount: Math.max(0, Math.round(finite(value.review_count))),
     soldCount: Math.max(0, finite(value.sold_count)),
+    brandName: text(value.brand_name),
+    manufacturer: text(value.manufacturer),
+    originCountry: text(value.origin_country),
+    netContent: text(value.net_content),
+    ingredients: text(value.ingredients),
+    usageInstructions: text(value.usage_instructions),
+    storageInstructions: text(value.storage_instructions),
+    warnings: text(value.warnings),
+    packageContents: text(value.package_contents),
+    returnPolicy: text(value.return_policy),
+    warrantyPolicy: text(value.warranty_policy),
+    registrationType: text(value.registration_type),
+    registrationNumber: text(value.registration_number),
+    halalCertificateNumber: text(value.halal_certificate_number),
+    sniNumber: text(value.sni_number),
+    businessLicenseStatus: text(value.business_license_status),
   };
 }
 

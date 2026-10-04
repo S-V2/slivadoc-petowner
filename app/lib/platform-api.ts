@@ -134,9 +134,10 @@ export type PetOwnerActivityCenterItem = {
   pet_name?: string;
 };
 
-export type PetOwnerActivityCenterResponse = PlatformList<PetOwnerActivityCenterItem> & {
-  summary: Record<PetOwnerActivityCenterItem["type"], number>;
-};
+export type PetOwnerActivityCenterResponse =
+  PlatformList<PetOwnerActivityCenterItem> & {
+    summary: Record<PetOwnerActivityCenterItem["type"], number>;
+  };
 
 export type FavoriteItem = {
   entity_type: string;
@@ -348,6 +349,45 @@ export type DiscoveryService = {
   distance_km?: number | null;
   rating?: number | null;
   review_count?: number | null;
+  description: string;
+  inclusions: string[];
+  supported_species: string[];
+  cancellation_policy: string;
+  business_license_status:
+    "not_submitted" | "pending" | "verified" | "rejected";
+};
+
+export type DiscoveryServiceDetail = DiscoveryService & {
+  capacity: number;
+  phone: string;
+  timezone: string;
+  opening_hours: Record<string, string | string[]>;
+  exclusions: string[];
+  preparation: string[];
+  aftercare: string[];
+  pet_requirements: Record<string, unknown>;
+  reschedule_policy: string;
+  business_license_number: string;
+};
+
+export type ServiceAvailabilitySlot = {
+  starts_at: string;
+  ends_at: string;
+  local_time: string;
+  remaining_capacity: number;
+};
+
+export type ServiceAvailability = {
+  data: Array<{
+    date: string;
+    label: string;
+    slots: ServiceAvailabilitySlot[];
+  }>;
+  service_id: string;
+  branch_id: string;
+  timezone: string;
+  duration_minutes: number;
+  reason: string;
 };
 
 export type DiscoveryProduct = {
@@ -370,6 +410,41 @@ export type DiscoveryProduct = {
   rating: number;
   review_count: number;
   sold_count: number;
+  brand_name: string;
+  manufacturer: string;
+  origin_country: string;
+  net_content: string;
+  ingredients: string;
+  usage_instructions: string;
+  storage_instructions: string;
+  warnings: string;
+  package_contents: string;
+  return_policy: string;
+  warranty_policy: string;
+  registration_type: string;
+  registration_number: string;
+  halal_certificate_number: string;
+  sni_number: string;
+  business_license_status:
+    "not_submitted" | "pending" | "verified" | "rejected";
+};
+
+export type PetOwnerSupportTicket = {
+  id: string;
+  ticket_number: string;
+  category: string;
+  priority: string;
+  subject: string;
+  description: string;
+  status: string;
+  resolution: string;
+  reference_type: string;
+  reference_id?: string | null;
+  response_due_at?: string | null;
+  first_response_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  resolved_at?: string | null;
 };
 
 export type ProductReview = {
@@ -1049,10 +1124,10 @@ export const registerEvent = (
     payment_status: "pending" | "paid" | "expired" | "refunded";
     payment_method: "qris";
     pet_name?: string;
-  }>(
-    `/api/v1/events/${eventId}/registrations`,
-    { method: "POST", body: JSON.stringify(input) },
-  );
+  }>(`/api/v1/events/${eventId}/registrations`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 
 export const getPetSpots = (options?: {
   latitude?: number;
@@ -1702,12 +1777,55 @@ export const getDiscoveryServices = (options?: {
   );
 };
 
+export const getDiscoveryService = (serviceId: string, branchId: string) =>
+  request<DiscoveryServiceDetail>(
+    `/api/v1/public/discovery/services/${encodeURIComponent(serviceId)}?branch_id=${encodeURIComponent(branchId)}`,
+  );
+
+export const getDiscoveryServiceAvailability = (
+  serviceId: string,
+  branchId: string,
+  options?: { from?: string; days?: number },
+) => {
+  const query = new URLSearchParams({ branch_id: branchId });
+  if (options?.from) query.set("from", options.from);
+  if (options?.days) query.set("days", String(options.days));
+  return request<ServiceAvailability>(
+    `/api/v1/public/discovery/services/${encodeURIComponent(serviceId)}/availability?${query}`,
+    { cache: "no-store" },
+  );
+};
+
 export const getDiscoveryProducts = (search = "", category = "") =>
   request<PlatformList<DiscoveryProduct>>(
     `/api/v1/public/discovery/products?search=${encodeURIComponent(
       search,
     )}&category=${encodeURIComponent(category)}`,
   );
+
+export const getPetOwnerSupportTickets = () =>
+  request<PlatformList<PetOwnerSupportTicket>>(
+    "/api/v1/petowner/support-tickets",
+    { cache: "no-store" },
+  );
+
+export const createPetOwnerSupportTicket = (input: {
+  category: string;
+  subject: string;
+  description: string;
+  reference_type: string;
+  reference_id?: string;
+}) =>
+  request<{
+    id: string;
+    ticket_number: string;
+    status: string;
+    response_due_at: string;
+    message: string;
+  }>("/api/v1/petowner/support-tickets", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 
 export const getProductReviews = (productId: string) =>
   request<ProductReviewList>(`/api/v1/public/products/${productId}/reviews`);

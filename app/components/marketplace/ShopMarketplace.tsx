@@ -16,7 +16,7 @@ import {
   saveProductReview,
   type ProductReview,
 } from "../../lib/platform-api";
-import { formatRupiah, type Product } from "../../data/mock";
+import { formatRupiah, type Product } from "../../lib/petowner-domain";
 
 type SortMode = "recommended" | "popular" | "rating" | "price";
 type ReviewFilter = "all" | 5 | 4 | 3 | 2 | 1;
@@ -56,17 +56,37 @@ function earnedPoints(price: number) {
   return Math.max(0, Math.floor(price / 1_000));
 }
 
-function MarketplaceStars({ value, size = 13 }: { value: number; size?: number }) {
+function MarketplaceStars({
+  value,
+  size = 13,
+}: {
+  value: number;
+  size?: number;
+}) {
   return (
-    <span className="market-stars" aria-label={`Rating ${value.toFixed(1)} dari 5`}>
+    <span
+      className="market-stars"
+      aria-label={`Rating ${value.toFixed(1)} dari 5`}
+    >
       {Array.from({ length: 5 }, (_, index) => (
-        <Icon key={index} name="star" size={size} data-active={index < Math.round(value)} />
+        <Icon
+          key={index}
+          name="star"
+          size={size}
+          data-active={index < Math.round(value)}
+        />
       ))}
     </span>
   );
 }
 
-function ProductPicture({ product, detail = false }: { product: Product; detail?: boolean }) {
+function ProductPicture({
+  product,
+  detail = false,
+}: {
+  product: Product;
+  detail?: boolean;
+}) {
   return (
     <div className={detail ? "market-detail-picture" : "market-card-picture"}>
       {product.imageUrl ? (
@@ -74,11 +94,18 @@ function ProductPicture({ product, detail = false }: { product: Product; detail?
           src={product.imageUrl}
           alt={`Foto ${product.name}`}
           fill
-          sizes={detail ? "(max-width: 860px) 100vw, 45vw" : "(max-width: 580px) 50vw, 22vw"}
+          sizes={
+            detail
+              ? "(max-width: 860px) 100vw, 45vw"
+              : "(max-width: 580px) 50vw, 22vw"
+          }
           unoptimized
         />
       ) : (
-        <div className="market-product-fallback" aria-label={`Ilustrasi ${product.name}`}>
+        <div
+          className="market-product-fallback"
+          aria-label={`Ilustrasi ${product.name}`}
+        >
           <i />
           <span>{product.emoji}</span>
           <small>{product.category}</small>
@@ -126,13 +153,19 @@ function ProductCard({
     >
       <div className="market-card-media">
         <ProductPicture product={product} />
-        <span className={`market-card-badge ${!product.available ? "is-empty" : ""}`}>
+        <span
+          className={`market-card-badge ${!product.available ? "is-empty" : ""}`}
+        >
           {badge}
         </span>
         <button
           className={`market-favorite ${favorite ? "is-favorite" : ""}`}
           type="button"
-          aria-label={favorite ? `Hapus ${product.name} dari favorit` : `Simpan ${product.name}`}
+          aria-label={
+            favorite
+              ? `Hapus ${product.name} dari favorit`
+              : `Simpan ${product.name}`
+          }
           onClick={(event) => {
             event.stopPropagation();
             onFavorite();
@@ -146,29 +179,41 @@ function ProductCard({
         <span className="market-card-category">{product.category}</span>
         <h3>{product.name}</h3>
         <p className="market-card-description">
-          {product.description || "Kebutuhan pet pilihan dari partner Slivadoc."}
+          {product.description ||
+            "Kebutuhan pet pilihan dari partner Slivadoc."}
         </p>
         <p className="market-card-seller">
           <Icon name="shield" size={13} />
           <span>{product.brand}</span>
         </p>
-        <strong className="market-card-price">{formatRupiah(product.price)}</strong>
+        <strong className="market-card-price">
+          {formatRupiah(product.price)}
+        </strong>
         <div className="market-card-social-proof">
           <span>
             <Icon name="star" size={12} />
             {product.reviewCount ? product.rating.toFixed(1) : "Baru"}
-            {product.reviewCount ? ` (${compactNumber(product.reviewCount)})` : ""}
+            {product.reviewCount
+              ? ` (${compactNumber(product.reviewCount)})`
+              : ""}
           </span>
           <i />
           <span>{compactNumber(product.soldCount)} terjual</span>
         </div>
         <div className="market-card-fulfillment">
-          <span><Icon name="map" size={12} /> {product.city}</span>
-          <span>{product.available ? `Stok ${compactNumber(product.stock)}` : "Tidak tersedia"}</span>
+          <span>
+            <Icon name="map" size={12} /> {product.city}
+          </span>
+          <span>
+            {product.available
+              ? `Stok ${compactNumber(product.stock)}`
+              : "Tidak tersedia"}
+          </span>
         </div>
         <div className="market-card-reward">
           <Icon name="sparkle" size={12} />
-          Dapatkan {earnedPoints(product.price).toLocaleString("id-ID")} Sliva Point
+          Dapatkan {earnedPoints(product.price).toLocaleString("id-ID")} Sliva
+          Point
         </div>
         <footer>
           <button
@@ -236,7 +281,9 @@ function ProductReviews({
     [reviews],
   );
   const filteredReviews =
-    filter === "all" ? reviews : reviews.filter((review) => review.rating === filter);
+    filter === "all"
+      ? reviews
+      : reviews.filter((review) => review.rating === filter);
   const visibleReviews = filteredReviews.slice(0, reviewLimit);
 
   async function submit(event: FormEvent) {
@@ -276,20 +323,34 @@ function ProductReviews({
           <strong>{reviews.length ? average.toFixed(1) : "–"}</strong>
           <span>dari 5</span>
           <MarketplaceStars value={average} size={15} />
-          <small>{product.reviewCount.toLocaleString("id-ID")} rating terkumpul</small>
+          <small>
+            {product.reviewCount.toLocaleString("id-ID")} rating terkumpul
+          </small>
         </div>
         <div className="market-rating-bars" aria-label="Distribusi rating">
           {distribution.map(({ score, count }) => (
             <div key={score}>
-              <span>{score} <Icon name="star" size={11} /></span>
-              <i><b style={{ width: `${reviews.length ? (count / reviews.length) * 100 : 0}%` }} /></i>
+              <span>
+                {score} <Icon name="star" size={11} />
+              </span>
+              <i>
+                <b
+                  style={{
+                    width: `${reviews.length ? (count / reviews.length) * 100 : 0}%`,
+                  }}
+                />
+              </i>
               <small>{count}</small>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="market-review-filters" role="tablist" aria-label="Filter ulasan">
+      <div
+        className="market-review-filters"
+        role="tablist"
+        aria-label="Filter ulasan"
+      >
         {(["all", 5, 4, 3, 2, 1] as ReviewFilter[]).map((value) => (
           <button
             key={value}
@@ -297,10 +358,10 @@ function ProductReviews({
             role="tab"
             aria-selected={filter === value}
             className={filter === value ? "active" : ""}
-          onClick={() => {
-            setFilter(value);
-            setReviewLimit(5);
-          }}
+            onClick={() => {
+              setFilter(value);
+              setReviewLimit(5);
+            }}
           >
             {value === "all" ? "Semua" : `${value} bintang`}
           </button>
@@ -308,9 +369,15 @@ function ProductReviews({
       </div>
 
       {loading ? (
-        <div className="market-review-state"><i /><span>Memuat ulasan terbaru…</span></div>
+        <div className="market-review-state">
+          <i />
+          <span>Memuat ulasan terbaru…</span>
+        </div>
       ) : error ? (
-        <div className="market-review-state is-error"><Icon name="chat" size={22} /><span>{error}</span></div>
+        <div className="market-review-state is-error">
+          <Icon name="chat" size={22} />
+          <span>{error}</span>
+        </div>
       ) : filteredReviews.length ? (
         <div className="market-review-list">
           {visibleReviews.map((review) => (
@@ -322,10 +389,14 @@ function ProductReviews({
                 <header>
                   <div>
                     <b>{review.reviewer_name}</b>
-                    <span><Icon name="shield" size={11} /> Pembelian terverifikasi</span>
+                    <span>
+                      <Icon name="shield" size={11} /> Pembelian terverifikasi
+                    </span>
                   </div>
                   <time dateTime={review.updated_at || review.created_at}>
-                    {new Date(review.updated_at || review.created_at).toLocaleDateString("id-ID", {
+                    {new Date(
+                      review.updated_at || review.created_at,
+                    ).toLocaleDateString("id-ID", {
                       day: "numeric",
                       month: "short",
                       year: "numeric",
@@ -343,16 +414,24 @@ function ProductReviews({
               type="button"
               onClick={() => setReviewLimit((current) => current + 5)}
             >
-              Lihat {Math.min(5, filteredReviews.length - visibleReviews.length)} ulasan berikutnya
+              Lihat{" "}
+              {Math.min(5, filteredReviews.length - visibleReviews.length)}{" "}
+              ulasan berikutnya
               <Icon name="chevron" size={14} />
             </button>
           )}
         </div>
       ) : (
         <div className="market-review-empty">
-          <span><Icon name="chat" size={24} /></span>
+          <span>
+            <Icon name="chat" size={24} />
+          </span>
           <div>
-            <b>{filter === "all" ? "Belum ada komentar" : `Belum ada rating ${filter} bintang`}</b>
+            <b>
+              {filter === "all"
+                ? "Belum ada komentar"
+                : `Belum ada rating ${filter} bintang`}
+            </b>
             <p>Bagikan pengalamanmu setelah pesanan dibayar.</p>
           </div>
         </div>
@@ -360,7 +439,9 @@ function ProductReviews({
 
       <form className="market-review-composer" onSubmit={submit}>
         <div>
-          <span className="market-composer-icon"><Icon name="chat" size={20} /></span>
+          <span className="market-composer-icon">
+            <Icon name="chat" size={20} />
+          </span>
           <div>
             <b>Tulis ulasanmu</b>
             <p>Ulasan dapat dikirim oleh pembeli terverifikasi.</p>
@@ -395,7 +476,11 @@ function ProductReviews({
         {validation && <p className="market-form-error">{validation}</p>}
         <button type="submit" disabled={submitting}>
           <Icon name={authenticated ? "chat" : "user"} size={16} />
-          {submitting ? "Mempublikasikan…" : authenticated ? "Publikasikan ulasan" : "Masuk untuk memberi ulasan"}
+          {submitting
+            ? "Mempublikasikan…"
+            : authenticated
+              ? "Publikasikan ulasan"
+              : "Masuk untuk memberi ulasan"}
         </button>
       </form>
     </section>
@@ -434,11 +519,38 @@ function ProductDetail({
   onSubmitReview: (rating: number, comment: string) => Promise<void>;
 }) {
   const [quantity, setQuantity] = useState(1);
+  const licenseLabel =
+    product.licenseStatus === "verified"
+      ? "Izin usaha terverifikasi"
+      : product.licenseStatus === "pending"
+        ? "Izin sedang ditinjau"
+        : product.licenseStatus === "rejected"
+          ? "Izin perlu diperbarui"
+          : "Status izin belum tersedia";
+  const complianceFacts = [
+    ["Merek", product.brand],
+    ["Produsen", product.manufacturer],
+    ["Negara asal", product.originCountry],
+    ["Isi bersih", product.netContent],
+    ["Jenis registrasi", product.registrationType],
+    ["Nomor registrasi", product.registrationNumber],
+    ["Sertifikat halal", product.halalCertificateNumber],
+    ["Nomor SNI", product.sniNumber],
+  ].filter((item): item is [string, string] => Boolean(item[1]));
+  const usageFacts = [
+    ["Komposisi / bahan", product.ingredients],
+    ["Cara penggunaan", product.usageInstructions],
+    ["Penyimpanan", product.storageInstructions],
+    ["Peringatan", product.warnings],
+    ["Isi kemasan", product.packageContents],
+  ].filter((item): item is [string, string] => Boolean(item[1]));
 
   return (
     <div className="market-product-detail">
       <nav className="market-breadcrumb" aria-label="Breadcrumb">
-        <button type="button" onClick={onBack}><Icon name="arrow" size={15} /> Marketplace</button>
+        <button type="button" onClick={onBack}>
+          <Icon name="arrow" size={15} /> Marketplace
+        </button>
         <Icon name="chevron" size={13} />
         <span>{product.category}</span>
         <Icon name="chevron" size={13} />
@@ -449,16 +561,32 @@ function ProductDetail({
         <div className="market-detail-gallery">
           <ProductPicture product={product} detail />
           <div className="market-detail-assurance">
-            <span><Icon name="shield" size={17} /><b>Belanja terlindungi</b><small>Pembayaran aman</small></span>
-            <span><Icon name="check" size={17} /><b>Stok langsung</b><small>Dari sistem partner</small></span>
-            <span><Icon name="map" size={17} /><b>Pengiriman jelas</b><small>Asal toko tertera</small></span>
+            <span>
+              <Icon name="shield" size={17} />
+              <b>Belanja terlindungi</b>
+              <small>Pembayaran aman</small>
+            </span>
+            <span>
+              <Icon name="check" size={17} />
+              <b>Stok langsung</b>
+              <small>Dari sistem partner</small>
+            </span>
+            <span>
+              <Icon name="map" size={17} />
+              <b>Pengiriman jelas</b>
+              <small>Asal toko tertera</small>
+            </span>
           </div>
         </div>
 
         <div className="market-detail-main">
           <div className="market-detail-labels">
             <span>{product.category}</span>
-            {product.available ? <em>Siap dikirim</em> : <em className="is-empty">Stok habis</em>}
+            {product.available ? (
+              <em>Siap dikirim</em>
+            ) : (
+              <em className="is-empty">Stok habis</em>
+            )}
           </div>
           <div className="market-detail-title-row">
             <h1>{product.name}</h1>
@@ -473,54 +601,160 @@ function ProductDetail({
           </div>
           <div className="market-detail-rating">
             <MarketplaceStars value={product.rating} />
-            <b>{product.reviewCount ? product.rating.toFixed(1) : "Produk baru"}</b>
+            <b>
+              {product.reviewCount ? product.rating.toFixed(1) : "Produk baru"}
+            </b>
             <span>{product.reviewCount.toLocaleString("id-ID")} ulasan</span>
             <i />
             <span>{compactNumber(product.soldCount)} terjual</span>
           </div>
-          <strong className="market-detail-price">{formatRupiah(product.price)}</strong>
+          <strong className="market-detail-price">
+            {formatRupiah(product.price)}
+          </strong>
           <p className="market-detail-points">
             <Icon name="sparkle" size={15} />
-            Transaksi ini menghasilkan <b>{earnedPoints(product.price).toLocaleString("id-ID")} Sliva Point</b>
+            Transaksi ini menghasilkan{" "}
+            <b>
+              {earnedPoints(product.price).toLocaleString("id-ID")} Sliva Point
+            </b>
           </p>
 
           <div className="market-seller-card">
-            <span><Icon name="bag" size={21} /></span>
+            <span>
+              <Icon name="bag" size={21} />
+            </span>
             <div>
               <small>DIJUAL OLEH</small>
               <b>{product.brand}</b>
-              <p><Icon name="map" size={12} /> {product.branchName} · {product.city}</p>
+              <p>
+                <Icon name="map" size={12} /> {product.branchName} ·{" "}
+                {product.city}
+              </p>
             </div>
-            <em><Icon name="shield" size={12} /> Terverifikasi</em>
+            <em>
+              <Icon name="shield" size={12} /> {licenseLabel}
+            </em>
           </div>
 
           <div className="market-detail-copy">
             <h2>Tentang produk</h2>
-            <p>{product.description || "Produk pilihan partner Slivadoc untuk mendukung kebutuhan harian dan kenyamanan pet-mu."}</p>
+            <p>
+              {product.description ||
+                "Deskripsi produk belum dicantumkan oleh penjual."}
+            </p>
           </div>
 
           <dl className="market-product-facts">
-            <div><dt>Stok</dt><dd>{product.available ? `${product.stock.toLocaleString("id-ID")} tersedia` : "Habis"}</dd></div>
-            <div><dt>SKU</dt><dd>{product.sku}</dd></div>
-            <div><dt>Kategori</dt><dd>{product.category}</dd></div>
-            {product.barcode && <div><dt>Barcode</dt><dd>{product.barcode}</dd></div>}
+            <div>
+              <dt>Stok</dt>
+              <dd>
+                {product.available
+                  ? `${product.stock.toLocaleString("id-ID")} tersedia`
+                  : "Habis"}
+              </dd>
+            </div>
+            <div>
+              <dt>SKU</dt>
+              <dd>{product.sku}</dd>
+            </div>
+            <div>
+              <dt>Kategori</dt>
+              <dd>{product.category}</dd>
+            </div>
+            {product.barcode && (
+              <div>
+                <dt>Barcode</dt>
+                <dd>{product.barcode}</dd>
+              </div>
+            )}
           </dl>
+
+          <section className="market-product-disclosures">
+            <div>
+              <h2>Identitas & kepatuhan produk</h2>
+              {complianceFacts.length ? (
+                <dl>
+                  {complianceFacts.map(([label, value]) => (
+                    <div key={label}>
+                      <dt>{label}</dt>
+                      <dd>{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p>
+                  Penjual belum melengkapi identitas atau nomor kepatuhan
+                  produk.
+                </p>
+              )}
+            </div>
+            <div>
+              <h2>Penggunaan yang aman</h2>
+              {usageFacts.length ? (
+                <dl>
+                  {usageFacts.map(([label, value]) => (
+                    <div key={label}>
+                      <dt>{label}</dt>
+                      <dd>{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p>Petunjuk penggunaan belum dicantumkan oleh penjual.</p>
+              )}
+            </div>
+            <div>
+              <h2>Retur & garansi</h2>
+              <p>
+                {product.returnPolicy ||
+                  "Kebijakan retur belum dicantumkan oleh penjual."}
+              </p>
+              {product.warrantyPolicy && <p>{product.warrantyPolicy}</p>}
+            </div>
+          </section>
 
           <div className="market-purchase-box">
             <label>
               <span>Jumlah</span>
               <div className="market-quantity">
-                <button type="button" aria-label="Kurangi jumlah" disabled={quantity <= 1} onClick={() => setQuantity((value) => Math.max(1, value - 1))}>−</button>
+                <button
+                  type="button"
+                  aria-label="Kurangi jumlah"
+                  disabled={quantity <= 1}
+                  onClick={() => setQuantity((value) => Math.max(1, value - 1))}
+                >
+                  −
+                </button>
                 <strong>{quantity}</strong>
-                <button type="button" aria-label="Tambah jumlah" disabled={quantity >= product.stock} onClick={() => setQuantity((value) => Math.min(product.stock, value + 1))}>+</button>
+                <button
+                  type="button"
+                  aria-label="Tambah jumlah"
+                  disabled={quantity >= product.stock}
+                  onClick={() =>
+                    setQuantity((value) => Math.min(product.stock, value + 1))
+                  }
+                >
+                  +
+                </button>
               </div>
             </label>
-            <p><span>Subtotal</span><b>{formatRupiah(product.price * quantity)}</b></p>
+            <p>
+              <span>Subtotal</span>
+              <b>{formatRupiah(product.price * quantity)}</b>
+            </p>
             <div>
-              <button type="button" disabled={!product.available} onClick={() => onAdd(quantity)}>
+              <button
+                type="button"
+                disabled={!product.available}
+                onClick={() => onAdd(quantity)}
+              >
                 <Icon name="cart" size={17} /> + Keranjang
               </button>
-              <button type="button" disabled={!product.available} onClick={() => onBuy(quantity)}>
+              <button
+                type="button"
+                disabled={!product.available}
+                onClick={() => onBuy(quantity)}
+              >
                 Beli sekarang
               </button>
             </div>
@@ -577,11 +811,19 @@ export default function ShopMarketplace({
     return counts;
   }, [productCatalog]);
   const categories = useMemo(
-    () => ["Semua", ...categoryCounts.keys()].filter((item, index, values) => values.indexOf(item) === index),
+    () =>
+      ["Semua", ...categoryCounts.keys()].filter(
+        (item, index, values) => values.indexOf(item) === index,
+      ),
     [categoryCounts],
   );
   const stores = useMemo(
-    () => ["Semua toko", ...Array.from(new Set(productCatalog.map((item) => item.brand).filter(Boolean)))],
+    () => [
+      "Semua toko",
+      ...Array.from(
+        new Set(productCatalog.map((item) => item.brand).filter(Boolean)),
+      ),
+    ],
     [productCatalog],
   );
   const filtered = useMemo(() => {
@@ -597,10 +839,17 @@ export default function ShopMarketplace({
               .includes(needle)),
       )
       .sort((left, right) => {
-        if (sort === "rating") return right.rating - left.rating || right.reviewCount - left.reviewCount;
+        if (sort === "rating")
+          return (
+            right.rating - left.rating || right.reviewCount - left.reviewCount
+          );
         if (sort === "price") return left.price - right.price;
         if (sort === "popular") return right.soldCount - left.soldCount;
-        return Number(right.available) - Number(left.available) || right.soldCount - left.soldCount || right.rating - left.rating;
+        return (
+          Number(right.available) - Number(left.available) ||
+          right.soldCount - left.soldCount ||
+          right.rating - left.rating
+        );
       });
   }, [category, deferredQuery, productCatalog, sort, store]);
 
@@ -630,7 +879,9 @@ export default function ShopMarketplace({
 
   useEffect(() => {
     const syncProductFromUrl = () => {
-      const productId = new URL(window.location.href).searchParams.get("product");
+      const productId = new URL(window.location.href).searchParams.get(
+        "product",
+      );
       const match = productCatalog.find((product) => product.id === productId);
       setSelected((current) => (current?.id === match?.id ? current : match));
       if (match) void loadReviews(match);
@@ -675,7 +926,8 @@ export default function ShopMarketplace({
       setReviews(refreshed.data);
       setReviewAverage(refreshed.rating || rating);
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Ulasan belum dapat disimpan";
+      const message =
+        cause instanceof Error ? cause.message : "Ulasan belum dapat disimpan";
       notify(message);
       throw cause;
     } finally {
@@ -708,13 +960,22 @@ export default function ShopMarketplace({
     );
   }
 
-  const sellerCount = new Set(productCatalog.map((product) => product.businessId)).size;
+  const sellerCount = new Set(
+    productCatalog.map((product) => product.businessId),
+  ).size;
 
   return (
     <div className="shop-native market-home">
       <header className="market-mobile-header">
-        <div><span>SLIVA MARKET</span><h1>Kebutuhan pet, lengkap.</h1></div>
-        <button type="button" aria-label="Buka keranjang" onClick={() => setCartOpen(true)}>
+        <div>
+          <span>SLIVA MARKET</span>
+          <h1>Kebutuhan pet, lengkap.</h1>
+        </div>
+        <button
+          type="button"
+          aria-label="Buka keranjang"
+          onClick={() => setCartOpen(true)}
+        >
           <Icon name="cart" size={20} />
           {cartCount > 0 && <b>{cartCount > 99 ? "99+" : cartCount}</b>}
         </button>
@@ -722,17 +983,30 @@ export default function ShopMarketplace({
 
       <section className="market-hero">
         <div className="market-hero-copy">
-          <span><Icon name="shield" size={13} /> MARKETPLACE PARTNER TERVERIFIKASI</span>
+          <span>
+            <Icon name="shield" size={13} /> MARKETPLACE PET TERINTEGRASI
+          </span>
           <h1>Belanja lebih tenang untuk sahabat terbaikmu.</h1>
-          <p>Bandingkan produk, cek stok asli, baca ulasan pembeli, lalu checkout dari banyak petshop dalam satu keranjang.</p>
+          <p>
+            Bandingkan produk, cek stok asli, baca ulasan pembeli, lalu checkout
+            dari banyak petshop dalam satu keranjang.
+          </p>
           <div className="market-hero-trust">
-            <span><b>{productCatalog.length}</b> produk aktif</span>
-            <span><b>{sellerCount}</b> partner</span>
-            <span><b>100%</b> stok live</span>
+            <span>
+              <b>{productCatalog.length}</b> produk aktif
+            </span>
+            <span>
+              <b>{sellerCount}</b> partner
+            </span>
+            <span>
+              <b>100%</b> stok live
+            </span>
           </div>
         </div>
         <div className="market-hero-art" aria-hidden="true">
-          <i /><span>🛍️</span><b>🐾</b>
+          <i />
+          <span>🛍️</span>
+          <b>🐾</b>
         </div>
       </section>
 
@@ -746,7 +1020,15 @@ export default function ShopMarketplace({
             placeholder="Cari makanan, vitamin, mainan, atau toko…"
             aria-label="Cari produk atau toko"
           />
-          {query && <button type="button" aria-label="Hapus pencarian" onClick={() => setQuery("")}><Icon name="close" size={15} /></button>}
+          {query && (
+            <button
+              type="button"
+              aria-label="Hapus pencarian"
+              onClick={() => setQuery("")}
+            >
+              <Icon name="close" size={15} />
+            </button>
+          )}
         </label>
         <button
           className="market-cart-button"
@@ -762,9 +1044,16 @@ export default function ShopMarketplace({
 
       <section className="market-category-section">
         <header className="market-section-heading">
-          <div><span>BELANJA SESUAI KEBUTUHAN</span><h2>Kategori populer</h2></div>
+          <div>
+            <span>BELANJA SESUAI KEBUTUHAN</span>
+            <h2>Kategori populer</h2>
+          </div>
         </header>
-        <div className="market-category-rail" role="tablist" aria-label="Kategori produk">
+        <div
+          className="market-category-rail"
+          role="tablist"
+          aria-label="Kategori produk"
+        >
           {categories.map((item) => (
             <button
               type="button"
@@ -774,7 +1063,9 @@ export default function ShopMarketplace({
               onClick={() => setCategory(item)}
               key={item}
             >
-              <span><Icon name={categoryIcons[item] || "bag"} size={20} /></span>
+              <span>
+                <Icon name={categoryIcons[item] || "bag"} size={20} />
+              </span>
               <b>{item}</b>
               <small>{categoryCounts.get(item) ?? 0} produk</small>
             </button>
@@ -790,8 +1081,29 @@ export default function ShopMarketplace({
             <p>{filtered.length} produk sesuai pilihanmu</p>
           </div>
           <div className="market-catalog-filters">
-            <label><span>Toko</span><select value={store} onChange={(event) => setStore(event.target.value)}>{stores.map((item) => <option key={item}>{item}</option>)}</select></label>
-            <label><span>Urutkan</span><select value={sort} onChange={(event) => setSort(event.target.value as SortMode)}><option value="recommended">Rekomendasi</option><option value="popular">Terlaris</option><option value="rating">Rating tertinggi</option><option value="price">Harga termurah</option></select></label>
+            <label>
+              <span>Toko</span>
+              <select
+                value={store}
+                onChange={(event) => setStore(event.target.value)}
+              >
+                {stores.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Urutkan</span>
+              <select
+                value={sort}
+                onChange={(event) => setSort(event.target.value as SortMode)}
+              >
+                <option value="recommended">Rekomendasi</option>
+                <option value="popular">Terlaris</option>
+                <option value="rating">Rating tertinggi</option>
+                <option value="price">Harga termurah</option>
+              </select>
+            </label>
           </div>
         </header>
 
@@ -810,18 +1122,56 @@ export default function ShopMarketplace({
           </div>
         ) : (
           <div className="market-empty-state">
-            <span><Icon name="search" size={28} /></span>
+            <span>
+              <Icon name="search" size={28} />
+            </span>
             <h3>Produk belum ditemukan</h3>
             <p>Coba ganti kata kunci, kategori, atau pilihan toko.</p>
-            <button type="button" onClick={() => { setQuery(""); setCategory("Semua"); setStore("Semua toko"); }}>Reset filter</button>
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setCategory("Semua");
+                setStore("Semua toko");
+              }}
+            >
+              Reset filter
+            </button>
           </div>
         )}
       </section>
 
       <section className="market-confidence-strip">
-        <article><span><Icon name="shield" size={19} /></span><div><b>Partner terverifikasi</b><p>Produk hanya dari bisnis aktif.</p></div></article>
-        <article><span><Icon name="check" size={19} /></span><div><b>Data stok langsung</b><p>Ketersediaan mengikuti cabang.</p></div></article>
-        <article><span><Icon name="chat" size={19} /></span><div><b>Ulasan pembeli asli</b><p>Hanya transaksi berbayar.</p></div></article>
+        <article>
+          <span>
+            <Icon name="shield" size={19} />
+          </span>
+          <div>
+            <b>Status partner transparan</b>
+            <p>
+              Produk hanya dari bisnis aktif; status izin ditampilkan apa
+              adanya.
+            </p>
+          </div>
+        </article>
+        <article>
+          <span>
+            <Icon name="check" size={19} />
+          </span>
+          <div>
+            <b>Data stok langsung</b>
+            <p>Ketersediaan mengikuti cabang.</p>
+          </div>
+        </article>
+        <article>
+          <span>
+            <Icon name="chat" size={19} />
+          </span>
+          <div>
+            <b>Ulasan pembeli asli</b>
+            <p>Hanya transaksi berbayar.</p>
+          </div>
+        </article>
       </section>
     </div>
   );

@@ -10,6 +10,6 @@ test("Official Brand portal uses shared session and OTP activation, never public
  assert.ok(portal.includes('user?.role === "official_brand"'));
  assert.ok(portal.includes('<CommerceWorkspace request={apiRequest} />'));
  assert.ok(page.includes("index: false"));
- assert.ok(app.includes('window.location.assign("/brand")'));
+ assert.ok(app.includes('router.push("/brand")'));
  assert.ok(!portal.includes("/auth/register"));
 });

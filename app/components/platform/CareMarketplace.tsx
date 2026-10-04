@@ -15,7 +15,7 @@ import {
   startConsultationMedia,
   type ConsultationMedia,
 } from "../../lib/consultation-sfu";
-import type { Pet } from "../../data/mock";
+import type { Pet } from "../../lib/petowner-domain";
 import {
   applyAdoption,
   createAdoptionListing,
@@ -48,10 +48,7 @@ import {
   type Veterinarian,
   type VeterinarianAvailabilitySlot,
 } from "../../lib/platform-api";
-import {
-  QrisPaymentPanel,
-  PaymentMethodPicker,
-} from "../payments/QrisPayment";
+import { QrisPaymentPanel, PaymentMethodPicker } from "../payments/QrisPayment";
 
 type PayableConsultation = Consultation & { qrisPayment?: PaymentIntent };
 type ConsultProviderFilter = "all" | "veterinarian" | "trainer";
@@ -197,38 +194,44 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
       left[1].localeCompare(right[1], "id"),
     );
   }, [consultProvider, doctors, trainers]);
-  const filteredDoctors = useMemo(
-    () => {
-      if (consultProvider === "trainer") return [];
-      const query = deferredConsultQuery.trim().toLocaleLowerCase("id");
-      return doctors.filter(
-        (doctor) =>
-          (filter === "all" || doctor.availability_status === "online") &&
-          hasSpecialty(doctor.specialties, consultSpecialty) &&
-          (!query ||
-            `${doctor.full_name} ${doctor.strv_number} ${(doctor.specialties ?? []).join(" ")} ${(doctor.languages ?? []).join(" ")} ${doctor.bio}`
-              .toLocaleLowerCase("id")
-              .includes(query)),
-      );
-    },
-    [consultProvider, consultSpecialty, deferredConsultQuery, doctors, filter],
-  );
-  const filteredTrainers = useMemo(
-    () => {
-      if (consultProvider === "veterinarian") return [];
-      const query = deferredConsultQuery.trim().toLocaleLowerCase("id");
-      return trainers.filter(
-        (trainer) =>
-          (filter === "all" || trainer.availability_status === "online") &&
-          hasSpecialty(trainer.specialties, consultSpecialty) &&
-          (!query ||
-            `${trainer.full_name} ${trainer.certification} ${(trainer.specialties ?? []).join(" ")} ${(trainer.languages ?? []).join(" ")} ${trainer.bio}`
-              .toLocaleLowerCase("id")
-              .includes(query)),
-      );
-    },
-    [consultProvider, consultSpecialty, deferredConsultQuery, filter, trainers],
-  );
+  const filteredDoctors = useMemo(() => {
+    if (consultProvider === "trainer") return [];
+    const query = deferredConsultQuery.trim().toLocaleLowerCase("id");
+    return doctors.filter(
+      (doctor) =>
+        (filter === "all" || doctor.availability_status === "online") &&
+        hasSpecialty(doctor.specialties, consultSpecialty) &&
+        (!query ||
+          `${doctor.full_name} ${doctor.strv_number} ${(doctor.specialties ?? []).join(" ")} ${(doctor.languages ?? []).join(" ")} ${doctor.bio}`
+            .toLocaleLowerCase("id")
+            .includes(query)),
+    );
+  }, [
+    consultProvider,
+    consultSpecialty,
+    deferredConsultQuery,
+    doctors,
+    filter,
+  ]);
+  const filteredTrainers = useMemo(() => {
+    if (consultProvider === "veterinarian") return [];
+    const query = deferredConsultQuery.trim().toLocaleLowerCase("id");
+    return trainers.filter(
+      (trainer) =>
+        (filter === "all" || trainer.availability_status === "online") &&
+        hasSpecialty(trainer.specialties, consultSpecialty) &&
+        (!query ||
+          `${trainer.full_name} ${trainer.certification} ${(trainer.specialties ?? []).join(" ")} ${(trainer.languages ?? []).join(" ")} ${trainer.bio}`
+            .toLocaleLowerCase("id")
+            .includes(query)),
+    );
+  }, [
+    consultProvider,
+    consultSpecialty,
+    deferredConsultQuery,
+    filter,
+    trainers,
+  ]);
   const chooseConsultProvider = (provider: ConsultProviderFilter) => {
     setConsultProvider(provider);
     setConsultSpecialty("all");

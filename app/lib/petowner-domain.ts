@@ -18,6 +18,7 @@ export type AppView =
   | "fundraising"
   | "favorites"
   | "notifications"
+  | "support"
   | "profile";
 
 export type Pet = {
@@ -70,6 +71,12 @@ export type Service = {
   emoji: string;
   accent: string;
   tags: string[];
+  description?: string;
+  durationMinutes?: number;
+  inclusions?: string[];
+  supportedSpecies?: string[];
+  cancellationPolicy?: string;
+  licenseStatus?: "not_submitted" | "pending" | "verified" | "rejected";
 };
 
 export type Product = {
@@ -95,6 +102,21 @@ export type Product = {
   imageUrl?: string;
   category: string;
   badge?: string;
+  manufacturer?: string;
+  originCountry?: string;
+  netContent?: string;
+  ingredients?: string;
+  usageInstructions?: string;
+  storageInstructions?: string;
+  warnings?: string;
+  packageContents?: string;
+  returnPolicy?: string;
+  warrantyPolicy?: string;
+  registrationType?: string;
+  registrationNumber?: string;
+  halalCertificateNumber?: string;
+  sniNumber?: string;
+  licenseStatus?: "not_submitted" | "pending" | "verified" | "rejected";
 };
 
 export const formatRupiah = (value: number) =>

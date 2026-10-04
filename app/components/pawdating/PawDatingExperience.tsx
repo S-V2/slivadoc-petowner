@@ -10,7 +10,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import type { Pet } from "../../data/mock";
+import type { Pet } from "../../lib/petowner-domain";
 import {
   createPawDatingHealthReport,
   createPawDatingMessage,

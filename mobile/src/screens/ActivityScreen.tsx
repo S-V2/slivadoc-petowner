@@ -125,10 +125,11 @@ function statusPresentation(status: string): { label: string; tone: PillTone } {
     shipped: "Dikirim",
     completed: "Selesai",
     cancelled: "Dibatalkan",
+    returned: "Diretur",
     no_show: "Tidak hadir",
   };
   if (normalized === "completed") return { label: "Selesai", tone: "mint" };
-  if (normalized === "cancelled" || normalized === "no_show")
+  if (["cancelled", "returned", "no_show"].includes(normalized))
     return { label: labels[normalized] ?? status, tone: "red" };
   if (["active", "in_progress", "processing", "shipped"].includes(normalized)) {
     return { label: labels[normalized] ?? status, tone: "blue" };
@@ -144,7 +145,9 @@ const shipmentSteps = ["Diproses", "Pickup", "Dalam perjalanan", "Selesai"];
 function shipmentPresentation(status: string): { label: string; stage: number } {
   const normalized = status.toLowerCase();
   if (normalized === "delivered") return { label: "Sudah diterima", stage: 3 };
-  if (["in_transit", "exception", "returning", "returned"].includes(normalized)) {
+  if (normalized === "returning") return { label: "Dalam perjalanan retur", stage: 2 };
+  if (normalized === "returned") return { label: "Diretur ke pengirim", stage: 2 };
+  if (["in_transit", "exception"].includes(normalized)) {
     return {
       label: normalized === "exception" ? "Ada kendala pengiriman" : "Dalam perjalanan",
       stage: 2,

@@ -22,7 +22,7 @@ import {
   type WorldItem,
 } from "../api";
 import type { PetView, Service } from "../data";
-import { activityTypePresentation } from "../activity";
+import { getActivityTypePresentation } from "../activity";
 import { colors, radius, shadow, spacing, typography } from "../theme";
 import { Pill, Screen } from "../components/ui";
 import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
@@ -524,7 +524,7 @@ export function HomeScreen({
           <LinearGradient colors={["#F2FFFB", "#FFFFFF", "#F2FAFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.careCard}>
             <View style={styles.careGlow} />
             {featuredActivities.map((item, index) => {
-              const presentation = activityTypePresentation[item.type];
+              const presentation = getActivityTypePresentation(item.type);
               return (
               <Pressable key={`${item.type}-${item.id}`} onPress={() => onOpenActivity(item.type, item.id)} style={[styles.careRow, index < featuredActivities.length - 1 && styles.careDivider]}>
                 <View style={styles.careTimeline}>

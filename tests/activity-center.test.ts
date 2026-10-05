@@ -7,6 +7,7 @@ import {
   activityStatusLabel,
   activityStatusText,
   activityTypeOrder,
+  getActivityTypeMeta,
 } from "../app/lib/activity-center.ts";
 
 test("Aktivitas lists the nine kinds in the chip order and repeats only the original three", () => {
@@ -26,6 +27,15 @@ test("Aktivitas lists the nine kinds in the chip order and repeats only the orig
     "order",
     "consultation",
   ]);
+});
+
+test("unknown activity kinds use a safe generic presentation", () => {
+  assert.deepEqual(getActivityTypeMeta("legacy_service"), {
+    label: "Aktivitas",
+    icon: "calendar",
+    tone: "sky",
+  });
+  assert.equal(getActivityTypeMeta(undefined).tone, "sky");
 });
 
 test("status labels put payability and expiry ahead of the raw status", () => {

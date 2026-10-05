@@ -23,6 +23,17 @@ export const activityTypeOrder = Object.keys(
   activityTypeMeta,
 ) as ActivityType[];
 
+const fallbackActivityTypeMeta = {
+  label: "Aktivitas",
+  icon: "calendar" as IconName,
+  tone: "sky" as const,
+};
+
+export function getActivityTypeMeta(type: string | null | undefined) {
+  if (!type) return fallbackActivityTypeMeta;
+  return activityTypeMeta[type as ActivityType] ?? fallbackActivityTypeMeta;
+}
+
 // Only the three original kinds can be repeated; the newer ones are one-off
 // commitments (a class seat, a ticket, a document).
 export const activityRepeatLabels: Partial<Record<ActivityType, string>> = {

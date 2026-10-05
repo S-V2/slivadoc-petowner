@@ -29,6 +29,7 @@ import {
   activityStatusTone,
   activityTypePresentation,
   emptyActivitySummary,
+  getActivityTypePresentation,
 } from "../activity";
 import {
   BoundedBottomSheet,
@@ -154,7 +155,7 @@ function ActivityCard({
   onRepeat: () => void;
 }) {
   const { formatCurrency, locale } = useI18n();
-  const presentation = activityTypePresentation[item.type];
+  const presentation = getActivityTypePresentation(item.type);
   const repeatLabel = repeatLabels[item.type];
   const amount = item.total_amount ?? item.amount;
   const when = item.scheduled_at || item.occurred_at;
@@ -405,7 +406,7 @@ function ActivityDetailSheet({
     queueMicrotask(() => void pay());
   }, [autoPay, pay, payable]);
 
-  const presentation = activityTypePresentation[item.type];
+  const presentation = getActivityTypePresentation(item.type);
   const repeatLabel = repeatLabels[item.type];
   const amount = item.total_amount ?? item.amount;
   const invoiceReferenceType =
@@ -1404,7 +1405,7 @@ export function ActivityScreen({
               </View>
             </View>
             {attention.map((item) => {
-              const presentation = activityTypePresentation[item.type];
+              const presentation = getActivityTypePresentation(item.type);
               const reason = activityAttentionReason(item, (value) =>
                 formatDate(value, { weekday: "short", hour: "2-digit", minute: "2-digit" }),
               );
@@ -1559,7 +1560,7 @@ export function ActivityScreen({
               icon={
                 typeFilter === "all"
                   ? "calendar-outline"
-                  : activityTypePresentation[typeFilter].icon
+                  : getActivityTypePresentation(typeFilter).icon
               }
               title="Belum ada aktivitas"
               note="Filter ini masih kosong. Mulai aktivitas baru dan progresnya akan tampil otomatis di sini."

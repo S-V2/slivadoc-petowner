@@ -105,6 +105,7 @@ import {
   activityTypeMeta,
   activityTypeOrder,
   formatActivityDate,
+  getActivityTypeMeta,
 } from "../lib/activity-center";
 import {
   formatRupiah,
@@ -2870,8 +2871,9 @@ function HomeView({
           </header>
           <div className="home-care-card">
             {featuredActivities.length ? (
-              featuredActivities.map((care, index) => (
-                <button
+              featuredActivities.map((care, index) => {
+                const meta = getActivityTypeMeta(care.type);
+                return <button
                   className="home-care-row"
                   type="button"
                   key={`${care.type}-${care.id}`}
@@ -2880,12 +2882,12 @@ function HomeView({
                   <span className="home-care-timeline">
                     <i
                       className={
-                        activityTypeMeta[care.type].tone === "sky"
+                        meta.tone === "sky"
                           ? "home-care-icon"
-                          : `home-care-icon home-care-icon--${activityTypeMeta[care.type].tone}`
+                          : `home-care-icon home-care-icon--${meta.tone}`
                       }
                     >
-                      <Icon name={activityTypeMeta[care.type].icon} size={18} />
+                      <Icon name={meta.icon} size={18} />
                     </i>
                     {index < featuredActivities.length - 1 && <em />}
                   </span>
@@ -2903,8 +2905,8 @@ function HomeView({
                     <span>{care.subtitle}</span>
                   </span>
                   <Icon name="chevron" size={15} />
-                </button>
-              ))
+                </button>;
+              })
             ) : (
               <div className="empty-state compact home-care-empty">
                 <span>
@@ -4197,7 +4199,7 @@ function BookingsView({
             <span className="activity-tab-count">{attention.length}</span>
           </header>
           {attention.map((item) => {
-            const meta = activityTypeMeta[item.type];
+            const meta = getActivityTypeMeta(item.type);
             return (
               <article key={`${item.type}-${item.id}`}>
                 <span
@@ -4266,7 +4268,7 @@ function BookingsView({
               aria-pressed={typeFilter === type}
               onClick={() => setTypeFilter(type)}
             >
-              {activityTypeMeta[type].label}{" "}
+              {getActivityTypeMeta(type).label}{" "}
               <span className="activity-tab-count">{typeCount(type)}</span>
             </button>
           ))}
@@ -4305,7 +4307,7 @@ function BookingsView({
       <div className="activity-native-list">
         {visible.length ? (
           visible.map((item) => {
-            const meta = activityTypeMeta[item.type];
+            const meta = getActivityTypeMeta(item.type);
             const repeatLabel = activityRepeatLabels[item.type];
             return (
               <article
@@ -4371,7 +4373,7 @@ function BookingsView({
                 name={
                   typeFilter === "all"
                     ? "calendar"
-                    : activityTypeMeta[typeFilter].icon
+                    : getActivityTypeMeta(typeFilter).icon
                 }
                 size={28}
               />
@@ -6345,7 +6347,7 @@ function ActivityDetail({
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState("");
   const autoPayStarted = useRef(false);
-  const meta = activityTypeMeta[item.type];
+  const meta = getActivityTypeMeta(item.type);
   const repeatLabel = activityRepeatLabels[item.type];
   const rows = activityDetailRows(item).filter(
     ([, value]) => value !== "" && value !== undefined && value !== null,

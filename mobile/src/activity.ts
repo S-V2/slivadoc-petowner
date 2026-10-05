@@ -29,6 +29,22 @@ export const activityTypePresentation: Record<
   hotel: { label: "Pet hotel", icon: "bed-outline", ...sky },
 };
 
+const fallbackActivityTypePresentation: ActivityTypePresentation = {
+  label: "Aktivitas",
+  icon: "calendar-outline",
+  ...sky,
+};
+
+export function getActivityTypePresentation(
+  type: string | null | undefined,
+): ActivityTypePresentation {
+  if (!type) return fallbackActivityTypePresentation;
+  return (
+    activityTypePresentation[type as MobileActivityType] ??
+    fallbackActivityTypePresentation
+  );
+}
+
 export const emptyActivitySummary: Record<MobileActivityType, number> = {
   booking: 0,
   order: 0,

@@ -7,6 +7,14 @@ const activity = readFileSync(
   new URL("../mobile/src/screens/ActivityScreen.tsx", import.meta.url),
   "utf8",
 );
+const activityPresentation = readFileSync(
+  new URL("../mobile/src/activity.ts", import.meta.url),
+  "utf8",
+);
+const home = readFileSync(
+  new URL("../mobile/src/screens/HomeScreen.tsx", import.meta.url),
+  "utf8",
+);
 const marketplace = readFileSync(
   new URL("../mobile/src/screens/MarketplaceScreen.tsx", import.meta.url),
   "utf8",
@@ -20,6 +28,14 @@ test("activity center loads booking, order, and consultation filters from the da
   assert.match(activity, /id:\s*"booking"/);
   assert.match(activity, /id:\s*"order"/);
   assert.match(activity, /id:\s*"consultation"/);
+});
+
+test("home and activity screens tolerate activity kinds outside the current presentation map", () => {
+  assert.match(activityPresentation, /fallbackActivityTypePresentation/);
+  assert.match(activityPresentation, /getActivityTypePresentation/);
+  assert.match(home, /getActivityTypePresentation\(item\.type\)/);
+  assert.doesNotMatch(home, /activityTypePresentation\[item\.type\]/);
+  assert.doesNotMatch(activity, /activityTypePresentation\[item\.type\]/);
 });
 
 test("every activity exposes details and a contextual repeat action", () => {

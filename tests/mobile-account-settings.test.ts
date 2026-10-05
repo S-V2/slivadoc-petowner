@@ -14,6 +14,11 @@ test("mobile account settings expose working detail flows", () => {
   assert.match(profile, /Belum verifikasi/);
   assert.match(app, /Detail notifikasi/);
   assert.match(app, /Lihat detail/);
+  assert.match(profile, /ProfileEditSheet/);
+  assert.match(profile, /updateMobilePetOwnerProfile/);
+  assert.match(api, /petowner\/profile/);
+  assert.match(profile, /onOpenNotifications\("security"\)/);
+  assert.match(app, /initialCategory=\{notificationCategory\}/);
 });
 
 test("family access uses platform endpoints for list, invite, and revoke", () => {

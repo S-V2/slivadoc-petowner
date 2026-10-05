@@ -901,6 +901,14 @@ export const getMobileBootstrap = async () => {
     notifications: uniqueById(result.notifications),
   };
 };
+export const updateMobilePetOwnerProfile = (input: {
+  full_name: string;
+  phone: string;
+}) =>
+  platformRequest<{ full_name: string; phone: string; message: string }>(
+    "/api/v1/petowner/profile",
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
 export const getMobileServices = (options?: {
   search?: string;
   category?: string;
@@ -1198,10 +1206,11 @@ export const readMobileNotification = (id: string) =>
   platformRequest<{ read: boolean }>(`/api/v1/notifications/${id}/read`, {
     method: "PATCH",
   });
-export const readAllMobileNotifications = () =>
-  platformRequest<{ updated: number }>("/api/v1/notifications/read-all", {
-    method: "PATCH",
-  });
+export const readAllMobileNotifications = (category = "") =>
+  platformRequest<{ updated: number }>(
+    `/api/v1/notifications/read-all?category=${encodeURIComponent(category)}`,
+    { method: "PATCH" },
+  );
 export const toggleMobileFavorite = (
   entityId: string,
   entityType = "service",

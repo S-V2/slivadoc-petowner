@@ -417,6 +417,7 @@ export default function PetOwnerApp() {
   const [remoteProducts, setRemoteProducts] = useState<DiscoveryProduct[]>([]);
   const [remoteServices, setRemoteServices] = useState<Service[]>([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [notificationCategory, setNotificationCategory] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
@@ -599,6 +600,10 @@ export default function PetOwnerApp() {
   const notify: Notify = useCallback((message) => {
     setToast(message);
     window.setTimeout(() => setToast(""), 2600);
+  }, []);
+  const openNotifications = useCallback((category = "") => {
+    setNotificationCategory(category);
+    setNotificationOpen(true);
   }, []);
   useEffect(() => {
     return startAutomaticRefresh(() => {
@@ -904,25 +909,6 @@ export default function PetOwnerApp() {
     else notify(`${result.title} · ${result.subtitle}`);
   };
 
-  const openActivityDetail = (activityId: string) => {
-    if (!authenticated) {
-      setLoginOpen(true);
-      return;
-    }
-    setActiveView("bookings");
-    window.localStorage.setItem("slivadoc.active_view", "bookings");
-    const url = new URL(window.location.href);
-    url.searchParams.set("view", "bookings");
-    url.searchParams.set("activity", activityId);
-    url.searchParams.delete("service");
-    url.searchParams.delete("service_type");
-    window.history.pushState(
-      { view: "bookings", activityId },
-      "",
-      `${url.pathname}${url.search}${url.hash}`,
-    );
-  };
-
   const openBooking = (service?: Service) => {
     if (!authenticated) {
       setLoginOpen(true);
@@ -1118,7 +1104,7 @@ export default function PetOwnerApp() {
           }
           onOpenLocation={() => setLocationOpen(true)}
           cartCount={cartCount}
-          onOpenNotifications={() => setNotificationOpen(true)}
+          onOpenNotifications={() => openNotifications()}
           onOpenCart={() => setCartOpen(true)}
           account={account}
           points={points}
@@ -1144,15 +1130,11 @@ export default function PetOwnerApp() {
               openServiceCatalog={openServiceCatalog}
               openPartnerProfile={openPartnerProfile}
               openConsultation={openConsultation}
-              openActivityDetail={openActivityDetail}
               setChatOpen={setChatOpen}
               services={serviceCatalog}
               activities={activities}
               openActivity={openActivity}
               ownerName={account?.full_name}
-              account={account}
-              points={points}
-              membership={membership}
             />
           )}
           {activeView === "pets" && (
@@ -1297,6 +1279,7 @@ export default function PetOwnerApp() {
             <ProfileView
               notify={notify}
               account={account}
+              familyPet={petProfiles.length ? selectedPet : undefined}
               petCount={petProfiles.length}
               points={points}
               membership={membership}
@@ -1305,6 +1288,7 @@ export default function PetOwnerApp() {
               currentLocation={currentLocation}
               onOpenLocation={() => setLocationOpen(true)}
               onOpenSupport={() => navigate("support")}
+              onOpenNotifications={openNotifications}
               onLogout={async () => {
                 await logoutSession();
                 void loadBootstrap();
@@ -1337,6 +1321,7 @@ export default function PetOwnerApp() {
       {notificationOpen && (
         <NotificationDrawer
           onClose={() => setNotificationOpen(false)}
+          initialCategory={notificationCategory}
           notify={notify}
           onOpen={openNotificationTarget}
           items={notifications}
@@ -2303,15 +2288,11 @@ function HomeView({
   openServiceCatalog,
   openPartnerProfile,
   openConsultation,
-  openActivityDetail,
   setChatOpen,
   services,
   activities,
   openActivity,
   ownerName,
-  account,
-  points,
-  membership,
 }: {
   selectedPet: Pet;
   petProfiles: Pet[];
@@ -2321,17 +2302,13 @@ function HomeView({
   openServiceCatalog: (serviceType?: Service["type"], serviceId?: string) => void;
   openPartnerProfile: (businessId: string) => void;
   openConsultation: (veterinarianId?: string) => void;
-  openActivityDetail: (activityId: string) => void;
   setChatOpen: (value: boolean) => void;
   services: Service[];
   activities: PetOwnerActivityCenterItem[];
   openActivity: (type: ActivityType, id: string) => void;
   ownerName?: string;
-  account: PetOwnerBootstrap["user"] | null;
-  points: number;
-  membership: MembershipStatus;
 }) {
-  const { locale, t } = usePetOwnerI18n();
+  const { t } = usePetOwnerI18n();
   const [campaign, setCampaign] = useState<PublicCampaign | null>(null);
   const [veterinarians, setVeterinarians] = useState<Veterinarian[]>([]);
   const [petSwitcherOpen, setPetSwitcherOpen] = useState(false);
@@ -2348,23 +2325,6 @@ function HomeView({
   }, []);
 
   const firstName = ownerName?.trim().split(/\s+/)[0];
-  const memberTier = `${membership.id} ${membership.name}`.toLowerCase().includes("royal")
-    ? "royal"
-    : `${membership.id} ${membership.name}`.toLowerCase().match(/happy|hound/)
-      ? "happy"
-      : `${membership.id} ${membership.name}`.toLowerCase().match(/play|pup/)
-        ? "playful"
-        : "starter";
-  const memberSince = account?.member_since
-    ? new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" }).format(
-        new Date(account.member_since),
-      )
-    : "—";
-  const memberNumber = account?.public_code
-    ? `SLV-PO-${account.public_code}`
-    : account?.id
-      ? `SLV-PO-${account.id.slice(0, 8).toUpperCase()}`
-      : "LOGIN UNTUK AKTIVASI";
   const featuredActivities = activities
     .filter((item) => item.state !== "history")
     .sort(
@@ -2506,36 +2466,6 @@ function HomeView({
           <span className="home-greeting-sparkle" aria-hidden="true">
             <Icon name="sparkle" size={18} />
           </span>
-        </section>
-
-        <section className={`home-member-card home-member-card--${memberTier}`} aria-label={t("Kartu member kamu")}>
-          <span
-            className="home-hero-orb home-hero-orb--large"
-            aria-hidden="true"
-          />
-          <span
-            className="home-hero-orb home-hero-orb--small"
-            aria-hidden="true"
-          />
-          <div className="home-member-top">
-            <div><b>SLIVADOC</b><small>PET OWNER MEMBER</small></div>
-            <span>{membership.icon} {membership.name.toUpperCase()}</span>
-          </div>
-          <div className="home-member-identity">
-            <span className="home-member-chip"><Icon name="paw" size={25}/></span>
-            <div>
-              <small>{t("Nomor member").toUpperCase()}</small>
-              <strong>{memberNumber}</strong>
-              <p>{account?.full_name ?? "Pet Parent Slivadoc"}</p>
-            </div>
-            <span className="home-member-seal"><Icon name="shield" size={23}/></span>
-          </div>
-          <div className="home-member-meta">
-            <span><small>{t("Member sejak").toUpperCase()}</small><b>{memberSince}</b></span>
-            <span><small>{t("Sliva Point").toUpperCase()}</small><b>{points.toLocaleString(locale)}</b></span>
-            <span><small>ACTIVE PET</small><b>{selectedPet.name}</b></span>
-          </div>
-          <p className="home-member-tagline">{t("Satu identitas untuk setiap momen perawatan")} ✦</p>
         </section>
 
         <section className="home-quick-panel" aria-labelledby="quick-title">
@@ -3509,8 +3439,9 @@ function FamilyModal({
   }, [pet.id, notify]);
   async function invite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
     setBusy(true);
-    const values = Object.fromEntries(new FormData(event.currentTarget));
+    const values = Object.fromEntries(new FormData(form));
     try {
       await invitePetFamily(pet.id, {
         email: values.email,
@@ -3518,7 +3449,7 @@ function FamilyModal({
         role: values.role,
         permissions: ["profile", "health", "booking"],
       });
-      event.currentTarget.reset();
+      form.reset();
       await reload();
       notify("Undangan keluarga berhasil dibuat");
     } catch (error) {
@@ -5252,6 +5183,7 @@ function SupportCenter({
 function ProfileView({
   notify,
   account,
+  familyPet,
   petCount,
   points,
   membership,
@@ -5261,9 +5193,11 @@ function ProfileView({
   currentLocation,
   onOpenLocation,
   onOpenSupport,
+  onOpenNotifications,
 }: {
   notify: Notify;
   account: PetOwnerBootstrap["user"];
+  familyPet?: Pet;
   petCount: number;
   points: number;
   membership: MembershipStatus;
@@ -5273,6 +5207,7 @@ function ProfileView({
   currentLocation: LocationResult | null;
   onOpenLocation: () => void;
   onOpenSupport: () => void;
+  onOpenNotifications: (category?: string) => void;
 }) {
   const { language, locale, setLanguage, t } = usePetOwnerI18n();
   const initials = account.full_name
@@ -5281,6 +5216,7 @@ function ProfileView({
     .slice(0, 2)
     .join("");
   const [edit, setEdit] = useState(false);
+  const [familyOpen, setFamilyOpen] = useState(false);
   const [addressModalOpen, setAddressModalOpen] = useState(false);
   const [editingAddress, setEditingAddress] =
     useState<PetOwnerShippingAddress | null>(null);
@@ -5616,9 +5552,7 @@ function ProfileView({
           </button>
           <button
             type="button"
-            onClick={() =>
-              notify("Notifikasi Slivadoc tersedia di ikon lonceng.")
-            }
+            onClick={() => onOpenNotifications()}
           >
             <span>
               <Icon name="bell" size={19} />
@@ -5631,21 +5565,23 @@ function ProfileView({
           </button>
           <button
             type="button"
-            onClick={() => notify(`Email login: ${account.email}`)}
+            onClick={() => onOpenNotifications("security")}
           >
             <span>
               <Icon name="shield" size={19} />
             </span>
             <p>
               <b>Privasi & keamanan</b>
-              <small>Verifikasi dan sesi perangkat</small>
+              <small>Tinjau notifikasi keamanan akun</small>
             </p>
             <Icon name="chevron" size={17} />
           </button>
           <button
             type="button"
             onClick={() =>
-              notify(`${petCount} profil pet terhubung ke akun ini.`)
+              familyPet
+                ? setFamilyOpen(true)
+                : notify("Tambahkan pet sebelum mengatur akses keluarga.")
             }
           >
             <span>
@@ -5667,6 +5603,13 @@ function ProfileView({
           changed={onChanged}
         />
       )}{" "}
+      {familyOpen && familyPet && (
+        <FamilyModal
+          pet={familyPet}
+          close={() => setFamilyOpen(false)}
+          notify={notify}
+        />
+      )}
       {addressModalOpen && (
         <ShippingAddressModal
           account={account}
@@ -5744,14 +5687,27 @@ function ProfileEditModal({
   changed: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  const [fullNameOverride, setFullNameOverride] = useState<string | null>(null);
+  const [phoneOverride, setPhoneOverride] = useState<string | null>(null);
+  const fullName = fullNameOverride ?? account.full_name;
+  const phone = phoneOverride ?? account.phone ?? "";
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const normalizedName = fullName.trim();
+    const normalizedPhone = phone.trim();
+    if (normalizedName.length < 2) {
+      notify("Nama lengkap minimal 2 karakter.");
+      return;
+    }
+    if (normalizedPhone && !/^0[0-9]{8,15}$/.test(normalizedPhone)) {
+      notify("Nomor telepon harus diawali 0 dan berisi 9 sampai 16 angka.");
+      return;
+    }
     setBusy(true);
-    const values = Object.fromEntries(new FormData(event.currentTarget));
     try {
       await updatePetOwnerProfile({
-        full_name: String(values.full_name),
-        phone: String(values.phone),
+        full_name: normalizedName,
+        phone: normalizedPhone,
       });
       await changed();
       notify("Profil berhasil diperbarui");
@@ -5772,7 +5728,7 @@ function ProfileEditModal({
         className="modal form-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <button className="modal-close" onClick={close} aria-label="Tutup edit profil">
           <Icon name="close" />
         </button>
         <span className="section-eyebrow">DATA AKUN</span>
@@ -5782,7 +5738,8 @@ function ProfileEditModal({
             <span>Nama lengkap</span>
             <input
               name="full_name"
-              defaultValue={account.full_name}
+              value={fullName}
+              onChange={(event) => setFullNameOverride(event.target.value)}
               minLength={2}
               required
             />
@@ -5793,7 +5750,15 @@ function ProfileEditModal({
           </label>
           <label>
             <span>Nomor telepon</span>
-            <input name="phone" defaultValue={account.phone} />
+            <input
+              name="phone"
+              value={phone}
+              onChange={(event) => setPhoneOverride(event.target.value)}
+              inputMode="tel"
+              pattern="0[0-9]{8,15}"
+              autoComplete="tel"
+              placeholder="08xxxxxxxxxx"
+            />
           </label>
           <button className="primary-button full" disabled={busy}>
             {busy ? "Menyimpan…" : "Simpan perubahan"}
@@ -6956,6 +6921,7 @@ function MobileNav({
 
 function NotificationDrawer({
   onClose,
+  initialCategory,
   notify,
   onOpen,
   items,
@@ -6963,20 +6929,32 @@ function NotificationDrawer({
   seeAll,
 }: {
   onClose: () => void;
+  initialCategory: string;
   notify: Notify;
   onOpen: (item: NotificationItem) => void;
   items: NotificationItem[];
   setItems: React.Dispatch<React.SetStateAction<NotificationItem[]>>;
   seeAll: () => void;
 }) {
+  const [category, setCategory] = useState(initialCategory);
+  const categories = Array.from(
+    new Set([initialCategory, ...items.map((item) => item.category)].filter(Boolean)),
+  );
+  const visibleItems = category
+    ? items.filter((item) => item.category === category)
+    : items;
   async function markAll() {
     try {
-      await readAllNotifications();
+      await readAllNotifications(category);
       setItems((current) =>
-        current.map((item) => ({
-          ...item,
-          read_at: item.read_at || new Date().toISOString(),
-        })),
+        current.map((item) =>
+          !category || item.category === category
+            ? {
+                ...item,
+                read_at: item.read_at || new Date().toISOString(),
+              }
+            : item,
+        ),
       );
       notify("Semua notifikasi ditandai dibaca");
     } catch (error) {
@@ -7016,22 +6994,38 @@ function NotificationDrawer({
             <Icon name="close" />
           </button>
         </header>
-        <div className="notification-category-chips">
-          {[...new Set(items.map((item) => item.category))].map((value) => (
-            <span key={value}>{value}</span>
+        <div className="notification-category-chips" role="group" aria-label="Filter notifikasi">
+          <button
+            type="button"
+            className={!category ? "active" : ""}
+            aria-pressed={!category}
+            onClick={() => setCategory("")}
+          >
+            Semua
+          </button>
+          {categories.map((value) => (
+            <button
+              type="button"
+              key={value}
+              className={category === value ? "active" : ""}
+              aria-pressed={category === value}
+              onClick={() => setCategory(value)}
+            >
+              {value === "security" ? "Keamanan" : value}
+            </button>
           ))}
         </div>
         <button
           className="mark-read"
           type="button"
-          disabled={!items.some((item) => !item.read_at)}
+          disabled={!visibleItems.some((item) => !item.read_at)}
           onClick={() => void markAll()}
         >
           Tandai semua sudah dibaca
         </button>
         <div className="notification-list">
-          {items.length ? (
-            items.map((item) => (
+          {visibleItems.length ? (
+            visibleItems.map((item) => (
               <Notification
                 key={item.id}
                 icon={
@@ -7058,7 +7052,9 @@ function NotificationDrawer({
               />
             ))
           ) : (
-            <div className="empty-state compact">Belum ada notifikasi.</div>
+            <div className="empty-state compact">
+              Belum ada notifikasi pada kategori ini.
+            </div>
           )}
         </div>
         <button className="full-soft-button" type="button" onClick={seeAll}>

@@ -4406,6 +4406,30 @@ body:has(
   font-size: 8px;
   font-weight: 750;
 }
+.notification-category-chips {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 4px 0 2px;
+  scrollbar-width: none;
+}
+.notification-category-chips button {
+  min-height: 34px;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+.notification-category-chips button.active {
+  border-color: var(--sky-500);
+  background: var(--sky-50);
+  color: var(--sky-700);
+}
 .notification-list {
   flex: 1;
   overflow: auto;

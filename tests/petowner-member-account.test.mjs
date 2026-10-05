@@ -3,27 +3,29 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const root = new URL("../", import.meta.url);
-const [web, webI18n, webCss, mobileApp, mobileHome, mobileHealth, mobileMarket, mobileI18n] =
+const [web, webI18n, webCss, mobileApp, mobileHome, mobileProfile, mobileHealth, mobileMarket, mobileI18n] =
   await Promise.all([
     readFile(new URL("app/components/PetOwnerApp.tsx", root), "utf8"),
     readFile(new URL("app/components/PetOwnerI18n.tsx", root), "utf8"),
     readFile(new URL("app/genz-revamp.css", root), "utf8"),
     readFile(new URL("mobile/App.tsx", root), "utf8"),
     readFile(new URL("mobile/src/screens/HomeScreen.tsx", root), "utf8"),
+    readFile(new URL("mobile/src/screens/ProfileScreen.tsx", root), "utf8"),
     readFile(new URL("mobile/src/screens/HealthScreen.tsx", root), "utf8"),
     readFile(new URL("mobile/src/screens/MarketplaceScreen.tsx", root), "utf8"),
     readFile(new URL("mobile/src/i18n.tsx", root), "utf8"),
   ]);
 
-test("web and native home use the server-backed Slivadoc member identity", () => {
-  for (const source of [web, mobileHome]) {
+test("web and native profile keep the server-backed Slivadoc member identity", () => {
+  for (const source of [web, mobileProfile]) {
     assert.match(source, /PET OWNER MEMBER/);
     assert.match(source, /public_code/);
     assert.match(source, /SLV-PO-/);
     assert.match(source, /membership\?*\.?name|membership\.name/);
   }
-  assert.match(webCss, /home-member-card--royal/);
-  assert.match(mobileHome, /tierKey\.includes\("royal"\)/);
+  assert.match(webCss, /profile-member-card--royal/);
+  assert.match(mobileProfile, /tierKey\.includes\("royal"\)/);
+  assert.doesNotMatch(mobileHome, /style=\{styles\.memberCard\}/);
 });
 
 test("language selectors expose exactly Indonesian and English", () => {

@@ -297,6 +297,7 @@ function MobileApp() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationCategory, setNotificationCategory] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
   const [chatContext, setChatContext] = useState<"care" | "support">("care");
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -430,6 +431,10 @@ function MobileApp() {
   }, []);
 
   const notify = useCallback((message: string) => setToast(message), []);
+  const openNotifications = useCallback((category = "") => {
+    setNotificationCategory(category);
+    setNotificationsOpen(true);
+  }, []);
   useEffect(() => {
     if (!toast) return;
     const timeout = setTimeout(() => setToast(""), 2400);
@@ -875,13 +880,10 @@ function MobileApp() {
                   onOpenPartner={openPartnerProfile}
                   onOpenConsultation={openConsultation}
                   onOpenActivity={openActivity}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   onSearchResult={openSearchResult}
                   onNavigate={navigateTo}
                   ownerName={bootstrap?.user.full_name}
-                  owner={bootstrap?.user}
-                  points={bootstrap?.points.balance ?? 0}
-                  membership={bootstrap?.points.membership}
                   pet={pet}
                   pets={pets}
                   onSelectPet={selectPet}
@@ -893,7 +895,7 @@ function MobileApp() {
                 <DiscoverScreen
                   onBook={openBooking}
                   onAction={notify}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   services={services}
                   favorites={favorites}
                   onToggleFavorite={async (id) => {
@@ -924,7 +926,7 @@ function MobileApp() {
                   favorites={favorites}
                   refreshVersion={refreshVersion}
                   onAction={notify}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   onRequireLogin={() => {
                     requireLogin();
                   }}
@@ -959,7 +961,7 @@ function MobileApp() {
                 <WorldScreen
                   refreshVersion={refreshVersion}
                   onAction={notify}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   owner={bootstrap?.user}
                   petName={pet?.name}
                   pet={pet}
@@ -983,7 +985,7 @@ function MobileApp() {
                   intent={activityIntent}
                   onIntentHandled={consumeActivityIntent}
                   onAction={notify}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   onLogin={() => setLoginOpen(true)}
                   hasPet={hasPet}
                   onRequirePet={() => {
@@ -1014,7 +1016,7 @@ function MobileApp() {
                 <HealthScreen
                   onAction={notify}
                   onBook={() => openBooking()}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   pet={pet}
                   records={records}
                   loading={recordsLoading}
@@ -1024,7 +1026,7 @@ function MobileApp() {
                 <CommunityScreen
                   refreshVersion={refreshVersion}
                   onAction={notify}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   owner={bootstrap?.user}
                   pet={pet}
                   hasPet={hasPet}
@@ -1037,7 +1039,7 @@ function MobileApp() {
               {tab === "profile" ? (
                 <ProfileScreen
                   onAction={notify}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   onOpenSupport={openSupportChat}
                   owner={bootstrap?.user}
                   pets={bootstrap?.pets ?? []}
@@ -1047,6 +1049,9 @@ function MobileApp() {
                   membership={bootstrap?.points.membership}
                   rewardFormula={bootstrap?.points.formula}
                   onLogin={() => setLoginOpen(true)}
+                  onProfileChanged={async () => {
+                    await refreshAccount();
+                  }}
                   onLogout={async () => {
                     await logoutMobile();
                     setBootstrap(undefined);
@@ -1140,7 +1145,9 @@ function MobileApp() {
         }}
       />
       <NotificationModal
+        key={`${notificationsOpen}:${notificationCategory}`}
         visible={notificationsOpen}
+        initialCategory={notificationCategory}
         onClose={() => setNotificationsOpen(false)}
         items={bootstrap?.notifications ?? []}
         onRead={async (item) => {
@@ -1167,17 +1174,21 @@ function MobileApp() {
             );
           }
         }}
-        onReadAll={async () => {
+        onReadAll={async (category) => {
           if (!bootstrap) return;
-          await readAllMobileNotifications();
+          await readAllMobileNotifications(category);
           setBootstrap((current) =>
             current
               ? {
                   ...current,
-                  notifications: current.notifications.map((item) => ({
-                    ...item,
-                    read_at: item.read_at || new Date().toISOString(),
-                  })),
+                  notifications: current.notifications.map((item) =>
+                    !category || item.category === category
+                      ? {
+                          ...item,
+                          read_at: item.read_at || new Date().toISOString(),
+                        }
+                      : item,
+                  ),
                 }
               : current,
           );
@@ -1375,9 +1386,13 @@ function notificationCategoryLabel(category: string) {
   const labels: Record<string, string> = {
     health: "Kesehatan",
     booking: "Booking",
+    order: "Pesanan",
+    consultation: "Konsultasi",
     event: "Event",
     community: "Komunitas",
     points: "Points",
+    security: "Keamanan",
+    system: "Sistem",
   };
   return labels[category] ?? category;
 }
@@ -1401,6 +1416,12 @@ function notificationVisual(category: string): {
   }
   if (category === "points") {
     return { icon: "sparkles", backgroundColor: colors.yellow50, color: colors.yellow };
+  }
+  if (category === "security") {
+    return { icon: "shield-checkmark-outline", backgroundColor: colors.mint50, color: colors.mint };
+  }
+  if (category === "system") {
+    return { icon: "settings-outline", backgroundColor: colors.sky50, color: colors.sky600 };
   }
   return { icon: "notifications-outline", backgroundColor: colors.sky50, color: colors.sky600 };
 }
@@ -1524,6 +1545,7 @@ function MoreModal({
 
 function NotificationModal({
   visible,
+  initialCategory,
   onClose,
   items,
   onRead,
@@ -1531,16 +1553,19 @@ function NotificationModal({
   onOpenTarget,
 }: {
   visible: boolean;
+  initialCategory: string;
   onClose: () => void;
   items: MobileNotification[];
   onRead: (item: MobileNotification) => void | Promise<void>;
-  onReadAll: () => void | Promise<void>;
+  onReadAll: (category?: string) => void | Promise<void>;
   onOpenTarget: (item: MobileNotification) => void;
 }) {
   const { locale } = useI18n();
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(initialCategory);
   const [selectedId, setSelectedId] = useState("");
-  const categories = [...new Set(items.map((item) => item.category))];
+  const categories = [
+    ...new Set([initialCategory, ...items.map((item) => item.category)].filter(Boolean)),
+  ];
   const visibleItems = category
     ? items.filter((item) => item.category === category)
     : items;
@@ -1602,7 +1627,7 @@ function NotificationModal({
                 </ScrollView>
                 <View style={styles.notificationToolbar}>
                   <View style={styles.notificationSummary}><View style={styles.notificationSummaryIcon}><Ionicons name="mail-unread-outline" size={14} color={colors.sky600}/></View><View><Text style={styles.notificationSummaryTitle}>{visibleItems.length} update</Text><Text style={styles.notificationSummaryNote}>{unreadCount} belum dibaca</Text></View></View>
-                  <Pressable accessibilityRole="button" disabled={!items.some((item) => !item.read_at)} onPress={() => void onReadAll()} style={({ pressed }) => [styles.markReadButton, !items.some((item) => !item.read_at) && styles.markReadButtonDisabled, pressed && styles.pressed]}><Ionicons name="checkmark-done" size={14} color={colors.sky600}/><Text style={styles.markRead}>Tandai dibaca</Text></Pressable>
+                  <Pressable accessibilityRole="button" disabled={!visibleItems.some((item) => !item.read_at)} onPress={() => void onReadAll(category)} style={({ pressed }) => [styles.markReadButton, !visibleItems.some((item) => !item.read_at) && styles.markReadButtonDisabled, pressed && styles.pressed]}><Ionicons name="checkmark-done" size={14} color={colors.sky600}/><Text style={styles.markRead}>Tandai dibaca</Text></Pressable>
                 </View>
                 <ScrollView style={styles.notificationList} contentContainerStyle={styles.notificationListContent} showsVerticalScrollIndicator={false}>
                   {visibleItems.length ? visibleItems.map((item) => {

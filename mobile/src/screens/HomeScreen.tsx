@@ -17,8 +17,6 @@ import {
   type MobileActivityCenterItem,
   type MobileActivityType,
   type MobileGlobalSearchResult,
-  type MobileMembership,
-  type MobileOwner,
   type WorldItem,
 } from "../api";
 import type { PetView, Service } from "../data";
@@ -35,9 +33,6 @@ type Props = {
   onSearchResult: (result: MobileGlobalSearchResult) => void;
   onNavigate: (tab: "discover" | "world" | "activity" | "health") => void;
   ownerName?: string;
-  owner?: MobileOwner;
-  points: number;
-  membership?: MobileMembership;
   pet?: PetView;
   pets: PetView[];
   onSelectPet: (petId: string) => void;
@@ -300,16 +295,13 @@ export function HomeScreen({
   onSearchResult,
   onNavigate,
   ownerName,
-  owner,
-  points,
-  membership,
   pet,
   pets,
   onSelectPet,
   services,
   activities,
 }: Props) {
-  const { formatDate, formatNumber } = useI18n();
+  const { formatDate } = useI18n();
   const [searchOpen, setSearchOpen] = useState(false);
   const [petPickerOpen, setPetPickerOpen] = useState(false);
   const [veterinarians, setVeterinarians] = useState<WorldItem[]>([]);
@@ -373,20 +365,6 @@ export function HomeScreen({
     .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (b.consultation_count ?? 0) - (a.consultation_count ?? 0))
     .slice(0, 5);
   const firstName = ownerName?.trim().split(" ")[0];
-  const tierKey = `${membership?.id ?? "paw_starter"} ${membership?.name ?? ""}`.toLowerCase();
-  const memberPalette: readonly [string, string, string] = tierKey.includes("royal")
-    ? ["#34235F", "#6A4BC3", "#B992FF"]
-    : tierKey.includes("happy") || tierKey.includes("hound")
-      ? ["#0B725E", "#159B7F", "#66D6C0"]
-      : tierKey.includes("play") || tierKey.includes("pup")
-        ? ["#055F9B", "#078ACC", "#59C8F0"]
-        : ["#0877B5", colors.sky600, "#13856F"];
-  const memberNumber = owner?.public_code
-    ? `SLV-PO-${owner.public_code}`
-    : "LOGIN UNTUK AKTIVASI";
-  const memberSince = owner?.member_since
-    ? formatDate(owner.member_since, { month: "short", year: "numeric" })
-    : "Belum aktif";
   const primaryQuickActions = [
     { label: "Booking", note: "Pilih layanan & jadwal", icon: "calendar-outline" as const, gradient: [colors.sky600, "#0A6F9C"] as const, onPress: () => onExploreService() },
     { label: "Tanya Dokter", note: "Pilih dokter & paket", icon: "chatbubbles-outline" as const, gradient: [colors.mint, "#0D7664"] as const, onPress: () => onOpenConsultation() },
@@ -419,30 +397,6 @@ export function HomeScreen({
           </View>
           <View style={styles.greetingSparkle}><Ionicons name="sparkles" size={18} color={colors.white} /></View>
         </View>
-
-        <LinearGradient colors={memberPalette} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.memberCard}>
-          <View style={styles.heroOrbLarge} />
-          <View style={styles.heroOrbSmall} />
-          <View style={styles.memberTop}>
-            <View><Text style={styles.memberBrand}>SLIVADOC</Text><Text style={styles.memberProduct}>PET OWNER MEMBER</Text></View>
-            <View style={styles.memberLevel}><Text style={styles.memberLevelText}>{membership?.icon ?? "PAW"} {(membership?.name ?? "Paw Starter").toUpperCase()}</Text></View>
-          </View>
-          <View style={styles.memberIdentity}>
-            <View style={styles.memberChip}><Ionicons name="paw" size={21} color={colors.white}/></View>
-            <View style={styles.memberIdentityCopy}>
-              <Text style={styles.memberLabel}>NOMOR MEMBER</Text>
-              <Text selectable numberOfLines={1} style={styles.memberNumber}>{memberNumber}</Text>
-              <Text numberOfLines={1} style={styles.memberHolder}>{owner?.full_name ?? "Pet Parent Slivadoc"}</Text>
-            </View>
-            <View style={styles.memberSeal}><Ionicons name="shield-checkmark" size={22} color={colors.white}/></View>
-          </View>
-          <View style={styles.memberBottom}>
-            <View><Text style={styles.memberLabel}>MEMBER SEJAK</Text><Text style={styles.memberMetaValue}>{memberSince}</Text></View>
-            <View><Text style={styles.memberLabel}>SLIVA POINT</Text><Text style={styles.memberMetaValue}>{formatNumber(points)}</Text></View>
-            <View style={styles.memberPet}><Text style={styles.memberLabel}>ACTIVE PET</Text><Text numberOfLines={1} style={styles.memberMetaValue}>{petView.name}</Text></View>
-          </View>
-          <Text style={styles.memberTagline}>Satu identitas untuk setiap momen perawatan ✦</Text>
-        </LinearGradient>
 
         <View style={styles.quickPanel}>
           <View style={styles.quickHeading}>

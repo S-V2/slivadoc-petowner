@@ -6,6 +6,7 @@ import {
   getMobilePetFamily,
   inviteMobilePetFamily,
   revokeMobilePetFamily,
+  updateMobilePetOwnerProfile,
   type MobileBootstrap,
   type MobileFamilyAccess,
   type MobileOwner,
@@ -18,7 +19,7 @@ import { colors, shadow, typography } from "../theme";
 type ProfilePage = "main" | "family" | "security";
 type ProfileProps = {
   onAction: (message: string) => void;
-  onOpenNotifications: () => void;
+  onOpenNotifications: (category?: string) => void;
   onOpenSupport: () => void;
   owner?: MobileOwner;
   pets: MobilePet[];
@@ -29,6 +30,7 @@ type ProfileProps = {
   rewardFormula?: MobileBootstrap["points"]["formula"];
   onLogin: () => void;
   onLogout: () => void | Promise<void>;
+  onProfileChanged: () => Promise<void>;
 };
 
 const familyRoles = [
@@ -61,11 +63,12 @@ function maskPhone(value: string) {
   return value.length < 7 ? value : `${value.slice(0, 4)} •••• ${value.slice(-3)}`;
 }
 
-export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, owner, pets, petCount, activityCount, points, membership, rewardFormula, onLogin, onLogout }: ProfileProps) {
+export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, owner, pets, petCount, activityCount, points, membership, rewardFormula, onLogin, onLogout, onProfileChanged }: ProfileProps) {
   const { formatDate, formatNumber, language } = useI18n();
   const [page, setPage] = useState<ProfilePage>("main");
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const currentLanguage = languageOptions.find((item) => item.code === language) ?? languageOptions[0]!;
 
   useEffect(() => {
@@ -106,7 +109,7 @@ export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, ow
       <TopHeader title="Akun & Keluarga" subtitle="Profil pet parent" onNotification={onOpenNotifications}/>
       <Card style={styles.profileCard}>
         <LinearGradient colors={[colors.sky600, "#0A6F9C", colors.violet]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cover}><Text style={styles.coverText}>PET PARENT CLUB ✦</Text></LinearGradient>
-        <View style={styles.profileRow}><View style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View><View style={styles.profileCopy}><Text style={styles.name}>{owner.full_name}</Text><Text style={styles.meta} numberOfLines={2}>{owner.email} · {memberLabel}</Text><Pill tone="mint">✓ AKUN AKTIF</Pill></View><Pressable accessibilityRole="button" accessibilityLabel="Edit profil" onPress={() => onAction("Edit profil tersedia melalui data akun Slivadoc")} style={({ pressed }) => [styles.edit, pressed && styles.pressed]}><Ionicons name="create-outline" size={16} color={colors.sky600}/></Pressable></View>
+        <View style={styles.profileRow}><View style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View><View style={styles.profileCopy}><Text style={styles.name}>{owner.full_name}</Text><Text style={styles.meta} numberOfLines={2}>{owner.email} · {memberLabel}</Text><Pill tone="mint">✓ AKUN AKTIF</Pill></View><Pressable accessibilityRole="button" accessibilityLabel="Edit profil" onPress={() => setEditOpen(true)} style={({ pressed }) => [styles.edit, pressed && styles.pressed]}><Ionicons name="create-outline" size={16} color={colors.sky600}/></Pressable></View>
         <View style={styles.stats}><Stat value={String(petCount)} label="Hewan"/><Stat value={String(activityCount)} label="Aktivitas"/><Stat value={formatNumber(points)} label="Points"/><Stat value={points > 0 ? "Member" : "Regular"} label="Status" last/></View>
       </Card>
 
@@ -138,7 +141,38 @@ export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, ow
     </Screen>
     <LogoutConfirm visible={logoutConfirmOpen} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={() => { setLogoutConfirmOpen(false); void onLogout(); }}/>
     <LanguageSheet visible={languageOpen} onClose={() => setLanguageOpen(false)} onAction={onAction}/>
+    {editOpen ? <ProfileEditSheet owner={owner} onClose={() => setEditOpen(false)} onAction={onAction} onSaved={onProfileChanged}/> : null}
   </>;
+}
+
+function ProfileEditSheet({ visible = true, owner, onClose, onAction, onSaved }: { visible?: boolean; owner: MobileOwner; onClose: () => void; onAction: (message: string) => void; onSaved: () => Promise<void> }) {
+  const [fullName, setFullName] = useState(owner.full_name);
+  const [phone, setPhone] = useState(owner.phone ?? "");
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    const normalizedName = fullName.trim();
+    const normalizedPhone = phone.trim();
+    if (normalizedName.length < 2) {
+      onAction("Nama lengkap minimal 2 karakter");
+      return;
+    }
+    if (normalizedPhone && !/^0[0-9]{8,15}$/.test(normalizedPhone)) {
+      onAction("Nomor telepon harus diawali 0 dan berisi 9 sampai 16 angka");
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await updateMobilePetOwnerProfile({ full_name: normalizedName, phone: normalizedPhone });
+      await onSaved();
+      onClose();
+      onAction(result.message || "Profil berhasil diperbarui");
+    } catch (cause) {
+      onAction(cause instanceof Error ? cause.message : "Profil belum dapat diperbarui");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <BoundedBottomSheet visible={visible} onClose={onClose} maxHeight="68%"><View style={styles.profileEditSheet}><View style={styles.languageHeader}><View style={styles.languageIcon}><Ionicons name="person-outline" size={22} color={colors.sky600}/></View><View style={styles.languageHeaderCopy}><Text style={styles.languageEyebrow}>DATA AKUN</Text><Text style={styles.languageTitle}>Edit profil pet parent</Text><Text style={styles.languageNote}>Perubahan tersimpan ke akun Slivadoc di semua perangkat.</Text></View></View><FieldLabel label="Nama lengkap"/><TextInput accessibilityLabel="Nama lengkap" value={fullName} onChangeText={setFullName} autoCapitalize="words" placeholder="Nama lengkap" placeholderTextColor={colors.muted} style={styles.input}/><FieldLabel label="Email login"/><TextInput accessibilityLabel="Email login" value={owner.email} editable={false} style={[styles.input, styles.inputDisabled]}/><FieldLabel label="Nomor telepon"/><TextInput accessibilityLabel="Nomor telepon" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="08xxxxxxxxxx" placeholderTextColor={colors.muted} style={styles.input}/><Pressable accessibilityRole="button" disabled={busy} onPress={() => void save()} style={({ pressed }) => [styles.primaryAction, busy && styles.disabled, pressed && styles.pressed]}>{busy ? <ActivityIndicator size="small" color={colors.white}/> : <Ionicons name="checkmark" size={17} color={colors.white}/>}<Text style={styles.primaryActionText}>{busy ? "Menyimpan…" : "Simpan perubahan"}</Text></Pressable></View></BoundedBottomSheet>;
 }
 
 function LanguageSheet({ visible, onClose, onAction }: { visible: boolean; onClose: () => void; onAction: (message: string) => void }) {
@@ -228,7 +262,7 @@ function FamilyAccessScreen({ pets, onBack, onAction, onOpenNotifications }: { p
   </>;
 }
 
-function SecurityScreen({ owner, onBack, onAction, onOpenNotifications, onRequestLogout }: { owner: MobileOwner; onBack: () => void; onAction: (message: string) => void; onOpenNotifications: () => void; onRequestLogout: () => void }) {
+function SecurityScreen({ owner, onBack, onAction, onOpenNotifications, onRequestLogout }: { owner: MobileOwner; onBack: () => void; onAction: (message: string) => void; onOpenNotifications: (category?: string) => void; onRequestLogout: () => void }) {
   const [maskSensitive, setMaskSensitive] = useState(false);
   const [securityAlerts, setSecurityAlerts] = useState(true);
   const emailVerified = isEmailVerified(owner);
@@ -245,7 +279,7 @@ function SecurityScreen({ owner, onBack, onAction, onOpenNotifications, onReques
     <Card style={styles.controlCard}><ControlRow icon="eye-off-outline" title="Samarkan data sensitif" note="Sembunyikan sebagian email dan nomor di halaman ini." value={maskSensitive} onChange={setMaskSensitive}/><ControlRow icon="warning-outline" title="Notifikasi keamanan" note="Tampilkan update aktivitas akun yang penting." value={securityAlerts} onChange={(value) => { setSecurityAlerts(value); onAction(value ? "Notifikasi keamanan diaktifkan" : "Notifikasi keamanan dinonaktifkan di perangkat ini"); }} last/></Card>
 
     <SectionTitle eyebrow="AKTIVITAS KEAMANAN" title="Pantau akun"/>
-    <Pressable accessibilityRole="button" onPress={onOpenNotifications} style={({ pressed }) => [styles.securityAction, pressed && styles.pressed]}><View style={styles.securityActionIcon}><Ionicons name="shield-checkmark-outline" size={19} color={colors.sky600}/></View><View style={styles.securityActionCopy}><Text style={styles.securityActionTitle}>Tinjau notifikasi keamanan</Text><Text style={styles.securityActionNote}>Buka riwayat update dan lihat detail aktivitas.</Text></View><Ionicons name="arrow-forward" size={16} color={colors.sky600}/></Pressable>
+    <Pressable accessibilityRole="button" onPress={() => onOpenNotifications("security")} style={({ pressed }) => [styles.securityAction, pressed && styles.pressed]}><View style={styles.securityActionIcon}><Ionicons name="shield-checkmark-outline" size={19} color={colors.sky600}/></View><View style={styles.securityActionCopy}><Text style={styles.securityActionTitle}>Tinjau notifikasi keamanan</Text><Text style={styles.securityActionNote}>Tampilkan hanya update keamanan sistem dan akun.</Text></View><Ionicons name="arrow-forward" size={16} color={colors.sky600}/></Pressable>
 
     <SectionTitle eyebrow="SESI AKTIF" title="Perangkat saat ini"/>
     <Card style={styles.sessionCard}><View style={styles.sessionIcon}><Ionicons name="phone-portrait-outline" size={20} color="#13856F"/></View><View style={styles.sessionCopy}><Text style={styles.sessionTitle}>Aplikasi Slivadoc Mobile</Text><Text style={styles.sessionNote}>Sesi ini · aktif sekarang</Text></View><View style={styles.activeDot}/></Card>
@@ -281,6 +315,7 @@ const styles = StyleSheet.create({
   verificationBadge: { maxWidth: 104, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 5, borderRadius: 9 }, verificationBadgeOn: { backgroundColor: colors.sky50 }, verificationBadgeOff: { backgroundColor: colors.yellow50 }, verificationBadgeCompact: { paddingHorizontal: 5 }, verificationBadgeText: { fontSize: 8, fontWeight: "600" }, verificationTextOn: { color: colors.sky600 }, verificationTextOff: { color: colors.yellow },
   supportCard: { minHeight: 74, flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: 22, backgroundColor: colors.white, ...shadow }, supportIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 15 }, supportCopy: { minWidth: 0, flex: 1 }, supportTitle: { color: colors.navy, fontSize: 13, fontWeight: "700" }, supportNote: { marginTop: 3, color: colors.muted, fontSize: 10, lineHeight: 14 }, supportArrow: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: colors.sky50 },
   languageSheet: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 18 }, languageHeader: { flexDirection: "row", alignItems: "center", gap: 11, paddingBottom: 14 }, languageIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: colors.sky50 }, languageHeaderCopy: { minWidth: 0, flex: 1 }, languageEyebrow: { color: colors.sky600, fontSize: 9, lineHeight: 13, fontWeight: "600", letterSpacing: 1 }, languageTitle: { marginTop: 2, color: colors.navy, fontSize: 17, lineHeight: 22, fontWeight: "700" }, languageNote: { marginTop: 3, color: colors.muted, fontSize: 10, lineHeight: 14 }, languageList: { gap: 9 }, languageOption: { minHeight: 66, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: 20, backgroundColor: colors.white, ...shadow }, languageOptionActive: { borderColor: colors.sky400, backgroundColor: colors.sky50 }, languageFlag: { fontSize: 25 }, languageCopy: { minWidth: 0, flex: 1 }, languageName: { color: colors.navy, fontSize: 12, fontWeight: "600" }, languageNameActive: { color: colors.sky600 }, languageNative: { marginTop: 3, color: colors.muted, fontSize: 9 }, languageCheck: { width: 26, height: 26, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.sky100, borderRadius: 13, backgroundColor: colors.white }, languageCheckActive: { borderColor: colors.sky600, backgroundColor: colors.sky600 },
+  profileEditSheet: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 20 }, inputDisabled: { backgroundColor: "#F2F6F8", color: colors.muted },
   logoutButton: { minHeight: 70, flexDirection: "row", alignItems: "center", gap: 10, marginTop: 14, padding: 12, borderWidth: 1, borderColor: "#FFD5DD", borderRadius: 20, backgroundColor: colors.red50 }, logoutIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: colors.white }, logoutCopy: { minWidth: 0, flex: 1 }, logoutTitle: { color: colors.red, fontSize: 12, fontWeight: "700" }, logoutNote: { marginTop: 3, color: "#82535C", fontSize: 9 }, version: { marginTop: 11, color: colors.muted, fontSize: 9, textAlign: "center" },
   detailHeader: { minHeight: 64, flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 7 }, detailHeaderCopy: { minWidth: 0, flex: 1 }, detailEyebrow: { color: colors.muted, fontSize: 9, fontWeight: "600", letterSpacing: 1 }, detailTitle: { marginTop: 3, color: colors.navy, fontSize: typography.cardTitle, lineHeight: 20, fontWeight: "700" }, headerButton: { position: "relative", width: 40, height: 40, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.line, borderRadius: 13, backgroundColor: colors.white }, headerNotificationDot: { position: "absolute", top: 7, right: 8, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.red },
   detailHero: { flexDirection: "row", alignItems: "center", gap: 11, padding: 14, borderWidth: 1, borderColor: colors.sky100, borderRadius: 19 }, detailHeroIcon: { width: 48, height: 48, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "rgba(255,255,255,.82)" }, detailHeroCopy: { minWidth: 0, flex: 1 }, detailHeroTitle: { color: colors.navy, fontSize: 14, lineHeight: 19, fontWeight: "700" }, detailHeroNote: { marginTop: 4, color: colors.muted, fontSize: 10, lineHeight: 15 },

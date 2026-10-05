@@ -131,15 +131,9 @@ test("home uses a compact illustrated hero and dense quick actions", () => {
   assert.doesNotMatch(home, /ImageBackground/);
 });
 
-test("home hero is a data-backed Slivadoc membership card", () => {
-  const hero = home.match(
-    /<LinearGradient[^>]*style=\{styles\.memberCard\}[\s\S]*?<\/LinearGradient>/,
-  )?.[0];
-  assert.ok(hero);
-  assert.match(hero, /PET OWNER MEMBER/);
-  assert.match(home, /SLV-PO-/);
-  assert.match(hero, /SLIVA POINT/);
-  assert.doesNotMatch(hero, /Buat booking|Tanya dokter/);
+test("home does not duplicate the Slivadoc membership card from account", () => {
+  assert.doesNotMatch(home, /styles\.memberCard/);
+  assert.doesNotMatch(home, /PET OWNER MEMBER|SLV-PO-|SLIVA POINT/);
 });
 
 test("pet selector opens from the health snapshot and updates the active pet", () => {

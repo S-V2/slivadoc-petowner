@@ -19,14 +19,11 @@ test("shared mobile cascade is loaded after the home feature stylesheet", () => 
   assert.ok(mobileIndex > homeIndex);
 });
 
-test("home follows the native member-card and quick-action composition", () => {
+test("home keeps quick actions without duplicating the member card from profile", () => {
   assert.match(component, /className="home-greeting"/);
-  assert.match(component, /home-member-card/);
-  assert.match(component, /PET OWNER MEMBER/);
-  assert.match(component, /SLV-PO-/);
+  assert.doesNotMatch(component, /home-member-card/);
   assert.match(component, /className="home-quick-feature-row"/);
   assert.match(component, /className="home-quick-mini-grid"/);
-  assert.match(genzCss, /\.home-member-card\s*\{[\s\S]*?min-height:\s*278px/);
   assert.match(homeCss, /\.home-quick-feature-row\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(homeCss, /\.home-quick-mini-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
 });

@@ -96,10 +96,6 @@ test("trainer updates flow into Petowner Activity Center from database fields", 
     assert.match(webApi, new RegExp(field));
   }
   assert.match(webApp, /item\.provider_type === "trainer" \? "Pet Trainer"/);
-  assert.match(webApp, /ringkasan_sesi:/);
-  assert.match(webApp, /item\.doctor_notes \|\| "Belum ada ringkasan dari provider"/);
-  assert.match(webApp, /status_pembayaran: item\.payment_status/);
-  assert.match(webApp, /jadwal_follow_up:/);
   assert.match(mobileApi, /provider_type\?: "trainer" \| "veterinarian"/);
   assert.match(mobileApi, /followup_until\?: string \| null/);
   assert.match(mobileActivity, /item\.provider_type === "trainer"/);

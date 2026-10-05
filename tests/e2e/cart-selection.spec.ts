@@ -1,5 +1,6 @@
 import { expect, test } from "./fixtures";
 import {
+  activityCenter,
   marketplaceProduct,
   paymentMethods,
   petOwner,
@@ -68,11 +69,7 @@ test("checkout quotes only cart products selected by the pet owner", async ({
     if (path === "/api/v1/petowner/bootstrap")
       return json(petOwnerBootstrap());
     if (path === "/api/v1/petowner/activities")
-      return json({
-        data: [],
-        count: 0,
-        summary: { booking: 0, order: 0, consultation: 0 },
-      });
+      return json(activityCenter());
     if (path === "/api/v1/public/discovery/products")
       return json({ data: [first, second], count: 2 });
     if (

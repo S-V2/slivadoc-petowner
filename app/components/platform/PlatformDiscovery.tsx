@@ -41,6 +41,7 @@ import {
   type PetSpotUnit,
   type PetSpotReservation,
   type PaymentIntent,
+  type ActivityType,
 } from "../../lib/platform-api";
 import {
   QrisPaymentPanel,
@@ -1104,6 +1105,7 @@ function ProgramModal({
   const [busy, setBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
+  const [enrollmentId, setEnrollmentId] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isPetOwnerAuthenticated()) {
@@ -1119,6 +1121,7 @@ function ProgramModal({
         participant_name: String(values.participant_name),
         pet_name: String(values.pet_name),
       });
+      setEnrollmentId(enrollment.id);
       if (enrollment.amount > 0)
         setPayment(
           await createPaymentIntent(
@@ -1158,6 +1161,7 @@ function ProgramModal({
             title="Pendaftaran berhasil!"
             note={`${petName} terdaftar di ${item.title}. Detail tersedia di Aktivitas.`}
             close={close}
+            activity={{ type: "academy", id: enrollmentId }}
           />
         ) : payment ? (
           <QrisPaymentPanel payment={payment} onPaid={() => setDone(true)} />
@@ -1260,6 +1264,7 @@ function EventModal({
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
+  const [registrationId, setRegistrationId] = useState("");
   const allowedPets = item.ticket_unit === "owner_pet"
     ? pets.filter((pet) => !item.allowed_pet_species.length || item.allowed_pet_species.includes(pet.species))
     : pets;
@@ -1284,6 +1289,7 @@ function EventModal({
         ticket_quantity: item.ticket_unit === "owner_pet" ? 1 : Number(values.ticket_quantity),
         ...(item.ticket_unit === "owner_pet" ? { pet_id: selectedPetID } : {}),
       });
+      setRegistrationId(registration.id);
       if (registration.amount > 0 && registration.payment_status !== "paid")
         setPayment(
           await createPaymentIntent(
@@ -1323,6 +1329,7 @@ function EventModal({
             title="Tiket berhasil diamankan!"
             note={`QR ticket ${item.title} tersedia di Aktivitas.`}
             close={close}
+            activity={{ type: "event", id: registrationId }}
           />
         ) : payment ? (
           <QrisPaymentPanel payment={payment} onPaid={() => setDone(true)} />
@@ -1638,7 +1645,8 @@ function HousingBookingModal({
         {done ? (
           <Success title="Unit berhasil dipesan"
             note={"Reservasi " + reservation?.reservation_number + " sudah terkonfirmasi. Detail tersedia di Aktivitas."}
-            close={close} />
+            close={close}
+            activity={reservation ? { type: "reservation", id: reservation.id } : undefined} />
         ) : payment ? (
           <QrisPaymentPanel payment={payment} onPaid={() => setDone(true)} />
         ) : (
@@ -2067,10 +2075,12 @@ function Success({
   title,
   note,
   close,
+  activity,
 }: {
   title: string;
   note: string;
   close: () => void;
+  activity?: { type: ActivityType; id: string };
 }) {
   return (
     <div className="world-success">
@@ -2079,8 +2089,17 @@ function Success({
       </span>
       <h2>{title}</h2>
       <p>{note}</p>
-      <button className="primary-button full" onClick={close}>
-        Lihat aktivitas saya
+      <button
+        className="primary-button full"
+        onClick={() => {
+          close();
+          if (activity)
+            window.dispatchEvent(
+              new CustomEvent("slivadoc:open-activity", { detail: activity }),
+            );
+        }}
+      >
+        Lihat di Aktivitas
       </button>
     </div>
   );

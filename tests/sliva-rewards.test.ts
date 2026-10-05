@@ -257,7 +257,6 @@ test("bootstrap and points expose reward settings as a structured formula", asyn
     pets: [],
     notifications: [],
     unread_notifications: 0,
-    activities: [],
     favorites: [],
     points: { balance: 1_000, earned: 1_300, redeemed: 300, pending: 50, membership: {
       id: "playful_pup",

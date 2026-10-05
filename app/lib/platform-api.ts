@@ -117,26 +117,23 @@ export type NotificationItem = {
   action_route: string;
   read_at?: string | null;
   created_at: string;
+  metadata?: Record<string, unknown>;
 };
 
-export type ActivityItem = {
-  id: string;
-  pet_id: string;
-  category: string;
-  reference_id: string;
-  title: string;
-  description: string;
-  status: string;
-  action_route: string;
-  action_label: string;
-  metadata: Record<string, string | number | boolean | null>;
-  starts_at?: string;
-  occurred_at: string;
-};
+export type ActivityType =
+  | "booking"
+  | "order"
+  | "consultation"
+  | "academy"
+  | "event"
+  | "reservation"
+  | "document"
+  | "donation"
+  | "hotel";
 
 export type PetOwnerActivityCenterItem = {
   id: string;
-  type: "booking" | "order" | "consultation";
+  type: ActivityType;
   reference_id: string;
   code: string;
   title: string;
@@ -145,13 +142,41 @@ export type PetOwnerActivityCenterItem = {
   payment_status: string;
   amount: number;
   state: "upcoming" | "ongoing" | "history";
+  needs_action: boolean;
+  payable: boolean;
+  payment_reference_type: string;
   scheduled_at?: string | null;
+  ends_at?: string | null;
   occurred_at: string;
   updated_at: string;
   description?: string;
   pet_id?: string;
+  pet_name?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  address?: string;
+  city?: string;
+  // booking
+  service_id?: string;
+  service_name?: string;
+  service_duration_minutes?: number;
+  business_name?: string;
+  branch_name?: string;
+  notes?: string;
+  // order
   item_count?: number;
+  items?: Array<{
+    product_id: string;
+    name: string;
+    quantity: number;
+    line_total: number;
+  }>;
+  subtotal?: number;
+  shipping_fee?: number;
+  discount_amount?: number;
+  points_discount?: number;
   total_amount?: number;
+  // consultation
   provider_id?: string | null;
   provider_type?: "trainer" | "veterinarian";
   provider_name?: string;
@@ -172,12 +197,56 @@ export type PetOwnerActivityCenterItem = {
   started_at?: string | null;
   ended_at?: string | null;
   room_key?: string;
-  pet_name?: string;
+  // academy
+  program_id?: string;
+  program_title?: string;
+  academy_name?: string;
+  session_count?: number;
+  progress_percent?: number;
+  progress_notes?: string;
+  last_progress_at?: string | null;
+  participant_name?: string;
+  location?: string;
+  online_url?: string;
+  // event
+  event_id?: string;
+  venue?: string;
+  ticket_quantity?: number;
+  qr_token?: string;
+  paid_at?: string | null;
+  // reservation
+  spot_id?: string;
+  spot_name?: string;
+  spot_category?: string;
+  resource_name?: string;
+  resource_code?: string;
+  guest_count?: number;
+  pet_count?: number;
+  deposit_amount?: number;
+  remaining_amount?: number;
+  hold_expires_at?: string;
+  // document
+  product_name?: string;
+  origin_city?: string;
+  destination_city?: string;
+  departure_at?: string | null;
+  missing_requirements?: string[];
+  issued_document_url?: string;
+  // donation
+  fundraiser_id?: string;
+  fundraiser_title?: string;
+  beneficiary_name?: string;
+  anonymous?: boolean;
+  message?: string;
+  // hotel
+  room_name?: string;
+  checked_in_at?: string | null;
+  checked_out_at?: string | null;
 };
 
 export type PetOwnerActivityCenterResponse =
   PlatformList<PetOwnerActivityCenterItem> & {
-    summary: Record<PetOwnerActivityCenterItem["type"], number>;
+    summary: Record<ActivityType, number>;
   };
 
 export type FavoriteItem = {
@@ -340,7 +409,6 @@ export type PetOwnerBootstrap = {
   pets: PetOwnerPet[];
   notifications: NotificationItem[];
   unread_notifications: number;
-  activities: ActivityItem[];
   favorites: FavoriteItem[];
   points: PointsSummary;
 };
@@ -752,15 +820,6 @@ export type PetSpotReservation = {
   subtotal: number;
   hold_expires_at: string;
   reference_type: string;
-};
-export type PetOwnerPetSpotReservation = PetSpotReservation & {
-  spot_name: string;
-  resource_name: string;
-  starts_at: string;
-  ends_at: string;
-  payment_status: string;
-  status: string;
-  category: string;
 };
 
 export type PetHubStream = {
@@ -1377,12 +1436,6 @@ export const createPetSpotReservation = (input: {
     body: JSON.stringify(input),
   });
 
-export const getMyPetSpotReservations = () =>
-  request<PlatformList<PetOwnerPetSpotReservation>>(
-    "/api/v1/petowner/petspot-reservations",
-    { cache: "no-store" },
-  );
-
 export const getTrainerAvailability = (trainerId: string, planId: string) =>
   request<
     PlatformList<TrainerAvailabilitySlot> & {
@@ -1847,13 +1900,9 @@ export const togglePetOwnerFavorite = (
     body: JSON.stringify({ entity_type, entity_id }),
   });
 
-export const getPetOwnerActivities = (category = "") =>
-  request<PlatformList<ActivityItem>>(
-    `/api/v1/petowner/activities?category=${encodeURIComponent(category)}`,
-  );
 export const getPetOwnerActivityCenter = () =>
   request<PetOwnerActivityCenterResponse>(
-    "/api/v1/petowner/activities?view=center&type=all&state=all&limit=100",
+    "/api/v1/petowner/activities?limit=100",
     { cache: "no-store" },
   );
 

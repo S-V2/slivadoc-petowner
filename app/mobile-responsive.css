@@ -1517,11 +1517,6 @@
     font-size: 10px;
   }
 
-  .activity-type-filter {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
-  }
-
   .activity-native-toolbar {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -1532,26 +1527,6 @@
   .activity-native-actions {
     justify-content: space-between;
     gap: 8px;
-  }
-
-  .housing-activity {
-    gap: 10px;
-    padding: 13px;
-    border-radius: 16px;
-  }
-
-  .housing-activity article {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
-    padding: 12px;
-  }
-
-  .housing-activity-payment {
-    min-width: 0;
-  }
-
-  .housing-activity-payment > button {
-    width: 100%;
   }
 
 

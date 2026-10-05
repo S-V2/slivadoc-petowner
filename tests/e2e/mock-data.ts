@@ -25,7 +25,6 @@ export function petOwnerBootstrap() {
     pets: [],
     notifications: [],
     unread_notifications: 0,
-    activities: [],
     favorites: [],
     points: {
       balance: 0,
@@ -43,6 +42,63 @@ export function petOwnerBootstrap() {
         rules: [],
       },
     },
+  };
+}
+
+const activityTypes = [
+  "booking",
+  "order",
+  "consultation",
+  "academy",
+  "event",
+  "reservation",
+  "document",
+  "donation",
+  "hotel",
+] as const;
+
+/**
+ * One row of GET /api/v1/petowner/activities: the keys every kind carries.
+ * Kind-specific keys come in through the overrides.
+ */
+export function activityItem(
+  overrides: {
+    id: string;
+    type: (typeof activityTypes)[number];
+    title: string;
+  } & Record<string, unknown>,
+) {
+  return {
+    reference_id: overrides.id,
+    code: overrides.id.slice(0, 12).toUpperCase(),
+    subtitle: "",
+    status: "confirmed",
+    payment_status: "paid",
+    amount: 0,
+    state: "upcoming",
+    needs_action: false,
+    payable: false,
+    payment_reference_type: "",
+    scheduled_at: null,
+    occurred_at: "2026-09-23T00:00:00Z",
+    updated_at: "2026-09-23T00:00:00Z",
+    pet_id: "",
+    pet_name: "",
+    ...overrides,
+  };
+}
+
+/** GET /api/v1/petowner/activities?limit=100: the list and a count per kind. */
+export function activityCenter(data: Array<{ type: string }> = []) {
+  return {
+    data,
+    count: data.length,
+    summary: Object.fromEntries(
+      activityTypes.map((type) => [
+        type,
+        data.filter((item) => item.type === type).length,
+      ]),
+    ),
   };
 }
 

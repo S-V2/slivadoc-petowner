@@ -454,10 +454,17 @@ function DonationModal({
           <QrisPaymentPanel
             payment={payment}
             onPaid={() => {
-              void paid().then(() => {
-                notify("Terima kasih, donasi berhasil disalurkan");
-                close();
-              });
+              void paid().then(() =>
+                notify("Terima kasih, donasi berhasil disalurkan"),
+              );
+            }}
+            onOpenActivity={() => {
+              close();
+              window.dispatchEvent(
+                new CustomEvent("slivadoc:open-activity", {
+                  detail: { type: "donation", id: payment.reference_id },
+                }),
+              );
             }}
           />
         ) : (

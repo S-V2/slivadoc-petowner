@@ -1,13 +1,6 @@
-import type { Metadata } from "next";
-import BrandPortal from "./portal";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Official Brand workspace",
-  description:
-    "Workspace privat Official Brand Slivadoc untuk produk, PO, income, dan pengiriman.",
-  robots: { index: false, follow: false },
-  alternates: { canonical: "/brand" },
-};
+// Official Brand workspace lives in the console; /brand only forwards there.
 export default function BrandPage() {
-  return <BrandPortal />;
+  redirect(process.env.NEXT_PUBLIC_CONSOLE_URL ?? "https://app.slivadoc.com");
 }

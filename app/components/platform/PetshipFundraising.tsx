@@ -455,7 +455,7 @@ function DonationModal({
             payment={payment}
             onPaid={() => {
               void paid().then(() =>
-                notify("Terima kasih, donasi berhasil disalurkan"),
+                notify("Terima kasih, donasi tercatat untuk kampanye ini."),
               );
             }}
             onOpenActivity={() => {

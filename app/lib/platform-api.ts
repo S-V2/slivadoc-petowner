@@ -129,7 +129,34 @@ export type ActivityType =
   | "reservation"
   | "document"
   | "donation"
-  | "hotel";
+  | "hotel"
+  | "home_service";
+
+export type ActivityShipmentEvent = {
+  status_code: string;
+  status: string;
+  description: string;
+  location: string;
+  journey_type?: string;
+  reference_stt_no?: string;
+  occurred_at: string;
+};
+
+export type ActivityShipment = {
+  id: string;
+  shipping_number: string;
+  provider: string;
+  provider_shipment_id: string;
+  stt_no: string;
+  service_code: string;
+  status: string;
+  provider_status: string;
+  pickup_status: string;
+  fee: number;
+  estimated_sla: string;
+  print_url: string;
+  events: ActivityShipmentEvent[];
+};
 
 export type PetOwnerActivityCenterItem = {
   id: string;
@@ -176,6 +203,7 @@ export type PetOwnerActivityCenterItem = {
   discount_amount?: number;
   points_discount?: number;
   total_amount?: number;
+  shipments?: ActivityShipment[];
   // consultation
   provider_id?: string | null;
   provider_type?: "trainer" | "veterinarian";
@@ -242,6 +270,17 @@ export type PetOwnerActivityCenterItem = {
   room_name?: string;
   checked_in_at?: string | null;
   checked_out_at?: string | null;
+  // booking cancellation (pet-owner bookings only)
+  source?: "clinic";
+  cancellable_until?: string;
+  cancellation_cutoff_hours?: number;
+  cancellation_policy?: string;
+  // home_service
+  job_code?: string;
+  service_type?: string;
+  pickup_address?: string;
+  destination_address?: string;
+  driver_name?: string;
 };
 
 export type PetOwnerActivityCenterResponse =

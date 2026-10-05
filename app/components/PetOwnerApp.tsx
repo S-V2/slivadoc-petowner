@@ -8,6 +8,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
 } from "react";
@@ -63,16 +64,15 @@ import {
   updatePetOwnerProfile,
   getCareReminders,
   getPublicCampaigns,
-  getMyPetSpotReservations,
   createCareReminder,
   completeCareReminder,
   createPaymentIntent,
   createPetOwnerOrder,
   quotePetOwnerOrder,
   snoozeCareReminder,
-  type ActivityItem,
+  type ActivityType,
   type PetOwnerActivityCenterItem,
-  type PetOwnerPetSpotReservation,
+  type PetOwnerActivityCenterResponse,
   type DiscoveryProduct,
   type DiscoveryServiceDetail,
   type FamilyAccess,
@@ -95,6 +95,16 @@ import {
   type Veterinarian,
 } from "../lib/platform-api";
 import { QrisPaymentPanel, PaymentMethodPicker } from "./payments/QrisPayment";
+import { QRCodeSVG } from "qrcode.react";
+import {
+  activityAttentionReason,
+  activityRepeatLabels,
+  activityStatusLabel,
+  activityStatusText,
+  activityTypeMeta,
+  activityTypeOrder,
+  formatActivityDate,
+} from "../lib/activity-center";
 import {
   formatRupiah,
   type AppView,
@@ -136,78 +146,6 @@ const starterMembership: MembershipStatus = {
   next_level_points: 1000,
   points_to_next: 1000,
 };
-
-type ActivityViewItem = ActivityItem & {
-  activity_state?: PetOwnerActivityCenterItem["state"];
-};
-
-function activityCenterToViewItem(
-  item: PetOwnerActivityCenterItem,
-): ActivityViewItem {
-  const isOrder = item.type === "order";
-  const isConsultation = item.type === "consultation";
-  const total = item.total_amount ?? item.amount;
-  return {
-    id: item.id,
-    pet_id: item.pet_id ?? "",
-    category: item.type,
-    reference_id: item.reference_id,
-    title: item.title,
-    description: isOrder
-      ? [
-          item.subtitle,
-          item.item_count ? `${item.item_count} produk` : "",
-          formatRupiah(total),
-        ]
-          .filter(Boolean)
-          .join(" · ")
-      : isConsultation
-        ? [
-            item.pet_name,
-            item.provider_type === "trainer" ? "Pet Trainer" : "Dokter hewan",
-            item.provider_name,
-          ]
-            .filter(Boolean)
-            .join(" · ")
-        : item.subtitle || item.description || "",
-    status: item.status,
-    action_route: "",
-    action_label: isOrder ? "Beli lagi" : "",
-    metadata: isOrder
-      ? {
-          order_number: item.code,
-          payment_status: item.payment_status,
-          item_count: item.item_count ?? 0,
-          total_amount: total,
-        }
-      : isConsultation
-        ? {
-            nomor_konsultasi: item.code,
-            pet: item.pet_name ?? "Pet",
-            provider: item.provider_name ?? item.subtitle,
-            jenis_provider:
-              item.provider_type === "trainer" ? "Pet Trainer" : "Dokter hewan",
-            mode: item.mode ?? "",
-            durasi_menit: item.duration_minutes ?? 0,
-            status_pembayaran: item.payment_status,
-            keluhan_atau_tujuan: item.complaint ?? "",
-            ringkasan_sesi:
-              item.doctor_notes || "Belum ada ringkasan dari provider",
-            diagnosis: item.diagnosis ?? "",
-            follow_up_hari: item.followup_days ?? 0,
-            jadwal_follow_up: item.followup_until
-              ? new Date(item.followup_until).toLocaleString("id-ID", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })
-              : "Belum dijadwalkan",
-          }
-        : {},
-    starts_at: item.scheduled_at ?? undefined,
-    occurred_at: item.occurred_at,
-    activity_state: item.state,
-  };
-}
 
 function rewardFormulaText(formula: RewardFormula) {
   if (!formula.enabled) return "SlivaRewards sedang tidak aktif.";
@@ -302,7 +240,7 @@ const titles: Record<AppView, { title: string; subtitle: string }> = {
   },
   bookings: {
     title: "Aktivitas",
-    subtitle: "Pantau booking, konsultasi, dan pesanan Slivadoc.",
+    subtitle: "Pantau booking, pesanan, kelas, tiket, reservasi, dan dokumen pet-mu.",
   },
   health: {
     title: "Pusat Kesehatan",
@@ -456,7 +394,18 @@ export default function PetOwnerApp() {
   const [authenticated, setAuthenticated] = useState(false);
   const [bootstrapLoading, setBootstrapLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [activities, setActivities] = useState<ActivityViewItem[]>([]);
+  const [activities, setActivities] = useState<PetOwnerActivityCenterItem[]>(
+    [],
+  );
+  const [activitySummary, setActivitySummary] = useState<
+    PetOwnerActivityCenterResponse["summary"] | null
+  >(null);
+  const [activityFocus, setActivityFocus] = useState<{
+    type: ActivityType;
+    id: string;
+    token: number;
+  } | null>(null);
+  const [bookedId, setBookedId] = useState("");
   const [points, setPoints] = useState(0);
   const [membership, setMembership] =
     useState<MembershipStatus>(starterMembership);
@@ -655,6 +604,16 @@ export default function PetOwnerApp() {
       notify("Session pet owner berakhir. Silakan login kembali.");
     });
   }, [notify]);
+  const syncActivities = useCallback(async () => {
+    const center = await getPetOwnerActivityCenter();
+    setActivities(center.data);
+    setActivitySummary(center.summary);
+  }, []);
+  const handleActivityFocus = useCallback(
+    (token: number) =>
+      setActivityFocus((current) => (current?.token === token ? null : current)),
+    [],
+  );
 
   async function loadBootstrap() {
     setBootstrapLoading(true);
@@ -665,6 +624,7 @@ export default function PetOwnerApp() {
       setPetProfiles([]);
       setNotifications([]);
       setActivities([]);
+      setActivitySummary(null);
       setFavoriteIds([]);
       setPoints(0);
       setMembership(starterMembership);
@@ -679,9 +639,10 @@ export default function PetOwnerApp() {
         router.push("/brand");
         return;
       }
-      const [data, activityCenter] = await Promise.all([
+      // A failed center load keeps the current list; the 15s sync retries it.
+      const [data] = await Promise.all([
         getPetOwnerBootstrap(),
-        getPetOwnerActivityCenter().catch(() => null),
+        syncActivities().catch(() => undefined),
       ]);
       const mapped = data.pets.map(apiPetToView);
       setAccount(data.user);
@@ -692,11 +653,6 @@ export default function PetOwnerApp() {
           : (mapped[0]?.id ?? ""),
       );
       setNotifications(data.notifications);
-      setActivities(
-        activityCenter
-          ? activityCenter.data.map(activityCenterToViewItem)
-          : data.activities,
-      );
       setFavoriteIds(data.favorites.map((item) => item.entity_id));
       setPoints(data.points.balance);
       setMembership(data.points.membership ?? starterMembership);
@@ -717,23 +673,16 @@ export default function PetOwnerApp() {
     let cancelled = false;
     const sync = () => {
       clearPlatformCache();
-      void Promise.all([
-        getPetOwnerBootstrap(),
-        getPetOwnerActivityCenter().catch(() => null),
-      ])
-        .then(([data, activityCenter]) => {
+      void getPetOwnerBootstrap()
+        .then((data) => {
           if (cancelled) return;
           setNotifications(data.notifications);
-          setActivities(
-            activityCenter
-              ? activityCenter.data.map(activityCenterToViewItem)
-              : data.activities,
-          );
           setPoints(data.points.balance);
           setMembership(data.points.membership ?? starterMembership);
           setRewardFormula(data.points.formula);
         })
         .catch(() => undefined);
+      void syncActivities().catch(() => undefined);
     };
     const timer = window.setInterval(sync, 15_000);
     const foreground = () => {
@@ -745,7 +694,7 @@ export default function PetOwnerApp() {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", foreground);
     };
-  }, [authenticated]);
+  }, [authenticated, syncActivities]);
   useEffect(() => {
     queueMicrotask(() => {
       void loadBootstrap();
@@ -1057,6 +1006,79 @@ export default function PetOwnerApp() {
     setCart(next);
   };
 
+  const openActivity = (type: ActivityType, id: string) => {
+    navigate("bookings");
+    void syncActivities()
+      .catch(() => undefined)
+      .finally(() => setActivityFocus({ type, id, token: Date.now() }));
+  };
+  // Success screens in the module components dispatch this; re-subscribing on
+  // every render keeps the listener on the current navigate closure.
+  useEffect(() => {
+    const listener = (event: Event) => {
+      const detail = (event as CustomEvent<{ type: ActivityType; id: string }>)
+        .detail;
+      if (detail?.type && detail.id) openActivity(detail.type, detail.id);
+    };
+    window.addEventListener("slivadoc:open-activity", listener);
+    return () =>
+      window.removeEventListener("slivadoc:open-activity", listener);
+  });
+
+  const openNotificationTarget = (item: NotificationItem) => {
+    const type = item.metadata?.activity_type;
+    const id = item.metadata?.activity_id;
+    if (
+      typeof type === "string" &&
+      typeof id === "string" &&
+      type in activityTypeMeta
+    ) {
+      openActivity(type as ActivityType, id);
+      return;
+    }
+    const route = item.action_route.split("/").filter(Boolean).pop() ?? "";
+    if (route === "activity" || route === "bookings") navigate("bookings");
+    else if (route in titles) navigate(route as AppView);
+    else notify(item.title);
+  };
+
+  const repeatActivity = (item: PetOwnerActivityCenterItem) => {
+    if (item.type === "booking") {
+      openBooking(serviceCatalog.find((service) => service.id === item.service_id));
+      return;
+    }
+    if (item.type === "consultation") {
+      navigate("consult");
+      return;
+    }
+    const lines = item.items ?? [];
+    const available = lines.filter(
+      (line) =>
+        productCatalog.find((product) => product.id === line.product_id)
+          ?.available,
+    );
+    if (!available.length) {
+      notify("Produk pada pesanan lama sudah tidak tersedia");
+      return;
+    }
+    setCart((current) => {
+      const next = { ...current };
+      for (const line of available) {
+        const stock =
+          productCatalog.find((product) => product.id === line.product_id)
+            ?.stock ?? 0;
+        next[line.product_id] = Math.min(
+          stock,
+          (next[line.product_id] ?? 0) + line.quantity,
+        );
+      }
+      return next;
+    });
+    setCartOpen(true);
+    if (available.length < lines.length)
+      notify("Sebagian produk pada pesanan lama sudah tidak tersedia");
+  };
+
   if (bootstrapLoading)
     return (
       <div className="petowner-loading">
@@ -1079,6 +1101,7 @@ export default function PetOwnerApp() {
         authenticated={authenticated}
         onLogin={() => setLoginOpen(true)}
         selectedPet={selectedPet}
+        needsActionCount={activities.filter((item) => item.needs_action).length}
       />
 
       <main className="main-shell">
@@ -1123,6 +1146,7 @@ export default function PetOwnerApp() {
               setChatOpen={setChatOpen}
               services={serviceCatalog}
               activities={activities}
+              openActivity={openActivity}
               ownerName={account?.full_name}
             />
           )}
@@ -1152,8 +1176,13 @@ export default function PetOwnerApp() {
               setActiveView={navigate}
               notify={notify}
               activities={activities}
+              summary={activitySummary}
               points={points}
               rewardFormula={rewardFormula}
+              focus={activityFocus}
+              onFocusHandled={handleActivityFocus}
+              onRepeat={repeatActivity}
+              onPaid={syncActivities}
             />
           )}
           {activeView === "health" && (
@@ -1253,6 +1282,7 @@ export default function PetOwnerApp() {
               items={notifications}
               setItems={setNotifications}
               notify={notify}
+              onOpen={openNotificationTarget}
             />
           )}
           {activeView === "support" && (
@@ -1303,6 +1333,7 @@ export default function PetOwnerApp() {
         <NotificationDrawer
           onClose={() => setNotificationOpen(false)}
           notify={notify}
+          onOpen={openNotificationTarget}
           items={notifications}
           setItems={setNotifications}
           seeAll={() => {
@@ -1374,9 +1405,14 @@ export default function PetOwnerApp() {
           success={bookingSuccess}
           setSuccess={setBookingSuccess}
           onClose={() => setBookingOpen(false)}
-          onBooked={async () => {
+          onBooked={async (bookingId) => {
+            setBookedId(bookingId);
             await loadBootstrap();
             setBookingSuccess(true);
+          }}
+          onOpenActivity={() => {
+            setBookingOpen(false);
+            openActivity("booking", bookedId);
           }}
         />
       )}
@@ -1859,6 +1895,7 @@ function Sidebar({
   authenticated,
   onLogin,
   selectedPet,
+  needsActionCount,
 }: {
   activeView: AppView;
   setActiveView: (view: AppView) => void;
@@ -1867,6 +1904,7 @@ function Sidebar({
   authenticated: boolean;
   onLogin: () => void;
   selectedPet?: Pet;
+  needsActionCount: number;
 }) {
   return (
     <aside className="sidebar">
@@ -1907,7 +1945,9 @@ function Sidebar({
                 >
                   <Icon name={item.icon} size={19} />
                   <span>{item.label}</span>
-                  {item.id === "bookings" && <em>3</em>}
+                  {item.id === "bookings" && needsActionCount > 0 && (
+                    <em>{needsActionCount > 9 ? "9+" : needsActionCount}</em>
+                  )}
                 </button>
               ))}
           </div>
@@ -2260,6 +2300,7 @@ function HomeView({
   setChatOpen,
   services,
   activities,
+  openActivity,
   ownerName,
 }: {
   selectedPet: Pet;
@@ -2273,7 +2314,8 @@ function HomeView({
   openActivityDetail: (activityId: string) => void;
   setChatOpen: (value: boolean) => void;
   services: Service[];
-  activities: ActivityItem[];
+  activities: PetOwnerActivityCenterItem[];
+  openActivity: (type: ActivityType, id: string) => void;
   ownerName?: string;
 }) {
   const [campaign, setCampaign] = useState<PublicCampaign | null>(null);
@@ -2292,7 +2334,14 @@ function HomeView({
   }, []);
 
   const firstName = ownerName?.trim().split(/\s+/)[0];
-  const featuredActivities = activities.slice(0, 3);
+  const featuredActivities = activities
+    .filter((item) => item.state !== "history")
+    .sort(
+      (a, b) =>
+        new Date(a.scheduled_at ?? a.occurred_at).getTime() -
+        new Date(b.scheduled_at ?? b.occurred_at).getTime(),
+    )
+    .slice(0, 3);
   const nearestPartners = Array.from(
     services
       .filter((item) => item.type === "Clinic" || item.type === "Pet Shop")
@@ -2784,7 +2833,7 @@ function HomeView({
               <div>
                 <b>Insight untuk {selectedPet.name}</b>
                 <small>
-                  {activities[0]?.description ||
+                  {featuredActivities[0]?.subtitle ||
                     "Belum ada aktivitas kesehatan terjadwal."}
                 </small>
               </div>
@@ -2812,29 +2861,18 @@ function HomeView({
                 <button
                   className="home-care-row"
                   type="button"
-                  key={care.id}
-                  onClick={() => openActivityDetail(care.id)}
+                  key={`${care.type}-${care.id}`}
+                  onClick={() => openActivity(care.type, care.id)}
                 >
                   <span className="home-care-timeline">
                     <i
                       className={
-                        care.category === "consultation"
-                          ? "home-care-icon home-care-icon--violet"
-                          : care.category === "health"
-                            ? "home-care-icon home-care-icon--mint"
-                            : "home-care-icon"
+                        activityTypeMeta[care.type].tone === "sky"
+                          ? "home-care-icon"
+                          : `home-care-icon home-care-icon--${activityTypeMeta[care.type].tone}`
                       }
                     >
-                      <Icon
-                        name={
-                          care.category === "consultation"
-                            ? "chat"
-                            : care.category === "booking"
-                              ? "calendar"
-                              : "paw"
-                        }
-                        size={18}
-                      />
+                      <Icon name={activityTypeMeta[care.type].icon} size={18} />
                     </i>
                     {index < featuredActivities.length - 1 && <em />}
                   </span>
@@ -2842,14 +2880,14 @@ function HomeView({
                     <small>
                       <Icon name="clock" size={11} />
                       {new Date(
-                        care.starts_at || care.occurred_at,
+                        care.scheduled_at || care.occurred_at,
                       ).toLocaleDateString("id-ID", {
                         day: "numeric",
                         month: "short",
                       })}
                     </small>
                     <b>{care.title}</b>
-                    <span>{care.description}</span>
+                    <span>{care.subtitle}</span>
                   </span>
                   <Icon name="chevron" size={15} />
                 </button>
@@ -4050,198 +4088,130 @@ function DiscoverView({
   );
 }
 
-function HousingBookingsActivity({ notify }: { notify: Notify }) {
-  const [items, setItems] = useState<PetOwnerPetSpotReservation[]>([]);
-  const [payment, setPayment] = useState<PaymentIntent | null>(null);
-  const [method, setMethod] = useState("qris");
-  const [busy, setBusy] = useState(false);
-  const refresh = useCallback(() => {
-    if (!isPetOwnerAuthenticated()) return;
-    void getMyPetSpotReservations()
-      .then((value) => setItems(value.data))
-      .catch((cause: unknown) =>
-        notify(
-          cause instanceof Error
-            ? cause.message
-            : "Reservasi hunian belum dapat dimuat",
-        ),
-      );
-  }, [notify]);
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-  async function pay(id: string) {
-    setBusy(true);
-    try {
-      setPayment(await createPaymentIntent("petspot_reservation", id, method));
-    } catch (cause) {
-      notify(
-        cause instanceof Error
-          ? cause.message
-          : "Pembayaran belum dapat dibuka",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  const housing = items.filter(
-    (item) =>
-      item.category === "boarding_house" || item.category === "apartment",
-  );
-  if (!housing.length) return null;
-  return (
-    <section className="housing-activity">
-      <h3>Reservasi hunian</h3>
-      <p>Lihat jadwal dan pembayaran reservasi hunian.</p>
-      {payment && (
-        <QrisPaymentPanel
-          payment={payment}
-          onPaid={() => {
-            setPayment(null);
-            refresh();
-          }}
-        />
-      )}
-      {housing.map((item) => {
-        const canPay =
-          item.payment_status === "pending" &&
-          item.status === "pending_payment" &&
-          new Date(item.hold_expires_at) > new Date();
-        const reservationStatus =
-          item.status === "pending_payment"
-            ? "Menunggu pembayaran"
-            : item.status.replaceAll("_", " ");
-        const paymentStatus =
-          item.payment_status === "pending"
-            ? "Belum dibayar"
-            : item.payment_status.replaceAll("_", " ");
-        return (
-          <article
-            className={canPay ? "housing-activity--needs-action" : ""}
-            key={item.id}
-          >
-            <div className="housing-activity-booking">
-              <b>
-                {item.spot_name}, {item.resource_name}
-              </b>
-              <small>{item.reservation_number}</small>
-              <span>
-                {new Date(item.starts_at).toLocaleDateString("id-ID")} sampai{" "}
-                {new Date(item.ends_at).toLocaleDateString("id-ID")}
-              </span>
-            </div>
-            <div className="housing-activity-status">
-              <b>{reservationStatus}</b>
-              <small>
-                Uang muka {formatRupiah(item.deposit_amount)}, {paymentStatus}
-              </small>
-            </div>
-            {canPay && (
-              <div className="housing-activity-payment">
-                <PaymentMethodPicker value={method} onChange={setMethod} />
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void pay(item.id)}
-                >
-                  Bayar DP
-                </button>
-              </div>
-            )}
-          </article>
-        );
-      })}
-    </section>
-  );
-}
+const activityStateTabs = [
+  ["upcoming", "Mendatang"],
+  ["ongoing", "Berlangsung"],
+  ["history", "Riwayat"],
+] as const;
 
 function BookingsView({
   openBooking,
   setActiveView,
   notify,
   activities,
+  summary,
   points,
   rewardFormula,
+  focus,
+  onFocusHandled,
+  onRepeat,
+  onPaid,
 }: {
   openBooking: (service?: Service) => void;
   setActiveView: (view: AppView) => void;
   notify: Notify;
-  activities: ActivityViewItem[];
+  activities: PetOwnerActivityCenterItem[];
+  summary: PetOwnerActivityCenterResponse["summary"] | null;
   points: number;
   rewardFormula: RewardFormula;
+  focus: { type: ActivityType; id: string; token: number } | null;
+  onFocusHandled: (token: number) => void;
+  onRepeat: (item: PetOwnerActivityCenterItem) => void;
+  onPaid: () => Promise<void>;
 }) {
-  const [tab, setTab] = useState("Mendatang");
-  const [typeFilter, setTypeFilter] = useState(() => {
-    const requested = new URL(window.location.href).searchParams.get("activity_type");
-    return ["booking", "order", "consultation"].includes(requested || "")
-      ? requested || "all"
+  const [tab, setTab] =
+    useState<PetOwnerActivityCenterItem["state"]>("upcoming");
+  // The marketplace "Pesanan" shortcut lands here with ?activity_type=order.
+  const [typeFilter, setTypeFilter] = useState<ActivityType | "all">(() => {
+    const requested = new URL(window.location.href).searchParams.get(
+      "activity_type",
+    );
+    return requested && requested in activityTypeMeta
+      ? (requested as ActivityType)
       : "all";
   });
-  const [detail, setDetail] = useState<ActivityViewItem | null>(null);
+  // The detail renders the current list entry, so it refreshes after a sync;
+  // the stored item is the fallback once it drops out of the list.
+  const [detail, setDetail] = useState<{
+    item: PetOwnerActivityCenterItem;
+    autoPay: boolean;
+  } | null>(null);
+  const detailItem = detail
+    ? (activities.find(
+        (entry) =>
+          entry.type === detail.item.type && entry.id === detail.item.id,
+      ) ?? detail.item)
+    : null;
   useEffect(() => {
-    const requestedType = new URL(window.location.href).searchParams.get("activity_type");
-    if (["booking", "order", "consultation"].includes(requestedType || ""))
-      queueMicrotask(() => setTypeFilter(requestedType || "all"));
-    const requested = new URL(window.location.href).searchParams.get("activity");
-    if (!requested) return;
-    const item = activities.find((activity) => activity.id === requested);
-    if (!item) return;
+    if (!focus) return;
     queueMicrotask(() => {
-      setDetail(item);
-      setTypeFilter("all");
-      setTab(
-        item.activity_state === "history"
-          ? "Riwayat"
-          : item.activity_state === "ongoing"
-            ? "Berlangsung"
-            : "Mendatang",
+      const item = activities.find(
+        (entry) => entry.type === focus.type && entry.id === focus.id,
       );
+      if (item) {
+        setTab(item.state);
+        setTypeFilter("all");
+        setDetail({ item, autoPay: false });
+      } else notify("Aktivitas belum tersedia. Coba lagi sebentar.");
+      onFocusHandled(focus.token);
     });
-  }, [activities]);
-  const closeDetail = () => {
-    setDetail(null);
-    const url = new URL(window.location.href);
-    url.searchParams.delete("activity");
-    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
-  };
-  const upcoming = activities.filter((item) =>
-    item.activity_state
-      ? item.activity_state === "upcoming"
-      : Boolean(item.starts_at && new Date(item.starts_at) > new Date()),
+  }, [focus, activities, notify, onFocusHandled]);
+  const attention = activities.filter((item) => item.needs_action);
+  const visible = activities.filter(
+    (item) =>
+      item.state === tab && (typeFilter === "all" || item.type === typeFilter),
   );
-  const live = activities.filter((item) =>
-    item.activity_state
-      ? item.activity_state === "ongoing"
-      : ["in_progress", "active", "on_the_way"].includes(item.status),
+  const typeCount = (type: ActivityType) => summary?.[type] ?? 0;
+  const chips = activityTypeOrder.filter((type) => typeCount(type) > 0);
+  const totalCount = activityTypeOrder.reduce(
+    (total, type) => total + typeCount(type),
+    0,
   );
-  const history = activities.filter((item) =>
-    item.activity_state
-      ? item.activity_state === "history"
-      : !upcoming.includes(item) && !live.includes(item),
-  );
-  const stateItems =
-    tab === "Mendatang" ? upcoming : tab === "Berlangsung" ? live : history;
-  const visible =
-    typeFilter === "all"
-      ? stateItems
-      : stateItems.filter((item) => item.category === typeFilter);
-  const typeOptions = [
-    { id: "all", label: "Semua jenis" },
-    { id: "booking", label: "Booking" },
-    { id: "order", label: "Belanja" },
-    { id: "consultation", label: "Konsultasi" },
-  ];
 
   return (
     <div className="activity-native">
       <header className="native-screen-header">
         <div>
           <h2>Aktivitas</h2>
-          <p>Booking, pesanan, dan konsultasi pet-mu.</p>
+          <p>Booking, pesanan, kelas, tiket, reservasi, dan dokumen pet-mu.</p>
         </div>
       </header>
 
-      <HousingBookingsActivity notify={notify} />
+      {attention.length > 0 && (
+        <section className="activity-attention" aria-label="Perlu tindakan">
+          <header>
+            <h3>Perlu tindakan</h3>
+            <span className="activity-tab-count">{attention.length}</span>
+          </header>
+          {attention.map((item) => {
+            const meta = activityTypeMeta[item.type];
+            return (
+              <article key={`${item.type}-${item.id}`}>
+                <span
+                  className={`activity-native-icon activity-native-icon--${meta.tone}`}
+                >
+                  <Icon name={meta.icon} size={18} />
+                </span>
+                <div>
+                  <b>{item.title}</b>
+                  <small>{activityAttentionReason(item)}</small>
+                </div>
+                <button
+                  className="primary-button small"
+                  type="button"
+                  onClick={() => setDetail({ item, autoPay: item.payable })}
+                >
+                  {item.payable
+                    ? "Bayar"
+                    : item.type === "event"
+                      ? "Tiket QR"
+                      : "Lihat detail"}
+                </button>
+              </article>
+            );
+          })}
+        </section>
+      )}
 
       <div className="activity-controls">
         <div
@@ -4249,39 +4219,45 @@ function BookingsView({
           role="group"
           aria-label="Status aktivitas"
         >
-          {[
-            ["Mendatang", upcoming.length],
-            ["Berlangsung", live.length],
-            ["Riwayat", history.length],
-          ].map(([label, count]) => {
-            const value = String(label);
-            return (
-              <button
-                type="button"
-                key={value}
-                className={tab === value ? "active" : ""}
-                aria-pressed={tab === value}
-                onClick={() => setTab(value)}
-              >
-                <span>{value}</span>
-                <span className="activity-tab-count">{count}</span>
-              </button>
-            );
-          })}
+          {activityStateTabs.map(([value, label]) => (
+            <button
+              type="button"
+              key={value}
+              className={tab === value ? "active" : ""}
+              aria-pressed={tab === value}
+              onClick={() => setTab(value)}
+            >
+              <span>{label}</span>
+              <span className="activity-tab-count">
+                {activities.filter((item) => item.state === value).length}
+              </span>
+            </button>
+          ))}
         </div>
-        <label className="activity-type-filter">
-          <span>Jenis aktivitas</span>
-          <select
-            value={typeFilter}
-            onChange={(event) => setTypeFilter(event.target.value)}
+        <div
+          className="activity-type-chips"
+          role="group"
+          aria-label="Jenis aktivitas"
+        >
+          <button
+            type="button"
+            aria-pressed={typeFilter === "all"}
+            onClick={() => setTypeFilter("all")}
           >
-            {typeOptions.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </label>
+            Semua <span className="activity-tab-count">{totalCount}</span>
+          </button>
+          {chips.map((type) => (
+            <button
+              type="button"
+              key={type}
+              aria-pressed={typeFilter === type}
+              onClick={() => setTypeFilter(type)}
+            >
+              {activityTypeMeta[type].label}{" "}
+              <span className="activity-tab-count">{typeCount(type)}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <header className="activity-native-toolbar">
@@ -4315,89 +4291,74 @@ function BookingsView({
 
       <div className="activity-native-list">
         {visible.length ? (
-          visible.map((item) => (
-            <article className="activity-native-card" key={item.id}>
-              <button
-                className="activity-native-main"
-                type="button"
-                onClick={() => setDetail(item)}
+          visible.map((item) => {
+            const meta = activityTypeMeta[item.type];
+            const repeatLabel = activityRepeatLabels[item.type];
+            return (
+              <article
+                className="activity-native-card"
+                key={`${item.type}-${item.id}`}
               >
-                <span
-                  className={`activity-native-icon activity-native-icon--${
-                    item.category === "consultation"
-                      ? "mint"
-                      : item.category === "order"
-                        ? "violet"
-                        : "sky"
-                  }`}
+                <button
+                  className="activity-native-main"
+                  type="button"
+                  onClick={() => setDetail({ item, autoPay: false })}
                 >
-                  <Icon
-                    name={
-                      item.category === "booking"
-                        ? "calendar"
-                        : item.category === "consultation"
-                          ? "chat"
-                          : item.category === "order"
-                            ? "bag"
-                            : "paw"
-                    }
-                    size={21}
-                  />
-                </span>
-                <span className="activity-native-copy">
-                  <span className="activity-native-meta">
-                    <small>{item.category.replaceAll("_", " ")}</small>
-                    <i>{item.status.replaceAll("_", " ")}</i>
-                  </span>
-                  <b>{item.title}</b>
-                  <span>{item.description}</span>
-                  <small className="activity-native-date">
-                    <Icon name="clock" size={13} />
-                    {new Date(
-                      item.starts_at || item.occurred_at,
-                    ).toLocaleString("id-ID")}
-                  </small>
-                </span>
-                <Icon name="chevron" size={17} />
-              </button>
-              <footer>
-                <span>
-                  <Icon
-                    name={item.category === "order" ? "bag" : "paw"}
-                    size={14}
-                  />
-                  {item.category === "order" ? "Pesanan pet" : "Pet kamu"}
-                </span>
-                {item.metadata?.latitude ? (
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${item.metadata.latitude},${item.metadata.longitude}`}
-                    target="_blank"
-                    rel="noreferrer"
+                  <span
+                    className={`activity-native-icon activity-native-icon--${meta.tone}`}
                   >
-                    <Icon name="map" size={14} /> Arah
-                  </a>
-                ) : null}
-                <button type="button" onClick={() => setDetail(item)}>
-                  <Icon name="arrow" size={14} />{" "}
-                  {item.category === "order"
-                    ? "Beli lagi"
-                    : item.category === "consultation"
-                      ? "Konsultasi ulang"
-                      : "Booking lagi"}
+                    <Icon name={meta.icon} size={21} />
+                  </span>
+                  <span className="activity-native-copy">
+                    <span className="activity-native-meta">
+                      <small>{meta.label}</small>
+                      <i>{activityStatusLabel(item)}</i>
+                    </span>
+                    <b>{item.title}</b>
+                    <span>{item.subtitle}</span>
+                    <small className="activity-native-date">
+                      <Icon name="clock" size={13} />
+                      {formatActivityDate(item.scheduled_at || item.occurred_at)}
+                    </small>
+                  </span>
+                  <Icon name="chevron" size={17} />
                 </button>
-              </footer>
-            </article>
-          ))
+                <footer>
+                  <span>
+                    <Icon
+                      name={item.type === "order" ? "bag" : "paw"}
+                      size={14}
+                    />
+                    {item.type === "order"
+                      ? `${item.item_count ?? 0} produk`
+                      : item.pet_name || "Pet kamu"}
+                  </span>
+                  {item.latitude != null && item.longitude != null ? (
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Icon name="map" size={14} /> Arah
+                    </a>
+                  ) : null}
+                  {repeatLabel && (
+                    <button type="button" onClick={() => onRepeat(item)}>
+                      <Icon name="arrow" size={14} /> {repeatLabel}
+                    </button>
+                  )}
+                </footer>
+              </article>
+            );
+          })
         ) : (
           <div className="empty-state activity-native-empty">
             <span>
               <Icon
                 name={
-                  typeFilter === "order"
-                    ? "bag"
-                    : typeFilter === "consultation"
-                      ? "chat"
-                      : "calendar"
+                  typeFilter === "all"
+                    ? "calendar"
+                    : activityTypeMeta[typeFilter].icon
                 }
                 size={28}
               />
@@ -4410,7 +4371,7 @@ function BookingsView({
             <p>
               {activities.length
                 ? "Ubah status atau jenis aktivitas untuk melihat catatan lainnya."
-                : "Booking, belanja, dan konsultasi pet-mu akan muncul di sini."}
+                : "Booking, belanja, konsultasi, kelas, tiket, dan reservasi pet-mu akan muncul di sini."}
             </p>
           </div>
         )}
@@ -4437,7 +4398,16 @@ function BookingsView({
           Jelajahi layanan
         </button>
       </section>
-      {detail && <ActivityDetail item={detail} close={closeDetail} />}
+      {detailItem && detail && (
+        <ActivityDetail
+          key={`${detailItem.type}-${detailItem.id}`}
+          item={detailItem}
+          autoPay={detail.autoPay}
+          close={() => setDetail(null)}
+          onPaid={onPaid}
+          onRepeat={onRepeat}
+        />
+      )}
     </div>
   );
 }
@@ -5026,7 +4996,7 @@ function SupportCenter({
   activities,
   notify,
 }: {
-  activities: ActivityViewItem[];
+  activities: PetOwnerActivityCenterItem[];
   notify: Notify;
 }) {
   const [tickets, setTickets] = useState<PetOwnerSupportTicket[]>([]);
@@ -5041,12 +5011,12 @@ function SupportCenter({
         .filter(
           (item) =>
             item.reference_id &&
-            (item.category === "order" || item.category === "booking"),
+            (item.type === "order" || item.type === "booking"),
         )
         .slice(0, 30)
         .map((item) => ({
-          value: `${item.category}|${item.reference_id}`,
-          label: `${item.title} · ${item.description}`,
+          value: `${item.type}|${item.reference_id}`,
+          label: `${item.title} · ${item.subtitle}`,
         })),
     [activities],
   );
@@ -6107,47 +6077,304 @@ function ServiceDetail({
   );
 }
 
+function activityDetailRows(
+  item: PetOwnerActivityCenterItem,
+): Array<[string, React.ReactNode]> {
+  const date = (value?: string | null) =>
+    value ? formatActivityDate(value) : "";
+  const join = (...parts: Array<string | number | null | undefined>) =>
+    parts.filter(Boolean).join(" · ");
+  const range = (start?: string | null, end?: string | null) =>
+    start && end ? `${date(start)} – ${date(end)}` : date(start);
+  const place = [item.address, item.city].filter(Boolean).join(", ");
+  const money = (value?: number) =>
+    value === undefined ? "" : formatRupiah(value);
+  switch (item.type) {
+    case "booking":
+      return [
+        ["Jadwal", date(item.scheduled_at)],
+        [
+          "Layanan",
+          join(
+            item.service_name,
+            item.service_duration_minutes
+              ? `${item.service_duration_minutes} menit`
+              : "",
+          ),
+        ],
+        ["Klinik", join(item.business_name, item.branch_name)],
+        ["Alamat", place],
+        ["Pet", item.pet_name],
+        ["Catatan", item.notes],
+      ];
+    case "order": {
+      const discount = (item.discount_amount ?? 0) + (item.points_discount ?? 0);
+      return [
+        [
+          "Produk",
+          item.items?.length ? (
+            <ul>
+              {item.items.map((line) => (
+                <li key={line.product_id}>
+                  {line.name} × {line.quantity}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            ""
+          ),
+        ],
+        ["Subtotal", money(item.subtotal)],
+        ["Ongkir", money(item.shipping_fee)],
+        ["Diskon", discount ? `-${formatRupiah(discount)}` : ""],
+        ["Total", money(item.total_amount ?? item.amount)],
+      ];
+    }
+    case "consultation":
+      return [
+        [
+          "Provider",
+          join(
+            item.provider_name,
+            item.provider_type === "trainer" ? "Pet Trainer" : "Dokter hewan",
+          ),
+        ],
+        ["Paket", join(item.plan_name, item.mode)],
+        ["Jadwal", date(item.scheduled_at)],
+        [
+          "Durasi",
+          item.duration_minutes ? `${item.duration_minutes} menit` : "",
+        ],
+        ["Pet", item.pet_name],
+        ["Keluhan", item.complaint],
+        ["Diagnosis", item.diagnosis],
+        [
+          item.provider_type === "trainer" ? "Rencana latihan" : "Catatan",
+          item.doctor_notes,
+        ],
+        [
+          "Follow-up",
+          item.followup_until
+            ? date(item.followup_until)
+            : item.followup_days
+              ? `${item.followup_days} hari`
+              : "",
+        ],
+      ];
+    case "academy":
+      return [
+        ["Program", item.program_title],
+        ["Academy", item.academy_name],
+        ["Trainer", item.trainer_name],
+        [
+          "Sesi berikutnya",
+          item.scheduled_at ? (
+            <>
+              {join(range(item.scheduled_at, item.ends_at), item.location)}
+              {item.online_url && (
+                <>
+                  {" · "}
+                  <a href={item.online_url} target="_blank" rel="noreferrer">
+                    Link kelas online
+                  </a>
+                </>
+              )}
+            </>
+          ) : (
+            ""
+          ),
+        ],
+        [
+          "Progres",
+          item.progress_percent !== undefined ? (
+            <>
+              <div className="activity-progress">
+                <span style={{ width: `${item.progress_percent}%` }} />
+              </div>
+              <small>
+                {join(
+                  `${item.progress_percent}%`,
+                  item.progress_notes,
+                  date(item.last_progress_at),
+                )}
+              </small>
+            </>
+          ) : (
+            ""
+          ),
+        ],
+        ["Peserta", join(item.participant_name, item.pet_name)],
+      ];
+    case "event":
+      return [
+        ["Waktu", range(item.scheduled_at, item.ends_at)],
+        ["Lokasi", join(item.venue, place)],
+        ["Tiket", item.ticket_quantity ? `${item.ticket_quantity} tiket` : ""],
+        ["Pet", item.pet_name],
+        [
+          "Check-in",
+          item.payment_status === "paid"
+            ? item.status === "checked_in"
+              ? "Sudah check-in"
+              : "Belum check-in"
+            : "",
+        ],
+      ];
+    case "reservation":
+      return [
+        ["Tempat", join(item.spot_name, item.resource_name)],
+        ["Waktu", range(item.scheduled_at, item.ends_at)],
+        [
+          "Tamu",
+          item.guest_count !== undefined
+            ? `${item.guest_count} orang · ${item.pet_count ?? 0} pet`
+            : "",
+        ],
+        ["DP", money(item.deposit_amount)],
+        [
+          "Sisa dibayar di lokasi",
+          item.remaining_amount ? formatRupiah(item.remaining_amount) : "",
+        ],
+        ["Lokasi", place],
+      ];
+    case "document":
+      return [
+        ["Layanan", item.product_name],
+        [
+          "Rute",
+          item.origin_city && item.destination_city
+            ? `${item.origin_city} → ${item.destination_city}`
+            : "",
+        ],
+        ["Keberangkatan", date(item.departure_at)],
+        [
+          "Persyaratan kurang",
+          item.status === "need_revision" &&
+          item.missing_requirements?.length ? (
+            <ul>
+              {item.missing_requirements.map((requirement) => (
+                <li key={requirement}>{requirement}</li>
+              ))}
+            </ul>
+          ) : (
+            ""
+          ),
+        ],
+        [
+          "Dokumen terbit",
+          item.status === "issued" && item.issued_document_url ? (
+            <a
+              href={item.issued_document_url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Unduh dokumen
+            </a>
+          ) : (
+            ""
+          ),
+        ],
+        ["Pet", item.pet_name],
+      ];
+    case "donation":
+      return [
+        ["Campaign", item.fundraiser_title],
+        ["Penerima", item.beneficiary_name],
+        ["Pesan", item.message],
+        [
+          "Anonim",
+          item.anonymous === undefined ? "" : item.anonymous ? "Ya" : "Tidak",
+        ],
+        ["Dibayar", date(item.paid_at)],
+      ];
+    case "hotel":
+      return [
+        ["Kamar", item.room_name],
+        ["Klinik", join(item.business_name, item.branch_name)],
+        [
+          "Check-in",
+          join(
+            item.scheduled_at && `rencana ${date(item.scheduled_at)}`,
+            item.checked_in_at && `aktual ${date(item.checked_in_at)}`,
+          ),
+        ],
+        [
+          "Check-out",
+          join(
+            item.ends_at && `rencana ${date(item.ends_at)}`,
+            item.checked_out_at && `aktual ${date(item.checked_out_at)}`,
+          ),
+        ],
+        ["Pet", item.pet_name],
+      ];
+  }
+}
+
 function ActivityDetail({
   item,
   close,
+  autoPay,
+  onPaid,
+  onRepeat,
 }: {
-  item: ActivityViewItem;
+  item: PetOwnerActivityCenterItem;
   close: () => void;
+  autoPay: boolean;
+  onPaid: () => Promise<void>;
+  onRepeat: (item: PetOwnerActivityCenterItem) => void;
 }) {
+  const [payment, setPayment] = useState<PaymentIntent | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState("");
+  const autoPayStarted = useRef(false);
+  const meta = activityTypeMeta[item.type];
+  const repeatLabel = activityRepeatLabels[item.type];
+  const rows = activityDetailRows(item).filter(
+    ([, value]) => value !== "" && value !== undefined && value !== null,
+  );
+  async function pay() {
+    setPaying(true);
+    setPayError("");
+    try {
+      setPayment(
+        await createPaymentIntent(
+          item.payment_reference_type,
+          item.reference_id,
+          "qris",
+        ),
+      );
+    } catch (cause) {
+      setPayError(
+        cause instanceof Error ? cause.message : "Pembayaran belum dapat dibuka",
+      );
+    } finally {
+      setPaying(false);
+    }
+  }
+  useEffect(() => {
+    if (!autoPay || autoPayStarted.current) return;
+    autoPayStarted.current = true;
+    queueMicrotask(() => void pay());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [invoiceHTML, setInvoiceHTML] = useState("");
   const [invoiceBusy, setInvoiceBusy] = useState(false);
   const [invoiceError, setInvoiceError] = useState("");
-  const icon =
-    item.category === "booking"
-      ? "📅"
-      : item.category === "consultation"
-        ? "💬"
-        : item.category === "order"
-          ? "📦"
-          : "🐾";
-  const metadata = Object.entries(item.metadata || {}).filter(
-    ([key, value]) =>
-      !["latitude", "longitude"].includes(key) &&
-      (typeof value === "string" || typeof value === "number"),
-  );
+  // A paid item has a Slivadoc invoice; PetSpot deposits are receipted by the spot.
   const invoiceReferenceType =
-    item.category === "booking"
-      ? "petowner_booking"
-      : item.category === "consultation"
-        ? "consultation"
-        : item.category === "order"
-          ? "shop_order"
-          : null;
+    item.payment_status === "paid" &&
+    item.payment_reference_type &&
+    item.payment_reference_type !== "petspot_reservation"
+      ? (item.payment_reference_type as Parameters<
+          typeof getTransactionInvoiceHTML
+        >[0])
+      : null;
   async function openInvoice() {
-    if (!invoiceReferenceType || !item.reference_id) return;
+    if (!invoiceReferenceType) return;
     setInvoiceBusy(true);
     setInvoiceError("");
     try {
       setInvoiceHTML(
-        await getTransactionInvoiceHTML(
-          invoiceReferenceType,
-          item.reference_id,
-        ),
+        await getTransactionInvoiceHTML(invoiceReferenceType, item.reference_id),
       );
     } catch (error) {
       setInvoiceError(
@@ -6163,50 +6390,87 @@ function ActivityDetail({
         className="modal activity-detail-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <button className="modal-close" onClick={close} aria-label="Tutup">
           <Icon name="close" />
         </button>
         <header className="activity-detail-hero">
-          <span>{icon}</span>
+          <span>
+            <Icon name={meta.icon} size={24} />
+          </span>
           <div>
-            <small>{item.category.toUpperCase()}</small>
+            <small>{meta.label.toUpperCase()}</small>
             <h2>{item.title}</h2>
-            <em>{item.status.replaceAll("_", " ")}</em>
+            <em>{activityStatusLabel(item)}</em>
           </div>
         </header>
         <div className="activity-detail-copy">
           <span className="activity-detail-label">RINGKASAN AKTIVITAS</span>
-          <p>{item.description}</p>
+          <p>{[item.code, item.subtitle].filter(Boolean).join(" · ")}</p>
         </div>
-        <dl>
-          <div className="activity-detail-time">
-            <dt>Waktu</dt>
-            <dd>
-              {new Date(item.starts_at || item.occurred_at).toLocaleString(
-                "id-ID",
-                { dateStyle: "full", timeStyle: "short" },
-              )}
-            </dd>
-          </div>
-          {metadata.map(([key, value]) => (
-            <div key={key}>
-              <dt>{key.replaceAll("_", " ")}</dt>
-              <dd>{String(value)}</dd>
+        {item.type === "event" &&
+          item.payment_status === "paid" &&
+          (item.status === "confirmed" || item.status === "checked_in") &&
+          item.qr_token && (
+            <div className="activity-ticket">
+              <QRCodeSVG
+                value={item.qr_token}
+                size={200}
+                marginSize={2}
+                title="QR tiket event"
+              />
+              <b>{item.qr_token.slice(0, 13).toUpperCase()}</b>
+              <small>Tunjukkan QR ini ke petugas saat check-in.</small>
             </div>
-          ))}
-        </dl>
+          )}
+        {rows.length > 0 && (
+          <dl>
+            {rows.map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        {item.amount > 0 && (
+          <div className="activity-detail-copy">
+            <span className="activity-detail-label">Status pembayaran</span>
+            <p>
+              <b>
+                {item.payable
+                  ? "Menunggu pembayaran"
+                  : activityStatusText(item.payment_status)}
+              </b>{" "}
+              · {formatRupiah(item.amount)}
+            </p>
+            {item.payable && !payment && (
+              <button
+                className="primary-button full"
+                type="button"
+                disabled={paying}
+                onClick={() => void pay()}
+              >
+                Bayar sekarang
+              </button>
+            )}
+            {payError && <p className="form-message">{payError}</p>}
+            {payment && (
+              <QrisPaymentPanel payment={payment} onPaid={() => void onPaid()} />
+            )}
+          </div>
+        )}
         <footer>
-          {item.metadata?.latitude && (
+          {item.latitude != null && item.longitude != null && (
             <a
               className="secondary-button"
-              href={`https://www.google.com/maps/dir/?api=1&destination=${item.metadata.latitude},${item.metadata.longitude}`}
+              href={`https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`}
               target="_blank"
               rel="noreferrer"
             >
               <Icon name="map" size={16} /> Petunjuk arah
             </a>
           )}
-          {invoiceReferenceType && item.reference_id ? (
+          {invoiceReferenceType ? (
             <button
               className="secondary-button"
               type="button"
@@ -6217,6 +6481,18 @@ function ActivityDetail({
               {invoiceBusy ? "Membuka invoice…" : "Buka invoice Slivadoc"}
             </button>
           ) : null}
+          {repeatLabel && (
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => {
+                close();
+                onRepeat(item);
+              }}
+            >
+              <Icon name="arrow" size={16} /> {repeatLabel}
+            </button>
+          )}
           <button className="primary-button" type="button" onClick={close}>
             Selesai
           </button>
@@ -6395,10 +6671,12 @@ function NotificationCenter({
   items,
   setItems,
   notify,
+  onOpen,
 }: {
   items: NotificationItem[];
   setItems: React.Dispatch<React.SetStateAction<NotificationItem[]>>;
   notify: Notify;
+  onOpen: (item: NotificationItem) => void;
 }) {
   const [category, setCategory] = useState("");
   const categories = [...new Set(items.map((item) => item.category))];
@@ -6417,7 +6695,7 @@ function NotificationCenter({
           ),
         );
       }
-      notify(item.title);
+      onOpen(item);
     } catch (error) {
       notify(
         error instanceof Error
@@ -6621,12 +6899,14 @@ function MobileNav({
 function NotificationDrawer({
   onClose,
   notify,
+  onOpen,
   items,
   setItems,
   seeAll,
 }: {
   onClose: () => void;
   notify: Notify;
+  onOpen: (item: NotificationItem) => void;
   items: NotificationItem[];
   setItems: React.Dispatch<React.SetStateAction<NotificationItem[]>>;
   seeAll: () => void;
@@ -6660,7 +6940,8 @@ function NotificationDrawer({
         ),
       );
     }
-    notify(item.title);
+    onClose();
+    onOpen(item);
   }
   return (
     <div className="overlay" onMouseDown={onClose}>
@@ -6739,6 +7020,7 @@ function BookingModal({
   setSuccess,
   onClose,
   onBooked,
+  onOpenActivity,
 }: {
   service: Service;
   pets: Pet[];
@@ -6747,7 +7029,8 @@ function BookingModal({
   success: boolean;
   setSuccess: (value: boolean) => void;
   onClose: () => void;
-  onBooked: () => Promise<void>;
+  onBooked: (bookingId: string) => Promise<void>;
+  onOpenActivity: () => void;
 }) {
   const pet = pets.find((item) => item.id === selectedPetId) ?? pets[0];
   const service = {
@@ -6869,7 +7152,7 @@ function BookingModal({
           ),
         );
       } else {
-        await onBooked();
+        await onBooked(booking.id);
         setSuccess(true);
       }
     } catch (error) {
@@ -6912,7 +7195,7 @@ function BookingModal({
           <button
             className="primary-button full"
             type="button"
-            onClick={onClose}
+            onClick={onOpenActivity}
           >
             Lihat aktivitas
           </button>
@@ -6932,7 +7215,7 @@ function BookingModal({
           <QrisPaymentPanel
             payment={payment}
             onPaid={() => {
-              void onBooked().then(() => setSuccess(true));
+              void onBooked(payment.reference_id).then(() => setSuccess(true));
             }}
           />
         </div>

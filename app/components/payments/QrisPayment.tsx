@@ -94,6 +94,7 @@ export function QrisPaymentPanel(props: {
   payment: PaymentIntent;
   onPaid?: () => void;
   onClose?: () => void;
+  onOpenActivity?: () => void;
 }) {
   return <QrisPaymentState key={props.payment.id} {...props} />;
 }
@@ -102,10 +103,12 @@ function QrisPaymentState({
   payment,
   onPaid,
   onClose,
+  onOpenActivity,
 }: {
   payment: PaymentIntent;
   onPaid?: () => void;
   onClose?: () => void;
+  onOpenActivity?: () => void;
 }) {
   const [current, setCurrent] = useState(payment);
   const [message, setMessage] = useState("");
@@ -152,6 +155,15 @@ function QrisPaymentState({
         <span>✓</span>
         <h3>Pembayaran berhasil</h3>
         <p>Transaksi sudah tercatat dan layanan sedang diproses.</p>
+        {onOpenActivity && (
+          <button
+            type="button"
+            className="primary-button full"
+            onClick={onOpenActivity}
+          >
+            Lihat di Aktivitas
+          </button>
+        )}
         {onClose && (
           <button
             type="button"

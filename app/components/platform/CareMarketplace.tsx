@@ -2111,6 +2111,7 @@ function DocumentModal({
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [requestNumber, setRequestNumber] = useState("");
+  const [requestId, setRequestId] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!requireLogin(notify)) return;
@@ -2129,6 +2130,7 @@ function DocumentModal({
         submitted_documents: [],
       });
       setRequestNumber(result.request_number);
+      setRequestId(result.id);
       if (result.amount > 0)
         setPayment(
           await createPaymentIntent(
@@ -2169,7 +2171,17 @@ function DocumentModal({
             <p>
               Nomor {done}. Checklist dan status proses tersedia di Aktivitas.
             </p>
-            <button className="primary-button" onClick={close}>
+            <button
+              className="primary-button"
+              onClick={() => {
+                close();
+                window.dispatchEvent(
+                  new CustomEvent("slivadoc:open-activity", {
+                    detail: { type: "document", id: requestId },
+                  }),
+                );
+              }}
+            >
               Pantau dokumen
             </button>
           </div>

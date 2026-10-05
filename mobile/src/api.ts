@@ -316,6 +316,7 @@ export type MobileNotification = {
   action_route?: string;
   read_at?: string | null;
   created_at: string;
+  metadata?: Record<string, unknown>;
 };
 export type MobileFamilyAccess = {
   id: string;
@@ -328,21 +329,16 @@ export type MobileFamilyAccess = {
   accepted_at?: string | null;
   created_at: string;
 };
-export type MobileActivity = {
-  id: string;
-  pet_id: string;
-  reference_id?: string;
-  category: string;
-  title: string;
-  description: string;
-  status: string;
-  action_route: string;
-  action_label: string;
-  metadata: Record<string, unknown>;
-  starts_at?: string;
-  occurred_at: string;
-};
-export type MobileActivityType = "booking" | "order" | "consultation";
+export type MobileActivityType =
+  | "booking"
+  | "order"
+  | "consultation"
+  | "academy"
+  | "event"
+  | "reservation"
+  | "document"
+  | "donation"
+  | "hotel";
 export type MobileActivityState = "all" | "upcoming" | "ongoing" | "history";
 export type MobileActivityOrderItem = {
   id: string;
@@ -393,6 +389,10 @@ export type MobileActivityCenterItem = {
   amount: number;
   state: Exclude<MobileActivityState, "all">;
   scheduled_at?: string | null;
+  ends_at?: string | null;
+  needs_action: boolean;
+  payable: boolean;
+  payment_reference_type: string;
   occurred_at: string;
   updated_at: string;
   service_id?: string;
@@ -406,6 +406,8 @@ export type MobileActivityCenterItem = {
   branch_name?: string;
   address?: string;
   city?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   pet_id?: string;
   pet_name?: string;
   notes?: string;
@@ -442,17 +444,50 @@ export type MobileActivityCenterItem = {
   started_at?: string | null;
   ended_at?: string | null;
   room_key?: string;
+  program_id?: string;
+  program_title?: string;
+  academy_name?: string;
+  session_count?: number;
+  progress_percent?: number;
+  progress_notes?: string;
+  last_progress_at?: string | null;
+  participant_name?: string;
+  location?: string;
+  online_url?: string;
+  event_id?: string;
+  venue?: string;
+  ticket_quantity?: number;
+  qr_token?: string;
+  spot_id?: string;
+  spot_name?: string;
+  spot_category?: string;
+  resource_name?: string;
+  resource_code?: string;
+  guest_count?: number;
+  pet_count?: number;
+  deposit_amount?: number;
+  remaining_amount?: number;
+  hold_expires_at?: string;
+  product_name?: string;
+  origin_city?: string;
+  destination_city?: string;
+  departure_at?: string | null;
+  missing_requirements?: string[];
+  issued_document_url?: string;
+  fundraiser_id?: string;
+  fundraiser_title?: string;
+  beneficiary_name?: string;
+  anonymous?: boolean;
+  message?: string;
+  room_name?: string;
+  checked_in_at?: string | null;
+  checked_out_at?: string | null;
 };
 export type MobileActivityCenterResponse = {
   data: MobileActivityCenterItem[];
-  count: number;
   summary: Record<MobileActivityType, number>;
 };
 
-type LegacyMobileActivityResponse = {
-  data: MobileActivity[];
-  count: number;
-};
 export type MobileMembership = {
   id: string;
   name: string;
@@ -466,7 +501,6 @@ export type MobileBootstrap = {
   user: MobileOwner;
   pets: MobilePet[];
   notifications: MobileNotification[];
-  activities: MobileActivity[];
   favorites: Array<{
     entity_type: string;
     entity_id: string;
@@ -865,7 +899,6 @@ export const getMobileBootstrap = async () => {
     ...result,
     pets,
     notifications: uniqueById(result.notifications),
-    activities: uniqueById(result.activities),
   };
 };
 export const getMobileServices = (options?: {
@@ -892,142 +925,33 @@ export const getMobileServiceAvailability = (
     { cache: "no-store" },
   );
 
-function legacyActivityType(
-  activity: MobileActivity,
-): MobileActivityType | undefined {
-  const source = `${activity.category} ${activity.action_route}`.toLowerCase();
-  if (
-    source.includes("booking") ||
-    source.includes("hotel") ||
-    source.includes("home_service")
-  )
-    return "booking";
-  if (
-    source.includes("order") ||
-    source.includes("marketplace") ||
-    source.includes("commerce")
-  )
-    return "order";
-  if (source.includes("consult")) return "consultation";
-  return undefined;
-}
+const activityCenterPath = "/api/v1/petowner/activities?limit=100";
 
-function legacyActivityState(
-  activity: MobileActivity,
-  type: MobileActivityType,
-): Exclude<MobileActivityState, "all"> {
-  const status = activity.status.toLowerCase();
-  if (["completed", "cancelled", "no_show"].includes(status)) return "history";
-  const scheduledAt = activity.starts_at
-    ? new Date(activity.starts_at).getTime()
-    : Number.NaN;
-  if (
-    Number.isFinite(scheduledAt) &&
-    scheduledAt > Date.now() &&
-    (type === "booking" ||
-      ["scheduled", "pending_payment", "requested", "confirmed"].includes(
-        status,
-      ))
-  ) {
-    return "upcoming";
-  }
-  return "ongoing";
-}
-
-function legacyMetadataValue(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  return typeof value === "string" ? value : undefined;
-}
-
-function legacyMetadataAmount(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function normalizeLegacyActivity(
-  activity: MobileActivity,
-): MobileActivityCenterItem | undefined {
-  const type = legacyActivityType(activity);
-  if (!type) return undefined;
-  const metadata = activity.metadata ?? {};
-  const referenceId =
-    activity.reference_id ||
-    legacyMetadataValue(metadata, "reference_id") ||
-    activity.id;
-  const amount =
-    legacyMetadataAmount(metadata, "total_amount") ||
-    legacyMetadataAmount(metadata, "amount");
-  return {
-    id: activity.id,
-    type,
-    reference_id: referenceId,
-    code:
-      legacyMetadataValue(metadata, "booking_code") ||
-      legacyMetadataValue(metadata, "order_number") ||
-      legacyMetadataValue(metadata, "code") ||
-      referenceId.slice(0, 8).toUpperCase(),
-    title: activity.title,
-    subtitle: activity.description,
-    status: activity.status,
-    payment_status:
-      legacyMetadataValue(metadata, "payment_status") || "belum tersedia",
-    amount,
-    total_amount: amount,
-    state: legacyActivityState(activity, type),
-    scheduled_at: activity.starts_at,
-    occurred_at: activity.occurred_at,
-    updated_at: activity.occurred_at,
-    pet_id: activity.pet_id,
-    pet_name: legacyMetadataValue(metadata, "pet_name"),
-    service_id: legacyMetadataValue(metadata, "service_id"),
-    plan_id: legacyMetadataValue(metadata, "plan_id"),
-    business_name: legacyMetadataValue(metadata, "business_name"),
-    branch_name: legacyMetadataValue(metadata, "branch_name"),
-    notes: legacyMetadataValue(metadata, "notes"),
-  };
-}
-
-function isDetailedActivityResponse(
-  result: MobileActivityCenterResponse | LegacyMobileActivityResponse,
-): result is MobileActivityCenterResponse {
-  return Boolean(
-    "summary" in result &&
-    result.summary &&
-    typeof result.summary.booking === "number" &&
-    typeof result.summary.order === "number" &&
-    typeof result.summary.consultation === "number",
+// Aktivitas changes the moment a payment settles, so it skips the 15 s GET cache.
+export const getMobileActivityCenter = () => {
+  for (const key of mobileCache.keys())
+    if (key.startsWith(`${activityCenterPath}:`)) mobileCache.delete(key);
+  return platformRequest<MobileActivityCenterResponse>(activityCenterPath).then(
+    (result) => ({ ...result, data: uniqueById(result.data) }),
   );
-}
-
-export const getMobileActivityCenter = async (
-  type: MobileActivityType | "all" = "all",
-  state: MobileActivityState = "all",
-) => {
-  const result = await platformRequest<
-    MobileActivityCenterResponse | LegacyMobileActivityResponse
-  >(
-    `/api/v1/petowner/activities?view=center&type=${encodeURIComponent(type)}&state=${encodeURIComponent(state)}&limit=100`,
-  );
-  if (isDetailedActivityResponse(result)) {
-    return { ...result, data: uniqueById(result.data) };
-  }
-
-  const normalized = uniqueById(
-    result.data
-      .map(normalizeLegacyActivity)
-      .filter((item): item is MobileActivityCenterItem => Boolean(item)),
-  );
-  const summary = normalized.reduce<Record<MobileActivityType, number>>(
-    (counts, item) => ({ ...counts, [item.type]: counts[item.type] + 1 }),
-    { booking: 0, order: 0, consultation: 0 },
-  );
-  const data = normalized.filter(
-    (item) =>
-      (type === "all" || item.type === type) &&
-      (state === "all" || item.state === state),
-  );
-  return { data, count: data.length, summary };
 };
+
+const activityTypesByReference: Record<string, MobileActivityType> = {
+  academy_enrollment: "academy",
+  event_registration: "event",
+  consultation: "consultation",
+  document_request: "document",
+  petspot_reservation: "reservation",
+  petowner_booking: "booking",
+  shop_order: "order",
+  fundraiser_donation: "donation",
+};
+
+export function activityTypeForReference(
+  referenceType: string,
+): MobileActivityType | undefined {
+  return activityTypesByReference[referenceType];
+}
 
 export const getMobileProducts = (options?: {
   search?: string;
@@ -1580,10 +1504,6 @@ export const createMobilePetSpotReservation = (input: {
   platformRequest<MobilePetSpotReservation>(
     "/api/v1/petowner/petspot-reservations",
     { method: "POST", body: JSON.stringify(input) },
-  );
-export const getMobilePetSpotReservations = () =>
-  platformRequest<{ data: MobilePetSpotReservation[]; count: number }>(
-    "/api/v1/petowner/petspot-reservations",
   );
 export const getMobileStreams = () =>
   getUniqueWorldItems("/api/v1/public/pethub/streams");

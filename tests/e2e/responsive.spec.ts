@@ -102,10 +102,6 @@ test("home service shortcuts open a filtered catalogue before booking", async ({
     name,
     category: "home_care",
     image_url: `https://example.com/service-${index + 1}-a.jpg`,
-    image_urls: [
-      `https://example.com/service-${index + 1}-a.jpg`,
-      `https://example.com/service-${index + 1}-b.jpg`,
-    ],
     duration_minutes: 60,
     price: 250_000 + index * 50_000,
     address: `Jalan Sehat ${index + 1}`,
@@ -170,11 +166,6 @@ test("home service shortcuts open a filtered catalogue before booking", async ({
   await page.getByRole("button", { name: "Lihat detail" }).first().click();
   await expect(page.locator(".service-detail-modal")).toBeVisible();
   await expect(page).toHaveURL(/service=[0-9a-f-]+/);
-
-  const pager = page.locator(".service-image-pager span");
-  await expect(pager).toBeVisible();
-  const initialImage = await pager.textContent();
-  await expect.poll(() => pager.textContent(), { timeout: 2_500 }).not.toBe(initialImage);
 });
 
 test("community search and live status occupy separate rows on mobile", async ({

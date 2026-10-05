@@ -19,6 +19,7 @@ import * as Location from "expo-location";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import {
+  activityTypeForReference,
   applyMobileAdoption,
   createMobilePetSpotReservation,
   createMobilePawDatingHealthReport,
@@ -45,6 +46,7 @@ import {
   sendMobilePawDatingInterest,
   submitMobilePawDatingProfile,
   trackMobileAcademyProgramClick,
+  type MobileActivityType,
   type MobileOwner,
   type MobilePaymentIntent,
   type MobilePetSpotResource,
@@ -417,6 +419,7 @@ export function WorldScreen({
   onLogin,
   onRequirePet,
   intent,
+  onOpenActivity,
 }: {
   refreshVersion: number;
   onAction: (message: string) => void;
@@ -434,6 +437,7 @@ export function WorldScreen({
     itemId?: string;
     veterinarianId?: string;
   };
+  onOpenActivity: (type: MobileActivityType, id: string) => void;
 }) {
   const { formatCurrency, formatDate, formatNumber } = useI18n();
   const { width: viewportWidth } = useWindowDimensions();
@@ -482,6 +486,9 @@ export function WorldScreen({
   const [busy, setBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<MobilePaymentIntent>();
+  const paymentActivityType = payment
+    ? activityTypeForReference(payment.reference_type)
+    : undefined;
   const [selectedEventPetID, setSelectedEventPetID] = useState("");
   const [spotCategoryFilter, setSpotCategoryFilter] = useState("all");
   const [petSpotForm, setPetSpotForm] = useState<PetSpotReservationForm>(
@@ -2405,6 +2412,14 @@ export function WorldScreen({
         onPaid={() => {
           onAction("Pembayaran berhasil dan transaksi sudah tercatat");
         }}
+        onOpenActivity={
+          payment && paymentActivityType
+            ? () => {
+                setPayment(undefined);
+                onOpenActivity(paymentActivityType, payment.reference_id);
+              }
+            : undefined
+        }
       />
       {pet ? (
         <PawDatingCreateModal

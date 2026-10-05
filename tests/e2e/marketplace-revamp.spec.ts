@@ -1,5 +1,10 @@
 import { expect, test } from "./fixtures";
-import { marketplaceProduct, petOwner, petOwnerBootstrap } from "./mock-data";
+import {
+  activityCenter,
+  marketplaceProduct,
+  petOwner,
+  petOwnerBootstrap,
+} from "./mock-data";
 
 const product = marketplaceProduct({
   id: "52000000-0000-4000-8000-000000000777",
@@ -41,7 +46,7 @@ test("marketplace card navigates to responsive product detail and publishes a re
     if (path === "/api/v1/auth/me") return json({ ...petOwner, role: "pet_owner" });
     if (path === "/api/v1/petowner/bootstrap") return json(petOwnerBootstrap());
     if (path === "/api/v1/petowner/activities")
-      return json({ data: [], count: 0, summary: { booking: 0, order: 0, consultation: 0 } });
+      return json(activityCenter());
     if (path === "/api/v1/public/discovery/products")
       return json({ data: [product], count: 1 });
     if (path === "/api/v1/public/discovery/services" || path === "/api/v1/public/campaigns")

@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { petOwner, petOwnerBootstrap } from "./mock-data";
+import { activityCenter, petOwner, petOwnerBootstrap } from "./mock-data";
 
 const veterinarianID = "57000000-0000-4000-8000-000000000401";
 const planID = "57000000-0000-4000-8000-000000000402";
@@ -33,11 +33,7 @@ test("doctor booking searches providers and submits a server-provided slot", asy
     if (path === "/api/v1/petowner/bootstrap")
       return json(petOwnerBootstrap());
     if (path === "/api/v1/petowner/activities")
-      return json({
-        data: [],
-        count: 0,
-        summary: { booking: 0, order: 0, consultation: 0 },
-      });
+      return json(activityCenter());
     if (
       path === "/api/v1/public/discovery/products" ||
       path === "/api/v1/public/discovery/services" ||

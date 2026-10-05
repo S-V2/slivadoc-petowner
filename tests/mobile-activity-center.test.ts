@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const app = readFileSync(new URL("../mobile/App.tsx", import.meta.url), "utf8");
-const api = readFileSync(new URL("../mobile/src/api.ts", import.meta.url), "utf8");
 const activity = readFileSync(
   new URL("../mobile/src/screens/ActivityScreen.tsx", import.meta.url),
   "utf8",
@@ -18,14 +17,9 @@ const world = readFileSync(
 );
 
 test("activity center loads booking, order, and consultation filters from the database API", () => {
-  assert.match(api, /\/api\/v1\/petowner\/activities\?view=center&type=/);
-  assert.match(api, /normalizeLegacyActivity/);
-  assert.match(api, /isDetailedActivityResponse/);
-  assert.match(activity, /getMobileActivityCenter\(typeFilter, stateFilter\)/);
   assert.match(activity, /id:\s*"booking"/);
   assert.match(activity, /id:\s*"order"/);
   assert.match(activity, /id:\s*"consultation"/);
-  assert.doesNotMatch(activity, /activities:\s*MobileActivity\[\]/);
 });
 
 test("every activity exposes details and a contextual repeat action", () => {

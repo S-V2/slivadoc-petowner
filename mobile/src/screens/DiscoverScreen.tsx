@@ -123,7 +123,7 @@ function ServiceDetailSheet({ service, onClose, onBook }: { service?: Service; o
       </View>
     </Modal>
     <Modal visible={viewerOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setViewerOpen(false)}>
-      <SafeAreaView style={styles.viewer}><Pressable accessibilityLabel="Tutup galeri" onPress={() => setViewerOpen(false)} style={styles.viewerClose}><Ionicons name="close" size={25} color={colors.white} /></Pressable>{activeImage ? <Image source={{ uri: activeImage }} alt={`Foto ${service.name}`} style={styles.viewerImage} resizeMode="contain" /> : null}{images.length > 1 ? <View style={styles.viewerControls}><Pressable onPress={() => setImageIndex((activeIndex - 1 + images.length) % images.length)}><Ionicons name="chevron-back" size={25} color={colors.white} /></Pressable><Text style={styles.viewerCount}>{activeIndex + 1} / {images.length}</Text><Pressable onPress={() => setImageIndex((activeIndex + 1) % images.length)}><Ionicons name="chevron-forward" size={25} color={colors.white} /></Pressable></View> : null}</SafeAreaView>
+      <SafeAreaView style={styles.viewer}><Pressable accessibilityRole="button" hitSlop={10} accessibilityLabel="Tutup galeri" onPress={() => setViewerOpen(false)} style={styles.viewerClose}><Ionicons name="close" size={25} color={colors.white} /></Pressable>{activeImage ? <Image source={{ uri: activeImage }} alt={`Foto ${service.name}`} style={styles.viewerImage} resizeMode="contain" /> : null}{images.length > 1 ? <View style={styles.viewerControls}><Pressable onPress={() => setImageIndex((activeIndex - 1 + images.length) % images.length)}><Ionicons name="chevron-back" size={25} color={colors.white} /></Pressable><Text style={styles.viewerCount}>{activeIndex + 1} / {images.length}</Text><Pressable onPress={() => setImageIndex((activeIndex + 1) % images.length)}><Ionicons name="chevron-forward" size={25} color={colors.white} /></Pressable></View> : null}</SafeAreaView>
     </Modal>
   </>;
 }
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   detailFooterLabel: { color: colors.muted, fontSize: 9 },
   detailFooterPrice: { marginTop: 2, color: colors.sky600, fontSize: 15, fontWeight: "700" },
   viewer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(5,18,29,.96)" },
-  viewerClose: { position: "absolute", zIndex: 2, top: 14, right: 14, width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "rgba(255,255,255,.12)" },
+  viewerClose: { position: "absolute", zIndex: 2, top: 24, right: 24, width: 48, height: 48, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,.24)", borderRadius: 17, backgroundColor: "rgba(7,35,57,.72)" },
   viewerImage: { width: "100%", height: "78%" },
   viewerControls: { position: "absolute", bottom: 24, flexDirection: "row", alignItems: "center", gap: 18, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, backgroundColor: "rgba(255,255,255,.12)" },
   viewerCount: { color: colors.white, fontSize: 12, fontWeight: "700" },

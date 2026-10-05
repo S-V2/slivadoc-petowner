@@ -51,12 +51,12 @@ const initials = (value?: string) =>
     .join("")
     .toUpperCase();
 
-const formatAge = (value: string | undefined, language: "id" | "en" | "zh") => {
+const formatAge = (value: string | undefined, language: "id" | "en") => {
   if (!value) return "baru saja";
   const minutes = Math.max(1, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
-  if (minutes < 60) return language === "zh" ? `${minutes}分钟` : `${minutes}m`;
-  if (minutes < 1440) return language === "zh" ? `${Math.floor(minutes / 60)}小时` : language === "id" ? `${Math.floor(minutes / 60)}j` : `${Math.floor(minutes / 60)}h`;
-  return language === "zh" ? `${Math.floor(minutes / 1440)}天` : language === "id" ? `${Math.floor(minutes / 1440)}h` : `${Math.floor(minutes / 1440)}d`;
+  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 1440) return language === "id" ? `${Math.floor(minutes / 60)}j` : `${Math.floor(minutes / 60)}h`;
+  return language === "id" ? `${Math.floor(minutes / 1440)}h` : `${Math.floor(minutes / 1440)}d`;
 };
 
 const mediaURL = (item: WorldItem) => item.media_url || item.photo_url || "";

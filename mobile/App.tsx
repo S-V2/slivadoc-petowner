@@ -28,7 +28,7 @@ import { ActivityScreen } from "./src/screens/ActivityScreen";
 import { HealthScreen } from "./src/screens/HealthScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { CommunityScreen } from "./src/screens/CommunityScreen";
-import { WorldScreen } from "./src/screens/WorldScreen";
+import { WorldScreen, type WorldMode } from "./src/screens/WorldScreen";
 import { type PetView, type Service } from "./src/data";
 import { colors, shadow, typography } from "./src/theme";
 import {
@@ -141,6 +141,21 @@ const moreTabs: TabItem[] = [
   },
 ];
 
+const worldFeatures: Array<{
+  mode: WorldMode;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}> = [
+  { mode: "academy", label: "Pet Academy", icon: "school-outline" },
+  { mode: "events", label: "Pet Event", icon: "ticket-outline" },
+  { mode: "petspot", label: "PetSpot", icon: "map-outline" },
+  { mode: "pethub", label: "PetHub", icon: "videocam-outline" },
+  { mode: "consult", label: "Konsultasi", icon: "medkit-outline" },
+  { mode: "adoption", label: "Adopsi", icon: "paw-outline" },
+  { mode: "documents", label: "Pet Documents", icon: "document-text-outline" },
+  { mode: "pawdating", label: "PAW Dating", icon: "heart-circle-outline" },
+];
+
 const navigationStorageKey = "slivadoc.petowner.active_tab";
 const petStorageKey = "slivadoc.petowner.active_pet";
 
@@ -188,7 +203,11 @@ function AnimatedTabButton({
       accessibilityState={{ selected: active }}
       android_ripple={{ color: colors.sky50, borderless: false }}
       onPress={onPress}
-      style={({ pressed }) => [styles.tabItem, pressed && styles.tabItemPressed]}
+      style={({ pressed }) => [
+        styles.tabItem,
+        active && styles.activeTabItem,
+        pressed && styles.tabItemPressed,
+      ]}
     >
       <Animated.View
         style={[
@@ -312,7 +331,7 @@ function MobileApp() {
   }>();
   const [worldIntent, setWorldIntent] = useState<{
     token: number;
-    mode: "consult" | "academy" | "events" | "petspot";
+    mode: WorldMode;
     itemId?: string;
     veterinarianId?: string;
   }>();
@@ -727,6 +746,10 @@ function MobileApp() {
     setWorldIntent({ token: nextIntentToken(), mode, itemId });
     navigateTo("world");
   };
+  const openWorldFeature = (mode: WorldMode) => {
+    setWorldIntent({ token: nextIntentToken(), mode });
+    navigateTo("world");
+  };
   const openOrderActivity = () => {
     setActivityIntent({ token: nextIntentToken(), type: "order" });
     navigateTo("activity");
@@ -856,6 +879,9 @@ function MobileApp() {
                   onSearchResult={openSearchResult}
                   onNavigate={navigateTo}
                   ownerName={bootstrap?.user.full_name}
+                  owner={bootstrap?.user}
+                  points={bootstrap?.points.balance ?? 0}
+                  membership={bootstrap?.points.membership}
                   pet={pet}
                   pets={pets}
                   onSelectPet={selectPet}
@@ -1106,6 +1132,10 @@ function MobileApp() {
         onClose={() => setMoreOpen(false)}
         onSelect={(next) => {
           navigateTo(next);
+          setMoreOpen(false);
+        }}
+        onSelectWorld={(mode) => {
+          openWorldFeature(mode);
           setMoreOpen(false);
         }}
       />
@@ -1391,12 +1421,14 @@ function MoreModal({
   authenticated,
   onClose,
   onSelect,
+  onSelectWorld,
 }: {
   visible: boolean;
   activeTab: Tab;
   authenticated: boolean;
   onClose: () => void;
   onSelect: (tab: Tab) => void;
+  onSelectWorld: (mode: WorldMode) => void;
 }) {
   return (
     <Modal
@@ -1417,8 +1449,10 @@ function MoreModal({
               title="Mau ke mana?"
               onClose={onClose}
             />
-            <View style={styles.moreGrid}>
-              {moreTabs.map((item) => {
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.moreContent}>
+              <Text style={styles.moreSectionEyebrow}>AKUN & PERAWATAN</Text>
+              <View style={styles.moreGrid}>
+              {moreTabs.filter((item) => item.id !== "world").map((item) => {
                 const active = item.id === activeTab;
                 return (
                   <Pressable
@@ -1457,7 +1491,26 @@ function MoreModal({
                   </Pressable>
                 );
               })}
-            </View>
+              </View>
+              <Text style={styles.moreSectionEyebrow}>SLIVA WORLD</Text>
+              <Text style={styles.moreSectionNote}>Semua fitur komunitas dan gaya hidup pet, langsung sekali tap.</Text>
+              <View style={styles.moreGrid}>
+                {worldFeatures.map((item) => (
+                  <Pressable
+                    key={item.mode}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Buka ${item.label}`}
+                    onPress={() => onSelectWorld(item.mode)}
+                    style={({ pressed }) => [styles.moreCard, pressed && styles.pressed]}
+                  >
+                    <View style={styles.moreCardIcon}>
+                      <Ionicons name={item.icon} size={25} color={colors.sky600} />
+                    </View>
+                    <Text style={styles.moreCardLabel}>{item.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
           </Pressable>
         </SafeAreaView>
       </Pressable>
@@ -2466,7 +2519,15 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   tabItemPressed: { opacity: 0.82 },
-  activeTabItem: { transform: [{ translateY: -1 }] },
+  activeTabItem: {
+    backgroundColor: colors.sky600,
+    shadowColor: colors.sky600,
+    shadowOpacity: 0.24,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 4,
+    transform: [{ translateY: -1 }],
+  },
   tabAnimatedContent: { alignItems: "center", justifyContent: "center", gap: 2 },
   tabIcon: {
     position: "relative",
@@ -2476,9 +2537,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 11,
   },
-  activeTabIcon: { backgroundColor: colors.sky600, shadowColor: colors.sky600, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  activeTabIcon: { backgroundColor: "transparent" },
   tabLabel: { color: colors.muted, fontSize: 10, fontWeight: "600" },
-  activeTabLabel: { color: colors.sky600, fontWeight: "700" },
+  activeTabLabel: { color: colors.white, fontWeight: "700" },
   activityBadge: {
     position: "absolute",
     right: 0,
@@ -2551,7 +2612,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   notificationSheet: { flex: 1, paddingHorizontal: 16, paddingBottom: 4 },
-  moreSheetWrap: { maxHeight: "84%" },
+  moreSheetWrap: { height: "90%" },
   moreSheet: {
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -2560,6 +2621,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   moreGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 14 },
+  moreContent: { paddingBottom: 22 },
+  moreSectionEyebrow: { marginTop: 12, color: colors.sky600, fontSize: 9, fontWeight: "700", letterSpacing: 1 },
+  moreSectionNote: { marginTop: 4, color: colors.muted, fontSize: 10, lineHeight: 15 },
   moreCard: {
     width: "31%",
     minHeight: 94,

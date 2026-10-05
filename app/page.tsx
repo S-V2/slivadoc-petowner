@@ -2,6 +2,7 @@ import PetOwnerApp from "./components/PetOwnerApp";
 import JsonLd from "./components/seo/JsonLd";
 import { DiscoveryLinks } from "./components/seo/PublicSite";
 import { SEO, absoluteUrl } from "./lib/seo-config";
+import { PetOwnerLanguageProvider } from "./components/PetOwnerI18n";
 
 export default function Home() {
   const organization = {
@@ -29,7 +30,9 @@ export default function Home() {
   return (
     <>
       <JsonLd data={[organization, website]} />
-      <PetOwnerApp />
+      <PetOwnerLanguageProvider>
+        <PetOwnerApp />
+      </PetOwnerLanguageProvider>
       <div className="app-home-seo">
         <DiscoveryLinks />
       </div>

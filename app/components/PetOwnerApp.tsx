@@ -14,6 +14,7 @@ import {
 } from "react";
 import { Icon, type IconName } from "./Icon";
 import { BrandLogo as Logo } from "./BrandLogo";
+import { usePetOwnerI18n } from "./PetOwnerI18n";
 import AddPetExperience from "./integrations/AddPetExperience";
 import CommunityExperience from "./integrations/CommunityExperience";
 import LocationModal from "./integrations/LocationModal";
@@ -1148,6 +1149,9 @@ export default function PetOwnerApp() {
               activities={activities}
               openActivity={openActivity}
               ownerName={account?.full_name}
+              account={account}
+              points={points}
+              membership={membership}
             />
           )}
           {activeView === "pets" && (
@@ -1906,6 +1910,7 @@ function Sidebar({
   selectedPet?: Pet;
   needsActionCount: number;
 }) {
+  const { t } = usePetOwnerI18n();
   return (
     <aside className="sidebar">
       <Logo />
@@ -1944,7 +1949,7 @@ function Sidebar({
                   onClick={() => setActiveView(item.id)}
                 >
                   <Icon name={item.icon} size={19} />
-                  <span>{item.label}</span>
+                  <span>{t(item.label)}</span>
                   {item.id === "bookings" && needsActionCount > 0 && (
                     <em>{needsActionCount > 9 ? "9+" : needsActionCount}</em>
                   )}
@@ -2246,8 +2251,9 @@ function PageHeading({
   selectedPet: Pet;
   account: PetOwnerBootstrap["user"] | null;
 }) {
+  const { locale, t } = usePetOwnerI18n();
   const item = titles[activeView];
-  const date = new Intl.DateTimeFormat("id-ID", {
+  const date = new Intl.DateTimeFormat(locale, {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -2266,12 +2272,12 @@ function PageHeading({
         <h1>
           {activeView === "home" && account
             ? `Selamat datang, ${account.full_name.split(" ")[0]}!`
-            : item.title}
+            : t(item.title)}
         </h1>
         <p>
           {activeView === "health"
             ? `Riwayat lengkap dan jadwal perawatan ${selectedPet.name}.`
-            : item.subtitle}
+            : t(item.subtitle)}
         </p>
       </div>
       {activeView !== "home" && (
@@ -2280,7 +2286,7 @@ function PageHeading({
           type="button"
           onClick={() => downloadViewSummary(activeView)}
         >
-          <Icon name="download" size={17} /> Unduh ringkasan
+          <Icon name="download" size={17} /> {t("Unduh ringkasan")}
         </button>
       )}
     </div>
@@ -2302,6 +2308,9 @@ function HomeView({
   activities,
   openActivity,
   ownerName,
+  account,
+  points,
+  membership,
 }: {
   selectedPet: Pet;
   petProfiles: Pet[];
@@ -2317,7 +2326,11 @@ function HomeView({
   activities: PetOwnerActivityCenterItem[];
   openActivity: (type: ActivityType, id: string) => void;
   ownerName?: string;
+  account: PetOwnerBootstrap["user"] | null;
+  points: number;
+  membership: MembershipStatus;
 }) {
+  const { locale, t } = usePetOwnerI18n();
   const [campaign, setCampaign] = useState<PublicCampaign | null>(null);
   const [veterinarians, setVeterinarians] = useState<Veterinarian[]>([]);
   const [petSwitcherOpen, setPetSwitcherOpen] = useState(false);
@@ -2334,6 +2347,23 @@ function HomeView({
   }, []);
 
   const firstName = ownerName?.trim().split(/\s+/)[0];
+  const memberTier = `${membership.id} ${membership.name}`.toLowerCase().includes("royal")
+    ? "royal"
+    : `${membership.id} ${membership.name}`.toLowerCase().match(/happy|hound/)
+      ? "happy"
+      : `${membership.id} ${membership.name}`.toLowerCase().match(/play|pup/)
+        ? "playful"
+        : "starter";
+  const memberSince = account?.member_since
+    ? new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" }).format(
+        new Date(account.member_since),
+      )
+    : "—";
+  const memberNumber = account?.public_code
+    ? `SLV-PO-${account.public_code}`
+    : account?.id
+      ? `SLV-PO-${account.id.slice(0, 8).toUpperCase()}`
+      : "LOGIN UNTUK AKTIVASI";
   const featuredActivities = activities
     .filter((item) => item.state !== "history")
     .sort(
@@ -2477,16 +2507,7 @@ function HomeView({
           </span>
         </section>
 
-        <section className="home-daily-hero">
-          <Image
-            className="home-daily-hero-bg"
-            src="/slivadoc-pet-hero.png"
-            alt=""
-            fill
-            priority
-            unoptimized
-            sizes="(max-width: 980px) 100vw, 65vw"
-          />
+        <section className={`home-member-card home-member-card--${memberTier}`} aria-label={t("Kartu member kamu")}>
           <span
             className="home-hero-orb home-hero-orb--large"
             aria-hidden="true"
@@ -2495,40 +2516,32 @@ function HomeView({
             className="home-hero-orb home-hero-orb--small"
             aria-hidden="true"
           />
-          <div className="home-daily-copy">
-            <span className="home-daily-pill">DAILY PET MOMENT</span>
-            <h2>Small care, big happy.</h2>
-            <p>
-              Momen kecil hari ini bisa bikin {selectedPet.name} lebih sehat,
-              dekat, dan ceria.
-            </p>
-            <div className="home-daily-moment">
-              <span>
-                <Icon name="heart" size={16} />
-              </span>
-              <div>
-                <small>IDE HARI INI</small>
-                <b>10 menit quality time</b>
-              </div>
-              <Icon name="sparkle" size={15} />
+          <div className="home-member-top">
+            <div><b>SLIVADOC</b><small>PET OWNER MEMBER</small></div>
+            <span>{membership.icon} {membership.name.toUpperCase()}</span>
+          </div>
+          <div className="home-member-identity">
+            <span className="home-member-chip"><Icon name="paw" size={25}/></span>
+            <div>
+              <small>{t("Nomor member").toUpperCase()}</small>
+              <strong>{memberNumber}</strong>
+              <p>{account?.full_name ?? "Pet Parent Slivadoc"}</p>
             </div>
+            <span className="home-member-seal"><Icon name="shield" size={23}/></span>
           </div>
-          <div className="home-pet-bubble" aria-hidden="true">
-            <span className="home-pet-bubble-paw">
-              <Icon name="paw" size={31} />
-            </span>
-            <span className="home-pet-bubble-heart">
-              <Icon name="heart" size={22} />
-            </span>
-            <i>✦</i>
+          <div className="home-member-meta">
+            <span><small>{t("Member sejak").toUpperCase()}</small><b>{memberSince}</b></span>
+            <span><small>{t("Sliva Point").toUpperCase()}</small><b>{points.toLocaleString(locale)}</b></span>
+            <span><small>ACTIVE PET</small><b>{selectedPet.name}</b></span>
           </div>
+          <p className="home-member-tagline">{t("Satu identitas untuk setiap momen perawatan")} ✦</p>
         </section>
 
         <section className="home-quick-panel" aria-labelledby="quick-title">
           <header className="home-section-heading">
             <div>
-              <h2 id="quick-title">Layanan cepat</h2>
-              <p>Semua yang pet-mu butuhkan, sekali tap</p>
+              <h2 id="quick-title">{t("Layanan cepat")}</h2>
+              <p>{t("Semua yang pet-mu butuhkan, sekali tap")}</p>
             </div>
             <span className="home-quick-count">
               <Icon name="sparkle" size={12} /> 6 pilihan
@@ -5259,6 +5272,7 @@ function ProfileView({
   onOpenLocation: () => void;
   onOpenSupport: () => void;
 }) {
+  const { language, locale, setLanguage, t } = usePetOwnerI18n();
   const initials = account.full_name
     .split(" ")
     .map((value) => value[0])
@@ -5288,6 +5302,16 @@ function ProfileView({
         ),
       )
     : 100;
+  const profileTier = `${membership.id} ${membership.name}`.toLowerCase().includes("royal")
+    ? "royal"
+    : `${membership.id} ${membership.name}`.toLowerCase().match(/happy|hound/)
+      ? "happy"
+      : `${membership.id} ${membership.name}`.toLowerCase().match(/play|pup/)
+        ? "playful"
+        : "starter";
+  const profileMemberNumber = account.public_code
+    ? `SLV-PO-${account.public_code}`
+    : `SLV-PO-${account.id.slice(0, 8).toUpperCase()}`;
   useEffect(() => {
     let live = true;
     void getPetOwnerShippingAddresses()
@@ -5345,16 +5369,20 @@ function ProfileView({
     <div className="profile-native profile-workspace">
       <header className="native-screen-header">
         <div>
-          <span>AKUN & KELUARGA</span>
-          <h2>Profil pet parent</h2>
+          <span>{t("Akun & Keluarga").toUpperCase()}</span>
+          <h2>{t("Profil pet parent")}</h2>
         </div>
       </header>
       <div className="profile-identity-col">
+        <section className={`profile-member-card profile-member-card--${profileTier}`}>
+          <span className="profile-member-orb" aria-hidden="true" />
+          <header><div><strong>SLIVADOC</strong><small>PET OWNER MEMBER</small></div><em>{membership.icon} {membership.name}</em></header>
+          <div className="profile-member-identity"><span><Icon name="paw" size={25}/></span><div><small>{t("Nomor member").toUpperCase()}</small><b>{profileMemberNumber}</b><p>{account.full_name}</p></div><i><Icon name="shield" size={22}/></i></div>
+          <footer><span><small>{t("Member sejak").toUpperCase()}</small><b>{new Date(account.member_since).toLocaleDateString(locale, { month: "short", year: "numeric" })}</b></span><span><small>{t("Sliva Point").toUpperCase()}</small><b>{points.toLocaleString(locale)}</b></span><span><small>{t("Level member").toUpperCase()}</small><b>{membership.name}</b></span></footer>
+          <p>{t("Satu identitas untuk setiap momen perawatan")} ✦</p>
+        </section>
         <section className="profile-main-card profile-native-card">
-          <div className="profile-cover">
-            <span>PET PARENT CLUB ✦</span>
-          </div>
-          <div className="profile-person">
+          <div className="profile-person profile-person--clean">
             <div className="profile-photo">{initials}</div>
             <div>
               <h2>{account.full_name}</h2>
@@ -5392,24 +5420,6 @@ function ProfileView({
               <small>Sinkron</small>
             </span>
           </div>
-          {account.public_code && (
-            <div className="profile-public-code">
-              <span>
-                KODE MEMBER PET OWNER · TUNJUKKAN SAAT BAYAR DI PETCLINIC
-              </span>
-              <strong>{account.public_code}</strong>
-              <button
-                type="button"
-                onClick={() =>
-                  void navigator.clipboard
-                    .writeText(account.public_code ?? "")
-                    .then(() => notify("Kode member disalin"))
-                }
-              >
-                Salin kode
-              </button>
-            </div>
-          )}
         </section>
 
         <section className="profile-native-points">
@@ -5582,8 +5592,16 @@ function ProfileView({
         <section className="panel profile-native-settings">
           <header>
             <span>PREFERENSI</span>
-            <h3>Pengaturan akun</h3>
+            <h3>{t("Pengaturan akun")}</h3>
           </header>
+          <div className="profile-language-setting">
+            <span><Icon name="settings" size={19} /></span>
+            <p><b>{t("Bahasa aplikasi")}</b><small>Indonesia / English</small></p>
+            <div role="group" aria-label={t("Bahasa aplikasi")}>
+              <button className={language === "id" ? "active" : ""} type="button" onClick={() => setLanguage("id")}>ID</button>
+              <button className={language === "en" ? "active" : ""} type="button" onClick={() => setLanguage("en")}>EN</button>
+            </div>
+          </div>
           <button type="button" onClick={() => setEdit(true)}>
             <span>
               <Icon name="user" size={19} />
@@ -6796,8 +6814,21 @@ function MobileNav({
   authenticated: boolean;
   onOpenChat: () => void;
 }) {
+  const { t } = usePetOwnerI18n();
   const [more, setMore] = useState(false);
   const primaryIds: AppView[] = ["home", "shop", "community", "bookings"];
+  const worldIds: AppView[] = [
+    "academy",
+    "events",
+    "petspot",
+    "pethub",
+    "consult",
+    "adoption",
+    "documents",
+    "pawdating",
+    "petship",
+    "fundraising",
+  ];
   const items = primaryIds
     .map((id) => navItems.find((item) => item.id === id))
     .filter((item): item is (typeof navItems)[number] => Boolean(item));
@@ -6818,7 +6849,7 @@ function MobileNav({
             <span>
               <Icon name={item.icon} size={22} />
             </span>
-            <small>{item.label}</small>
+            <small>{t(item.label)}</small>
           </button>
         ))}
         <button
@@ -6831,7 +6862,7 @@ function MobileNav({
             <Icon name="more" size={22} />
             {cartCount > 0 && <i>{cartCount}</i>}
           </span>
-          <small>Lainnya</small>
+          <small>{t("Lainnya")}</small>
         </button>
       </nav>
       {more && (
@@ -6845,14 +6876,17 @@ function MobileNav({
           >
             <header>
               <div>
-                <span>SEMUA FITUR SLIVADOC</span>
-                <h2>Mau ke mana?</h2>
+                <span>{t("Semua fitur Slivadoc").toUpperCase()}</span>
+                <h2>{t("Mau ke mana?")}</h2>
               </div>
               <button onClick={() => setMore(false)} aria-label="Tutup">
                 <Icon name="close" />
               </button>
             </header>
-            <div>
+            <div className="mobile-more-content">
+              <section className="mobile-more-group">
+                <h3>{t("Akun & perawatan").toUpperCase()}</h3>
+                <div className="mobile-more-grid">
               <button
                 type="button"
                 onClick={() => {
@@ -6869,6 +6903,7 @@ function MobileNav({
                 .filter(
                   (item) =>
                     !primaryIds.includes(item.id) &&
+                    !worldIds.includes(item.id) &&
                     (authenticated || item.id !== "profile"),
                 )
                 .map((item) => (
@@ -6882,12 +6917,33 @@ function MobileNav({
                     <span>
                       <Icon name={item.icon} />
                     </span>
-                    <b>{item.label}</b>
+                    <b>{t(item.label)}</b>
                     {item.id === "shop" && cartCount > 0 && (
                       <em>{cartCount}</em>
                     )}
                   </button>
                 ))}
+                </div>
+              </section>
+              <section className="mobile-more-group mobile-more-world">
+                <h3>SLIVA WORLD</h3>
+                <p>{t("Semua fitur komunitas dan gaya hidup pet, langsung sekali tap.")}</p>
+                <div className="mobile-more-grid">
+                  {navItems.filter((item) => worldIds.includes(item.id)).map((item) => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      onClick={() => {
+                        setMore(false);
+                        setActiveView(item.id);
+                      }}
+                    >
+                      <span><Icon name={item.icon} /></span>
+                      <b>{t(item.label)}</b>
+                    </button>
+                  ))}
+                </div>
+              </section>
             </div>
           </section>
         </div>

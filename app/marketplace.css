@@ -448,7 +448,7 @@
 .market-image-viewer { position: fixed; z-index: 1200; inset: 0; display: grid; place-items: center; padding: 64px 22px 94px; background: rgba(4,18,28,.92); backdrop-filter: blur(12px); }
 .market-image-viewer-stage { position: relative; width: min(980px,100%); height: min(76vh,760px); }
 .market-image-viewer-stage img { object-fit: contain; }
-.market-image-viewer-close { position: fixed; z-index: 2; top: max(18px,env(safe-area-inset-top)); right: 18px; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.2); border-radius: 15px; color: #fff; background: rgba(255,255,255,.1); }
+.market-image-viewer-close { position: fixed; z-index: 2; top: max(28px,calc(env(safe-area-inset-top) + 16px)); right: clamp(28px,5vw,72px); width: 48px; height: 48px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.28); border-radius: 17px; color: #fff; background: rgba(7,35,57,.72); box-shadow: 0 12px 30px rgba(0,0,0,.28); }
 .market-image-viewer-nav { position: fixed; bottom: calc(22px + env(safe-area-inset-bottom)); left: 50%; display: flex; align-items: center; gap: 14px; transform: translateX(-50%); color: #fff; font-weight: 750; }
 .market-image-viewer-nav button { width: 44px; height: 44px; border: 1px solid rgba(255,255,255,.2); border-radius: 15px; color: #fff; background: rgba(255,255,255,.12); font-size: 26px; }
 

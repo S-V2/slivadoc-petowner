@@ -4,12 +4,13 @@ import { useState } from "react";
 import type { PetView } from "../data";
 import type { MobileMedicalRecord } from "../api";
 import { colors, shadow } from "../theme";
-import { Card, Screen, SectionTitle, TopHeader } from "../components/ui";
+import { BoundedBottomSheet, Card, Screen, SectionTitle, TopHeader } from "../components/ui";
 import { LocalizedText as Text, useI18n } from "../i18n";
 
 export function HealthScreen({ onAction, onBook, onOpenNotifications,pet,records,loading }: { onAction: (message: string) => void; onBook: () => void; onOpenNotifications: () => void;pet?:PetView;records:MobileMedicalRecord[];loading:boolean }) {
   const { formatDate } = useI18n();
   const [tab, setTab] = useState("Ringkasan");
+  const [selectedRecord, setSelectedRecord] = useState<MobileMedicalRecord>();
   const petView=pet??{id:"",name:"Pet",breed:"Login untuk melihat profil",age:"—",weight:"—",icon:"",score:0,allergies:""};
   const latest=records[0];
   return <Screen>
@@ -23,7 +24,26 @@ export function HealthScreen({ onAction, onBook, onOpenNotifications,pet,records
       {latest&&<><SectionTitle eyebrow="RECORD TERBARU" title={latest.title}/><Card style={styles.medicine}><View style={styles.medicineIcon}><Ionicons name="medical-outline" size={20} color={colors.sky600}/></View><View style={styles.medicineCopy}><Text style={styles.medicineTime}>{formatDate(latest.occurred_at, { dateStyle: "medium", timeStyle: "short" })}</Text><Text style={styles.medicineName}>{latest.diagnosis||latest.complaint||latest.title}</Text><Text style={styles.medicineNote}>{latest.doctor_name||"Dokter belum dicatat"}</Text></View><Pressable style={styles.checkButton} onPress={()=>setTab("Rekam Medis")}><Ionicons name="arrow-forward" size={16} color={colors.white}/></Pressable></Card></>}
     </> : null}
 
-      {tab === "Rekam Medis" ? <View style={styles.records}>{loading?<Text style={styles.recordNote}>Memuat rekam medis…</Text>:records.length?records.map((record) => <Pressable key={record.id} onPress={() => onAction(`${record.title}: ${record.diagnosis||record.clinical_notes||"Tidak ada keterangan tambahan"}`)} style={styles.record}><View style={styles.recordIcon}><Ionicons name={record.record_type.toLowerCase().includes("lab")?"flask-outline":record.record_type.toLowerCase().includes("vaks")?"shield-checkmark-outline":"medical-outline"} size={20} color={colors.sky600}/></View><View style={styles.recordCopy}><Text style={styles.recordDate}>{formatDate(record.occurred_at, { dateStyle: "medium", timeStyle: "short" })}</Text><Text style={styles.recordTitle}>{record.title}</Text><Text style={styles.recordNote}>{record.diagnosis||record.clinical_notes||record.complaint||"Tidak ada keterangan tambahan"}</Text></View><Ionicons name="chevron-forward" size={17} color={colors.muted} /></Pressable>):<Text style={styles.recordNote}>Belum ada rekam medis untuk {petView.name}.</Text>}</View> : null}
+      {tab === "Rekam Medis" ? <View style={styles.records}>{loading?<Text style={styles.recordNote}>Memuat rekam medis…</Text>:records.length?records.map((record) => <Pressable accessibilityRole="button" accessibilityLabel={`Lihat detail ${record.title}`} key={record.id} onPress={() => setSelectedRecord(record)} style={styles.record}><View style={styles.recordIcon}><Ionicons name={record.record_type.toLowerCase().includes("lab")?"flask-outline":record.record_type.toLowerCase().includes("vaks")?"shield-checkmark-outline":"medical-outline"} size={20} color={colors.sky600}/></View><View style={styles.recordCopy}><Text style={styles.recordDate}>{formatDate(record.occurred_at, { dateStyle: "medium", timeStyle: "short" })}</Text><Text style={styles.recordTitle}>{record.title}</Text><Text style={styles.recordNote}>{record.diagnosis||record.clinical_notes||record.complaint||"Tidak ada keterangan tambahan"}</Text></View><Ionicons name="chevron-forward" size={17} color={colors.muted} /></Pressable>):<Text style={styles.recordNote}>Belum ada rekam medis untuk {petView.name}.</Text>}</View> : null}
+    <BoundedBottomSheet visible={Boolean(selectedRecord)} onClose={() => setSelectedRecord(undefined)} maxHeight="88%">
+      {selectedRecord ? <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.detailContent}>
+        <View style={styles.detailHeader}>
+          <View style={styles.detailHeaderIcon}><Ionicons name="document-text-outline" size={22} color={colors.sky600}/></View>
+          <View style={styles.detailHeaderCopy}><Text style={styles.detailEyebrow}>{selectedRecord.record_type.toUpperCase()}</Text><Text style={styles.detailTitle}>{selectedRecord.title}</Text><Text style={styles.detailMeta}>{formatDate(selectedRecord.occurred_at, { dateStyle: "full", timeStyle: "short" })}</Text></View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Tutup detail rekam medis" hitSlop={8} onPress={() => setSelectedRecord(undefined)} style={styles.detailClose}><Ionicons name="close" size={20} color={colors.navy}/></Pressable>
+        </View>
+        <View style={styles.detailDoctor}><Ionicons name="medkit-outline" size={18} color={colors.mint}/><View><Text style={styles.detailLabel}>DOKTER / TENAGA MEDIS</Text><Text style={styles.detailValue}>{selectedRecord.doctor_name || "Belum dicatat"}</Text></View></View>
+        <View style={styles.detailStats}>
+          <View style={styles.detailStat}><Text style={styles.detailLabel}>BERAT</Text><Text style={styles.detailStatValue}>{selectedRecord.weight_kg ? `${selectedRecord.weight_kg} kg` : "—"}</Text></View>
+          <View style={styles.detailStat}><Text style={styles.detailLabel}>SUHU</Text><Text style={styles.detailStatValue}>{selectedRecord.temperature_c ? `${selectedRecord.temperature_c}°C` : "—"}</Text></View>
+          <View style={styles.detailStat}><Text style={styles.detailLabel}>KONTROL</Text><Text numberOfLines={2} style={styles.detailStatValue}>{selectedRecord.next_control_at ? formatDate(selectedRecord.next_control_at) : "—"}</Text></View>
+        </View>
+        {([[
+          "Keluhan utama", selectedRecord.complaint, "chatbubble-ellipses-outline"
+        ], ["Diagnosis", selectedRecord.diagnosis, "pulse-outline"], ["Tindakan & terapi", selectedRecord.treatment, "bandage-outline"], ["Catatan klinis", selectedRecord.clinical_notes, "clipboard-outline"]] as Array<[string, string, keyof typeof Ionicons.glyphMap]>).filter(([, value]) => Boolean(value)).map(([label, value, icon]) => <View key={label} style={styles.detailSection}><View style={styles.detailSectionIcon}><Ionicons name={icon} size={17} color={colors.sky600}/></View><View style={styles.detailSectionCopy}><Text style={styles.detailSectionTitle}>{label}</Text><Text style={styles.detailSectionText}>{value}</Text></View></View>)}
+        <Pressable accessibilityRole="button" onPress={() => { onAction(`Rekam medis ${selectedRecord.title} tersimpan aman di akun ${petView.name}.`); setSelectedRecord(undefined); }} style={styles.detailDone}><Ionicons name="shield-checkmark" size={18} color={colors.white}/><Text style={styles.detailDoneText}>Selesai</Text></Pressable>
+      </ScrollView> : null}
+    </BoundedBottomSheet>
   </Screen>;
 }
 
@@ -34,6 +54,27 @@ const styles = StyleSheet.create({
   weightCard: { padding: 15 }, weightHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, weightValue: { color: colors.navy, fontSize: 22, fontWeight: "700" }, weightNote: { marginTop: 3, color: colors.muted, fontSize: 11 }, chart: { position: "relative", height: 100, marginTop: 10, overflow: "hidden", borderBottomWidth: 1, borderBottomColor: colors.line }, chartGrid: { position: "absolute", inset: 0, borderTopWidth: 1, borderTopColor: colors.line, borderStyle: "dashed" }, lineOne: { position: "absolute", left: -15, top: 62, width: 220, height: 4, borderRadius: 2, backgroundColor: colors.sky400, transform: [{ rotate: "-8deg" }] }, lineTwo: { position: "absolute", right: -15, top: 45, width: 200, height: 4, borderRadius: 2, backgroundColor: colors.sky400, transform: [{ rotate: "4deg" }] }, point: { position: "absolute", right: 8, top: 47, width: 12, height: 12, borderRadius: 6, borderWidth: 3, borderColor: colors.sky500, backgroundColor: colors.white }, months: { flexDirection: "row", justifyContent: "space-between", marginTop: 7 },
   medicine: { padding: 11, flexDirection: "row", alignItems: "center", gap: 9 }, medicineIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 }, medicineCopy: { flex: 1 }, medicineTime: { color: colors.sky600, fontSize: 9, fontWeight: "600" }, medicineName: { marginTop: 2, color: colors.navy, fontSize: 12, fontWeight: "600" }, medicineNote: { marginTop: 2, color: colors.muted, fontSize: 9 }, checkButton: { width: 32, height: 32, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: colors.mint },
   records: { gap: 11, marginTop: 4 }, record: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 10, padding: 11, borderWidth: 1, borderColor: colors.sky100, borderRadius: 19, backgroundColor: colors.white, ...shadow }, recordIcon: { width: 40, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 }, recordCopy: { flex: 1 }, recordDate: { color: colors.sky600, fontSize: 9, fontWeight: "600" }, recordTitle: { marginTop: 3, color: colors.navy, fontSize: 12, fontWeight: "600" }, recordNote: { marginTop: 2, color: colors.muted, fontSize: 10, lineHeight: 15 },
+  detailContent: { paddingHorizontal: 18, paddingBottom: 26 },
+  detailHeader: { minWidth: 0, flexDirection: "row", alignItems: "flex-start", gap: 10, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: colors.line },
+  detailHeaderIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: colors.sky50 },
+  detailHeaderCopy: { minWidth: 0, flex: 1 },
+  detailEyebrow: { color: colors.mint, fontSize: 9, fontWeight: "700", letterSpacing: .8 },
+  detailTitle: { marginTop: 3, color: colors.navy, fontSize: 19, lineHeight: 24, fontWeight: "700" },
+  detailMeta: { marginTop: 3, color: colors.muted, fontSize: 10, lineHeight: 15 },
+  detailClose: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.sky50 },
+  detailDoctor: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 14, padding: 12, borderRadius: 16, backgroundColor: colors.mint50 },
+  detailLabel: { color: colors.muted, fontSize: 8, fontWeight: "700", letterSpacing: .7 },
+  detailValue: { marginTop: 2, color: colors.navy, fontSize: 12, fontWeight: "700" },
+  detailStats: { flexDirection: "row", gap: 7, marginTop: 10 },
+  detailStat: { minWidth: 0, flex: 1, minHeight: 66, justifyContent: "center", padding: 9, borderWidth: 1, borderColor: colors.sky100, borderRadius: 15, backgroundColor: colors.white },
+  detailStatValue: { marginTop: 4, color: colors.navy, fontSize: 11, fontWeight: "700" },
+  detailSection: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: 10, padding: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 17, backgroundColor: colors.white },
+  detailSectionIcon: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: colors.sky50 },
+  detailSectionCopy: { minWidth: 0, flex: 1 },
+  detailSectionTitle: { color: colors.navy, fontSize: 11, fontWeight: "700" },
+  detailSectionText: { marginTop: 3, color: colors.text, fontSize: 11, lineHeight: 17 },
+  detailDone: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginTop: 16, borderRadius: 16, backgroundColor: colors.sky600 },
+  detailDoneText: { color: colors.white, fontSize: 12, fontWeight: "700" },
   vaccines: { gap: 9 }, vaccine: { padding: 13, flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 }, vaccineDue: { borderColor: "#F1D99A" }, vaccineIcon: { width: 42, height: 42, borderRadius: 12, alignItems: "center", justifyContent: "center" }, mintBg: { backgroundColor: colors.mint50 }, yellowBg: { backgroundColor: colors.yellow50 }, vaccineCopy: { flex: 1 }, vaccineStatus: { color: colors.mint, fontSize: 10, fontWeight: "600" }, yellowText: { color: colors.yellow }, vaccineName: { marginTop: 3, color: colors.navy, fontSize: 15, fontWeight: "700" }, vaccineNote: { marginTop: 3, color: colors.muted, fontSize: 11 },
   obatPage: { gap: 11 }, obatCard: { padding: 13, flexDirection: "row", alignItems: "center", gap: 10 }, obatTime: { color: colors.sky600, fontSize: 15, fontWeight: "700" },
   documents: { gap: 10 }, document: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 10, padding: 11, borderWidth: 1, borderColor: colors.sky100, borderRadius: 18, backgroundColor: colors.white, ...shadow }, docIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 }, docCopy: { flex: 1 }, docName: { color: colors.navy, fontSize: 13, fontWeight: "600" }, docMeta: { marginTop: 3, color: colors.muted, fontSize: 11 },

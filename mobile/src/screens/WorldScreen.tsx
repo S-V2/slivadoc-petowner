@@ -72,7 +72,7 @@ import {
 } from "../components/QrisPayment";
 import { PetHubExperience } from "./PetHubExperience";
 
-type Mode =
+export type WorldMode =
   | "pawdating"
   | "academy"
   | "events"
@@ -81,6 +81,7 @@ type Mode =
   | "consult"
   | "adoption"
   | "documents";
+type Mode = WorldMode;
 type ConsultProviderFilter = "all" | "veterinarian" | "trainer";
 type WorldPet = { id: string; name: string; species?: string; breed: string; icon?: string };
 type AdoptionForm = {
@@ -433,7 +434,7 @@ export function WorldScreen({
   onRequirePet: () => void;
   intent?: {
     token: number;
-    mode: "consult" | "academy" | "events" | "petspot";
+    mode: WorldMode;
     itemId?: string;
     veterinarianId?: string;
   };
@@ -2401,7 +2402,7 @@ export function WorldScreen({
       </Modal>
       <Modal visible={imageViewerIndex !== undefined} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setImageViewerIndex(undefined)}>
         <SafeAreaView style={styles.worldImageViewer}>
-          <Pressable onPress={() => setImageViewerIndex(undefined)} style={styles.worldImageViewerClose}><Ionicons name="close" size={24} color={colors.white} /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Tutup galeri" hitSlop={10} onPress={() => setImageViewerIndex(undefined)} style={styles.worldImageViewerClose}><Ionicons name="close" size={24} color={colors.white} /></Pressable>
           {selectedImages[imageViewerIndex ?? 0] ? <Image alt="" source={{ uri: selectedImages[imageViewerIndex ?? 0] }} resizeMode="contain" style={styles.worldImageViewerImage} /> : null}
           {selectedImages.length > 1 ? <View style={styles.worldImageViewerControls}><Pressable onPress={() => setImageViewerIndex((current) => ((current ?? 0) - 1 + selectedImages.length) % selectedImages.length)}><Ionicons name="chevron-back" size={25} color={colors.white} /></Pressable><Text style={styles.worldImageViewerCount}>{(imageViewerIndex ?? 0) + 1} / {selectedImages.length}</Text><Pressable onPress={() => setImageViewerIndex((current) => ((current ?? 0) + 1) % selectedImages.length)}><Ionicons name="chevron-forward" size={25} color={colors.white} /></Pressable></View> : null}
         </SafeAreaView>
@@ -3011,7 +3012,7 @@ const styles = StyleSheet.create({
   sheetGalleryBadgeText: { color: colors.white, fontSize: 8, fontWeight: "700" },
   worldImageViewer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(3,17,26,.96)" },
   worldImageViewerImage: { width: "100%", height: "78%" },
-  worldImageViewerClose: { position: "absolute", zIndex: 2, top: 12, right: 14, width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "rgba(255,255,255,.12)" },
+  worldImageViewerClose: { position: "absolute", zIndex: 2, top: 24, right: 24, width: 48, height: 48, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,.24)", borderRadius: 17, backgroundColor: "rgba(7,35,57,.72)" },
   worldImageViewerControls: { position: "absolute", bottom: 24, flexDirection: "row", alignItems: "center", gap: 20, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, backgroundColor: "rgba(255,255,255,.12)" },
   worldImageViewerCount: { minWidth: 46, color: colors.white, fontSize: 12, fontWeight: "700", textAlign: "center" },
   sheetHeroText: { fontSize: 54 },

@@ -30,6 +30,7 @@ test("desktop navigation groups features by pet-parent intent", () => {
 test("native mobile shares playful sky tokens and a filled active tab", () => {
   assert.match(mobileTheme, /aqua:\s*"#2FC9B1"/);
   assert.match(mobileTheme, /lavender:\s*"#8874EF"/);
-  assert.match(mobileApp, /activeTabIcon:\s*\{\s*backgroundColor:\s*colors\.sky600/);
+  assert.match(mobileApp, /activeTabItem:\s*\{[\s\S]*?backgroundColor:\s*colors\.sky600/);
+  assert.match(mobileApp, /activeTabIcon:\s*\{\s*backgroundColor:\s*"transparent"/);
   assert.match(mobileApp, /color=\{active \? colors\.white : colors\.muted\}/);
 });

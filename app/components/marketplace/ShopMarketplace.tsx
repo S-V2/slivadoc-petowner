@@ -1374,7 +1374,7 @@ export default function ShopMarketplace({
   onOpenService,
 }: ShopMarketplaceProps) {
   const [category, setCategory] = useState("Semua");
-  const [store, setStore] = useState("Semua toko");
+  const [store, setStore] = useState("");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortMode>("recommended");
   const [selected, setSelected] = useState<Product>();
@@ -1413,17 +1413,15 @@ export default function ShopMarketplace({
     [categoryCounts],
   );
   const stores = useMemo(
-    () => [
-      { id: "Semua toko", name: "Semua toko" },
-      ...Array.from(
+    () =>
+      Array.from(
         new Map(
           productCatalog.map((item) => [
             item.businessId,
             { id: item.businessId, name: item.businessName },
           ]),
         ).values(),
-      )
-    ],
+      ),
     [productCatalog],
   );
   const filtered = useMemo(() => {
@@ -1432,7 +1430,7 @@ export default function ShopMarketplace({
       .filter(
         (product) =>
           (category === "Semua" || product.category === category) &&
-          (store === "Semua toko" || product.businessId === store) &&
+          (!store || product.businessId === store) &&
           (!needle ||
             `${product.name} ${product.brand} ${product.businessName} ${product.category} ${product.description} ${product.city}`
               .toLocaleLowerCase("id")
@@ -1836,6 +1834,7 @@ export default function ShopMarketplace({
                 value={store}
                 onChange={(event) => setStore(event.target.value)}
               >
+                <option value="">Semua produk</option>
                 {stores.map((item) => (
                   <option key={item.id} value={item.id}>{item.name}</option>
                 ))}
@@ -1882,7 +1881,7 @@ export default function ShopMarketplace({
               onClick={() => {
                 setQuery("");
                 setCategory("Semua");
-                setStore("Semua toko");
+                setStore("");
               }}
             >
               Reset filter

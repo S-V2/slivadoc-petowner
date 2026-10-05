@@ -11146,8 +11146,12 @@ textarea {
 }
 
 .world-image-close {
-  top: max(14px, env(safe-area-inset-top));
-  right: 16px;
+  top: max(28px, calc(env(safe-area-inset-top) + 16px));
+  right: clamp(28px, 5vw, 72px);
+  width: 48px;
+  height: 48px;
+  background: rgba(7, 35, 57, 0.72);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
 }
 
 .world-image-prev {

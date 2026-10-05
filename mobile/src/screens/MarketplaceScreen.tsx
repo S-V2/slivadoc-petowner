@@ -295,7 +295,7 @@ function ProductVisual({
         </View>
         <Modal visible={previewIndex !== undefined} animationType="fade" statusBarTranslucent transparent onRequestClose={() => setPreviewIndex(undefined)}>
           <SafeAreaView style={styles.productViewer}>
-            <Pressable onPress={() => setPreviewIndex(undefined)} style={styles.productViewerClose} accessibilityLabel="Tutup galeri"><Ionicons name="close" size={24} color={colors.white} /></Pressable>
+            <Pressable accessibilityRole="button" hitSlop={10} onPress={() => setPreviewIndex(undefined)} style={styles.productViewerClose} accessibilityLabel="Tutup galeri"><Ionicons name="close" size={24} color={colors.white} /></Pressable>
             <Image alt={`Foto ${product.name}`} accessibilityLabel={`Foto ${product.name}`} source={{ uri: images[previewIndex ?? 0] }} resizeMode="contain" style={styles.productViewerImage} />
             {images.length > 1 ? <View style={styles.productViewerControls}><Pressable onPress={() => setPreviewIndex((value) => ((value ?? 0) - 1 + images.length) % images.length)}><Ionicons name="chevron-back" size={24} color={colors.white} /></Pressable><Text style={styles.productViewerCount}>{(previewIndex ?? 0) + 1} / {images.length}</Text><Pressable onPress={() => setPreviewIndex((value) => ((value ?? 0) + 1) % images.length)}><Ionicons name="chevron-forward" size={24} color={colors.white} /></Pressable></View> : null}
           </SafeAreaView>
@@ -476,7 +476,7 @@ export function MarketplaceScreen({
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Semua");
-  const [store, setStore] = useState("Semua toko");
+  const [store, setStore] = useState("");
   const [sort, setSort] = useState<SortMode>("recommended");
   const [selected, setSelected] = useState<MobileProduct>();
   const [selectedStoreId, setSelectedStoreId] = useState("");
@@ -737,15 +737,8 @@ export function MarketplaceScreen({
     [catalogProducts],
   );
   const stores = useMemo(
-    () => [
-      {
-        id: "Semua toko",
-        name: "Semua toko",
-        city: "",
-        logo: "",
-        online: false,
-      },
-      ...Array.from(
+    () =>
+      Array.from(
         new Map(
           catalogProducts.map((item) => [
             item.business_id,
@@ -759,7 +752,6 @@ export function MarketplaceScreen({
           ]),
         ).values(),
       ),
-    ],
     [catalogProducts],
   );
   const visibleProducts = useMemo(() => {
@@ -767,7 +759,7 @@ export function MarketplaceScreen({
     const result = catalogProducts.filter(
       (item) =>
         (category === "Semua" || item.category === category) &&
-        (store === "Semua toko" || item.business_id === store) &&
+        (!store || item.business_id === store) &&
         (!needle ||
           `${item.name} ${item.category} ${item.business_name}`
             .toLowerCase()
@@ -1359,7 +1351,7 @@ export function MarketplaceScreen({
             </Text>
           </View>
           <Text style={styles.sectionCount}>
-            {Math.max(0, stores.length - 1)} toko
+            {stores.length} toko
           </Text>
         </View>
         <ScrollView
@@ -1367,7 +1359,7 @@ export function MarketplaceScreen({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.storeRow}
         >
-          {stores.map((item, index) => {
+          {stores.map((item) => {
             const active = store === item.id;
             return (
               <Pressable
@@ -1375,26 +1367,16 @@ export function MarketplaceScreen({
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={`${item.name}${item.city ? `, ${item.city}` : ""}`}
                 key={item.id}
-                onPress={() => setStore(item.id)}
+                onPress={() =>
+                  setStore((current) => (current === item.id ? "" : item.id))
+                }
                 style={[styles.storeChip, active && styles.storeChipActive]}
               >
-                {index ? (
-                  <StoreAvatar
-                    name={item.name}
-                    logo={item.logo}
-                    online={item.online}
-                  />
-                ) : (
-                  <View
-                    style={[styles.storeIcon, active && styles.storeIconActive]}
-                  >
-                    <Ionicons
-                      name="sparkles-outline"
-                      size={20}
-                      color={active ? colors.sky600 : "#8B4A20"}
-                    />
-                  </View>
-                )}
+                <StoreAvatar
+                  name={item.name}
+                  logo={item.logo}
+                  online={item.online}
+                />
                 <View style={styles.storeChipCopy}>
                   <Text
                     numberOfLines={1}
@@ -1412,7 +1394,7 @@ export function MarketplaceScreen({
                       active && styles.storeChipCityActive,
                     ]}
                   >
-                    {index ? item.city || "Toko resmi" : "Lihat semuanya"}
+                    {item.city || "Toko resmi"}
                   </Text>
                 </View>
               </Pressable>
@@ -1517,7 +1499,7 @@ export function MarketplaceScreen({
             onAction={() => {
               setQuery("");
               setCategory("Semua");
-              setStore("Semua toko");
+              setStore("");
             }}
           />
         )}
@@ -3484,7 +3466,7 @@ const styles = StyleSheet.create({
   productGalleryBadgeText: { color: colors.white, fontSize: 9, fontWeight: "700" },
   productViewer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(3,17,26,.96)" },
   productViewerImage: { width: "100%", height: "78%" },
-  productViewerClose: { position: "absolute", zIndex: 2, top: 12, right: 14, width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "rgba(255,255,255,.12)" },
+  productViewerClose: { position: "absolute", zIndex: 2, top: 24, right: 24, width: 48, height: 48, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,.24)", borderRadius: 17, backgroundColor: "rgba(7,35,57,.72)" },
   productViewerControls: { position: "absolute", bottom: 24, flexDirection: "row", alignItems: "center", gap: 20, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, backgroundColor: "rgba(255,255,255,.12)" },
   productViewerCount: { minWidth: 46, color: colors.white, fontSize: 12, fontWeight: "700", textAlign: "center" },
   productFallback: {

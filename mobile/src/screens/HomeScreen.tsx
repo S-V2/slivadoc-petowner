@@ -17,6 +17,8 @@ import {
   type MobileActivityCenterItem,
   type MobileActivityType,
   type MobileGlobalSearchResult,
+  type MobileMembership,
+  type MobileOwner,
   type WorldItem,
 } from "../api";
 import type { PetView, Service } from "../data";
@@ -33,6 +35,9 @@ type Props = {
   onSearchResult: (result: MobileGlobalSearchResult) => void;
   onNavigate: (tab: "discover" | "world" | "activity" | "health") => void;
   ownerName?: string;
+  owner?: MobileOwner;
+  points: number;
+  membership?: MobileMembership;
   pet?: PetView;
   pets: PetView[];
   onSelectPet: (petId: string) => void;
@@ -295,13 +300,16 @@ export function HomeScreen({
   onSearchResult,
   onNavigate,
   ownerName,
+  owner,
+  points,
+  membership,
   pet,
   pets,
   onSelectPet,
   services,
   activities,
 }: Props) {
-  const { formatDate } = useI18n();
+  const { formatDate, formatNumber } = useI18n();
   const [searchOpen, setSearchOpen] = useState(false);
   const [petPickerOpen, setPetPickerOpen] = useState(false);
   const [veterinarians, setVeterinarians] = useState<WorldItem[]>([]);
@@ -365,6 +373,20 @@ export function HomeScreen({
     .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (b.consultation_count ?? 0) - (a.consultation_count ?? 0))
     .slice(0, 5);
   const firstName = ownerName?.trim().split(" ")[0];
+  const tierKey = `${membership?.id ?? "paw_starter"} ${membership?.name ?? ""}`.toLowerCase();
+  const memberPalette: readonly [string, string, string] = tierKey.includes("royal")
+    ? ["#34235F", "#6A4BC3", "#B992FF"]
+    : tierKey.includes("happy") || tierKey.includes("hound")
+      ? ["#0B725E", "#159B7F", "#66D6C0"]
+      : tierKey.includes("play") || tierKey.includes("pup")
+        ? ["#055F9B", "#078ACC", "#59C8F0"]
+        : ["#0877B5", colors.sky600, "#13856F"];
+  const memberNumber = owner?.public_code
+    ? `SLV-PO-${owner.public_code}`
+    : "LOGIN UNTUK AKTIVASI";
+  const memberSince = owner?.member_since
+    ? formatDate(owner.member_since, { month: "short", year: "numeric" })
+    : "Belum aktif";
   const primaryQuickActions = [
     { label: "Booking", note: "Pilih layanan & jadwal", icon: "calendar-outline" as const, gradient: [colors.sky600, "#0A6F9C"] as const, onPress: () => onExploreService() },
     { label: "Tanya Dokter", note: "Pilih dokter & paket", icon: "chatbubbles-outline" as const, gradient: [colors.mint, "#0D7664"] as const, onPress: () => onOpenConsultation() },
@@ -398,27 +420,28 @@ export function HomeScreen({
           <View style={styles.greetingSparkle}><Ionicons name="sparkles" size={18} color={colors.white} /></View>
         </View>
 
-        <LinearGradient colors={["#0877B5", colors.sky600, "#13856F"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+        <LinearGradient colors={memberPalette} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.memberCard}>
           <View style={styles.heroOrbLarge} />
           <View style={styles.heroOrbSmall} />
-          <View style={styles.petBubble}>
-            <View style={styles.petBubbleDog}><Ionicons name="paw" size={31} color={colors.white} /></View>
-            <View style={styles.petBubbleCat}><Ionicons name="heart" size={22} color={colors.white} /></View>
-            <Text style={styles.petBubbleSparkle}>✦</Text>
+          <View style={styles.memberTop}>
+            <View><Text style={styles.memberBrand}>SLIVADOC</Text><Text style={styles.memberProduct}>PET OWNER MEMBER</Text></View>
+            <View style={styles.memberLevel}><Text style={styles.memberLevelText}>{membership?.icon ?? "PAW"} {(membership?.name ?? "Paw Starter").toUpperCase()}</Text></View>
           </View>
-          <View style={styles.heroContent}>
-            <Pill tone="mint">DAILY PET MOMENT</Pill>
-            <Text style={styles.heroTitle}>Small care, big happy.</Text>
-            <Text style={styles.heroNote}>Momen kecil hari ini bikin {petView.name} lebih sehat, dekat, dan ceria.</Text>
-            <View style={styles.heroMoment}>
-              <View style={styles.heroMomentIcon}><Ionicons name="heart" size={16} color={colors.sky600} /></View>
-              <View style={styles.heroMomentCopy}>
-                <Text style={styles.heroMomentEyebrow}>IDE HARI INI</Text>
-                <Text numberOfLines={1} style={styles.heroMomentText}>10 menit quality time</Text>
-              </View>
-              <Ionicons name="sparkles" size={15} color={colors.white} />
+          <View style={styles.memberIdentity}>
+            <View style={styles.memberChip}><Ionicons name="paw" size={21} color={colors.white}/></View>
+            <View style={styles.memberIdentityCopy}>
+              <Text style={styles.memberLabel}>NOMOR MEMBER</Text>
+              <Text selectable numberOfLines={1} style={styles.memberNumber}>{memberNumber}</Text>
+              <Text numberOfLines={1} style={styles.memberHolder}>{owner?.full_name ?? "Pet Parent Slivadoc"}</Text>
             </View>
+            <View style={styles.memberSeal}><Ionicons name="shield-checkmark" size={22} color={colors.white}/></View>
           </View>
+          <View style={styles.memberBottom}>
+            <View><Text style={styles.memberLabel}>MEMBER SEJAK</Text><Text style={styles.memberMetaValue}>{memberSince}</Text></View>
+            <View><Text style={styles.memberLabel}>SLIVA POINT</Text><Text style={styles.memberMetaValue}>{formatNumber(points)}</Text></View>
+            <View style={styles.memberPet}><Text style={styles.memberLabel}>ACTIVE PET</Text><Text numberOfLines={1} style={styles.memberMetaValue}>{petView.name}</Text></View>
+          </View>
+          <Text style={styles.memberTagline}>Satu identitas untuk setiap momen perawatan ✦</Text>
         </LinearGradient>
 
         <View style={styles.quickPanel}>
@@ -625,6 +648,23 @@ const styles = StyleSheet.create({
   greetingNote: { marginTop: 2, color: colors.muted, fontSize: typography.label, lineHeight: 17 },
   greetingSparkle: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 16, borderBottomLeftRadius: 8, backgroundColor: colors.sky600, transform: [{ rotate: "6deg" }], ...shadow },
   hero: { position: "relative", minHeight: 220, overflow: "hidden", justifyContent: "center", borderRadius: 28, borderBottomLeftRadius: 15, ...shadow },
+  memberCard: { position: "relative", minHeight: 230, overflow: "hidden", padding: 19, borderRadius: 28, borderBottomLeftRadius: 15, ...shadow },
+  memberTop: { zIndex: 2, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 },
+  memberBrand: { color: colors.white, fontSize: 18, lineHeight: 21, fontWeight: "700", letterSpacing: 1.7 },
+  memberProduct: { marginTop: 1, color: "rgba(255,255,255,.84)", fontSize: 8, fontWeight: "700", letterSpacing: 1.3 },
+  memberLevel: { maxWidth: "48%", paddingHorizontal: 9, paddingVertical: 6, borderWidth: 1, borderColor: "rgba(255,255,255,.34)", borderRadius: 10, backgroundColor: "rgba(255,255,255,.14)" },
+  memberLevelText: { color: colors.white, fontSize: 8, fontWeight: "700", textAlign: "center", letterSpacing: .45 },
+  memberIdentity: { zIndex: 2, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10, marginTop: 20 },
+  memberChip: { width: 48, height: 38, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,.42)", borderRadius: 12, backgroundColor: "rgba(255,255,255,.16)" },
+  memberIdentityCopy: { minWidth: 0, flex: 1 },
+  memberLabel: { color: "rgba(255,255,255,.82)", fontSize: 7, fontWeight: "700", letterSpacing: 1 },
+  memberNumber: { marginTop: 2, color: colors.white, fontSize: 16, lineHeight: 20, fontWeight: "700", letterSpacing: 1 },
+  memberHolder: { marginTop: 2, color: "rgba(255,255,255,.9)", fontSize: 10, fontWeight: "600" },
+  memberSeal: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "rgba(255,255,255,.15)" },
+  memberBottom: { zIndex: 2, flexDirection: "row", alignItems: "flex-end", gap: 18, marginTop: 17, paddingTop: 12, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,.22)" },
+  memberPet: { minWidth: 0, flex: 1 },
+  memberMetaValue: { marginTop: 2, color: colors.white, fontSize: 10, fontWeight: "700" },
+  memberTagline: { zIndex: 2, marginTop: 12, color: "rgba(255,255,255,.84)", fontSize: 8, fontWeight: "600", letterSpacing: .35 },
   heroContent: { zIndex: 2, width: "75%", padding: 20 },
   heroTitle: { maxWidth: 230, marginTop: 10, color: colors.white, fontSize: typography.screenTitle, lineHeight: 26, fontWeight: "700", letterSpacing: -0.4 },
   heroNote: { maxWidth: 230, marginTop: 6, color: "rgba(255,255,255,.88)", fontSize: typography.label, lineHeight: 17 },

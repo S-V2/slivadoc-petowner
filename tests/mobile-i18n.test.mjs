@@ -22,11 +22,11 @@ const localizedScreens = await Promise.all([
   "WorldScreen.tsx",
 ].map((name) => readFile(new URL(`../mobile/src/screens/${name}`, import.meta.url), "utf8")));
 
-test("mobile language preference supports Indonesian, English, and Simplified Chinese", () => {
-  assert.match(i18n, /export type AppLanguage = "id" \| "en" \| "zh"/);
+test("mobile language preference supports Indonesian and English", () => {
+  assert.match(i18n, /export type AppLanguage = "id" \| "en"/);
   assert.match(i18n, /nativeLabel: "Bahasa Indonesia"/);
   assert.match(i18n, /nativeLabel: "English"/);
-  assert.match(i18n, /nativeLabel: "简体中文"/);
+  assert.doesNotMatch(i18n, /code: "zh"/);
   assert.match(i18n, /SecureStore\.getItemAsync\(LANGUAGE_KEY\)/);
   assert.match(i18n, /SecureStore\.setItemAsync\(LANGUAGE_KEY/);
   assert.match(app, /<LanguageProvider>/);
@@ -39,14 +39,14 @@ test("language selector is available for both guest and authenticated accounts",
   assert.match(profile, /BoundedBottomSheet[^>]*maxHeight="72%"/);
 });
 
-test("core journeys include curated English and Chinese copy", () => {
+test("core journeys include curated English copy", () => {
   for (const phrase of [
-    '"Beranda": ["Home", "首页"]',
-    '"Belanja kebutuhan pet": ["Shop pet essentials", "选购宠物用品"]',
-    '"Aktivitas": ["Activity", "活动"]',
-    '"Kesehatan": ["Health", "健康"]',
-    '"Komunitas": ["Community", "社区"]',
-    '"Privasi & keamanan": ["Privacy & security", "隐私与安全"]',
+    '"Beranda": ["Home",',
+    '"Belanja kebutuhan pet": ["Shop pet essentials",',
+    '"Aktivitas": ["Activity",',
+    '"Kesehatan": ["Health",',
+    '"Komunitas": ["Community",',
+    '"Privasi & keamanan": ["Privacy & security",',
   ]) assert.ok(i18n.includes(phrase), `${phrase} must be translated`);
 });
 
@@ -64,7 +64,7 @@ test("all primary mobile screens render localized text primitives", () => {
 test("locale-aware formatters replace hard-coded Indonesian formatting", () => {
   assert.match(i18n, /"id-ID"/);
   assert.match(i18n, /"en-US"/);
-  assert.match(i18n, /"zh-CN"/);
+  assert.doesNotMatch(i18n, /zh:\s*"zh-CN"/);
   assert.match(i18n, /currency:\s*"IDR"/);
   assert.doesNotMatch([app, ...localizedScreens].join("\n"), /toLocaleString\("id-ID"/);
 });

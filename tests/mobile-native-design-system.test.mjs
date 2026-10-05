@@ -131,13 +131,14 @@ test("home uses a compact illustrated hero and dense quick actions", () => {
   assert.doesNotMatch(home, /ImageBackground/);
 });
 
-test("home hero inspires a daily pet moment without duplicating quick actions", () => {
+test("home hero is a data-backed Slivadoc membership card", () => {
   const hero = home.match(
-    /<LinearGradient[^>]*style=\{styles\.hero\}>[\s\S]*?<\/LinearGradient>/,
+    /<LinearGradient[^>]*style=\{styles\.memberCard\}[\s\S]*?<\/LinearGradient>/,
   )?.[0];
   assert.ok(hero);
-  assert.match(hero, /DAILY PET MOMENT/);
-  assert.match(hero, /10 menit quality time/);
+  assert.match(hero, /PET OWNER MEMBER/);
+  assert.match(home, /SLV-PO-/);
+  assert.match(hero, /SLIVA POINT/);
   assert.doesNotMatch(hero, /Buat booking|Tanya dokter/);
 });
 

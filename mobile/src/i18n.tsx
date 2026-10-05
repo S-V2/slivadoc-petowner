@@ -19,7 +19,7 @@ import {
 
 import { colors, typography } from "./theme";
 
-export type AppLanguage = "id" | "en" | "zh";
+export type AppLanguage = "id" | "en";
 
 export const languageOptions: ReadonlyArray<{
   code: AppLanguage;
@@ -29,7 +29,6 @@ export const languageOptions: ReadonlyArray<{
 }> = [
   { code: "id", label: "Bahasa Indonesia", nativeLabel: "Bahasa Indonesia", flag: "🇮🇩" },
   { code: "en", label: "Bahasa Inggris", nativeLabel: "English", flag: "🇬🇧" },
-  { code: "zh", label: "Bahasa Mandarin", nativeLabel: "简体中文", flag: "🇨🇳" },
 ];
 
 type Copy = readonly [english: string, chinese: string];
@@ -925,11 +924,10 @@ const LANGUAGE_KEY = "slivadoc_mobile_language";
 const localeByLanguage: Record<AppLanguage, string> = {
   id: "id-ID",
   en: "en-US",
-  zh: "zh-CN",
 };
 
 function translateDynamic(value: string, language: Exclude<AppLanguage, "id">) {
-  const target = language === "en" ? 0 : 1;
+  const target = 0;
   const patterns: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
     [/^(\d+) produk ditemukan$/, (match) => language === "en" ? `${match[1]} products found` : `找到 ${match[1]} 件商品`],
     [/^(\d+) layanan ditemukan$/, (match) => language === "en" ? `${match[1]} services found` : `找到 ${match[1]} 项服务`],
@@ -1001,7 +999,7 @@ export function LanguageProvider({ children }: PropsWithChildren) {
     let active = true;
     void SecureStore.getItemAsync(LANGUAGE_KEY)
       .then((stored) => {
-        if (active && (stored === "id" || stored === "en" || stored === "zh")) {
+        if (active && (stored === "id" || stored === "en")) {
           setLanguageState(stored);
         }
       })

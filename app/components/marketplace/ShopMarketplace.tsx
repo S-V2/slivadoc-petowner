@@ -1309,9 +1309,9 @@ function MarketplaceStorefront({
                     {service.imageUrl ? <Image src={service.imageUrl} alt={`Foto ${service.name}`} fill sizes="120px" unoptimized /> : <Icon name="paw" size={28} />}
                   </span>
                   <span className="market-store-service-copy">
-                    <small>{service.category}</small>
+                    <small>{service.type}</small>
                     <b>{service.name}</b>
-                    <em>{service.durationMinutes ? `${service.durationMinutes} menit · ` : ""}{formatRupiah(service.priceValue)}</em>
+                    <em>{service.durationMinutes ? `${service.durationMinutes} menit · ` : ""}{service.priceValue === undefined ? service.price : formatRupiah(service.priceValue)}</em>
                   </span>
                   <Icon name="chevron" size={16} />
                 </button>

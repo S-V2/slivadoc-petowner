@@ -101,7 +101,13 @@ test("store profile exposes sections, sorting, and a text-only chat drawer", asy
       path === "/api/v1/petowner/marketplace/chats" &&
       request.method() === "POST"
     )
-      return json({ id: threadID, business_id: businessID, buyer_user_id: petOwner.id });
+      return json({
+        id: threadID,
+        business_id: businessID,
+        buyer_user_id: petOwner.id,
+        created_at: "2026-10-05T08:00:00Z",
+        updated_at: "2026-10-05T08:00:00Z",
+      });
     if (
       path === `/api/v1/marketplace/chats/${threadID}/messages` &&
       request.method() === "GET"

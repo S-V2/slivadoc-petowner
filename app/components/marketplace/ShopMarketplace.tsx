@@ -12,13 +12,28 @@ import {
 } from "react";
 import { Icon, type IconName } from "../Icon";
 import {
+  createMarketplaceChat,
+  getMarketplaceChatMessages,
+  getMarketplaceStore,
   getProductReviews,
   saveProductReview,
+  sendMarketplaceChatMessage,
+  type MarketplaceChatMessage,
+  type MarketplaceStoreProfile,
+  type MarketplaceStoreResponse,
   type ProductReview,
 } from "../../lib/platform-api";
 import { formatRupiah, type Product } from "../../lib/petowner-domain";
 
-type SortMode = "recommended" | "popular" | "rating" | "price";
+type SortMode =
+  | "recommended"
+  | "popular"
+  | "bestseller"
+  | "rating"
+  | "newest"
+  | "price"
+  | "price_desc";
+type StoreSection = "products" | "categories" | "reviews" | "about";
 type ReviewFilter = "all" | 5 | 4 | 3 | 2 | 1;
 
 type ShopMarketplaceProps = {
@@ -80,6 +95,42 @@ function MarketplaceStars({
   );
 }
 
+function StoreAvatar({
+  name,
+  logoUrl,
+  online = false,
+  large = false,
+}: {
+  name: string;
+  logoUrl?: string;
+  online?: boolean;
+  large?: boolean;
+}) {
+  return (
+    <span className={`market-store-avatar ${large ? "is-large" : ""}`}>
+      {logoUrl ? (
+        <Image src={logoUrl} alt={`Logo ${name}`} fill sizes={large ? "84px" : "34px"} unoptimized />
+      ) : (
+        <b>{name.trim().slice(0, 1).toUpperCase() || "S"}</b>
+      )}
+      <i className={online ? "is-online" : ""} aria-hidden="true" />
+    </span>
+  );
+}
+
+function storePresenceLabel(online: boolean, lastSeen?: string) {
+  if (online) return "Online sekarang";
+  if (!lastSeen) return "Terakhir online belum tersedia";
+  const value = new Date(lastSeen);
+  if (Number.isNaN(value.getTime())) return "Terakhir online belum tersedia";
+  return `Terakhir online ${value.toLocaleString("id-ID", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
+}
+
 function ProductPicture({
   product,
   detail = false,
@@ -119,12 +170,14 @@ function ProductCard({
   product,
   favorite,
   onOpen,
+  onStore,
   onFavorite,
   onAdd,
 }: {
   product: Product;
   favorite: boolean;
   onOpen: () => void;
+  onStore: () => void;
   onFavorite: () => void;
   onAdd: () => void;
 }) {
@@ -182,10 +235,24 @@ function ProductCard({
           {product.description ||
             "Kebutuhan pet pilihan dari partner Slivadoc."}
         </p>
-        <p className="market-card-seller">
-          <Icon name="shield" size={13} />
-          <span>{product.brand}</span>
-        </p>
+        <button
+          type="button"
+          className="market-card-seller"
+          onClick={(event) => {
+            event.stopPropagation();
+            onStore();
+          }}
+        >
+          <StoreAvatar
+            name={product.businessName}
+            logoUrl={product.storeLogoUrl}
+            online={product.storeIsOnline}
+          />
+          <span>
+            <b>{product.businessName}</b>
+            <small>{storePresenceLabel(Boolean(product.storeIsOnline), product.storeLastSeenAt)}</small>
+          </span>
+        </button>
         <strong className="market-card-price">
           {formatRupiah(product.price)}
         </strong>
@@ -498,6 +565,8 @@ function ProductDetail({
   authenticated,
   onRequireLogin,
   onBack,
+  onOpenStore,
+  onChat,
   onFavorite,
   onAdd,
   onBuy,
@@ -513,6 +582,8 @@ function ProductDetail({
   authenticated: boolean;
   onRequireLogin: () => void;
   onBack: () => void;
+  onOpenStore: () => void;
+  onChat: () => void;
   onFavorite: () => void;
   onAdd: (quantity: number) => void;
   onBuy: (quantity: number) => void;
@@ -620,20 +691,36 @@ function ProductDetail({
           </p>
 
           <div className="market-seller-card">
-            <span>
-              <Icon name="bag" size={21} />
-            </span>
-            <div>
-              <small>DIJUAL OLEH</small>
-              <b>{product.brand}</b>
-              <p>
-                <Icon name="map" size={12} /> {product.branchName} ·{" "}
-                {product.city}
-              </p>
-            </div>
+            <button type="button" className="market-seller-profile" onClick={onOpenStore}>
+              <StoreAvatar
+                name={product.businessName}
+                logoUrl={product.storeLogoUrl}
+                online={product.storeIsOnline}
+                large
+              />
+              <span>
+                <small>DIJUAL OLEH</small>
+                <b>{product.businessName}</b>
+                <p>
+                  <Icon name="map" size={12} /> {product.branchName} ·{" "}
+                  {product.city}
+                </p>
+                <p className={product.storeIsOnline ? "is-online" : ""}>
+                  {storePresenceLabel(Boolean(product.storeIsOnline), product.storeLastSeenAt)}
+                </p>
+              </span>
+            </button>
             <em>
               <Icon name="shield" size={12} /> {licenseLabel}
             </em>
+            <div className="market-seller-actions">
+              <button type="button" onClick={onChat}>
+                <Icon name="chat" size={15} /> Chat toko
+              </button>
+              <button type="button" onClick={onOpenStore}>
+                Kunjungi toko <Icon name="arrow" size={14} />
+              </button>
+            </div>
           </div>
 
           <div className="market-detail-copy">
@@ -778,6 +865,330 @@ function ProductDetail({
   );
 }
 
+function MarketplaceChatPanel({
+  threadId,
+  store,
+  product,
+  onClose,
+  notify,
+}: {
+  threadId: string;
+  store: Pick<MarketplaceStoreProfile, "name" | "logo_url" | "is_online" | "last_seen_at">;
+  product?: Product;
+  onClose: () => void;
+  notify: (message: string) => void;
+}) {
+  const [messages, setMessages] = useState<MarketplaceChatMessage[]>([]);
+  const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const messageEnd = useRef<HTMLDivElement>(null);
+
+  const loadMessages = useCallback(async () => {
+    try {
+      const result = await getMarketplaceChatMessages(threadId);
+      setMessages(result.data);
+      setError("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Pesan belum dapat dimuat.");
+    } finally {
+      setLoading(false);
+    }
+  }, [threadId]);
+
+  useEffect(() => {
+    const initial = window.setTimeout(() => void loadMessages(), 0);
+    const interval = window.setInterval(() => void loadMessages(), 4_000);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+    };
+  }, [loadMessages]);
+
+  useEffect(() => {
+    messageEnd.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages]);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const body = draft.trim();
+    if (!body || sending) return;
+    setSending(true);
+    try {
+      const message = await sendMarketplaceChatMessage(threadId, {
+        body,
+        product_id: product?.id,
+      });
+      setMessages((current) => [...current, message]);
+      setDraft("");
+      setError("");
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Pesan belum dapat dikirim.";
+      setError(message);
+      notify(message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="market-chat-layer" role="dialog" aria-modal="true" aria-label={`Chat dengan ${store.name}`}>
+      <button type="button" className="market-chat-scrim" aria-label="Tutup chat" onClick={onClose} />
+      <section className="market-chat-panel">
+        <header>
+          <StoreAvatar
+            name={store.name}
+            logoUrl={store.logo_url}
+            online={store.is_online}
+          />
+          <div>
+            <b>{store.name}</b>
+            <span className={store.is_online ? "is-online" : ""}>
+              {storePresenceLabel(store.is_online, store.last_seen_at)}
+            </span>
+          </div>
+          <button type="button" aria-label="Tutup chat" onClick={onClose}>
+            <Icon name="close" size={18} />
+          </button>
+        </header>
+        {product && (
+          <div className="market-chat-context">
+            <ProductPicture product={product} />
+            <div>
+              <small>TANYAKAN PRODUK INI</small>
+              <b>{product.name}</b>
+              <span>{formatRupiah(product.price)}</span>
+            </div>
+          </div>
+        )}
+        <div className="market-chat-notice">
+          <Icon name="shield" size={14} /> Kanal ini hanya untuk pesan teks dengan toko. Jangan bagikan OTP atau kata sandi.
+        </div>
+        <div className="market-chat-messages" aria-live="polite">
+          {loading ? (
+            <p className="market-chat-state">Memuat percakapan…</p>
+          ) : messages.length ? (
+            messages.map((message) => (
+              <article key={message.id} className={message.sender_type === "buyer" ? "is-mine" : ""}>
+                <small>{message.sender_type === "buyer" ? "Kamu" : message.sender_name}</small>
+                <p>{message.body}</p>
+                <time dateTime={message.created_at}>
+                  {new Date(message.created_at).toLocaleTimeString("id-ID", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </time>
+              </article>
+            ))
+          ) : (
+            <div className="market-chat-empty">
+              <span>👋</span>
+              <b>Mulai obrolan dengan toko</b>
+              <p>Tanyakan stok, ukuran, kandungan, atau detail produk lainnya.</p>
+            </div>
+          )}
+          <div ref={messageEnd} />
+        </div>
+        {error && <p className="market-chat-error">{error}</p>}
+        <form onSubmit={submit}>
+          <textarea
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            maxLength={2000}
+            rows={2}
+            placeholder="Tulis pesan ke toko…"
+            aria-label="Pesan untuk toko"
+          />
+          <button type="submit" disabled={!draft.trim() || sending}>
+            <Icon name="arrow" size={17} />
+            <span>{sending ? "Mengirim…" : "Kirim"}</span>
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function MarketplaceStorefront({
+  response,
+  products,
+  loading,
+  error,
+  favorites,
+  onBack,
+  onOpenProduct,
+  onChat,
+  onFavorite,
+  onAdd,
+}: {
+  response?: MarketplaceStoreResponse;
+  products: Product[];
+  loading: boolean;
+  error: string;
+  favorites: string[];
+  onBack: () => void;
+  onOpenProduct: (product: Product) => void;
+  onChat: () => void;
+  onFavorite: (product: Product) => void;
+  onAdd: (product: Product) => void;
+}) {
+  const [section, setSection] = useState<StoreSection>("products");
+  const [sort, setSort] = useState<SortMode>("popular");
+  const [category, setCategory] = useState("Semua");
+  const fallback = products[0];
+  const store = response?.store ?? {
+    id: fallback?.businessId ?? "",
+    name: fallback?.businessName ?? "Toko Slivadoc",
+    logo_url: fallback?.storeLogoUrl ?? "",
+    banner_url: "",
+    about: "Katalog toko partner Slivadoc.",
+    city: fallback?.city ?? "Indonesia",
+    joined_at: "",
+    is_online: Boolean(fallback?.storeIsOnline),
+    last_seen_at: fallback?.storeLastSeenAt ?? "",
+    product_count: products.length,
+    category_count: new Set(products.map((item) => item.category)).size,
+    rating: products.reduce((total, item) => total + item.rating, 0) / Math.max(1, products.length),
+    review_count: products.reduce((total, item) => total + item.reviewCount, 0),
+    sold_count: products.reduce((total, item) => total + item.soldCount, 0),
+  };
+  const categories = response?.categories ?? Array.from(new Set(products.map((item) => item.category))).map((name) => ({
+    name,
+    product_count: products.filter((product) => product.category === name).length,
+  }));
+  const visible = useMemo(() => {
+    const filtered = products.filter((product) => category === "Semua" || product.category === category);
+    return [...filtered].sort((left, right) => {
+      if (sort === "newest") return Date.parse(right.createdAt || "") - Date.parse(left.createdAt || "");
+      if (sort === "price") return left.price - right.price;
+      if (sort === "price_desc") return right.price - left.price;
+      if (sort === "rating") return right.rating - left.rating || right.reviewCount - left.reviewCount;
+      if (sort === "bestseller") return right.soldCount - left.soldCount;
+      return (
+        right.soldCount + right.reviewCount * 2 + right.rating * 5 -
+        (left.soldCount + left.reviewCount * 2 + left.rating * 5)
+      );
+    });
+  }, [category, products, sort]);
+
+  if (loading && !fallback) {
+    return <div className="market-store-loading"><i /><span>Menyiapkan etalase toko…</span></div>;
+  }
+  if (error && !fallback) {
+    return <div className="market-empty-state"><span>!</span><h3>Etalase belum dapat dibuka</h3><p>{error}</p><button type="button" onClick={onBack}>Kembali</button></div>;
+  }
+
+  return (
+    <div className="market-store-page">
+      <nav className="market-breadcrumb" aria-label="Breadcrumb">
+        <button type="button" onClick={onBack}><Icon name="arrow" size={15} /> Marketplace</button>
+        <Icon name="chevron" size={13} />
+        <strong>{store.name}</strong>
+      </nav>
+      <section className="market-store-hero">
+        <div className="market-store-banner" style={store.banner_url ? { backgroundImage: `url(${store.banner_url})` } : undefined} />
+        <div className="market-store-identity">
+          <StoreAvatar
+            name={store.name}
+            logoUrl={store.logo_url}
+            online={store.is_online}
+            large
+          />
+          <div>
+            <span className="market-store-verified"><Icon name="shield" size={12} /> Partner terverifikasi</span>
+            <h1>{store.name}</h1>
+            <p><Icon name="map" size={13} /> {store.city || "Indonesia"}</p>
+            <p className={store.is_online ? "is-online" : ""}>{storePresenceLabel(store.is_online, store.last_seen_at)}</p>
+          </div>
+          <button type="button" onClick={onChat}><Icon name="chat" size={17} /> Chat toko</button>
+        </div>
+        <div className="market-store-stats">
+          <span><b>{store.product_count}</b><small>Produk</small></span>
+          <span><b>{store.rating ? store.rating.toFixed(1) : "Baru"}</b><small>Rating</small></span>
+          <span><b>{compactNumber(store.sold_count)}</b><small>Terjual</small></span>
+          <span><b>{store.category_count}</b><small>Kategori</small></span>
+        </div>
+      </section>
+
+      <div className="market-store-navigation" role="tablist" aria-label="Bagian toko">
+        {([
+          ["products", "Produk"],
+          ["categories", "Kategori"],
+          ["reviews", `Ulasan (${store.review_count})`],
+          ["about", "Tentang toko"],
+        ] as Array<[StoreSection, string]>).map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={section === id} className={section === id ? "active" : ""} onClick={() => setSection(id)}>{label}</button>
+        ))}
+      </div>
+
+      {section === "products" && (
+        <section className="market-store-products">
+          <header>
+            <div><span>ETALASE TOKO</span><h2>Temukan kebutuhan pet-mu</h2></div>
+            <p>{visible.length} produk</p>
+          </header>
+          <div className="market-store-sort" role="tablist" aria-label="Urutan produk toko">
+            {([
+              ["popular", "Populer"],
+              ["newest", "Terbaru"],
+              ["bestseller", "Terlaris"],
+              ["price", "Harga termurah"],
+              ["price_desc", "Harga termahal"],
+            ] as Array<[SortMode, string]>).map(([id, label]) => (
+              <button key={id} type="button" role="tab" aria-selected={sort === id} className={sort === id ? "active" : ""} onClick={() => setSort(id)}>{label}</button>
+            ))}
+          </div>
+          <div className="market-store-category-filter">
+            {["Semua", ...categories.map((item) => item.name)].map((name) => (
+              <button key={name} type="button" className={category === name ? "active" : ""} onClick={() => setCategory(name)}>{name}</button>
+            ))}
+          </div>
+          <div className="market-product-grid">
+            {visible.map((product) => (
+              <ProductCard key={product.id} product={product} favorite={favorites.includes(product.id)} onOpen={() => onOpenProduct(product)} onStore={() => undefined} onFavorite={() => onFavorite(product)} onAdd={() => onAdd(product)} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {section === "categories" && (
+        <section className="market-store-info-grid">
+          {categories.map((item) => (
+            <button key={item.name} type="button" onClick={() => { setCategory(item.name); setSection("products"); }}>
+              <span><Icon name={categoryIcons[item.name] || "bag"} size={24} /></span>
+              <b>{item.name}</b><small>{item.product_count} produk</small>
+            </button>
+          ))}
+        </section>
+      )}
+
+      {section === "reviews" && (
+        <section className="market-store-review-list">
+          <header><div><span>REPUTASI TOKO</span><h2>Ulasan dari pet parent</h2></div><b>{store.rating ? store.rating.toFixed(1) : "–"} / 5</b></header>
+          {response?.reviews.length ? response.reviews.map((review) => (
+            <article key={review.id}>
+              <span>{review.reviewer_name.slice(0, 1).toUpperCase()}</span>
+              <div><b>{review.reviewer_name}</b><MarketplaceStars value={review.rating} /><p>{review.comment}</p><small>{review.product_name} · {new Date(review.updated_at).toLocaleDateString("id-ID")}</small></div>
+            </article>
+          )) : <div className="market-review-empty"><span><Icon name="chat" size={24} /></span><div><b>Belum ada ulasan toko</b><p>Ulasan produk yang terverifikasi akan tampil di sini.</p></div></div>}
+        </section>
+      )}
+
+      {section === "about" && (
+        <section className="market-store-about">
+          <div><span>🏪</span><div><small>TENTANG TOKO</small><h2>{store.name}</h2><p>{store.about}</p></div></div>
+          <dl>
+            <div><dt>Bergabung</dt><dd>{store.joined_at ? new Date(store.joined_at).toLocaleDateString("id-ID", { month: "long", year: "numeric" }) : "Partner Slivadoc"}</dd></div>
+            <div><dt>Lokasi</dt><dd>{store.city || "Indonesia"}</dd></div>
+            <div><dt>Status</dt><dd>{store.is_online ? "Online" : "Offline"}</dd></div>
+          </dl>
+        </section>
+      )}
+    </div>
+  );
+}
+
 export default function ShopMarketplace({
   addToCart,
   setCartOpen,
@@ -795,6 +1206,16 @@ export default function ShopMarketplace({
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortMode>("recommended");
   const [selected, setSelected] = useState<Product>();
+  const [selectedStoreId, setSelectedStoreId] = useState("");
+  const [storeResponse, setStoreResponse] = useState<MarketplaceStoreResponse>();
+  const [storeLoading, setStoreLoading] = useState(false);
+  const [storeError, setStoreError] = useState("");
+  const [chat, setChat] = useState<{
+    threadId: string;
+    store: Pick<MarketplaceStoreProfile, "name" | "logo_url" | "is_online" | "last_seen_at">;
+    product?: Product;
+  }>();
+  const [chatOpening, setChatOpening] = useState(false);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewError, setReviewError] = useState("");
@@ -819,10 +1240,15 @@ export default function ShopMarketplace({
   );
   const stores = useMemo(
     () => [
-      "Semua toko",
+      { id: "Semua toko", name: "Semua toko" },
       ...Array.from(
-        new Set(productCatalog.map((item) => item.brand).filter(Boolean)),
-      ),
+        new Map(
+          productCatalog.map((item) => [
+            item.businessId,
+            { id: item.businessId, name: item.businessName },
+          ]),
+        ).values(),
+      )
     ],
     [productCatalog],
   );
@@ -832,9 +1258,9 @@ export default function ShopMarketplace({
       .filter(
         (product) =>
           (category === "Semua" || product.category === category) &&
-          (store === "Semua toko" || product.brand === store) &&
+          (store === "Semua toko" || product.businessId === store) &&
           (!needle ||
-            `${product.name} ${product.brand} ${product.category} ${product.description} ${product.city}`
+            `${product.name} ${product.brand} ${product.businessName} ${product.category} ${product.description} ${product.city}`
               .toLocaleLowerCase("id")
               .includes(needle)),
       )
@@ -844,6 +1270,9 @@ export default function ShopMarketplace({
             right.rating - left.rating || right.reviewCount - left.reviewCount
           );
         if (sort === "price") return left.price - right.price;
+        if (sort === "price_desc") return right.price - left.price;
+        if (sort === "newest")
+          return Date.parse(right.createdAt || "") - Date.parse(left.createdAt || "");
         if (sort === "popular") return right.soldCount - left.soldCount;
         return (
           Number(right.available) - Number(left.available) ||
@@ -879,11 +1308,12 @@ export default function ShopMarketplace({
 
   useEffect(() => {
     const syncProductFromUrl = () => {
-      const productId = new URL(window.location.href).searchParams.get(
-        "product",
-      );
+      const url = new URL(window.location.href);
+      const productId = url.searchParams.get("product");
+      const storeId = url.searchParams.get("store") || "";
       const match = productCatalog.find((product) => product.id === productId);
       setSelected((current) => (current?.id === match?.id ? current : match));
+      setSelectedStoreId(match ? "" : storeId);
       if (match) void loadReviews(match);
     };
     syncProductFromUrl();
@@ -891,9 +1321,36 @@ export default function ShopMarketplace({
     return () => window.removeEventListener("popstate", syncProductFromUrl);
   }, [loadReviews, productCatalog]);
 
+  useEffect(() => {
+    if (!selectedStoreId) return;
+    let active = true;
+    const initial = window.setTimeout(() => {
+      setStoreLoading(true);
+      setStoreError("");
+      getMarketplaceStore(selectedStoreId)
+        .then((result) => {
+          if (active) setStoreResponse(result);
+        })
+        .catch((cause) => {
+          if (active)
+            setStoreError(cause instanceof Error ? cause.message : "Toko belum dapat dimuat.");
+        })
+        .finally(() => {
+          if (active) setStoreLoading(false);
+        });
+    }, 0);
+    return () => {
+      active = false;
+      window.clearTimeout(initial);
+    };
+  }, [selectedStoreId]);
+
   function setProductUrl(product?: Product) {
     const url = new URL(window.location.href);
-    if (product) url.searchParams.set("product", product.id);
+    if (product) {
+      url.searchParams.set("product", product.id);
+      url.searchParams.delete("store");
+    }
     else url.searchParams.delete("product");
     window.history.pushState(
       { view: "shop", product: product?.id },
@@ -904,6 +1361,7 @@ export default function ShopMarketplace({
 
   function openProduct(product: Product) {
     setSelected(product);
+    setSelectedStoreId("");
     void loadReviews(product);
     setProductUrl(product);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -914,6 +1372,56 @@ export default function ShopMarketplace({
     setSelected(undefined);
     setProductUrl();
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function openStore(businessId: string) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("product");
+    url.searchParams.set("store", businessId);
+    setSelected(undefined);
+    setStoreResponse(undefined);
+    setSelectedStoreId(businessId);
+    window.history.pushState({ view: "shop", store: businessId }, "", `${url.pathname}${url.search}${url.hash}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function closeStore() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("store");
+    setSelectedStoreId("");
+    setStoreResponse(undefined);
+    window.history.pushState({ view: "shop" }, "", `${url.pathname}${url.search}${url.hash}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function openChat(product?: Product) {
+    const storeProduct = product ?? productCatalog.find((item) => item.businessId === selectedStoreId);
+    const businessId = storeProduct?.businessId || selectedStoreId;
+    if (!authenticated) {
+      onRequireLogin();
+      return;
+    }
+    if (!businessId || chatOpening) return;
+    setChatOpening(true);
+    try {
+      const thread = await createMarketplaceChat({ business_id: businessId, product_id: product?.id });
+      const profile =
+        storeResponse?.store.id === businessId ? storeResponse.store : undefined;
+      setChat({
+        threadId: thread.id,
+        product,
+        store: {
+          name: profile?.name || storeProduct?.businessName || "Toko Slivadoc",
+          logo_url: profile?.logo_url || storeProduct?.storeLogoUrl || "",
+          is_online: profile?.is_online ?? Boolean(storeProduct?.storeIsOnline),
+          last_seen_at: profile?.last_seen_at || storeProduct?.storeLastSeenAt || "",
+        },
+      });
+    } catch (cause) {
+      notify(cause instanceof Error ? cause.message : "Chat toko belum dapat dibuka.");
+    } finally {
+      setChatOpening(false);
+    }
   }
 
   async function submitReview(rating: number, comment: string) {
@@ -937,26 +1445,53 @@ export default function ShopMarketplace({
 
   if (selected) {
     return (
-      <ProductDetail
-        key={selected.id}
-        product={selected}
-        favorite={favorites.includes(selected.id)}
-        reviews={reviews}
-        reviewsLoading={reviewsLoading}
-        reviewError={reviewError}
-        reviewAverage={reviewAverage || selected.rating}
-        reviewSubmitting={reviewSubmitting}
-        authenticated={authenticated}
-        onRequireLogin={onRequireLogin}
-        onBack={closeProduct}
-        onFavorite={() => toggleFavorite(selected.id)}
-        onAdd={(quantity) => addToCart(selected.id, quantity)}
-        onBuy={(quantity) => {
-          addToCart(selected.id, quantity);
-          setCartOpen(true);
-        }}
-        onSubmitReview={submitReview}
-      />
+      <>
+        <ProductDetail
+          key={selected.id}
+          product={selected}
+          favorite={favorites.includes(selected.id)}
+          reviews={reviews}
+          reviewsLoading={reviewsLoading}
+          reviewError={reviewError}
+          reviewAverage={reviewAverage || selected.rating}
+          reviewSubmitting={reviewSubmitting}
+          authenticated={authenticated}
+          onRequireLogin={onRequireLogin}
+          onBack={closeProduct}
+          onOpenStore={() => openStore(selected.businessId)}
+          onChat={() => void openChat(selected)}
+          onFavorite={() => toggleFavorite(selected.id)}
+          onAdd={(quantity) => addToCart(selected.id, quantity)}
+          onBuy={(quantity) => {
+            addToCart(selected.id, quantity);
+            setCartOpen(true);
+          }}
+          onSubmitReview={submitReview}
+        />
+        {chat && <MarketplaceChatPanel {...chat} onClose={() => setChat(undefined)} notify={notify} />}
+      </>
+    );
+  }
+
+  if (selectedStoreId) {
+    const storeProducts = productCatalog.filter((product) => product.businessId === selectedStoreId);
+    return (
+      <>
+        <MarketplaceStorefront
+          key={selectedStoreId}
+          response={storeResponse}
+          products={storeProducts}
+          loading={storeLoading}
+          error={storeError}
+          favorites={favorites}
+          onBack={closeStore}
+          onOpenProduct={openProduct}
+          onChat={() => void openChat()}
+          onFavorite={(product) => toggleFavorite(product.id)}
+          onAdd={(product) => addToCart(product.id)}
+        />
+        {chat && <MarketplaceChatPanel {...chat} onClose={() => setChat(undefined)} notify={notify} />}
+      </>
     );
   }
 
@@ -1088,7 +1623,7 @@ export default function ShopMarketplace({
                 onChange={(event) => setStore(event.target.value)}
               >
                 {stores.map((item) => (
-                  <option key={item}>{item}</option>
+                  <option key={item.id} value={item.id}>{item.name}</option>
                 ))}
               </select>
             </label>
@@ -1115,6 +1650,7 @@ export default function ShopMarketplace({
                 product={product}
                 favorite={favorites.includes(product.id)}
                 onOpen={() => openProduct(product)}
+                onStore={() => openStore(product.businessId)}
                 onFavorite={() => toggleFavorite(product.id)}
                 onAdd={() => addToCart(product.id)}
               />
@@ -1173,6 +1709,7 @@ export default function ShopMarketplace({
           </div>
         </article>
       </section>
+      {chat && <MarketplaceChatPanel {...chat} onClose={() => setChat(undefined)} notify={notify} />}
     </div>
   );
 }

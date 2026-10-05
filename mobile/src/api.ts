@@ -522,6 +522,9 @@ export type MobileProduct = {
   id: string;
   business_id: string;
   business_name: string;
+  store_logo_url: string;
+  store_is_online: boolean;
+  store_last_seen_at: string;
   branch_id?: string;
   branch_name: string;
   city: string;
@@ -538,6 +541,7 @@ export type MobileProduct = {
   rating: number;
   review_count: number;
   sold_count: number;
+  created_at: string;
 };
 
 function productText(value: unknown) {
@@ -564,6 +568,9 @@ function normalizeMobileProduct(product: MobileProduct): MobileProduct {
       productText(product.branch_id) ||
       `partner:${businessName.toLowerCase().replace(/\s+/g, "-")}`,
     business_name: businessName,
+    store_logo_url: productText(product.store_logo_url),
+    store_is_online: product.store_is_online === true,
+    store_last_seen_at: productText(product.store_last_seen_at),
     branch_id: productText(product.branch_id) || undefined,
     branch_name: branchName,
     city: productText(product.city) || "Online",
@@ -581,8 +588,52 @@ function normalizeMobileProduct(product: MobileProduct): MobileProduct {
     rating: Math.min(5, Math.max(0, productNumber(product.rating))),
     review_count: Math.max(0, productNumber(product.review_count)),
     sold_count: Math.max(0, productNumber(product.sold_count)),
+    created_at: productText(product.created_at),
   };
 }
+
+export type MobileMarketplaceStore = {
+  id: string;
+  name: string;
+  logo_url: string;
+  banner_url: string;
+  about: string;
+  city: string;
+  joined_at: string;
+  is_online: boolean;
+  last_seen_at: string;
+  product_count: number;
+  category_count: number;
+  rating: number;
+  review_count: number;
+  sold_count: number;
+};
+
+export type MobileMarketplaceStoreResponse = {
+  store: MobileMarketplaceStore;
+  categories: Array<{ name: string; product_count: number }>;
+  reviews: Array<{
+    id: string;
+    product_id: string;
+    product_name: string;
+    reviewer_name: string;
+    rating: number;
+    comment: string;
+    updated_at: string;
+  }>;
+};
+
+export type MobileMarketplaceChatMessage = {
+  id: string;
+  thread_id: string;
+  sender_user_id: string;
+  sender_type: "buyer" | "store";
+  sender_name: string;
+  product_id: string;
+  product_name: string;
+  body: string;
+  created_at: string;
+};
 
 export type MobileProductReview = {
   id: string;
@@ -955,6 +1006,39 @@ export const getMobileProducts = (options?: {
     data: uniqueById(result.data.map(normalizeMobileProduct)),
   }));
 };
+
+export const getMobileMarketplaceStore = (businessId: string) =>
+  platformRequest<MobileMarketplaceStoreResponse>(
+    `/api/v1/public/marketplace/stores/${encodeURIComponent(businessId)}`,
+    { cache: "no-store" },
+  );
+
+export const createMobileMarketplaceChat = (input: {
+  business_id: string;
+  product_id?: string;
+}) =>
+  platformRequest<{ id: string }>("/api/v1/petowner/marketplace/chats", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+export const getMobileMarketplaceChatMessages = (threadId: string) =>
+  platformRequest<{
+    data: MobileMarketplaceChatMessage[];
+    count: number;
+    viewer: "buyer" | "store";
+  }>(`/api/v1/marketplace/chats/${encodeURIComponent(threadId)}/messages`, {
+    cache: "no-store",
+  });
+
+export const sendMobileMarketplaceChatMessage = (
+  threadId: string,
+  input: { body: string; product_id?: string },
+) =>
+  platformRequest<MobileMarketplaceChatMessage>(
+    `/api/v1/marketplace/chats/${encodeURIComponent(threadId)}/messages`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
 
 export const getMobileProductReviews = (productId: string) =>
   platformRequest<{

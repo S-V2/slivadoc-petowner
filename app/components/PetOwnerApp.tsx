@@ -517,7 +517,12 @@ export default function PetOwnerApp() {
           item.brand_name ||
           item.business_name ||
           "Nama penjual belum dicantumkan",
+        businessName:
+          item.business_name || item.brand_name || "Partner Slivadoc",
         businessId: item.business_id || item.branch_id || item.id,
+        storeLogoUrl: item.store_logo_url || undefined,
+        storeIsOnline: item.store_is_online,
+        storeLastSeenAt: item.store_last_seen_at || undefined,
         branchName: item.branch_name || "Cabang belum dicantumkan",
         city: item.city || "Lokasi belum dicantumkan",
         sku: item.sku || "-",
@@ -537,6 +542,7 @@ export default function PetOwnerApp() {
         emoji: item.category.toLowerCase().includes("food") ? "🥣" : "🛍️",
         imageUrl: item.image_url || undefined,
         category: item.category || "Kebutuhan pet",
+        createdAt: item.created_at,
         badge: (
           typeof item.available === "boolean"
             ? item.available

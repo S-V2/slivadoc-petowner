@@ -57,6 +57,9 @@ export function marketplaceProduct(
   return {
     business_id: "59000000-0000-4000-8000-000000000101",
     business_name: "Sliva Pet Shop",
+    store_logo_url: "",
+    store_is_online: false,
+    store_last_seen_at: "",
     branch_id: "55000000-0000-4000-8000-000000000101",
     branch_name: "Sliva Pet Shop Kemang",
     city: "Jakarta Selatan",
@@ -72,6 +75,7 @@ export function marketplaceProduct(
     rating: 4.8,
     review_count: 12,
     sold_count: 40,
+    created_at: "2026-09-01T08:00:00Z",
     ...overrides,
   };
 }

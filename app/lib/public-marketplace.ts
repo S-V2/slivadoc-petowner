@@ -8,6 +8,9 @@ type ProductPayload = {
   id?: unknown;
   business_id?: unknown;
   business_name?: unknown;
+  store_logo_url?: unknown;
+  store_is_online?: unknown;
+  store_last_seen_at?: unknown;
   branch_id?: unknown;
   branch_name?: unknown;
   city?: unknown;
@@ -24,6 +27,7 @@ type ProductPayload = {
   rating?: unknown;
   review_count?: unknown;
   sold_count?: unknown;
+  created_at?: unknown;
   brand_name?: unknown;
   manufacturer?: unknown;
   origin_country?: unknown;
@@ -47,6 +51,9 @@ export type PublicProduct = {
   slug: string;
   businessId: string;
   businessName: string;
+  storeLogoUrl: string;
+  storeIsOnline: boolean;
+  storeLastSeenAt: string;
   branchId: string;
   branchName: string;
   city: string;
@@ -63,6 +70,7 @@ export type PublicProduct = {
   rating: number;
   reviewCount: number;
   soldCount: number;
+  createdAt: string;
   brandName: string;
   manufacturer: string;
   originCountry: string;
@@ -117,6 +125,9 @@ function normalizeProduct(value: ProductPayload): PublicProduct | null {
     slug: productSlug(name, id),
     businessId: text(value.business_id),
     businessName: text(value.business_name),
+    storeLogoUrl: text(value.store_logo_url),
+    storeIsOnline: value.store_is_online === true,
+    storeLastSeenAt: text(value.store_last_seen_at),
     branchId: text(value.branch_id),
     branchName: text(value.branch_name),
     city: text(value.city),
@@ -133,6 +144,7 @@ function normalizeProduct(value: ProductPayload): PublicProduct | null {
     rating: Math.max(0, Math.min(5, finite(value.rating))),
     reviewCount: Math.max(0, Math.round(finite(value.review_count))),
     soldCount: Math.max(0, finite(value.sold_count)),
+    createdAt: text(value.created_at),
     brandName: text(value.brand_name),
     manufacturer: text(value.manufacturer),
     originCountry: text(value.origin_country),

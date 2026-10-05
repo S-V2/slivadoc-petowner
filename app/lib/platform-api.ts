@@ -394,6 +394,9 @@ export type DiscoveryProduct = {
   id: string;
   business_id: string;
   business_name: string;
+  store_logo_url: string;
+  store_is_online: boolean;
+  store_last_seen_at: string;
   branch_id?: string;
   branch_name: string;
   city: string;
@@ -410,6 +413,7 @@ export type DiscoveryProduct = {
   rating: number;
   review_count: number;
   sold_count: number;
+  created_at: string;
   brand_name: string;
   manufacturer: string;
   origin_country: string;
@@ -461,6 +465,69 @@ export type ProductReview = {
 
 export type ProductReviewList = PlatformList<ProductReview> & {
   rating: number;
+};
+
+export type MarketplaceStoreProfile = {
+  id: string;
+  name: string;
+  logo_url: string;
+  banner_url: string;
+  about: string;
+  city: string;
+  joined_at: string;
+  is_online: boolean;
+  last_seen_at: string;
+  product_count: number;
+  category_count: number;
+  rating: number;
+  review_count: number;
+  sold_count: number;
+};
+
+export type MarketplaceStoreReview = {
+  id: string;
+  product_id: string;
+  product_name: string;
+  reviewer_name: string;
+  rating: number;
+  comment: string;
+  updated_at: string;
+};
+
+export type MarketplaceStoreResponse = {
+  store: MarketplaceStoreProfile;
+  categories: Array<{ name: string; product_count: number }>;
+  reviews: MarketplaceStoreReview[];
+};
+
+export type MarketplaceChatThread = {
+  id: string;
+  business_id: string;
+  business_name: string;
+  store_logo_url: string;
+  buyer_user_id: string;
+  buyer_name: string;
+  product_id: string;
+  product_name: string;
+  product_image_url: string;
+  last_message: string;
+  last_message_created_at: string;
+  last_message_at: string;
+  store_is_online: boolean;
+  store_last_seen_at: string;
+  unread_count: number;
+};
+
+export type MarketplaceChatMessage = {
+  id: string;
+  thread_id: string;
+  sender_user_id: string;
+  sender_type: "buyer" | "store";
+  sender_name: string;
+  product_id: string;
+  product_name: string;
+  body: string;
+  created_at: string;
 };
 export type RegionOption = {
   id: string;
@@ -1801,6 +1868,43 @@ export const getDiscoveryProducts = (search = "", category = "") =>
     `/api/v1/public/discovery/products?search=${encodeURIComponent(
       search,
     )}&category=${encodeURIComponent(category)}`,
+  );
+
+export const getMarketplaceStore = (businessId: string) =>
+  request<MarketplaceStoreResponse>(
+    `/api/v1/public/marketplace/stores/${encodeURIComponent(businessId)}`,
+    { cache: "no-store" },
+  );
+
+export const createMarketplaceChat = (input: {
+  business_id: string;
+  product_id?: string;
+}) =>
+  request<{ id: string; business_id: string; buyer_user_id: string }>(
+    "/api/v1/petowner/marketplace/chats",
+    { method: "POST", body: JSON.stringify(input) },
+  );
+
+export const getMarketplaceChats = () =>
+  request<PlatformList<MarketplaceChatThread>>(
+    "/api/v1/petowner/marketplace/chats",
+    { cache: "no-store" },
+  );
+
+export const getMarketplaceChatMessages = (threadId: string) =>
+  request<
+    PlatformList<MarketplaceChatMessage> & { viewer: "buyer" | "store" }
+  >(`/api/v1/marketplace/chats/${encodeURIComponent(threadId)}/messages`, {
+    cache: "no-store",
+  });
+
+export const sendMarketplaceChatMessage = (
+  threadId: string,
+  input: { body: string; product_id?: string },
+) =>
+  request<MarketplaceChatMessage>(
+    `/api/v1/marketplace/chats/${encodeURIComponent(threadId)}/messages`,
+    { method: "POST", body: JSON.stringify(input) },
   );
 
 export const getPetOwnerSupportTickets = () =>

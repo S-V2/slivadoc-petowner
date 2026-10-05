@@ -83,7 +83,11 @@ export type Product = {
   id: string;
   name: string;
   brand: string;
+  businessName: string;
   businessId: string;
+  storeLogoUrl?: string;
+  storeIsOnline?: boolean;
+  storeLastSeenAt?: string;
   branchName: string;
   city: string;
   sku: string;
@@ -101,6 +105,7 @@ export type Product = {
   emoji: string;
   imageUrl?: string;
   category: string;
+  createdAt?: string;
   badge?: string;
   manufacturer?: string;
   originCountry?: string;

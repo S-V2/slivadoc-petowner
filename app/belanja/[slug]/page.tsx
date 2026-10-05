@@ -37,9 +37,11 @@ export async function generateMetadata({
       noIndex: true,
     });
   }
+  const productSummary = `${product.name} dari ${product.businessName}. Cek harga, stok, lokasi penjual, dan informasi produk di Slivadoc.`;
   const description =
-    product.description ||
-    `${product.name} dari ${product.businessName}. Cek harga, stok, lokasi penjual, dan informasi produk di Slivadoc.`;
+    product.description.trim().length >= 50
+      ? product.description.trim()
+      : [product.description.trim(), productSummary].filter(Boolean).join(" ");
   const image = socialImage(product.imageUrl);
   return pageMetadata({
     title: `${product.name} — ${product.businessName}`,

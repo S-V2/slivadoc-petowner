@@ -11,6 +11,10 @@ const activityPresentation = readFileSync(
   new URL("../mobile/src/activity.ts", import.meta.url),
   "utf8",
 );
+const mobileApi = readFileSync(
+  new URL("../mobile/src/api.ts", import.meta.url),
+  "utf8",
+);
 const home = readFileSync(
   new URL("../mobile/src/screens/HomeScreen.tsx", import.meta.url),
   "utf8",
@@ -25,6 +29,10 @@ const world = readFileSync(
 );
 
 test("activity center loads booking, order, and consultation filters from the database API", () => {
+  assert.match(
+    mobileApi,
+    /petowner\/activities\?view=center&type=all&state=all&limit=100/,
+  );
   assert.match(activity, /id:\s*"booking"/);
   assert.match(activity, /id:\s*"order"/);
   assert.match(activity, /id:\s*"consultation"/);

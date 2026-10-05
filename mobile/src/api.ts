@@ -925,7 +925,8 @@ export const getMobileServiceAvailability = (
     { cache: "no-store" },
   );
 
-const activityCenterPath = "/api/v1/petowner/activities?limit=100";
+const activityCenterPath =
+  "/api/v1/petowner/activities?view=center&type=all&state=all&limit=100";
 
 // Aktivitas changes the moment a payment settles, so it skips the 15 s GET cache.
 export const getMobileActivityCenter = () => {

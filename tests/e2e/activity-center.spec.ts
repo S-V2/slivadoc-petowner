@@ -19,6 +19,7 @@ test("Aktivitas surfaces every commitment, resumes payment and deep links", asyn
   let academyPaid = false;
   let intentPolls = 0;
   const createdIntents: unknown[] = [];
+  const activityQueries: string[] = [];
 
   const academy = () =>
     activityItem({
@@ -112,6 +113,26 @@ test("Aktivitas surfaces every commitment, resumes payment and deep links", asyn
     checked_out_at: null,
     pet_name: "Milo",
   });
+  const historyBooking = activityItem({
+    id: "7f100000-0000-4000-8000-000000000001",
+    type: "booking",
+    code: "PO-HISTORY-001",
+    title: "Grooming Small",
+    subtitle: "Paws & Care · Kemang",
+    status: "completed",
+    payment_status: "paid",
+    amount: 120_000,
+    state: "history",
+    scheduled_at: at(-72 * hour),
+    service_name: "Grooming Small",
+    service_duration_minutes: 90,
+    business_name: "Paws & Care",
+    branch_name: "Kemang",
+    address: "Jalan Kemang Raya 88",
+    city: "Jakarta Selatan",
+    pet_name: "Luna",
+    notes: "Grooming higienis dan potong kuku.",
+  });
   const notification = {
     id: "7a100000-0000-4000-8000-000000000001",
     category: "academy",
@@ -152,8 +173,12 @@ test("Aktivitas surfaces every commitment, resumes payment and deep links", asyn
       path === "/api/v1/public/campaigns"
     )
       return json({ data: [], count: 0 });
-    if (path === "/api/v1/petowner/activities")
-      return json(activityCenter([academy(), event, reservation, hotel]));
+    if (path === "/api/v1/petowner/activities") {
+      activityQueries.push(new URL(request.url()).search);
+      return json(
+        activityCenter([academy(), event, reservation, hotel, historyBooking]),
+      );
+    }
     if (path === "/api/v1/payment-intents" && request.method() === "POST") {
       createdIntents.push(request.postDataJSON());
       return json(
@@ -195,6 +220,13 @@ test("Aktivitas surfaces every commitment, resumes payment and deep links", asyn
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/?view=bookings", { waitUntil: "domcontentloaded" });
 
+  await expect.poll(() => activityQueries.length).toBeGreaterThan(0);
+  expect(activityQueries).toEqual(
+    expect.arrayContaining([
+      "?view=center&type=all&state=all&limit=100",
+    ]),
+  );
+
   const attention = page.getByRole("region", { name: "Perlu tindakan" });
   const academyAction = attention
     .locator("article")
@@ -210,7 +242,26 @@ test("Aktivitas surfaces every commitment, resumes payment and deep links", asyn
 
   await expect(
     page.getByRole("group", { name: "Jenis aktivitas" }).getByRole("button"),
-  ).toHaveText([/^Semua/, /^Kelas/, /^Event/, /^Reservasi/, /^Pet hotel/]);
+  ).toHaveText([
+    /^Semua/,
+    /^Booking/,
+    /^Kelas/,
+    /^Event/,
+    /^Reservasi/,
+    /^Pet hotel/,
+  ]);
+
+  await page.getByRole("button", { name: /^Riwayat 1$/ }).click();
+  await page
+    .getByRole("button", { name: /Grooming Small.*Paws & Care/ })
+    .click();
+  const historyDetail = page.locator(".activity-detail-modal");
+  await expect(historyDetail).toContainText("PO-HISTORY-001");
+  await expect(historyDetail).toContainText("Grooming Small · 90 menit");
+  await expect(historyDetail).toContainText("Paws & Care · Kemang");
+  await expect(historyDetail).toContainText("Luna");
+  await historyDetail.getByRole("button", { name: "Selesai" }).click();
+  await page.getByRole("button", { name: /^Mendatang 4$/ }).click();
 
   const detail = page.locator(".activity-detail-modal");
   await eventAction.getByRole("button", { name: "Tiket QR" }).click();

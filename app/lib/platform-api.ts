@@ -1902,7 +1902,7 @@ export const togglePetOwnerFavorite = (
 
 export const getPetOwnerActivityCenter = () =>
   request<PetOwnerActivityCenterResponse>(
-    "/api/v1/petowner/activities?limit=100",
+    "/api/v1/petowner/activities?view=center&type=all&state=all&limit=100",
     { cache: "no-store" },
   );
 

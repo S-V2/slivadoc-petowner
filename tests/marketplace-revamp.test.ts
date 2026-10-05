@@ -28,6 +28,14 @@ const mobile = readFileSync(
   new URL("../mobile/src/screens/MarketplaceScreen.tsx", import.meta.url),
   "utf8",
 );
+const shell = readFileSync(
+  new URL("../app/components/PetOwnerApp.tsx", import.meta.url),
+  "utf8",
+);
+const globalCss = readFileSync(
+  new URL("../app/globals.css", import.meta.url),
+  "utf8",
+);
 
 test("web marketplace cards expose purchase-critical product data", () => {
   for (const field of [
@@ -55,6 +63,18 @@ test("product cards deep-link to detail and verified review APIs", () => {
   assert.match(api, /\/api\/v1\/public\/products\/\$\{productId\}\/reviews/);
   assert.match(api, /\/api\/v1\/petowner\/products\/\$\{productId\}\/reviews/);
   assert.match(web, /Pembelian terverifikasi/);
+});
+
+test("cart actions show a loading state and centered success confirmation", () => {
+  assert.match(web, /market-add-spinner/);
+  assert.match(web, /Menambahkan…/);
+  assert.match(css, /\.market-add-spinner/);
+  assert.match(shell, /cart-added-notice/);
+  assert.match(shell, /Ditambahkan ke keranjang/);
+  assert.match(globalCss, /\.cart-added-notice[\s\S]*top:\s*50%/);
+  assert.match(mobile, /addingProductId/);
+  assert.match(mobile, /styles\.cartAddedNotice/);
+  assert.match(mobile, /Ditambahkan ke keranjang/);
 });
 
 test("web marketplace stays responsive from phone grid through desktop", () => {

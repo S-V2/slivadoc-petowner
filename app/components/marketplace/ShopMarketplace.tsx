@@ -51,7 +51,7 @@ const marketplaceChatShortcuts: ReadonlyArray<{
 const marketplaceChatEmojis = ["😊", "😍", "🙏", "👍", "🐾", "🐶", "🐱", "❤️"];
 
 type ShopMarketplaceProps = {
-  addToCart: (id: string, quantity?: number) => void;
+  addToCart: (id: string, quantity?: number) => Promise<boolean>;
   buyNow: (id: string, quantity?: number) => void;
   setCartOpen: (value: boolean) => void;
   cartCount: number;
@@ -610,11 +610,21 @@ function ProductDetail({
   onOpenStore: () => void;
   onChat: () => void;
   onFavorite: () => void;
-  onAdd: (quantity: number) => void;
+  onAdd: (quantity: number) => Promise<boolean>;
   onBuy: (quantity: number) => void;
   onSubmitReview: (rating: number, comment: string) => Promise<void>;
 }) {
   const [quantity, setQuantity] = useState(1);
+  const [adding, setAdding] = useState(false);
+  async function addProduct() {
+    if (adding || !product.available) return;
+    setAdding(true);
+    try {
+      await onAdd(quantity);
+    } finally {
+      setAdding(false);
+    }
+  }
   const licenseLabel =
     product.licenseStatus === "verified"
       ? "Izin usaha terverifikasi"
@@ -857,10 +867,16 @@ function ProductDetail({
             <div>
               <button
                 type="button"
-                disabled={!product.available}
-                onClick={() => onAdd(quantity)}
+                disabled={!product.available || adding}
+                aria-busy={adding}
+                onClick={() => void addProduct()}
               >
-                <Icon name="cart" size={17} /> + Keranjang
+                {adding ? (
+                  <span className="market-add-spinner" aria-hidden="true" />
+                ) : (
+                  <Icon name="cart" size={17} />
+                )}
+                {adding ? "Menambahkan…" : "+ Keranjang"}
               </button>
               <button
                 type="button"

@@ -44,7 +44,10 @@ test("marketplace card navigates to responsive product detail and publishes a re
       route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 
     if (path === "/api/v1/auth/me") return json({ ...petOwner, role: "pet_owner" });
-    if (path === "/api/v1/petowner/bootstrap") return json(petOwnerBootstrap());
+    if (path === "/api/v1/petowner/bootstrap") {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      return json(petOwnerBootstrap());
+    }
     if (path === "/api/v1/petowner/activities")
       return json(activityCenter());
     if (path === "/api/v1/public/discovery/products")
@@ -67,6 +70,13 @@ test("marketplace card navigates to responsive product detail and publishes a re
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/?view=shop", { waitUntil: "domcontentloaded" });
 
+  const opening = page.getByRole("status").filter({
+    hasText: "Satu dunia untuk setiap langkah kecilnya.",
+  });
+  await expect(opening).toBeVisible();
+  await expect(opening).toContainText("SLIVADOC PET CARE ECOSYSTEM");
+  await expect(opening).toContainText("LIVE SYNC");
+
   const card = page.getByRole("link", { name: `Lihat detail ${product.name}` });
   await expect(card).toContainText("Sliva Pet Shop");
   await expect(card).toContainText("Jakarta Selatan");
@@ -77,6 +87,24 @@ test("marketplace card navigates to responsive product detail and publishes a re
   await expect(page).toHaveURL(new RegExp(`product=${product.id}`));
   await expect(page.getByRole("heading", { name: product.name })).toBeVisible();
   await expect(page.getByText("Pembelian terverifikasi")).toBeVisible();
+
+  const addToCart = page.locator(".market-purchase-box > div > button").first();
+  await addToCart.click();
+  await expect(addToCart).toHaveAttribute("aria-busy", "true");
+  await expect(addToCart).toContainText("Menambahkan…");
+  const cartNotice = page.getByRole("status").filter({
+    hasText: "Ditambahkan ke keranjang",
+  });
+  await expect(cartNotice).toBeVisible();
+  const noticePosition = await cartNotice.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return {
+      horizontal: Math.abs(box.left + box.width / 2 - window.innerWidth / 2),
+      vertical: Math.abs(box.top + box.height / 2 - window.innerHeight / 2),
+    };
+  });
+  expect(noticePosition.horizontal).toBeLessThan(2);
+  expect(noticePosition.vertical).toBeLessThan(2);
 
   const comment = "Snack-nya wangi, kemasan aman, dan cocok untuk Milo.";
   await page.getByPlaceholder("Ceritakan kualitas produk, kemasan, dan reaksi pet-mu…").fill(comment);

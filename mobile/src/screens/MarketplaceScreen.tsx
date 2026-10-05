@@ -480,6 +480,9 @@ export function MarketplaceScreen({
   }>();
   const [chatOpening, setChatOpening] = useState(false);
   const [cart, setCart] = useState<Record<string, number>>({});
+  const [addingProductId, setAddingProductId] = useState("");
+  const [cartAddedProductId, setCartAddedProductId] = useState("");
+  const cartAddedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [directBuyCart, setDirectBuyCart] = useState<Record<string, number> | null>(
     null,
   );
@@ -807,17 +810,35 @@ export function MarketplaceScreen({
     [directBuyCart, invalidateQuote],
   );
 
+  useEffect(
+    () => () => {
+      if (cartAddedTimer.current) clearTimeout(cartAddedTimer.current);
+    },
+    [],
+  );
+
   const addToCart = useCallback(
-    (product: MobileProduct) => {
-      if (!product.available) return;
+    async (product: MobileProduct) => {
+      if (!product.available || addingProductId === product.id) return;
       if (!hasPet) {
         onRequirePet();
         return;
       }
-      setQuantity(product, (cart[product.id] ?? 0) + 1);
-      onAction(`${product.name} masuk keranjang`);
+      setAddingProductId(product.id);
+      try {
+        setQuantity(product, (cart[product.id] ?? 0) + 1);
+        await new Promise((resolve) => setTimeout(resolve, 480));
+        setCartAddedProductId(product.id);
+        if (cartAddedTimer.current) clearTimeout(cartAddedTimer.current);
+        cartAddedTimer.current = setTimeout(
+          () => setCartAddedProductId(""),
+          1_650,
+        );
+      } finally {
+        setAddingProductId("");
+      }
     },
-    [cart, hasPet, onAction, onRequirePet, setQuantity],
+    [addingProductId, cart, hasPet, onRequirePet, setQuantity],
   );
 
   const loadReviews = useCallback(async (product: MobileProduct) => {
@@ -1494,12 +1515,14 @@ export function MarketplaceScreen({
         rating={reviewRating}
         comment={reviewComment}
         reviewBusy={reviewBusy}
+        adding={Boolean(selected && addingProductId === selected.id)}
+        added={Boolean(selected && cartAddedProductId === selected.id)}
         onRating={setReviewRating}
         onComment={setReviewComment}
         onClose={() => setSelected(undefined)}
         onStore={() => selected && void openStore(selected.business_id)}
         onChat={() => selected && void openChat(selected)}
-        onAdd={() => selected && addToCart(selected)}
+        onAdd={() => selected && void addToCart(selected)}
         onBuy={() => {
           if (!selected) return;
           if (!hasPet) {
@@ -1737,6 +1760,8 @@ function ProductDetailSheet({
   rating,
   comment,
   reviewBusy,
+  adding,
+  added,
   onRating,
   onComment,
   onClose,
@@ -1752,6 +1777,8 @@ function ProductDetailSheet({
   rating: number;
   comment: string;
   reviewBusy: boolean;
+  adding: boolean;
+  added: boolean;
   onRating: (value: number) => void;
   onComment: (value: string) => void;
   onClose: () => void;
@@ -1992,15 +2019,23 @@ function ProductDetailSheet({
       </ScrollView>
       <View style={styles.detailActions}>
         <Pressable
-          disabled={!product.available}
+          accessibilityRole="button"
+          accessibilityLabel={adding ? "Menambahkan ke keranjang" : "Tambah ke keranjang"}
+          disabled={!product.available || adding}
           onPress={onAdd}
           style={[
             styles.secondaryAction,
-            !product.available && styles.disabledButton,
+            (!product.available || adding) && styles.disabledButton,
           ]}
         >
-          <Ionicons name="bag-add-outline" size={18} color={colors.sky600} />
-          <Text style={styles.secondaryActionText}>+ Keranjang</Text>
+          {adding ? (
+            <ActivityIndicator size="small" color={colors.sky600} />
+          ) : (
+            <Ionicons name="bag-add-outline" size={18} color={colors.sky600} />
+          )}
+          <Text style={styles.secondaryActionText}>
+            {adding ? "Menambahkan…" : "+ Keranjang"}
+          </Text>
         </Pressable>
         <Pressable
           disabled={!product.available}
@@ -2015,6 +2050,19 @@ function ProductDetailSheet({
           </Text>
         </Pressable>
       </View>
+      {added ? (
+        <View
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+          pointerEvents="none"
+          style={styles.cartAddedNotice}
+        >
+          <View style={styles.cartAddedCheck}>
+            <Ionicons name="checkmark" size={28} color={colors.white} />
+          </View>
+          <Text style={styles.cartAddedText}>Ditambahkan ke keranjang</Text>
+        </View>
+      ) : null}
     </SheetFrame>
   );
 }
@@ -3989,6 +4037,38 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sky600,
   },
   primaryActionText: { color: colors.white, fontSize: 12, fontWeight: "700" },
+  cartAddedNotice: {
+    position: "absolute",
+    zIndex: 20,
+    top: "38%",
+    left: 46,
+    right: 46,
+    minHeight: 154,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 13,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 26,
+    backgroundColor: "rgba(255,255,255,.98)",
+    ...shadow,
+  },
+  cartAddedCheck: {
+    width: 62,
+    height: 62,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 31,
+    backgroundColor: colors.mint,
+  },
+  cartAddedText: {
+    color: colors.navy,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   storefrontBackdrop: {
     flex: 1,
     justifyContent: "flex-end",

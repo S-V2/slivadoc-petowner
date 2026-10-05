@@ -14,6 +14,7 @@ import {
 } from "react";
 import { Icon, type IconName } from "./Icon";
 import { BrandLogo as Logo } from "./BrandLogo";
+import { OpeningExperience } from "./OpeningExperience";
 import { usePetOwnerI18n } from "./PetOwnerI18n";
 import AddPetExperience from "./integrations/AddPetExperience";
 import CommunityExperience from "./integrations/CommunityExperience";
@@ -432,6 +433,8 @@ export default function PetOwnerApp() {
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [directBuyCart, setDirectBuyCart] = useState<Record<string, number> | null>(null);
+  const [cartAddedOpen, setCartAddedOpen] = useState(false);
+  const cartAddedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [toast, setToast] = useState("");
   const [loginOpen, setLoginOpen] = useState(false);
   function completeCheckout() {
@@ -444,6 +447,12 @@ export default function PetOwnerApp() {
     window.sessionStorage.removeItem(checkoutSuccessStorageKey);
     setCheckoutSuccess(false);
   }
+  useEffect(
+    () => () => {
+      if (cartAddedTimer.current) clearTimeout(cartAddedTimer.current);
+    },
+    [],
+  );
 
   const selectedPet = petProfiles.find((pet) => pet.id === selectedPetId) ??
     petProfiles[0] ?? {
@@ -948,22 +957,22 @@ export default function PetOwnerApp() {
     }
   };
 
-  const addToCart = (id: string, quantity = 1) => {
+  const addToCart = async (id: string, quantity = 1) => {
     const product = productCatalog.find((item) => item.id === id);
     if (!product?.available) {
       notify("Produk sedang tidak tersedia");
-      return;
+      return false;
     }
     const safeQuantity = Math.max(1, Math.floor(quantity));
     setCart((current) => ({
       ...current,
       [id]: Math.min(product.stock, (current[id] ?? 0) + safeQuantity),
     }));
-    notify(
-      safeQuantity > 1
-        ? `${safeQuantity} produk ditambahkan ke keranjang`
-        : "Produk ditambahkan ke keranjang",
-    );
+    await new Promise((resolve) => window.setTimeout(resolve, 480));
+    setCartAddedOpen(true);
+    if (cartAddedTimer.current) clearTimeout(cartAddedTimer.current);
+    cartAddedTimer.current = setTimeout(() => setCartAddedOpen(false), 1_650);
+    return true;
   };
 
   const buyNow = (id: string, quantity = 1) => {
@@ -1068,16 +1077,7 @@ export default function PetOwnerApp() {
   };
 
   if (bootstrapLoading)
-    return (
-      <div className="petowner-loading">
-        <Logo markOnly priority />
-        <h1>Menyiapkan rumah digital pet-mu</h1>
-        <p>Menyinkronkan profil, kesehatan, aktivitas, dan komunitas.</p>
-        <span>
-          <i />
-        </span>
-      </div>
-    );
+    return <OpeningExperience />;
 
   return (
     <div className="app-shell">
@@ -1452,6 +1452,14 @@ export default function PetOwnerApp() {
             <Icon name="check" size={15} />
           </span>
           {toast}
+        </div>
+      )}
+      {cartAddedOpen && (
+        <div className="cart-added-notice" role="status" aria-live="polite">
+          <span>
+            <Icon name="check" size={28} />
+          </span>
+          <strong>Ditambahkan ke keranjang</strong>
         </div>
       )}
     </div>

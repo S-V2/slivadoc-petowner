@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Animated,
   BackHandler,
+  Easing,
   Image,
   Modal,
   Platform,
@@ -12,6 +13,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import * as ExpoLocation from "expo-location";
 import {
@@ -313,6 +315,9 @@ function MobileApp() {
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [openingPulse] = useState(() => new Animated.Value(0));
+  const [openingOrbit] = useState(() => new Animated.Value(0));
+  const [openingProgress] = useState(() => new Animated.Value(0));
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [activityCenter, setActivityCenter] =
     useState<MobileActivityCenterResponse>();
@@ -440,6 +445,49 @@ function MobileApp() {
     const timeout = setTimeout(() => setToast(""), 2400);
     return () => clearTimeout(timeout);
   }, [toast]);
+
+  useEffect(() => {
+    if (!initialLoading) return;
+    openingPulse.setValue(0);
+    openingOrbit.setValue(0);
+    openingProgress.setValue(0);
+    const motion = Animated.parallel([
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(openingPulse, {
+            toValue: 1,
+            duration: 1_150,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(openingPulse, {
+            toValue: 0,
+            duration: 1_150,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      ),
+      Animated.loop(
+        Animated.timing(openingOrbit, {
+          toValue: 1,
+          duration: 8_000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      ),
+      Animated.loop(
+        Animated.timing(openingProgress, {
+          toValue: 1,
+          duration: 1_650,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ),
+    ]);
+    motion.start();
+    return () => motion.stop();
+  }, [initialLoading, openingOrbit, openingProgress, openingPulse]);
 
   useEffect(() => {
     if (!petId) return;
@@ -814,20 +862,96 @@ function MobileApp() {
           edges={["top", "bottom", "left", "right"]}
           style={styles.brandLoading}
         >
-          <View style={styles.brandLoadingMark}>
-            <Image
-              alt="Logo Slivadoc"
-              accessibilityLabel="Logo Slivadoc"
-              source={slivadocLogo}
-              style={styles.brandLoadingLogo}
-              resizeMode="contain"
+          <View pointerEvents="none" style={styles.brandLoadingSkyOrb} />
+          <View pointerEvents="none" style={styles.brandLoadingMintOrb} />
+          <Text style={styles.brandLoadingEyebrow}>SLIVADOC PET CARE ECOSYSTEM</Text>
+          <View style={styles.brandLoadingVisual}>
+            <Animated.View
+              style={[
+                styles.brandLoadingHalo,
+                {
+                  opacity: openingPulse.interpolate({ inputRange: [0, 1], outputRange: [0.34, 0.68] }),
+                  transform: [{ scale: openingPulse.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.08] }) }],
+                },
+              ]}
             />
+            <Animated.View
+              style={[
+                styles.brandLoadingOrbit,
+                {
+                  transform: [{ rotate: openingOrbit.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }],
+                },
+              ]}
+            >
+              <View style={styles.brandLoadingOrbitDot} />
+            </Animated.View>
+            <Animated.View
+              style={[
+                styles.brandLoadingMark,
+                {
+                  transform: [
+                    { translateY: openingPulse.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) },
+                    { scale: openingPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.025] }) },
+                  ],
+                },
+              ]}
+            >
+              <Image
+                alt="Logo Slivadoc"
+                accessibilityLabel="Logo Slivadoc"
+                source={slivadocLogo}
+                style={styles.brandLoadingLogo}
+                resizeMode="contain"
+              />
+            </Animated.View>
+            <View style={[styles.brandLoadingSatellite, styles.brandLoadingSatelliteHealth]}>
+              <Ionicons name="medical" size={15} color={colors.white} />
+            </View>
+            <View style={[styles.brandLoadingSatellite, styles.brandLoadingSatelliteCare]}>
+              <Ionicons name="heart" size={15} color={colors.white} />
+            </View>
           </View>
-          <Text style={styles.brandLoadingTitle}>Menyiapkan Slivadoc</Text>
-          <Text style={styles.brandLoadingCopy}>
-            Menyinkronkan profil pet, marketplace, dan aktivitas Anda.
+          <Text style={styles.brandLoadingTitle}>
+            Satu dunia untuk setiap langkah kecilnya.
           </Text>
-          <ActivityIndicator color={colors.sky600} size="small" />
+          <Text style={styles.brandLoadingCopy}>
+            Kesehatan, care, aktivitas, dan marketplace pet-mu sedang disatukan.
+          </Text>
+          <View style={styles.brandLoadingSignals}>
+            {[
+              ["HEALTH", colors.sky600],
+              ["CARE", colors.mint],
+              ["MARKET", colors.violet],
+            ].map(([label, color]) => (
+              <View key={label} style={styles.brandLoadingSignal}>
+                <View style={[styles.brandLoadingSignalDot, { backgroundColor: color }]} />
+                <Text style={styles.brandLoadingSignalText}>{label}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.brandLoadingProgressWrap}>
+            <View style={styles.brandLoadingProgressMeta}>
+              <Text style={styles.brandLoadingProgressLabel}>Menyiapkan ruang pet-mu</Text>
+              <Text style={styles.brandLoadingProgressLive}>LIVE SYNC</Text>
+            </View>
+            <View style={styles.brandLoadingProgressTrack}>
+              <Animated.View
+                style={[
+                  styles.brandLoadingProgressBar,
+                  {
+                    transform: [{ translateX: openingProgress.interpolate({ inputRange: [0, 1], outputRange: [-130, 330] }) }],
+                  },
+                ]}
+              >
+                <LinearGradient
+                  colors={[colors.sky500, "#59C8F0", colors.mint]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFill}
+                />
+              </Animated.View>
+            </View>
+          </View>
         </SafeAreaView>
       </>
     );
@@ -2468,37 +2592,167 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
+    overflow: "hidden",
     paddingHorizontal: 28,
     backgroundColor: colors.sky25,
   },
+  brandLoadingSkyOrb: {
+    position: "absolute",
+    top: -130,
+    right: -120,
+    width: 340,
+    height: 340,
+    borderRadius: 170,
+    backgroundColor: "rgba(89,200,240,.18)",
+  },
+  brandLoadingMintOrb: {
+    position: "absolute",
+    left: -140,
+    bottom: -180,
+    width: 380,
+    height: 380,
+    borderRadius: 190,
+    backgroundColor: "rgba(102,214,192,.16)",
+  },
+  brandLoadingEyebrow: {
+    color: colors.sky600,
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 1.7,
+    textAlign: "center",
+  },
+  brandLoadingVisual: {
+    position: "relative",
+    width: 184,
+    height: 184,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+    marginBottom: 18,
+  },
+  brandLoadingHalo: {
+    position: "absolute",
+    inset: 16,
+    borderRadius: 76,
+    backgroundColor: colors.sky100,
+  },
+  brandLoadingOrbit: {
+    position: "absolute",
+    inset: 0,
+    borderWidth: 1,
+    borderColor: "rgba(25,167,242,.24)",
+    borderRadius: 92,
+  },
+  brandLoadingOrbitDot: {
+    position: "absolute",
+    top: 14,
+    right: 24,
+    width: 12,
+    height: 12,
+    borderWidth: 3,
+    borderColor: colors.white,
+    borderRadius: 6,
+    backgroundColor: colors.sky600,
+  },
   brandLoadingMark: {
-    width: 118,
-    height: 118,
+    width: 110,
+    height: 110,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.sky100,
-    borderRadius: 38,
-    borderBottomLeftRadius: 18,
-    backgroundColor: colors.white,
+    borderRadius: 37,
+    borderBottomLeftRadius: 19,
+    backgroundColor: "rgba(255,255,255,.96)",
     ...shadow,
   },
-  brandLoadingLogo: { width: 88, height: 88 },
+  brandLoadingLogo: { width: 84, height: 84 },
+  brandLoadingSatellite: {
+    position: "absolute",
+    width: 35,
+    height: 35,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: colors.white,
+    borderRadius: 13,
+    ...shadow,
+  },
+  brandLoadingSatelliteHealth: {
+    top: 18,
+    left: 7,
+    backgroundColor: colors.sky600,
+  },
+  brandLoadingSatelliteCare: {
+    right: 5,
+    bottom: 24,
+    backgroundColor: colors.mint,
+  },
   brandLoadingTitle: {
-    marginTop: 8,
+    maxWidth: 330,
     color: colors.navy,
-    fontSize: typography.sectionTitle,
-    lineHeight: 28,
+    fontSize: 25,
+    lineHeight: 31,
     fontWeight: "700",
+    letterSpacing: -0.55,
     textAlign: "center",
   },
   brandLoadingCopy: {
-    maxWidth: 310,
+    maxWidth: 330,
+    marginTop: 9,
     color: colors.muted,
-    fontSize: typography.body,
-    lineHeight: 23,
+    fontSize: 12,
+    lineHeight: 19,
     textAlign: "center",
+  },
+  brandLoadingSignals: {
+    flexDirection: "row",
+    gap: 7,
+    marginTop: 18,
+  },
+  brandLoadingSignal: {
+    minHeight: 29,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,.82)",
+  },
+  brandLoadingSignalDot: { width: 6, height: 6, borderRadius: 3 },
+  brandLoadingSignalText: {
+    color: colors.text,
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.7,
+  },
+  brandLoadingProgressWrap: { width: "82%", maxWidth: 330, marginTop: 21 },
+  brandLoadingProgressMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  brandLoadingProgressLabel: { color: colors.muted, fontSize: 9 },
+  brandLoadingProgressLive: {
+    color: colors.mint,
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+  },
+  brandLoadingProgressTrack: {
+    height: 5,
+    overflow: "hidden",
+    borderRadius: 3,
+    backgroundColor: colors.sky100,
+  },
+  brandLoadingProgressBar: {
+    width: 130,
+    height: 5,
+    overflow: "hidden",
+    borderRadius: 3,
   },
   safeArea: { flex: 1, backgroundColor: colors.sky25 },
   app: { flex: 1, backgroundColor: colors.canvas },

@@ -12,9 +12,12 @@ import {
 import {
   Text as NativeText,
   TextInput as NativeTextInput,
+  StyleSheet,
   type TextInputProps,
   type TextProps,
 } from "react-native";
+
+import { colors, typography } from "./theme";
 
 export type AppLanguage = "id" | "en" | "zh";
 
@@ -992,13 +995,28 @@ export function LocalizedText({ children, accessibilityLabel, ...props }: TextPr
   );
 }
 
-export function LocalizedTextInput({ placeholder, accessibilityLabel, ...props }: TextInputProps) {
+export function LocalizedTextInput({
+  placeholder,
+  accessibilityLabel,
+  placeholderTextColor,
+  style,
+  ...props
+}: TextInputProps) {
   const { t } = useI18n();
   return (
     <NativeTextInput
       {...props}
       accessibilityLabel={accessibilityLabel ? t(accessibilityLabel) : undefined}
       placeholder={placeholder ? t(placeholder) : undefined}
+      placeholderTextColor={placeholderTextColor ?? colors.muted}
+      style={[style, localizedStyles.input]}
     />
   );
 }
+
+const localizedStyles = StyleSheet.create({
+  input: {
+    fontSize: typography.input,
+    lineHeight: 20,
+  },
+});

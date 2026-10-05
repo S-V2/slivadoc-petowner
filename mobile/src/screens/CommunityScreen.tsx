@@ -64,6 +64,7 @@ export function CommunityScreen({
   const [selected, setSelected] = useState<MobileCommunityPost>();
   const [comments, setComments] = useState<MobileCommunityComment[]>([]);
   const [comment, setComment] = useState("");
+  const [replyingTo, setReplyingTo] = useState<MobileCommunityComment>();
   const [commentBusy, setCommentBusy] = useState(false);
   const tabMap: Record<string, string> = {
     "Untuk Kamu": "for_you",
@@ -142,7 +143,7 @@ export function CommunityScreen({
     }
     setCommentBusy(true);
     try {
-      await createMobileCommunityComment(selected.id, comment.trim());
+      await createMobileCommunityComment(selected.id, comment.trim(), replyingTo?.id);
       const result = await getMobileCommunityComments(selected.id);
       setComments(result.data);
       setPosts((current) =>
@@ -153,6 +154,7 @@ export function CommunityScreen({
         ),
       );
       setComment("");
+      setReplyingTo(undefined);
     } catch (cause) {
       onAction(
         cause instanceof Error ? cause.message : "Komentar belum terkirim",
@@ -374,27 +376,45 @@ export function CommunityScreen({
                 keyboardShouldPersistTaps="handled"
                 style={{ maxHeight: 360 }}
               >
-                {comments.map((item) => (
-                  <View key={item.id} style={styles.postHeader}>
-                    <View style={styles.authorAvatar}>
+                {comments.map((item) => {
+                  const parent = item.parent_id
+                    ? comments.find((candidate) => candidate.id === item.parent_id)
+                    : undefined;
+                  return (
+                  <View key={item.id} style={[styles.commentRow, item.parent_id && styles.commentReply]}>
+                    <View style={[styles.authorAvatar, styles.commentAvatar]}>
                       <Text>{item.author_name[0]}</Text>
                     </View>
-                    <View style={styles.authorCopy}>
+                    <View style={styles.commentBubble}>
+                      {parent ? (
+                        <View style={styles.replyContext}>
+                          <Ionicons name="return-down-forward" size={12} color={colors.sky600} />
+                          <Text numberOfLines={1} style={styles.replyContextText}>Membalas {parent.author_name}</Text>
+                        </View>
+                      ) : null}
                       <Text style={styles.author}>{item.author_name}</Text>
                       <Text style={styles.body}>{item.body}</Text>
-                      <Text style={styles.meta}>
-                        {formatDate(item.created_at, { dateStyle: "medium", timeStyle: "short" })}
-                      </Text>
+                      <View style={styles.commentMetaRow}>
+                        <Text style={styles.meta}>{formatDate(item.created_at, { dateStyle: "medium", timeStyle: "short" })}</Text>
+                        <Pressable onPress={() => setReplyingTo(item)} hitSlop={8}><Text style={styles.replyAction}>Balas</Text></Pressable>
+                      </View>
                     </View>
                   </View>
-                ))}
+                );})}
               </ScrollView>
+              {replyingTo ? (
+                <View style={styles.replyingBanner}>
+                  <Ionicons name="return-down-forward" size={14} color={colors.sky600} />
+                  <Text numberOfLines={1} style={styles.replyingText}>Membalas {replyingTo.author_name}</Text>
+                  <Pressable onPress={() => setReplyingTo(undefined)} hitSlop={8}><Ionicons name="close" size={16} color={colors.muted} /></Pressable>
+                </View>
+              ) : null}
               <View style={styles.tools}>
                 <TextInput
                   value={comment}
                   onChangeText={setComment}
                   placeholder={
-                    owner ? "Tulis komentar..." : "Login untuk berkomentar"
+                    owner ? replyingTo ? `Balas ${replyingTo.author_name}...` : "Tulis komentar..." : "Login untuk berkomentar"
                   }
                   editable={Boolean(owner) && !commentBusy}
                   style={[
@@ -615,6 +635,16 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   postHeader: { flexDirection: "row", alignItems: "center", gap: 9 },
+  commentRow: { flexDirection: "row", alignItems: "flex-start", gap: 9, marginBottom: 10 },
+  commentReply: { marginLeft: 30, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: colors.sky100 },
+  commentAvatar: { width: 34, height: 34, borderRadius: 12 },
+  commentBubble: { minWidth: 0, flex: 1, padding: 10, borderRadius: 16, borderTopLeftRadius: 5, backgroundColor: colors.canvas },
+  replyContext: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 },
+  replyContextText: { minWidth: 0, flex: 1, color: colors.sky600, fontSize: 9, fontWeight: "600" },
+  commentMetaRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 },
+  replyAction: { color: colors.sky600, fontSize: 9, fontWeight: "700" },
+  replyingBanner: { minHeight: 34, flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.sky50 },
+  replyingText: { minWidth: 0, flex: 1, color: colors.sky600, fontSize: 10, fontWeight: "600" },
   authorAvatar: {
     width: 38,
     height: 38,

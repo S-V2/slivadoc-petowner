@@ -21,6 +21,14 @@ const premium = marketplaceProduct({
   created_at: "2026-10-02T08:00:00Z",
   store_is_online: true,
 });
+const chatMessages = Array.from({ length: 30 }, (_, index) => ({
+  id: `57000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+  thread_id: threadID,
+  sender_type: index % 2 ? "seller" : "buyer",
+  sender_name: index % 2 ? "Sliva Pet Shop" : "Pet Parent",
+  body: `Pesan percakapan toko nomor ${index + 1}`,
+  created_at: new Date(Date.UTC(2026, 9, 5, 7, index)).toISOString(),
+}));
 
 test("store profile exposes sections, sorting, and a text-only chat drawer", async ({ page }) => {
   await page.addInitScript(() => {
@@ -93,8 +101,11 @@ test("store profile exposes sections, sorting, and a text-only chat drawer", asy
       request.method() === "POST"
     )
       return json({ id: threadID, business_id: businessID, buyer_user_id: petOwner.id });
-    if (path === `/api/v1/marketplace/chats/${threadID}/messages`)
-      return json({ data: [], count: 0, viewer: "buyer" });
+    if (
+      path === `/api/v1/marketplace/chats/${threadID}/messages` &&
+      request.method() === "GET"
+    )
+      return json({ data: chatMessages, count: chatMessages.length, viewer: "buyer" });
     return route.fulfill({ status: 404, body: "Unmocked API route" });
   });
 
@@ -135,6 +146,48 @@ test("store profile exposes sections, sorting, and a text-only chat drawer", asy
   ).toBeVisible();
   await expect(page.getByPlaceholder("Tulis pesan ke toko…")).toBeVisible();
   await expect(page.getByText(/hanya untuk pesan teks/)).toBeVisible();
+  await expect(page.locator(".market-chat-messages article")).toHaveCount(30);
+
+  const chatLayout = await page.evaluate(() => {
+    const messages = document.querySelector<HTMLElement>(".market-chat-messages");
+    const input = document.querySelector<HTMLElement>(".market-chat-panel textarea");
+    const action = document.querySelector<HTMLElement>(".market-chat-action");
+    return {
+      bodyOverflow: getComputedStyle(document.body).overflow,
+      messageOverflow: messages ? messages.scrollHeight > messages.clientHeight : false,
+      messageScrollBehavior: messages ? getComputedStyle(messages).overflowY : "",
+      inputHeight: input?.getBoundingClientRect().height ?? 0,
+      actionHeight: action?.getBoundingClientRect().height ?? 0,
+    };
+  });
+  expect(chatLayout.bodyOverflow).toBe("hidden");
+  expect(chatLayout.messageOverflow).toBe(true);
+  expect(chatLayout.messageScrollBehavior).toBe("auto");
+  expect(Math.abs(chatLayout.inputHeight - chatLayout.actionHeight)).toBeLessThanOrEqual(1);
+
+  await expect(page.getByRole("button", { name: "Buka pilihan emoji" })).toBeVisible();
+  await page.getByRole("button", { name: "Buka pilihan emoji" }).click();
+  await expect(page.getByRole("group", { name: "Pilih emoji" })).toBeVisible();
+  await page.getByRole("button", { name: "Gunakan emoji 😊" }).click();
+  await expect(page.getByRole("button", { name: "Kirim pesan" })).toBeVisible();
+  await page.getByLabel("Pesan untuk toko").fill("");
+  await expect(page.getByRole("button", { name: "Buka pilihan emoji" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Buka pilihan chat" }).click();
+  const shortcutTray = page.getByRole("group", { name: "Pilihan chat toko" });
+  await expect(shortcutTray).toBeVisible();
+  for (const label of ["Produk", "Layanan", "Pet Hotel", "Pesanan"])
+    await expect(shortcutTray.getByRole("button", { name: label })).toBeVisible();
+
+  await shortcutTray.getByRole("button", { name: "Layanan" }).click();
+  await expect(page).toHaveURL(new RegExp(`store=${businessID}.*store_section=services`));
+  await expect(page.getByRole("dialog", { name: /Chat dengan/ })).toHaveCount(0);
+  expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe("hidden");
+
+  await page.getByRole("button", { name: "Chat toko" }).click();
+  await page.getByRole("button", { name: "Buka pilihan chat" }).click();
+  await page.getByRole("group", { name: "Pilihan chat toko" }).getByRole("button", { name: "Pesanan" }).click();
+  await expect(page).toHaveURL(/view=bookings.*activity_type=order/);
 
   const width = await page.evaluate(() => ({
     client: document.documentElement.clientWidth,

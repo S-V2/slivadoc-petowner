@@ -510,6 +510,7 @@ export type MobileService = {
   name: string;
   category: string;
   image_url: string;
+  image_urls: string[];
   price: number;
   distance_km?: number | null;
   city: string;
@@ -517,6 +518,30 @@ export type MobileService = {
   business_name: string;
   branch_name: string;
   duration_minutes: number;
+  rating?: number | null;
+  review_count?: number | null;
+  description?: string;
+  inclusions?: string[];
+  supported_species?: string[];
+  cancellation_policy?: string;
+  business_license_status?: "not_submitted" | "pending" | "verified" | "rejected";
+};
+export type MobileServiceAvailability = {
+  data: Array<{
+    date: string;
+    label: string;
+    slots: Array<{
+      starts_at: string;
+      ends_at: string;
+      local_time: string;
+      remaining_capacity: number;
+    }>;
+  }>;
+  service_id: string;
+  branch_id: string;
+  timezone: string;
+  duration_minutes: number;
+  reason: string;
 };
 export type MobileProduct = {
   id: string;
@@ -534,6 +559,7 @@ export type MobileProduct = {
   category: string;
   description: string;
   image_url: string;
+  image_urls: string[];
   price: number;
   stock: number;
   minimum_stock: number;
@@ -580,6 +606,10 @@ function normalizeMobileProduct(product: MobileProduct): MobileProduct {
     category: productText(product.category) || "Kebutuhan pet",
     description: productText(product.description),
     image_url: productText(product.image_url),
+    image_urls: Array.from(new Set([
+      ...(Array.isArray(product.image_urls) ? product.image_urls.map(productText) : []),
+      productText(product.image_url),
+    ].filter(Boolean))),
     price: Math.max(0, productNumber(product.price)),
     stock,
     minimum_stock: Math.max(0, productNumber(product.minimum_stock)),
@@ -852,6 +882,15 @@ export const getMobileServices = (options?: {
     `/api/v1/public/discovery/services${query.size ? `?${query}` : ""}`,
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 };
+export const getMobileServiceAvailability = (
+  serviceId: string,
+  branchId: string,
+  days = 14,
+) =>
+  platformRequest<MobileServiceAvailability>(
+    `/api/v1/public/discovery/services/${encodeURIComponent(serviceId)}/availability?branch_id=${encodeURIComponent(branchId)}&days=${days}`,
+    { cache: "no-store" },
+  );
 
 function legacyActivityType(
   activity: MobileActivity,
@@ -1263,8 +1302,10 @@ export type MobileCommunityPost = {
 };
 export type MobileCommunityComment = {
   id: string;
+  user_id: string;
   author_name: string;
   body: string;
+  parent_id?: string | null;
   created_at: string;
 };
 export const getMobileCommunityPosts = (tab = "for_you") =>
@@ -1285,10 +1326,10 @@ export const getMobileCommunityComments = (id: string) =>
   platformRequest<{ data: MobileCommunityComment[] }>(
     `/api/v1/community/posts/${id}/comments`,
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
-export const createMobileCommunityComment = (id: string, body: string) =>
+export const createMobileCommunityComment = (id: string, body: string, parentId?: string) =>
   platformRequest<{ id: string; created_at: string; message: string }>(
     `/api/v1/community/posts/${id}/comments`,
-    { method: "POST", body: JSON.stringify({ body }) },
+    { method: "POST", body: JSON.stringify({ body, parent_id: parentId || undefined }) },
   );
 
 export type MobileCommunityGroup = {
@@ -1404,6 +1445,10 @@ export type WorldItem = {
   latitude?: number;
   longitude?: number;
   rating?: number;
+  consultation_count?: number;
+  experience_years?: number;
+  starting_price?: number;
+  availability_status?: string;
   distance_km?: number;
   pet_facilities?: string[];
   status?: string;
@@ -1434,6 +1479,8 @@ export type WorldItem = {
   verified?: boolean;
   reservable?: boolean;
   cover_url?: string;
+  banner_url?: string;
+  image_urls?: string[];
   deposit_type?: "percentage" | "fixed";
   deposit_value?: number;
   reservation_policy?: {

@@ -21,6 +21,7 @@ export type IconName =
   | "cart"
   | "filter"
   | "arrow"
+  | "send"
   | "check"
   | "close"
   | "more"
@@ -54,6 +55,7 @@ const paths: Record<IconName, React.ReactNode> = {
   cart: <><path d="M3 3h2l2.4 11h9.8l2-7H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></>,
   filter: <path d="M4 5h16M7 12h10M10 19h4"/>,
   arrow: <><path d="M5 12h14"/><path d="m14 7 5 5-5 5"/></>,
+  send: <><path d="m22 2-7 20-4-9-9-4 20-7Z"/><path d="M22 2 11 13"/></>,
   check: <path d="m5 12 4 4L19 6"/>,
   close: <path d="m6 6 12 12M18 6 6 18"/>,
   more: <><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></>,

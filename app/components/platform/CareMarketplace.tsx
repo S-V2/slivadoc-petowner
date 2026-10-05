@@ -57,6 +57,7 @@ type Props = {
   mode: "consult" | "adoption" | "documents";
   pet: Pet;
   notify: (message: string) => void;
+  initialVeterinarianId?: string;
 };
 const money = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -88,7 +89,12 @@ function hasSpecialty(specialties: string[] | undefined, selected: string) {
   );
 }
 
-export default function CareMarketplace({ mode, pet, notify }: Props) {
+export default function CareMarketplace({
+  mode,
+  pet,
+  notify,
+  initialVeterinarianId,
+}: Props) {
   const [doctors, setDoctors] = useState<Veterinarian[]>([]);
   const [plans, setPlans] = useState<ConsultationPlan[]>([]);
   const [trainers, setTrainers] = useState<Trainer[]>([]);
@@ -126,6 +132,7 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
   const [city, setCity] = useState("all");
   const [health, setHealth] = useState("all");
   const deferredConsultQuery = useDeferredValue(consultQuery);
+  const handledInitialVeterinarian = useRef("");
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -160,6 +167,27 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
       cancelled = true;
     };
   }, [mode, notify]);
+  useEffect(() => {
+    if (
+      mode !== "consult" ||
+      !initialVeterinarianId ||
+      !doctors.length ||
+      handledInitialVeterinarian.current === initialVeterinarianId
+    )
+      return;
+    handledInitialVeterinarian.current = initialVeterinarianId;
+    const doctor = doctors.find((item) => item.id === initialVeterinarianId);
+    if (!doctor) {
+      notify("Dokter yang dipilih sudah tidak tersedia. Silakan pilih dokter lain.");
+      return;
+    }
+    queueMicrotask(() => {
+      setConsultProvider("veterinarian");
+      setConsultSpecialty("all");
+      setSelectedPlan(null);
+      setSelectedDoctor(doctor);
+    });
+  }, [doctors, initialVeterinarianId, mode, notify]);
   const doctorPlans = useMemo(
     () =>
       selectedDoctor
@@ -477,7 +505,10 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
                       </span>
                       <button
                         className="primary-button"
-                        onClick={() => setSelectedDoctor(doctor)}
+                        onClick={() => {
+                          setSelectedPlan(null);
+                          setSelectedDoctor(doctor);
+                        }}
                       >
                         Lihat paket
                       </button>
@@ -564,7 +595,10 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
         {selectedDoctor && (
           <div
             className="modal-overlay"
-            onMouseDown={() => setSelectedDoctor(null)}
+            onMouseDown={() => {
+              setSelectedDoctor(null);
+              setSelectedPlan(null);
+            }}
           >
             <section
               className="modal care-modal"
@@ -572,7 +606,10 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
             >
               <button
                 className="modal-close"
-                onClick={() => setSelectedDoctor(null)}
+                onClick={() => {
+                  setSelectedDoctor(null);
+                  setSelectedPlan(null);
+                }}
               >
                 ×
               </button>

@@ -3,11 +3,12 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const root = new URL("../", import.meta.url);
-const [component, page, layout, homeCss] = await Promise.all([
+const [component, page, layout, homeCss, genzCss] = await Promise.all([
   readFile(new URL("app/components/PetOwnerApp.tsx", root), "utf8"),
   readFile(new URL("app/page.tsx", root), "utf8"),
   readFile(new URL("app/layout.tsx", root), "utf8"),
   readFile(new URL("app/revamp-home.css", root), "utf8"),
+  readFile(new URL("app/genz-revamp.css", root), "utf8"),
 ]);
 
 test("shared mobile cascade is loaded after the home feature stylesheet", () => {
@@ -27,6 +28,18 @@ test("home follows the native daily-moment and quick-action composition", () => 
   assert.match(homeCss, /\.home-daily-hero\s*\{[\s\S]*?min-height:\s*220px/);
   assert.match(homeCss, /\.home-quick-feature-row\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(homeCss, /\.home-quick-mini-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
+});
+
+test("responsive home keeps nearby partners before recommended doctors", () => {
+  assert.match(homeCss, /\.home-services-section\s*\{\s*order:\s*6/);
+  assert.match(homeCss, /\.home-doctors-section\s*\{\s*order:\s*7/);
+  assert.match(homeCss, /\.home-campaign\s*\{\s*order:\s*8/);
+});
+
+test("web forms share readable native-sized labels and inputs", () => {
+  assert.match(genzCss, /font-size:\s*14px\s*!important/);
+  assert.match(genzCss, /input::placeholder[\s\S]*?font-size:\s*14px\s*!important/);
+  assert.match(genzCss, /\.consult-booking,[\s\S]*?font-size:\s*12px\s*!important/);
 });
 
 test("home health snapshot uses native filled-sky card and service dimensions", () => {

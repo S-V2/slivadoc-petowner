@@ -36,6 +36,7 @@ import {
   getDiscoveryService,
   getDiscoveryServiceAvailability,
   getDiscoveryServices,
+  getVeterinarians,
   getMedicalRecords,
   globalSearch,
   getPetFamily,
@@ -44,6 +45,7 @@ import {
   getPetOwnerActivityCenter,
   getPetOwnerShippingAddresses,
   getPetOwnerSupportTickets,
+  getTransactionInvoiceHTML,
   deletePetOwnerShippingAddress,
   setPrimaryPetOwnerShippingAddress,
   getCurrentUser,
@@ -90,6 +92,7 @@ import {
   type MembershipStatus,
   type PetOwnerSupportTicket,
   type ServiceAvailability,
+  type Veterinarian,
 } from "../lib/platform-api";
 import { QrisPaymentPanel, PaymentMethodPicker } from "./payments/QrisPayment";
 import {
@@ -476,12 +479,14 @@ export default function PetOwnerApp() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
+  const [directBuyCart, setDirectBuyCart] = useState<Record<string, number> | null>(null);
   const [toast, setToast] = useState("");
   const [loginOpen, setLoginOpen] = useState(false);
   function completeCheckout() {
     window.sessionStorage.setItem(checkoutSuccessStorageKey, "1");
     setCheckoutSuccess(true);
     setCartOpen(false);
+    setDirectBuyCart(null);
   }
   function dismissCheckoutSuccess() {
     window.sessionStorage.removeItem(checkoutSuccessStorageKey);
@@ -541,6 +546,7 @@ export default function PetOwnerApp() {
         sold: `${Math.max(0, finiteNumber(item.sold_count) ?? 0).toLocaleString("id-ID")} terjual`,
         emoji: item.category.toLowerCase().includes("food") ? "🥣" : "🛍️",
         imageUrl: item.image_url || undefined,
+        imageUrls: item.image_urls?.length ? item.image_urls : item.image_url ? [item.image_url] : [],
         category: item.category || "Kebutuhan pet",
         createdAt: item.created_at,
         badge: (
@@ -623,6 +629,20 @@ export default function PetOwnerApp() {
     };
     window.addEventListener("slivadoc:navigate", listener);
     return () => window.removeEventListener("slivadoc:navigate", listener);
+  }, [authenticated]);
+  useEffect(() => {
+    const restoreViewFromURL = () => {
+      const requested = new URLSearchParams(window.location.search).get("view") as AppView | null;
+      const next = requested && titles[requested] ? requested : "home";
+      if (protectedViews.includes(next) && !authenticated) {
+        setLoginOpen(true);
+        return;
+      }
+      setActiveView(next);
+      window.localStorage.setItem("slivadoc.active_view", next);
+    };
+    window.addEventListener("popstate", restoreViewFromURL);
+    return () => window.removeEventListener("popstate", restoreViewFromURL);
   }, [authenticated]);
 
   const notify: Notify = useCallback((message) => {
@@ -760,6 +780,10 @@ export default function PetOwnerApp() {
             return {
               id: item.id,
               branchId: item.branch_id,
+              businessId: item.business_id,
+              businessName: item.business_name,
+              branchName: item.branch_name,
+              city: item.city,
               priceValue: item.price,
               name: item.name,
               type,
@@ -772,6 +796,7 @@ export default function PetOwnerApp() {
               status: "Cek slot tersedia",
               address: `${item.branch_name} · ${item.address}`,
               imageUrl: item.image_url,
+              imageUrls: item.image_urls?.length ? item.image_urls : item.image_url ? [item.image_url] : [],
               emoji:
                 type === "Grooming"
                   ? "🛁"
@@ -795,7 +820,10 @@ export default function PetOwnerApp() {
               cancellationPolicy: item.cancellation_policy,
               licenseStatus: item.business_license_status,
             };
-          }),
+          }).filter(
+            (service, index, all) =>
+              all.findIndex((candidate) => candidate.id === service.id) === index,
+          ),
         );
         setRemoteProducts(productResponse.data);
       })
@@ -813,11 +841,132 @@ export default function PetOwnerApp() {
     setActiveView(view);
     window.localStorage.setItem("slivadoc.active_view", view);
     const url = new URL(window.location.href);
-    url.searchParams.delete("product");
+    if (view !== "shop") {
+      url.searchParams.delete("product");
+      url.searchParams.delete("store");
+      url.searchParams.delete("store_section");
+    }
+    if (view !== "discover") {
+      url.searchParams.delete("service");
+      url.searchParams.delete("service_type");
+    }
+    if (view !== "bookings") {
+      url.searchParams.delete("activity");
+      url.searchParams.delete("activity_type");
+    }
+    if (view !== "consult") url.searchParams.delete("veterinarian");
     if (view === "home") url.searchParams.delete("view");
     else url.searchParams.set("view", view);
     window.history.pushState(
       { view },
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  };
+
+  const openServiceCatalog = (serviceType?: Service["type"], serviceId?: string) => {
+    setActiveView("discover");
+    window.localStorage.setItem("slivadoc.active_view", "discover");
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", "discover");
+    url.searchParams.delete("product");
+    url.searchParams.delete("store");
+    url.searchParams.delete("store_section");
+    url.searchParams.delete("activity");
+    if (serviceType) url.searchParams.set("service_type", serviceType);
+    else url.searchParams.delete("service_type");
+    if (serviceId) url.searchParams.set("service", serviceId);
+    else url.searchParams.delete("service");
+    window.history.pushState(
+      { view: "discover", serviceType, serviceId },
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  };
+
+  const openPartnerProfile = (businessId: string) => {
+    setActiveView("shop");
+    window.localStorage.setItem("slivadoc.active_view", "shop");
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", "shop");
+    url.searchParams.set("store", businessId);
+    url.searchParams.set("store_section", "services");
+    url.searchParams.delete("product");
+    url.searchParams.delete("service");
+    url.searchParams.delete("service_type");
+    url.searchParams.delete("activity");
+    url.searchParams.delete("veterinarian");
+    window.history.pushState(
+      { view: "shop", store: businessId, section: "services" },
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  };
+
+  const openConsultation = (veterinarianId?: string) => {
+    setActiveView("consult");
+    window.localStorage.setItem("slivadoc.active_view", "consult");
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", "consult");
+    if (veterinarianId) url.searchParams.set("veterinarian", veterinarianId);
+    else url.searchParams.delete("veterinarian");
+    url.searchParams.delete("product");
+    url.searchParams.delete("store");
+    url.searchParams.delete("store_section");
+    url.searchParams.delete("service");
+    url.searchParams.delete("service_type");
+    url.searchParams.delete("activity");
+    window.history.pushState(
+      { view: "consult", veterinarianId },
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  };
+
+  const openSearchResult = (result: GlobalSearchResult) => {
+    if (result.category === "service") {
+      const service = serviceCatalog.find((item) => item.id === result.id);
+      openServiceCatalog(service?.type, result.id);
+      return;
+    }
+    if (result.category === "product") {
+      setActiveView("shop");
+      window.localStorage.setItem("slivadoc.active_view", "shop");
+      const url = new URL(window.location.href);
+      url.searchParams.set("view", "shop");
+      url.searchParams.set("product", result.id);
+      url.searchParams.delete("store");
+      url.searchParams.delete("store_section");
+      window.history.pushState(
+        { view: "shop", product: result.id },
+        "",
+        `${url.pathname}${url.search}${url.hash}`,
+      );
+      return;
+    }
+    if (result.category === "veterinarian") {
+      openConsultation(result.id);
+      return;
+    }
+    const route = result.route as AppView;
+    if (titles[route]) navigate(route);
+    else notify(`${result.title} · ${result.subtitle}`);
+  };
+
+  const openActivityDetail = (activityId: string) => {
+    if (!authenticated) {
+      setLoginOpen(true);
+      return;
+    }
+    setActiveView("bookings");
+    window.localStorage.setItem("slivadoc.active_view", "bookings");
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", "bookings");
+    url.searchParams.set("activity", activityId);
+    url.searchParams.delete("service");
+    url.searchParams.delete("service_type");
+    window.history.pushState(
+      { view: "bookings", activityId },
       "",
       `${url.pathname}${url.search}${url.hash}`,
     );
@@ -830,7 +979,7 @@ export default function PetOwnerApp() {
     }
     if (!service) {
       notify("Pilih layanan dari halaman Jelajahi terlebih dahulu");
-      setActiveView("discover");
+      openServiceCatalog();
       return;
     }
     setSelectedService(service);
@@ -880,6 +1029,34 @@ export default function PetOwnerApp() {
     );
   };
 
+  const buyNow = (id: string, quantity = 1) => {
+    const product = productCatalog.find((item) => item.id === id);
+    if (!product?.available) {
+      notify("Produk sedang tidak tersedia");
+      return;
+    }
+    const safeQuantity = Math.min(
+      product.stock,
+      Math.max(1, Math.floor(quantity)),
+    );
+    setDirectBuyCart({ [id]: safeQuantity });
+    setCartOpen(true);
+  };
+
+  const checkoutCart = directBuyCart ?? cart;
+  const setCheckoutCart: React.Dispatch<
+    React.SetStateAction<Record<string, number>>
+  > = (next) => {
+    if (directBuyCart) {
+      setDirectBuyCart((current) => {
+        const base = current ?? {};
+        return typeof next === "function" ? next(base) : next;
+      });
+      return;
+    }
+    setCart(next);
+  };
+
   if (bootstrapLoading)
     return (
       <div className="petowner-loading">
@@ -918,11 +1095,11 @@ export default function PetOwnerApp() {
           cartCount={cartCount}
           onOpenNotifications={() => setNotificationOpen(true)}
           onOpenCart={() => setCartOpen(true)}
-          notify={notify}
           account={account}
           points={points}
           authenticated={authenticated}
           navigate={navigate}
+          onSearchResult={openSearchResult}
           onLogin={() => setLoginOpen(true)}
         />
 
@@ -935,10 +1112,15 @@ export default function PetOwnerApp() {
           {activeView === "home" && (
             <HomeView
               selectedPet={selectedPet}
+              petProfiles={petProfiles}
+              selectedPetId={selectedPetId}
+              onSelectPet={setSelectedPetId}
               setActiveView={navigate}
-              openBooking={openBooking}
+              openServiceCatalog={openServiceCatalog}
+              openPartnerProfile={openPartnerProfile}
+              openConsultation={openConsultation}
+              openActivityDetail={openActivityDetail}
               setChatOpen={setChatOpen}
-              notify={notify}
               services={serviceCatalog}
               activities={activities}
               ownerName={account?.full_name}
@@ -980,10 +1162,13 @@ export default function PetOwnerApp() {
           {activeView === "shop" && (
             <ShopMarketplace
               addToCart={addToCart}
+              buyNow={buyNow}
               setCartOpen={setCartOpen}
               cartCount={cartCount}
               notify={notify}
               productCatalog={productCatalog}
+              serviceCatalog={serviceCatalog}
+              onOpenService={(service) => openServiceCatalog(service.type, service.id)}
               petName={selectedPet.name}
               favorites={favoriteIds}
               authenticated={authenticated}
@@ -1023,6 +1208,11 @@ export default function PetOwnerApp() {
               mode={activeView as "consult" | "adoption" | "documents"}
               pet={selectedPet}
               notify={notify}
+              initialVeterinarianId={
+                activeView === "consult" && typeof window !== "undefined"
+                  ? new URLSearchParams(window.location.search).get("veterinarian") ?? undefined
+                  : undefined
+              }
             />
           )}
           {activeView === "pawdating" && (
@@ -1131,9 +1321,12 @@ export default function PetOwnerApp() {
       )}
       {cartOpen && (
         <CartDrawer
-          cart={cart}
-          setCart={setCart}
-          onClose={() => setCartOpen(false)}
+          cart={checkoutCart}
+          setCart={setCheckoutCart}
+          onClose={() => {
+            setCartOpen(false);
+            setDirectBuyCart(null);
+          }}
           notify={notify}
           productCatalog={productCatalog}
           onOpenAccount={() => {
@@ -1175,7 +1368,9 @@ export default function PetOwnerApp() {
       {bookingOpen && selectedService && (
         <BookingModal
           service={selectedService}
-          pet={selectedPet}
+          pets={petProfiles}
+          selectedPetId={selectedPet.id}
+          onSelectPet={setSelectedPetId}
           success={bookingSuccess}
           setSuccess={setBookingSuccess}
           onClose={() => setBookingOpen(false)}
@@ -1781,11 +1976,11 @@ function Topbar({
   cartCount,
   onOpenNotifications,
   onOpenCart,
-  notify,
   account,
   points,
   authenticated,
   navigate,
+  onSearchResult,
   onLogin,
 }: {
   selectedPet: Pet;
@@ -1797,11 +1992,11 @@ function Topbar({
   cartCount: number;
   onOpenNotifications: () => void;
   onOpenCart: () => void;
-  notify: Notify;
   account: PetOwnerBootstrap["user"] | null;
   points: number;
   authenticated: boolean;
   navigate: (view: AppView) => void;
+  onSearchResult: (result: GlobalSearchResult) => void;
   onLogin: () => void;
 }) {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -1841,9 +2036,7 @@ function Topbar({
     return () => window.clearTimeout(timer);
   }, [query, category]);
   function choose(result: GlobalSearchResult) {
-    const route = result.route as AppView;
-    if (titles[route]) navigate(route);
-    else notify(`${result.title} · ${result.subtitle}`);
+    onSearchResult(result);
     setSearchOpen(false);
     setQuery("");
   }
@@ -2056,34 +2249,103 @@ function PageHeading({
 
 function HomeView({
   selectedPet,
+  petProfiles,
+  selectedPetId,
+  onSelectPet,
   setActiveView,
-  openBooking,
+  openServiceCatalog,
+  openPartnerProfile,
+  openConsultation,
+  openActivityDetail,
   setChatOpen,
-  notify,
   services,
   activities,
   ownerName,
 }: {
   selectedPet: Pet;
+  petProfiles: Pet[];
+  selectedPetId: string;
+  onSelectPet: (petId: string) => void;
   setActiveView: (view: AppView) => void;
-  openBooking: (service?: Service) => void;
+  openServiceCatalog: (serviceType?: Service["type"], serviceId?: string) => void;
+  openPartnerProfile: (businessId: string) => void;
+  openConsultation: (veterinarianId?: string) => void;
+  openActivityDetail: (activityId: string) => void;
   setChatOpen: (value: boolean) => void;
-  notify: Notify;
   services: Service[];
   activities: ActivityItem[];
   ownerName?: string;
 }) {
   const [campaign, setCampaign] = useState<PublicCampaign | null>(null);
+  const [veterinarians, setVeterinarians] = useState<Veterinarian[]>([]);
+  const [petSwitcherOpen, setPetSwitcherOpen] = useState(false);
   useEffect(() => {
-    void getPublicCampaigns()
-      .then((response) => setCampaign(response.data[0] ?? null))
-      .catch(() => setCampaign(null));
+    void Promise.all([getPublicCampaigns(), getVeterinarians()])
+      .then(([campaigns, doctors]) => {
+        setCampaign(campaigns.data[0] ?? null);
+        setVeterinarians(doctors.data);
+      })
+      .catch(() => {
+        setCampaign(null);
+        setVeterinarians([]);
+      });
   }, []);
 
   const firstName = ownerName?.trim().split(/\s+/)[0];
   const featuredActivities = activities.slice(0, 3);
-  const homeCare = services.find((item) => item.type === "Home Care");
-  const petHotel = services.find((item) => item.type === "Pet Hotel");
+  const nearestPartners = Array.from(
+    services
+      .filter((item) => item.type === "Clinic" || item.type === "Pet Shop")
+      .reduce(
+        (partners, service) => {
+          const id = service.businessId || service.branchId || service.id;
+          const current = partners.get(id);
+          if (current) {
+            current.serviceCount += 1;
+            current.types.add(service.type);
+            if (
+              (Number.parseFloat(service.distance) || Number.MAX_SAFE_INTEGER) <
+              (Number.parseFloat(current.service.distance) || Number.MAX_SAFE_INTEGER)
+            )
+              current.service = service;
+          } else {
+            partners.set(id, {
+              id,
+              name: service.businessName || service.branchName || service.name,
+              service,
+              serviceCount: 1,
+              types: new Set<Service["type"]>([service.type]),
+            });
+          }
+          return partners;
+        },
+        new Map<
+          string,
+          {
+            id: string;
+            name: string;
+            service: Service;
+            serviceCount: number;
+            types: Set<Service["type"]>;
+          }
+        >(),
+      )
+      .values(),
+  )
+    .sort(
+      (a, b) =>
+        (Number.parseFloat(a.service.distance) || Number.MAX_SAFE_INTEGER) -
+        (Number.parseFloat(b.service.distance) || Number.MAX_SAFE_INTEGER),
+    )
+    .slice(0, 6);
+  const recommendedDoctors = [...veterinarians]
+    .sort(
+      (a, b) =>
+        b.rating - a.rating ||
+        b.consultation_count - a.consultation_count ||
+        b.experience_years - a.experience_years,
+    )
+    .slice(0, 5);
   const healthStatus =
     selectedPet.healthScore >= 80
       ? "Kondisi prima"
@@ -2102,14 +2364,14 @@ function HomeView({
       note: "Atur jadwal klinik",
       icon: "calendar",
       tone: "booking",
-      action: () => openBooking(),
+      action: () => openServiceCatalog(),
     },
     {
       label: "Tanya Dokter",
       note: "Pilih dokter & paket",
       icon: "chat",
       tone: "consult",
-      action: () => setChatOpen(true),
+      action: () => openConsultation(),
     },
   ];
   const miniActions: Array<{
@@ -2124,23 +2386,21 @@ function HomeView({
       note: "Ke rumah",
       icon: "home",
       tone: "peach",
-      action: () =>
-        homeCare ? openBooking(homeCare) : setActiveView("discover"),
+      action: () => openServiceCatalog("Home Care"),
     },
     {
       label: "Darurat",
-      note: "24 jam",
+      note: "Cari klinik",
       icon: "heart",
       tone: "red",
-      action: () => notify("Menghubungkan ke hotline darurat 24/7"),
+      action: () => openServiceCatalog("Clinic"),
     },
     {
       label: "Pet Hotel",
       note: "Terpercaya",
       icon: "paw",
       tone: "violet",
-      action: () =>
-        petHotel ? openBooking(petHotel) : setActiveView("discover"),
+      action: () => openServiceCatalog("Pet Hotel"),
     },
     {
       label: "Sliva World",
@@ -2268,29 +2528,35 @@ function HomeView({
           <header className="home-section-heading home-section-heading--action">
             <div>
               <span className="home-section-eyebrow">REKOMENDASI</span>
-              <h2>Pilihan untuk {selectedPet.name}</h2>
-              <p>Favorit pet parent di sekitarmu</p>
+              <h2>Pet clinic & petshop terdekat</h2>
+              <p>Diurutkan dari titik lokasi yang kamu pilih</p>
             </div>
-            <button type="button" onClick={() => setActiveView("discover")}>
+            <button type="button" onClick={() => openServiceCatalog()}>
               Jelajahi <Icon name="arrow" size={14} />
             </button>
           </header>
           <div className="home-service-row">
-            {services.slice(0, 6).map((service) => (
+            {nearestPartners.map((partner) => {
+              const service = partner.service;
+              const typeLabel = partner.types.size > 1
+                ? "Pet Clinic & Shop"
+                : [...partner.types][0];
+              return (
               <article
                 className="home-service-card"
-                key={`${service.id}:${service.branchId}`}
+                key={partner.id}
+                onClick={() => openPartnerProfile(partner.id)}
               >
                 <div className={`home-service-visual ${service.accent}`}>
-                  <span>{service.type}</span>
-                  <button type="button" aria-label={`Simpan ${service.name}`}>
+                  <span>{typeLabel}</span>
+                  <button type="button" aria-label={`Simpan ${partner.name}`} onClick={(event) => event.stopPropagation()}>
                     <Icon name="heart" size={14} />
                   </button>
                   {service.imageUrl ? (
                     <Image
                       className="catalog-cover-image"
                       src={service.imageUrl}
-                      alt={`Gambar ${service.name}`}
+                      alt={`Gambar ${partner.name}`}
                       fill
                       sizes="220px"
                       unoptimized
@@ -2300,30 +2566,76 @@ function HomeView({
                   )}
                 </div>
                 <div>
-                  <b>{service.name}</b>
+                  <b>{partner.name}</b>
                   <small>
-                    <Icon name="map" size={11} /> {service.address}
+                    <Icon name="map" size={11} /> {service.branchName || service.address}
                   </small>
                   <p>
                     <span>
-                      <Icon name="star" size={10} /> {service.rating}
+                      <Icon name="bag" size={10} /> {partner.serviceCount} layanan
                     </span>
                     · {service.distance}
                   </p>
                   <footer>
-                    <strong>{service.price}</strong>
-                    <button type="button" onClick={() => openBooking(service)}>
-                      Pilih <Icon name="arrow" size={12} />
+                    <strong>{service.city || service.price}</strong>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openPartnerProfile(partner.id);
+                      }}
+                    >
+                      Lihat profil <Icon name="arrow" size={12} />
                     </button>
                   </footer>
                 </div>
               </article>
-            ))}
-            {services.length === 0 && (
+              );
+            })}
+            {nearestPartners.length === 0 && (
               <div className="empty-state compact">
-                Belum ada layanan yang tersedia di area ini.
+                Belum ada pet clinic atau petshop di titik lokasi ini.
               </div>
             )}
+          </div>
+        </section>
+
+        <section className="home-doctors-section">
+          <header className="home-section-heading home-section-heading--action">
+            <div>
+              <span className="home-section-eyebrow">DOKTER TERBAIK</span>
+              <h2>Teman konsultasi untuk {selectedPet.name}</h2>
+              <p>Dokter terverifikasi dengan rating dan konsultasi terbaik</p>
+            </div>
+            <button type="button" onClick={() => openConsultation()}>
+              Lihat dokter <Icon name="arrow" size={14} />
+            </button>
+          </header>
+          <div className="home-doctor-row">
+            {recommendedDoctors.map((doctor) => (
+              <article className="home-doctor-card" key={doctor.id}>
+                <span className="home-doctor-avatar">
+                  {doctor.photo_url ? (
+                    <Image src={doctor.photo_url} alt={doctor.full_name} fill sizes="58px" unoptimized />
+                  ) : (
+                    <Icon name="user" size={24} />
+                  )}
+                  <i />
+                </span>
+                <div>
+                  <small>{doctor.availability_status === "online" ? "ONLINE" : "DOKTER TERVERIFIKASI"}</small>
+                  <b>{doctor.full_name}</b>
+                  <p>{doctor.specialties.join(" · ") || "Dokter hewan umum"}</p>
+                  <span><Icon name="star" size={11} /> {doctor.rating.toFixed(1)} · {doctor.consultation_count.toLocaleString("id-ID")} konsultasi</span>
+                </div>
+                <button type="button" onClick={() => openConsultation(doctor.id)}>
+                  Konsultasi
+                </button>
+              </article>
+            ))}
+            {recommendedDoctors.length === 0 ? (
+              <div className="empty-state compact">Dokter terbaik sedang disinkronkan.</div>
+            ) : null}
           </div>
         </section>
 
@@ -2404,11 +2716,37 @@ function HomeView({
               <button
                 type="button"
                 className="home-pet-switch"
-                onClick={() => setActiveView("pets")}
+                aria-expanded={petSwitcherOpen}
+                onClick={() =>
+                  petProfiles.length > 1
+                    ? setPetSwitcherOpen((current) => !current)
+                    : setActiveView("pets")
+                }
               >
                 Ganti <Icon name="arrow" size={12} />
               </button>
             </div>
+            {petSwitcherOpen ? (
+              <div className="home-pet-switcher" role="dialog" aria-label="Pilih pet aktif">
+                <header><b>Ganti pet aktif</b><small>Ringkasan homepage akan langsung menyesuaikan.</small></header>
+                {petProfiles.map((pet) => (
+                  <button
+                    type="button"
+                    key={pet.id}
+                    className={pet.id === selectedPetId ? "active" : ""}
+                    onClick={() => {
+                      onSelectPet(pet.id);
+                      setPetSwitcherOpen(false);
+                    }}
+                  >
+                    <span>{pet.avatar}</span>
+                    <div><b>{pet.name}</b><small>{pet.breed} · {pet.age}</small></div>
+                    <i>{pet.id === selectedPetId ? "✓" : ""}</i>
+                  </button>
+                ))}
+                <button type="button" className="manage" onClick={() => setActiveView("pets")}>Kelola semua profil pet</button>
+              </div>
+            ) : null}
             <div className="home-health-overview">
               <div className="home-health-score">
                 <div>
@@ -2475,7 +2813,7 @@ function HomeView({
                   className="home-care-row"
                   type="button"
                   key={care.id}
-                  onClick={() => setActiveView("bookings")}
+                  onClick={() => openActivityDetail(care.id)}
                 >
                   <span className="home-care-timeline">
                     <i
@@ -2530,7 +2868,11 @@ function HomeView({
             <button
               className="home-care-cta"
               type="button"
-              onClick={() => setActiveView("bookings")}
+              onClick={() =>
+                featuredActivities.length
+                  ? setActiveView("bookings")
+                  : openServiceCatalog()
+              }
             >
               <span>
                 <Icon name="calendar" size={16} />
@@ -3373,7 +3715,10 @@ function DiscoverView({
   serviceCatalog: Service[];
 }) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("Semua");
+  const [filter, setFilter] = useState(() => {
+    if (typeof window === "undefined") return "Semua";
+    return new URL(window.location.href).searchParams.get("service_type") || "Semua";
+  });
   const [sort, setSort] = useState<
     "recommended" | "distance" | "rating" | "price"
   >("recommended");
@@ -3431,6 +3776,30 @@ function DiscoverView({
     setQuery("");
     setFilter("Semua");
     setSort("recommended");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("service_type");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  };
+  const chooseFilter = (value: string) => {
+    setFilter(value);
+    const url = new URL(window.location.href);
+    if (value === "Semua") url.searchParams.delete("service_type");
+    else url.searchParams.set("service_type", value);
+    url.searchParams.delete("service");
+    setDetailID(null);
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  };
+  const openDetail = (serviceId: string) => {
+    setDetailID(serviceId);
+    const url = new URL(window.location.href);
+    url.searchParams.set("service", serviceId);
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  };
+  const closeDetail = () => {
+    setDetailID(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("service");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
   };
   return (
     <div className="discover-native">
@@ -3470,7 +3839,7 @@ function DiscoverView({
               type="button"
               key={item}
               className={filter === item ? "active" : ""}
-              onClick={() => setFilter(item)}
+              onClick={() => chooseFilter(item)}
             >
               {item}
             </button>
@@ -3566,7 +3935,7 @@ function DiscoverView({
                 <button
                   className="secondary-button small"
                   type="button"
-                  onClick={() => setDetailID(service.id)}
+                  onClick={() => openDetail(service.id)}
                 >
                   Lihat detail
                 </button>
@@ -3626,7 +3995,7 @@ function DiscoverView({
                     type="button"
                     key={item}
                     className={filter === item ? "active" : ""}
-                    onClick={() => setFilter(item)}
+                    onClick={() => chooseFilter(item)}
                   >
                     {item}
                   </button>
@@ -3670,9 +4039,9 @@ function DiscoverView({
       {detail && (
         <ServiceDetail
           service={detail}
-          close={() => setDetailID(null)}
+          close={closeDetail}
           book={() => {
-            setDetailID(null);
+            closeDetail();
             openBooking(detail);
           }}
         />
@@ -3802,8 +4171,39 @@ function BookingsView({
   rewardFormula: RewardFormula;
 }) {
   const [tab, setTab] = useState("Mendatang");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState(() => {
+    const requested = new URL(window.location.href).searchParams.get("activity_type");
+    return ["booking", "order", "consultation"].includes(requested || "")
+      ? requested || "all"
+      : "all";
+  });
   const [detail, setDetail] = useState<ActivityViewItem | null>(null);
+  useEffect(() => {
+    const requestedType = new URL(window.location.href).searchParams.get("activity_type");
+    if (["booking", "order", "consultation"].includes(requestedType || ""))
+      queueMicrotask(() => setTypeFilter(requestedType || "all"));
+    const requested = new URL(window.location.href).searchParams.get("activity");
+    if (!requested) return;
+    const item = activities.find((activity) => activity.id === requested);
+    if (!item) return;
+    queueMicrotask(() => {
+      setDetail(item);
+      setTypeFilter("all");
+      setTab(
+        item.activity_state === "history"
+          ? "Riwayat"
+          : item.activity_state === "ongoing"
+            ? "Berlangsung"
+            : "Mendatang",
+      );
+    });
+  }, [activities]);
+  const closeDetail = () => {
+    setDetail(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("activity");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  };
   const upcoming = activities.filter((item) =>
     item.activity_state
       ? item.activity_state === "upcoming"
@@ -4037,7 +4437,7 @@ function BookingsView({
           Jelajahi layanan
         </button>
       </section>
-      {detail && <ActivityDetail item={detail} close={() => setDetail(null)} />}
+      {detail && <ActivityDetail item={detail} close={closeDetail} />}
     </div>
   );
 }
@@ -5426,6 +5826,8 @@ function ServiceDetail({
   const [detail, setDetail] = useState<DiscoveryServiceDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(Boolean(service.branchId));
   const [detailError, setDetailError] = useState("");
+  const [serviceImageIndex, setServiceImageIndex] = useState(0);
+  const [serviceViewerOpen, setServiceViewerOpen] = useState(false);
   useEffect(() => {
     let active = true;
     if (!service.branchId) return;
@@ -5461,6 +5863,32 @@ function ServiceDetail({
   const inclusions = detail?.inclusions?.length
     ? detail.inclusions
     : (service.inclusions ?? []);
+  const serviceImages = [
+    ...new Set(
+      [
+        ...(detail?.image_urls ?? []),
+        ...(service.imageUrls ?? []),
+        service.imageUrl,
+      ].filter((url): url is string => Boolean(url)),
+    ),
+  ];
+  useEffect(() => {
+    if (serviceImages.length < 2) return;
+    const timer = window.setInterval(
+      () =>
+        setServiceImageIndex(
+          (current) => (current + 1) % serviceImages.length,
+        ),
+      1_000,
+    );
+    return () => window.clearInterval(timer);
+  }, [service.id, serviceImages.length]);
+  const activeServiceImage = serviceImages[serviceImageIndex];
+  const moveServiceImage = (direction: number) =>
+    setServiceImageIndex(
+      (current) =>
+        (current + direction + serviceImages.length) % serviceImages.length,
+    );
   return (
     <div className="modal-overlay service-detail-overlay" onMouseDown={close}>
       <section
@@ -5479,15 +5907,22 @@ function ServiceDetail({
         </button>
         <header className="service-detail-hero">
           <div className={`service-detail-visual ${service.accent}`}>
-            {service.imageUrl ? (
-              <Image
-                className="catalog-cover-image"
-                src={service.imageUrl}
-                alt={`Gambar ${service.name}`}
-                fill
-                sizes="230px"
-                unoptimized
-              />
+            {activeServiceImage ? (
+              <button
+                type="button"
+                className="service-image-open"
+                onClick={() => setServiceViewerOpen(true)}
+                aria-label={`Buka galeri ${service.name}`}
+              >
+                <Image
+                  className="catalog-cover-image"
+                  src={activeServiceImage}
+                  alt={`Gambar ${service.name}`}
+                  fill
+                  sizes="230px"
+                  unoptimized
+                />
+              </button>
             ) : (
               <span>{service.emoji}</span>
             )}
@@ -5497,6 +5932,13 @@ function ServiceDetail({
                 ? "✓ IZIN TERVERIFIKASI"
                 : "MITRA AKTIF"}
             </i>
+            {serviceImages.length > 1 ? (
+              <div className="service-image-pager">
+                <button type="button" onClick={() => moveServiceImage(-1)} aria-label="Gambar sebelumnya">‹</button>
+                <span>{serviceImageIndex + 1}/{serviceImages.length}</span>
+                <button type="button" onClick={() => moveServiceImage(1)} aria-label="Gambar berikutnya">›</button>
+              </div>
+            ) : null}
           </div>
           <div className="service-detail-heading">
             <span className="service-verified-pill">
@@ -5543,8 +5985,29 @@ function ServiceDetail({
                 <b>Siap dipesan</b>
                 <small>Jadwal dipilih saat booking</small>
               </p>
+        </div>
+        {serviceViewerOpen && activeServiceImage ? (
+          <div
+            className="world-image-lightbox"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Galeri ${service.name}`}
+            onMouseDown={() => setServiceViewerOpen(false)}
+          >
+            <button type="button" className="world-image-close" onClick={() => setServiceViewerOpen(false)} aria-label="Tutup galeri">×</button>
+            <div className="world-image-lightbox-frame" onMouseDown={(event) => event.stopPropagation()}>
+              <Image src={activeServiceImage} alt={`Gambar ${service.name}`} fill sizes="100vw" unoptimized priority />
             </div>
-          </section>
+            {serviceImages.length > 1 ? (
+              <>
+                <button type="button" className="world-image-prev" onClick={(event) => { event.stopPropagation(); moveServiceImage(-1); }} aria-label="Gambar sebelumnya">‹</button>
+                <button type="button" className="world-image-next" onClick={(event) => { event.stopPropagation(); moveServiceImage(1); }} aria-label="Gambar berikutnya">›</button>
+                <span className="world-image-count">{serviceImageIndex + 1} / {serviceImages.length}</span>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
           <section className="service-detail-section">
             <div className="service-detail-section-title">
               <span>INFORMASI LAYANAN</span>
@@ -5651,6 +6114,9 @@ function ActivityDetail({
   item: ActivityViewItem;
   close: () => void;
 }) {
+  const [invoiceHTML, setInvoiceHTML] = useState("");
+  const [invoiceBusy, setInvoiceBusy] = useState(false);
+  const [invoiceError, setInvoiceError] = useState("");
   const icon =
     item.category === "booking"
       ? "📅"
@@ -5664,6 +6130,33 @@ function ActivityDetail({
       !["latitude", "longitude"].includes(key) &&
       (typeof value === "string" || typeof value === "number"),
   );
+  const invoiceReferenceType =
+    item.category === "booking"
+      ? "petowner_booking"
+      : item.category === "consultation"
+        ? "consultation"
+        : item.category === "order"
+          ? "shop_order"
+          : null;
+  async function openInvoice() {
+    if (!invoiceReferenceType || !item.reference_id) return;
+    setInvoiceBusy(true);
+    setInvoiceError("");
+    try {
+      setInvoiceHTML(
+        await getTransactionInvoiceHTML(
+          invoiceReferenceType,
+          item.reference_id,
+        ),
+      );
+    } catch (error) {
+      setInvoiceError(
+        error instanceof Error ? error.message : "Invoice belum dapat dibuka",
+      );
+    } finally {
+      setInvoiceBusy(false);
+    }
+  }
   return (
     <div className="modal-overlay" onMouseDown={close}>
       <section
@@ -5713,11 +6206,48 @@ function ActivityDetail({
               <Icon name="map" size={16} /> Petunjuk arah
             </a>
           )}
+          {invoiceReferenceType && item.reference_id ? (
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={invoiceBusy}
+              onClick={() => void openInvoice()}
+            >
+              <Icon name="download" size={16} />
+              {invoiceBusy ? "Membuka invoice…" : "Buka invoice Slivadoc"}
+            </button>
+          ) : null}
           <button className="primary-button" type="button" onClick={close}>
             Selesai
           </button>
         </footer>
+        {invoiceError ? (
+          <div className="activity-invoice-error" role="alert">
+            {invoiceError}
+          </div>
+        ) : null}
       </section>
+      {invoiceHTML ? (
+        <div
+          className="activity-invoice-viewer"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Invoice Slivadoc"
+          onMouseDown={() => setInvoiceHTML("")}
+        >
+          <header onMouseDown={(event) => event.stopPropagation()}>
+            <span><Icon name="download" size={18} /></span>
+            <div><small>DOKUMEN TRANSAKSI</small><b>{item.title}</b></div>
+            <button type="button" onClick={() => setInvoiceHTML("")} aria-label="Tutup invoice"><Icon name="close" size={19} /></button>
+          </header>
+          <iframe
+            title={`Invoice ${item.title}`}
+            srcDoc={invoiceHTML}
+            sandbox="allow-popups allow-popups-to-escape-sandbox"
+            onMouseDown={(event) => event.stopPropagation()}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -6202,19 +6732,24 @@ function NotificationDrawer({
 
 function BookingModal({
   service: initialService,
-  pet,
+  pets,
+  selectedPetId,
+  onSelectPet,
   success,
   setSuccess,
   onClose,
   onBooked,
 }: {
   service: Service;
-  pet: Pet;
+  pets: Pet[];
+  selectedPetId: string;
+  onSelectPet: (petId: string) => void;
   success: boolean;
   setSuccess: (value: boolean) => void;
   onClose: () => void;
   onBooked: () => Promise<void>;
 }) {
+  const pet = pets.find((item) => item.id === selectedPetId) ?? pets[0];
   const service = {
     ...initialService,
     priceValue: initialService.priceValue ?? 0,
@@ -6299,6 +6834,11 @@ function BookingModal({
       }).format(new Date(startsAt))
     : "Jadwal belum dipilih";
   async function confirm() {
+    if (!pet?.id) {
+      setMessage("Pilih profil pet terlebih dahulu sebelum membuat booking.");
+      setStep(1);
+      return;
+    }
     if (!service.branchId || !startsAt || !selectedSlot) {
       setMessage("Pilih tanggal dan slot yang masih tersedia.");
       setStep(2);
@@ -6354,7 +6894,7 @@ function BookingModal({
             <Icon name="check" size={34} />
           </span>
           <small>BOOKING BERHASIL</small>
-          <h2>Jadwal {pet.name} sudah aman!</h2>
+          <h2>Jadwal {pet?.name ?? "pet kamu"} sudah aman!</h2>
           <p>{service.name} telah menerima permintaan booking kamu.</p>
           <div className="success-ticket">
             <span>{service.emoji}</span>
@@ -6365,7 +6905,7 @@ function BookingModal({
               </small>
               <b>{service.name}</b>
               <p>
-                {pet.avatar} {pet.name} • {service.name}
+                {pet?.avatar ?? "🐾"} {pet?.name ?? "Pet"} • {service.name}
               </p>
             </div>
           </div>
@@ -6427,19 +6967,28 @@ function BookingModal({
         </div>
         {step === 1 && (
           <div className="booking-step">
+            <div className="booking-step-intro">
+              <span>1</span>
+              <div><b>Untuk siapa booking ini?</b><small>Pilih pet supaya kebutuhan dan riwayatnya terhubung ke aktivitas.</small></div>
+            </div>
             <label className="field-label">Pilih hewan</label>
-            <button className="selected-pet-box" type="button">
-              <span>{pet.avatar}</span>
-              <div>
-                <b>{pet.name}</b>
-                <small>
-                  {pet.breed} • {pet.weight}
-                </small>
-              </div>
-              <i>
-                <Icon name="check" size={15} />
-              </i>
-            </button>
+            <div className="booking-pet-options">
+              {pets.map((option) => (
+                <button
+                  className={`selected-pet-box ${option.id === pet?.id ? "selected" : ""}`}
+                  type="button"
+                  key={option.id}
+                  onClick={() => onSelectPet(option.id)}
+                >
+                  <span>{option.avatar}</span>
+                  <div>
+                    <b>{option.name}</b>
+                    <small>{option.breed} • {option.weight}</small>
+                  </div>
+                  <i>{option.id === pet?.id ? <Icon name="check" size={15} /> : null}</i>
+                </button>
+              ))}
+            </div>
             <label className="field-label">Layanan yang dipilih</label>
             <div className="service-option selected">
               <span>{service.emoji}</span>
@@ -6456,6 +7005,10 @@ function BookingModal({
         )}
         {step === 2 && (
           <div className="booking-step">
+            <div className="booking-step-intro">
+              <span>2</span>
+              <div><b>Pilih slot aktual dari cabang</b><small>Jadwal dan kapasitas disinkronkan langsung dari sistem mitra.</small></div>
+            </div>
             <label className="field-label">Pilih tanggal</label>
             {availabilityLoading && (
               <div className="booking-availability-state" role="status">
@@ -6532,6 +7085,10 @@ function BookingModal({
         )}
         {step === 3 && (
           <div className="booking-step">
+            <div className="booking-step-intro">
+              <span>3</span>
+              <div><b>Periksa sekali lagi</b><small>Pastikan pet, jadwal, biaya, dan kebijakan sudah sesuai.</small></div>
+            </div>
             <div className="booking-summary">
               <div className={`summary-service ${service.accent}`}>
                 {service.emoji}
@@ -6548,7 +7105,7 @@ function BookingModal({
               <span>
                 <small>Hewan</small>
                 <b>
-                  {pet.avatar} {pet.name}
+                  {pet?.avatar ?? "🐾"} {pet?.name ?? "Pet"}
                 </b>
               </span>
               <span>
@@ -6604,7 +7161,11 @@ function BookingModal({
           <button
             className="primary-button"
             type="button"
-            disabled={busy}
+            disabled={
+              busy ||
+              (step === 1 && !pet?.id) ||
+              (step === 2 && (!startsAt || availabilityLoading))
+            }
             onClick={() => (step < 3 ? setStep(step + 1) : void confirm())}
           >
             {busy

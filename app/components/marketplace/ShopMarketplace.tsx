@@ -23,7 +23,7 @@ import {
   type MarketplaceStoreResponse,
   type ProductReview,
 } from "../../lib/platform-api";
-import { formatRupiah, type Product } from "../../lib/petowner-domain";
+import { formatRupiah, type Product, type Service } from "../../lib/petowner-domain";
 
 type SortMode =
   | "recommended"
@@ -33,20 +33,37 @@ type SortMode =
   | "newest"
   | "price"
   | "price_desc";
-type StoreSection = "products" | "categories" | "reviews" | "about";
+type StoreSection = "products" | "services" | "categories" | "reviews" | "about";
 type ReviewFilter = "all" | 5 | 4 | 3 | 2 | 1;
+type MarketplaceChatShortcut = "products" | "services" | "pet_hotel" | "orders";
+
+const marketplaceChatShortcuts: ReadonlyArray<{
+  id: MarketplaceChatShortcut;
+  label: string;
+  icon: IconName;
+}> = [
+  { id: "products", label: "Produk", icon: "cart" },
+  { id: "services", label: "Layanan", icon: "heart" },
+  { id: "pet_hotel", label: "Pet Hotel", icon: "home" },
+  { id: "orders", label: "Pesanan", icon: "bag" },
+];
+
+const marketplaceChatEmojis = ["😊", "😍", "🙏", "👍", "🐾", "🐶", "🐱", "❤️"];
 
 type ShopMarketplaceProps = {
   addToCart: (id: string, quantity?: number) => void;
+  buyNow: (id: string, quantity?: number) => void;
   setCartOpen: (value: boolean) => void;
   cartCount: number;
   notify: (message: string) => void;
   productCatalog: Product[];
+  serviceCatalog: Service[];
   petName: string;
   favorites: string[];
   authenticated: boolean;
   onRequireLogin: () => void;
   toggleFavorite: (id: string) => void;
+  onOpenService: (service: Service) => void;
 };
 
 const categoryIcons: Record<string, IconName> = {
@@ -138,20 +155,37 @@ function ProductPicture({
   product: Product;
   detail?: boolean;
 }) {
+  const images = Array.from(new Set([...(product.imageUrls ?? []), product.imageUrl].filter((value): value is string => Boolean(value))));
+  const [activeImage, setActiveImage] = useState(0);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  useEffect(() => {
+    if (!detail || images.length < 2) return;
+    const timer = window.setInterval(
+      () => setActiveImage((current) => (current + 1) % images.length),
+      1_000,
+    );
+    return () => window.clearInterval(timer);
+  }, [detail, images.length, product.id]);
+  const imageUrl = images[activeImage] ?? product.imageUrl;
   return (
-    <div className={detail ? "market-detail-picture" : "market-card-picture"}>
-      {product.imageUrl ? (
-        <Image
-          src={product.imageUrl}
-          alt={`Foto ${product.name}`}
-          fill
-          sizes={
-            detail
-              ? "(max-width: 860px) 100vw, 45vw"
-              : "(max-width: 580px) 50vw, 22vw"
-          }
-          unoptimized
-        />
+    <>
+    <div className={detail ? "market-product-gallery" : "market-card-picture"}>
+      {imageUrl ? (
+        <>
+          <button type="button" className={detail ? "market-detail-picture" : "market-card-image-button"} onClick={() => detail && setViewerOpen(true)} aria-label={detail ? `Perbesar foto ${product.name}` : undefined}>
+            <Image
+              src={imageUrl}
+              alt={`Foto ${product.name}`}
+              fill
+              sizes={detail ? "(max-width: 860px) 100vw, 45vw" : "(max-width: 580px) 50vw, 22vw"}
+              unoptimized
+            />
+            {detail && images.length > 1 && <span className="market-gallery-count"><Icon name="camera" size={13} /> {activeImage + 1}/{images.length}</span>}
+          </button>
+          {detail && images.length > 1 && <div className="market-gallery-thumbs" aria-label="Pilih foto produk">
+            {images.map((url, index) => <button type="button" className={index === activeImage ? "active" : ""} key={url} onClick={() => setActiveImage(index)} aria-label={`Foto ${index + 1}`}><Image src={url} alt="" fill sizes="64px" unoptimized /></button>)}
+          </div>}
+        </>
       ) : (
         <div
           className="market-product-fallback"
@@ -163,6 +197,12 @@ function ProductPicture({
         </div>
       )}
     </div>
+    {viewerOpen && imageUrl && <div className="market-image-viewer" role="dialog" aria-modal="true" aria-label={`Galeri ${product.name}`} onMouseDown={() => setViewerOpen(false)}>
+      <button type="button" className="market-image-viewer-close" onClick={() => setViewerOpen(false)} aria-label="Tutup galeri"><Icon name="close" size={22} /></button>
+      <div className="market-image-viewer-stage" onMouseDown={(event) => event.stopPropagation()}><Image src={imageUrl} alt={`Foto ${activeImage + 1} ${product.name}`} fill sizes="100vw" unoptimized /></div>
+      {images.length > 1 && <div className="market-image-viewer-nav"><button type="button" onClick={() => setActiveImage((activeImage - 1 + images.length) % images.length)} aria-label="Foto sebelumnya">‹</button><span>{activeImage + 1} / {images.length}</span><button type="button" onClick={() => setActiveImage((activeImage + 1) % images.length)} aria-label="Foto berikutnya">›</button></div>}
+    </div>}
+    </>
   );
 }
 
@@ -303,8 +343,7 @@ function ProductCard({
               onAdd();
             }}
           >
-            <Icon name="cart" size={15} />
-            Tambah
+            <Icon name="cart" size={17} />
           </button>
         </footer>
       </div>
@@ -870,12 +909,15 @@ function MarketplaceChatPanel({
   store,
   product,
   onClose,
+  onShortcut,
   notify,
 }: {
   threadId: string;
+  businessId: string;
   store: Pick<MarketplaceStoreProfile, "name" | "logo_url" | "is_online" | "last_seen_at">;
   product?: Product;
   onClose: () => void;
+  onShortcut: (shortcut: MarketplaceChatShortcut) => void;
   notify: (message: string) => void;
 }) {
   const [messages, setMessages] = useState<MarketplaceChatMessage[]>([]);
@@ -883,7 +925,11 @@ function MarketplaceChatPanel({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
-  const messageEnd = useRef<HTMLDivElement>(null);
+  const [composerTray, setComposerTray] = useState<"attachments" | "emoji">();
+  const messageList = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
+  const stickToLatest = useRef(true);
+  const hasDraft = Boolean(draft.trim());
 
   const loadMessages = useCallback(async () => {
     try {
@@ -907,7 +953,12 @@ function MarketplaceChatPanel({
   }, [loadMessages]);
 
   useEffect(() => {
-    messageEnd.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (!stickToLatest.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      const list = messageList.current;
+      if (list) list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [messages]);
 
   async function submit(event: FormEvent) {
@@ -922,6 +973,8 @@ function MarketplaceChatPanel({
       });
       setMessages((current) => [...current, message]);
       setDraft("");
+      setComposerTray(undefined);
+      stickToLatest.current = true;
       setError("");
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Pesan belum dapat dikirim.";
@@ -965,7 +1018,16 @@ function MarketplaceChatPanel({
         <div className="market-chat-notice">
           <Icon name="shield" size={14} /> Kanal ini hanya untuk pesan teks dengan toko. Jangan bagikan OTP atau kata sandi.
         </div>
-        <div className="market-chat-messages" aria-live="polite">
+        <div
+          ref={messageList}
+          className="market-chat-messages"
+          aria-live="polite"
+          onScroll={(event) => {
+            const list = event.currentTarget;
+            stickToLatest.current =
+              list.scrollHeight - list.scrollTop - list.clientHeight < 72;
+          }}
+        >
           {loading ? (
             <p className="market-chat-state">Memuat percakapan…</p>
           ) : messages.length ? (
@@ -988,22 +1050,95 @@ function MarketplaceChatPanel({
               <p>Tanyakan stok, ukuran, kandungan, atau detail produk lainnya.</p>
             </div>
           )}
-          <div ref={messageEnd} />
         </div>
         {error && <p className="market-chat-error">{error}</p>}
+        {composerTray === "attachments" && (
+          <div className="market-chat-shortcuts" role="group" aria-label="Pilihan chat toko">
+            {marketplaceChatShortcuts.map((shortcut) => (
+              <button
+                type="button"
+                key={shortcut.id}
+                onClick={() => onShortcut(shortcut.id)}
+              >
+                <span><Icon name={shortcut.icon} size={19} /></span>
+                <small>{shortcut.label}</small>
+              </button>
+            ))}
+          </div>
+        )}
+        {composerTray === "emoji" && (
+          <div className="market-chat-emojis" role="group" aria-label="Pilih emoji">
+            {marketplaceChatEmojis.map((emoji) => (
+              <button
+                type="button"
+                key={emoji}
+                aria-label={`Gunakan emoji ${emoji}`}
+                onClick={() => {
+                  setDraft((current) => `${current}${emoji}`);
+                  setComposerTray(undefined);
+                  window.requestAnimationFrame(() => input.current?.focus());
+                }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
         <form onSubmit={submit}>
+          <button
+            type="button"
+            className={`market-chat-tool ${composerTray === "attachments" ? "is-active" : ""}`}
+            aria-label="Buka pilihan chat"
+            aria-expanded={composerTray === "attachments"}
+            onClick={() =>
+              setComposerTray((current) =>
+                current === "attachments" ? undefined : "attachments",
+              )
+            }
+          >
+            <Icon name="plus" size={20} />
+          </button>
           <textarea
+            ref={input}
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              if (event.target.value.trim()) setComposerTray(undefined);
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || event.shiftKey) return;
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }}
             maxLength={2000}
-            rows={2}
+            rows={1}
             placeholder="Tulis pesan ke toko…"
             aria-label="Pesan untuk toko"
           />
-          <button type="submit" disabled={!draft.trim() || sending}>
-            <Icon name="arrow" size={17} />
-            <span>{sending ? "Mengirim…" : "Kirim"}</span>
-          </button>
+          {hasDraft ? (
+            <button
+              type="submit"
+              className="market-chat-action is-send"
+              disabled={sending}
+              aria-label={sending ? "Mengirim pesan" : "Kirim pesan"}
+            >
+              <Icon name="send" size={19} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`market-chat-action is-emoji ${composerTray === "emoji" ? "is-active" : ""}`}
+              aria-label="Buka pilihan emoji"
+              aria-expanded={composerTray === "emoji"}
+              onClick={() =>
+                setComposerTray((current) =>
+                  current === "emoji" ? undefined : "emoji",
+                )
+              }
+            >
+              <span aria-hidden="true">😊</span>
+            </button>
+          )}
         </form>
       </section>
     </div>
@@ -1013,37 +1148,44 @@ function MarketplaceChatPanel({
 function MarketplaceStorefront({
   response,
   products,
+  services,
+  initialSection,
   loading,
   error,
   favorites,
   onBack,
   onOpenProduct,
+  onOpenService,
   onChat,
   onFavorite,
   onAdd,
 }: {
   response?: MarketplaceStoreResponse;
   products: Product[];
+  services: Service[];
+  initialSection: StoreSection;
   loading: boolean;
   error: string;
   favorites: string[];
   onBack: () => void;
   onOpenProduct: (product: Product) => void;
+  onOpenService: (service: Service) => void;
   onChat: () => void;
   onFavorite: (product: Product) => void;
   onAdd: (product: Product) => void;
 }) {
-  const [section, setSection] = useState<StoreSection>("products");
+  const [section, setSection] = useState<StoreSection>(initialSection);
   const [sort, setSort] = useState<SortMode>("popular");
   const [category, setCategory] = useState("Semua");
   const fallback = products[0];
+  const fallbackService = services[0];
   const store = response?.store ?? {
-    id: fallback?.businessId ?? "",
-    name: fallback?.businessName ?? "Toko Slivadoc",
+    id: fallback?.businessId ?? fallbackService?.businessId ?? "",
+    name: fallback?.businessName ?? fallbackService?.businessName ?? "Toko Slivadoc",
     logo_url: fallback?.storeLogoUrl ?? "",
     banner_url: "",
     about: "Katalog toko partner Slivadoc.",
-    city: fallback?.city ?? "Indonesia",
+    city: fallback?.city ?? fallbackService?.city ?? "Indonesia",
     joined_at: "",
     is_online: Boolean(fallback?.storeIsOnline),
     last_seen_at: fallback?.storeLastSeenAt ?? "",
@@ -1072,10 +1214,10 @@ function MarketplaceStorefront({
     });
   }, [category, products, sort]);
 
-  if (loading && !fallback) {
+  if (loading && !fallback && !fallbackService) {
     return <div className="market-store-loading"><i /><span>Menyiapkan etalase toko…</span></div>;
   }
-  if (error && !fallback) {
+  if (error && !fallback && !fallbackService) {
     return <div className="market-empty-state"><span>!</span><h3>Etalase belum dapat dibuka</h3><p>{error}</p><button type="button" onClick={onBack}>Kembali</button></div>;
   }
 
@@ -1105,15 +1247,16 @@ function MarketplaceStorefront({
         </div>
         <div className="market-store-stats">
           <span><b>{store.product_count}</b><small>Produk</small></span>
+          <span><b>{services.length}</b><small>Layanan</small></span>
           <span><b>{store.rating ? store.rating.toFixed(1) : "Baru"}</b><small>Rating</small></span>
           <span><b>{compactNumber(store.sold_count)}</b><small>Terjual</small></span>
-          <span><b>{store.category_count}</b><small>Kategori</small></span>
         </div>
       </section>
 
       <div className="market-store-navigation" role="tablist" aria-label="Bagian toko">
         {([
           ["products", "Produk"],
+          ["services", "Layanan"],
           ["categories", "Kategori"],
           ["reviews", `Ulasan (${store.review_count})`],
           ["about", "Tentang toko"],
@@ -1149,6 +1292,32 @@ function MarketplaceStorefront({
               <ProductCard key={product.id} product={product} favorite={favorites.includes(product.id)} onOpen={() => onOpenProduct(product)} onStore={() => undefined} onFavorite={() => onFavorite(product)} onAdd={() => onAdd(product)} />
             ))}
           </div>
+        </section>
+      )}
+
+      {section === "services" && (
+        <section className="market-store-services">
+          <header>
+            <div><span>LAYANAN PARTNER</span><h2>Pilih layanan dari {store.name}</h2></div>
+            <p>{services.length} layanan</p>
+          </header>
+          {services.length ? (
+            <div className="market-store-service-grid">
+              {services.map((service) => (
+                <button key={service.id} type="button" className="market-store-service-card" onClick={() => onOpenService(service)}>
+                  <span className="market-store-service-media">
+                    {service.imageUrl ? <Image src={service.imageUrl} alt={`Foto ${service.name}`} fill sizes="120px" unoptimized /> : <Icon name="paw" size={28} />}
+                  </span>
+                  <span className="market-store-service-copy">
+                    <small>{service.category}</small>
+                    <b>{service.name}</b>
+                    <em>{service.durationMinutes ? `${service.durationMinutes} menit · ` : ""}{formatRupiah(service.priceValue)}</em>
+                  </span>
+                  <Icon name="chevron" size={16} />
+                </button>
+              ))}
+            </div>
+          ) : <div className="market-review-empty"><span><Icon name="paw" size={24} /></span><div><b>Belum ada layanan aktif</b><p>Partner ini belum menerbitkan layanan untuk dibooking.</p></div></div>}
         </section>
       )}
 
@@ -1191,15 +1360,18 @@ function MarketplaceStorefront({
 
 export default function ShopMarketplace({
   addToCart,
+  buyNow,
   setCartOpen,
   cartCount,
   notify,
   productCatalog,
+  serviceCatalog,
   petName,
   favorites,
   authenticated,
   onRequireLogin,
   toggleFavorite,
+  onOpenService,
 }: ShopMarketplaceProps) {
   const [category, setCategory] = useState("Semua");
   const [store, setStore] = useState("Semua toko");
@@ -1207,11 +1379,13 @@ export default function ShopMarketplace({
   const [sort, setSort] = useState<SortMode>("recommended");
   const [selected, setSelected] = useState<Product>();
   const [selectedStoreId, setSelectedStoreId] = useState("");
+  const [selectedStoreSection, setSelectedStoreSection] = useState<StoreSection>("products");
   const [storeResponse, setStoreResponse] = useState<MarketplaceStoreResponse>();
   const [storeLoading, setStoreLoading] = useState(false);
   const [storeError, setStoreError] = useState("");
   const [chat, setChat] = useState<{
     threadId: string;
+    businessId: string;
     store: Pick<MarketplaceStoreProfile, "name" | "logo_url" | "is_online" | "last_seen_at">;
     product?: Product;
   }>();
@@ -1311,9 +1485,11 @@ export default function ShopMarketplace({
       const url = new URL(window.location.href);
       const productId = url.searchParams.get("product");
       const storeId = url.searchParams.get("store") || "";
+      const storeSection = url.searchParams.get("store_section");
       const match = productCatalog.find((product) => product.id === productId);
       setSelected((current) => (current?.id === match?.id ? current : match));
       setSelectedStoreId(match ? "" : storeId);
+      setSelectedStoreSection(storeSection === "services" ? "services" : "products");
       if (match) void loadReviews(match);
     };
     syncProductFromUrl();
@@ -1350,6 +1526,7 @@ export default function ShopMarketplace({
     if (product) {
       url.searchParams.set("product", product.id);
       url.searchParams.delete("store");
+      url.searchParams.delete("store_section");
     }
     else url.searchParams.delete("product");
     window.history.pushState(
@@ -1374,13 +1551,16 @@ export default function ShopMarketplace({
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function openStore(businessId: string) {
+  function openStore(businessId: string, initialSection: StoreSection = "products") {
     const url = new URL(window.location.href);
     url.searchParams.delete("product");
     url.searchParams.set("store", businessId);
+    if (initialSection === "services") url.searchParams.set("store_section", "services");
+    else url.searchParams.delete("store_section");
     setSelected(undefined);
     setStoreResponse(undefined);
     setSelectedStoreId(businessId);
+    setSelectedStoreSection(initialSection);
     window.history.pushState({ view: "shop", store: businessId }, "", `${url.pathname}${url.search}${url.hash}`);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -1388,6 +1568,7 @@ export default function ShopMarketplace({
   function closeStore() {
     const url = new URL(window.location.href);
     url.searchParams.delete("store");
+    url.searchParams.delete("store_section");
     setSelectedStoreId("");
     setStoreResponse(undefined);
     window.history.pushState({ view: "shop" }, "", `${url.pathname}${url.search}${url.hash}`);
@@ -1409,6 +1590,7 @@ export default function ShopMarketplace({
         storeResponse?.store.id === businessId ? storeResponse.store : undefined;
       setChat({
         threadId: thread.id,
+        businessId,
         product,
         store: {
           name: profile?.name || storeProduct?.businessName || "Toko Slivadoc",
@@ -1422,6 +1604,38 @@ export default function ShopMarketplace({
     } finally {
       setChatOpening(false);
     }
+  }
+
+  function openChatShortcut(shortcut: MarketplaceChatShortcut) {
+    const businessId = chat?.businessId || selectedStoreId;
+    setChat(undefined);
+    if (businessId && (shortcut === "products" || shortcut === "services")) {
+      openStore(businessId, shortcut === "services" ? "services" : "products");
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete("product");
+    url.searchParams.delete("store");
+    url.searchParams.delete("store_section");
+    url.searchParams.delete("activity");
+    if (shortcut === "pet_hotel") {
+      url.searchParams.set("view", "discover");
+      url.searchParams.set("service_type", "Pet Hotel");
+      url.searchParams.delete("activity_type");
+      window.localStorage.setItem("slivadoc.active_view", "discover");
+    } else {
+      url.searchParams.set("view", "bookings");
+      url.searchParams.set("activity_type", "order");
+      url.searchParams.delete("service_type");
+      window.localStorage.setItem("slivadoc.active_view", "bookings");
+    }
+    window.history.pushState(
+      { view: url.searchParams.get("view") },
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+    window.dispatchEvent(new PopStateEvent("popstate"));
   }
 
   async function submitReview(rating: number, comment: string) {
@@ -1462,13 +1676,10 @@ export default function ShopMarketplace({
           onChat={() => void openChat(selected)}
           onFavorite={() => toggleFavorite(selected.id)}
           onAdd={(quantity) => addToCart(selected.id, quantity)}
-          onBuy={(quantity) => {
-            addToCart(selected.id, quantity);
-            setCartOpen(true);
-          }}
+          onBuy={(quantity) => buyNow(selected.id, quantity)}
           onSubmitReview={submitReview}
         />
-        {chat && <MarketplaceChatPanel {...chat} onClose={() => setChat(undefined)} notify={notify} />}
+        {chat && <MarketplaceChatPanel {...chat} onClose={() => setChat(undefined)} onShortcut={openChatShortcut} notify={notify} />}
       </>
     );
   }
@@ -1478,19 +1689,22 @@ export default function ShopMarketplace({
     return (
       <>
         <MarketplaceStorefront
-          key={selectedStoreId}
+          key={`${selectedStoreId}-${selectedStoreSection}`}
           response={storeResponse}
           products={storeProducts}
+          services={serviceCatalog.filter((service) => service.businessId === selectedStoreId)}
+          initialSection={selectedStoreSection}
           loading={storeLoading}
           error={storeError}
           favorites={favorites}
           onBack={closeStore}
           onOpenProduct={openProduct}
+          onOpenService={onOpenService}
           onChat={() => void openChat()}
           onFavorite={(product) => toggleFavorite(product.id)}
           onAdd={(product) => addToCart(product.id)}
         />
-        {chat && <MarketplaceChatPanel {...chat} onClose={() => setChat(undefined)} notify={notify} />}
+        {chat && <MarketplaceChatPanel {...chat} onClose={() => setChat(undefined)} onShortcut={openChatShortcut} notify={notify} />}
       </>
     );
   }
@@ -1709,7 +1923,7 @@ export default function ShopMarketplace({
           </div>
         </article>
       </section>
-      {chat && <MarketplaceChatPanel {...chat} onClose={() => setChat(undefined)} notify={notify} />}
+      {chat && <MarketplaceChatPanel {...chat} onClose={() => setChat(undefined)} onShortcut={openChatShortcut} notify={notify} />}
     </div>
   );
 }

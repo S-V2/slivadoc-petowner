@@ -117,7 +117,7 @@
   .main-shell {
     min-height: 100dvh;
     margin-left: 0 !important;
-    padding-bottom: calc(86px + env(safe-area-inset-bottom));
+    padding-bottom: calc(112px + env(safe-area-inset-bottom));
   }
 
   /* HomeScreen uses a 44px search launcher and 44px notification control. */
@@ -1076,6 +1076,15 @@
     backdrop-filter: blur(3px);
   }
 
+  /* Sheets and dialogs must always receive the touch before the floating dock. */
+  .modal-overlay,
+  .filter-panel-backdrop,
+  .comment-sheet-backdrop,
+  .group-chat-backdrop,
+  .legal-overlay {
+    z-index: 140 !important;
+  }
+
   .mobile-more-backdrop {
     display: block;
     z-index: 120;
@@ -1172,6 +1181,8 @@
     color: var(--muted);
     background: transparent;
     font-weight: 600;
+    transition: color 180ms ease, transform 180ms ease, opacity 180ms ease;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .mobile-nav button > span {
@@ -1181,6 +1192,7 @@
     display: grid;
     place-items: center;
     border-radius: 11px;
+    transition: color 220ms ease, background 220ms ease, transform 220ms cubic-bezier(.2,.8,.2,1), box-shadow 220ms ease;
   }
 
   .mobile-nav button.active {
@@ -1189,7 +1201,10 @@
 
   .mobile-nav button.active > span {
     background: var(--sky-50);
+    transform: translateY(-2px) scale(1.04);
   }
+
+  .mobile-nav button:active { transform: scale(.94); }
 
   .mobile-nav button small {
     color: inherit;
@@ -1205,6 +1220,17 @@
     height: 16px;
     font-size: 8px;
   }
+}
+
+/* Discovery detail dialogs must scroll independently on short phones. */
+.world-modal,
+.story-modal {
+  max-height: 92dvh;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
 }
 
 @media (max-width: 580px) {

@@ -78,6 +78,149 @@ const when = (value?: string) =>
       }).format(new Date(value))
     : "Segera diumumkan";
 
+function WorldImageGallery({
+  images,
+  alt,
+  fallback,
+  tag,
+  className = "",
+}: {
+  images: Array<string | undefined>;
+  alt: string;
+  fallback: string;
+  tag: string;
+  className?: string;
+}) {
+  const gallery = [
+    ...new Set(images.filter((url): url is string => Boolean(url?.trim()))),
+  ];
+  const [active, setActive] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (gallery.length < 2) return;
+    const timer = window.setInterval(
+      () => setActive((current) => (current + 1) % gallery.length),
+      1_000,
+    );
+    return () => window.clearInterval(timer);
+  }, [gallery.length]);
+  if (!gallery.length)
+    return (
+      <div className={`modal-world-cover ${className}`}>
+        <span>{fallback}</span>
+        <i>{tag}</i>
+      </div>
+    );
+  const move = (direction: number) =>
+    setActive(
+      (current) => (current + direction + gallery.length) % gallery.length,
+    );
+  return (
+    <>
+      <div
+        className={`modal-world-cover world-image-gallery ${className}`}
+      >
+        <button
+          type="button"
+          className="world-image-open"
+          onClick={() => setExpanded(true)}
+          aria-label={`Buka galeri ${alt}`}
+        >
+          <NextImage
+            src={gallery[active]}
+            alt={`${alt} ${active + 1}`}
+            fill
+            sizes="(max-width: 720px) 100vw, 680px"
+            unoptimized
+          />
+        </button>
+        <i>{tag}</i>
+        {gallery.length > 1 ? (
+          <div className="world-image-controls">
+            <button
+              type="button"
+              onClick={() => move(-1)}
+              aria-label="Gambar sebelumnya"
+            >
+              ‹
+            </button>
+            <span>
+              {active + 1} / {gallery.length}
+            </span>
+            <button
+              type="button"
+              onClick={() => move(1)}
+              aria-label="Gambar berikutnya"
+            >
+              ›
+            </button>
+          </div>
+        ) : null}
+      </div>
+      {expanded ? (
+        <div
+          className="world-image-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Galeri ${alt}`}
+          onClick={() => setExpanded(false)}
+        >
+          <button
+            type="button"
+            className="world-image-close"
+            onClick={() => setExpanded(false)}
+            aria-label="Tutup galeri"
+          >
+            ×
+          </button>
+          <div
+            className="world-image-lightbox-frame"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <NextImage
+              src={gallery[active]}
+              alt={`${alt} ${active + 1}`}
+              fill
+              sizes="100vw"
+              unoptimized
+              priority
+            />
+          </div>
+          {gallery.length > 1 ? (
+            <>
+              <button
+                type="button"
+                className="world-image-prev"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  move(-1);
+                }}
+                aria-label="Gambar sebelumnya"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                className="world-image-next"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  move(1);
+                }}
+                aria-label="Gambar berikutnya"
+              >
+                ›
+              </button>
+              <span className="world-image-count">
+                {active + 1} / {gallery.length}
+              </span>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 export default function PlatformDiscovery({
   mode,
   petName,
@@ -1002,10 +1145,13 @@ function ProgramModal({
   }
   return (
     <Modal close={close} className="world-modal">
-      <div className="modal-world-cover academy-modal-cover">
-        <span>🎓</span>
-        <i>{item.academy_name}</i>
-      </div>
+      <WorldImageGallery
+        images={[item.cover_url, ...(item.image_urls ?? [])]}
+        alt={item.title}
+        fallback="🎓"
+        tag={item.academy_name}
+        className="academy-modal-cover"
+      />
       <div className="modal-world-body">
         {done ? (
           <Success
@@ -1164,10 +1310,13 @@ function EventModal({
   }
   return (
     <Modal close={close} className="world-modal">
-      <div className="modal-world-cover event-modal-cover">
-        <span>🎪</span>
-        <i>{item.category}</i>
-      </div>
+      <WorldImageGallery
+        images={[item.banner_url, ...(item.image_urls ?? [])]}
+        alt={item.title}
+        fallback="🎪"
+        tag={item.category}
+        className="event-modal-cover"
+      />
       <div className="modal-world-body">
         {done ? (
           <Success
@@ -1311,16 +1460,19 @@ function SpotModal({
     return <HousingBookingModal item={item} close={close} notify={notify} ownerName={ownerName} />;
   return (
     <Modal close={close} className="world-modal spot-modal">
-      <div className="modal-world-cover spot-modal-cover">
-        <span>
-          {item.category === "cafe"
+      <WorldImageGallery
+        images={[item.cover_url, ...(item.image_urls ?? [])]}
+        alt={item.name}
+        fallback={
+          item.category === "cafe"
             ? "☕"
             : item.category === "park"
               ? "🌳"
-              : "🏬"}
-        </span>
-        <i>{item.verified ? "✓ PetSpot Verified" : "Community Spot"}</i>
-      </div>
+              : "🏬"
+        }
+        tag={item.verified ? "✓ PetSpot Verified" : "Community Spot"}
+        className="spot-modal-cover"
+      />
       <div className="modal-world-body">
         <small className="world-kicker">
           ★ {item.rating} · {item.review_count} ulasan ·{" "}

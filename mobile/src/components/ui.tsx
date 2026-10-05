@@ -149,7 +149,7 @@ export function AppIcon({
 }
 
 export function Pill({ children, tone = "blue" }: { children: ReactNode; tone?: "blue" | "mint" | "yellow" | "violet" | "red" }) {
-  return <View style={[styles.pill, styles[`${tone}Pill`]]}><Text style={[styles.pillText, styles[`${tone}PillText`]]}>{children}</Text></View>;
+  return <View style={[styles.pill, styles[`${tone}Pill`]]}><Text numberOfLines={2} style={[styles.pillText, styles[`${tone}PillText`]]}>{children}</Text></View>;
 }
 
 export function EmptyState({ icon, title, note, action, onAction }: { icon: keyof typeof Ionicons.glyphMap; title: string; note: string; action: string; onAction: () => void }) {
@@ -250,8 +250,8 @@ const styles = StyleSheet.create({
   softButtonText: { color: colors.sky600, fontSize: typography.control, fontWeight: "600" },
   appIcon: { alignItems: "center", justifyContent: "center" },
   pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
-  pill: { alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill },
-  pillText: { fontSize: 9, fontWeight: "600", letterSpacing: 0.15 },
+  pill: { maxWidth: "52%", flexShrink: 0, alignSelf: "flex-start", paddingHorizontal: 9, paddingVertical: 5, borderRadius: radius.pill },
+  pillText: { fontSize: 9, lineHeight: 12, fontWeight: "600", letterSpacing: 0.15, textAlign: "center" },
   bluePill: { backgroundColor: colors.sky50 }, bluePillText: { color: colors.sky600 },
   mintPill: { backgroundColor: colors.mint50 }, mintPillText: { color: "#14836E" },
   yellowPill: { backgroundColor: colors.yellow50 }, yellowPillText: { color: colors.yellow },

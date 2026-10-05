@@ -11,6 +11,7 @@ import {
   ScrollView,
   StyleSheet,
   type TextInputProps,
+  useWindowDimensions,
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
@@ -427,9 +428,15 @@ export function WorldScreen({
   hasPet: boolean;
   onLogin: () => void;
   onRequirePet: () => void;
-  intent?: { token: number; mode: "consult"; itemId?: string };
+  intent?: {
+    token: number;
+    mode: "consult" | "academy" | "events" | "petspot";
+    itemId?: string;
+    veterinarianId?: string;
+  };
 }) {
   const { formatCurrency, formatDate, formatNumber } = useI18n();
+  const { width: viewportWidth } = useWindowDimensions();
   const money = (value?: number) => formatCurrency(value ?? 0);
   const when = (value?: string) =>
     value
@@ -440,7 +447,32 @@ export function WorldScreen({
   const [consultProvider, setConsultProvider] =
     useState<ConsultProviderFilter>("all");
   const [consultSpecialty, setConsultSpecialty] = useState("all");
+  const [focusedVeterinarianId, setFocusedVeterinarianId] = useState("");
   const [selected, setSelected] = useState<WorldItem | null>(null);
+  const [imageViewerIndex, setImageViewerIndex] = useState<number>();
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const detailGalleryRef = useRef<ScrollView>(null);
+  const selectedImages = useMemo(() => Array.from(new Set([
+    ...(selected?.image_urls ?? []),
+    selected?.cover_url,
+    selected?.banner_url,
+    selected?.photo_url,
+    ...(selected?.photo_urls ?? []),
+    selected?.media_url,
+    selected?.thumbnail_url,
+  ].filter((value): value is string => Boolean(value)))), [selected]);
+  useEffect(() => {
+    if (!selected || selectedImages.length < 2) return;
+    const galleryWidth = Math.max(260, viewportWidth - 32);
+    const timer = setInterval(() => {
+      setSelectedImageIndex((current) => {
+        const next = (current + 1) % selectedImages.length;
+        detailGalleryRef.current?.scrollTo({ x: next * galleryWidth, animated: true });
+        return next;
+      });
+    }, 1_000);
+    return () => clearInterval(timer);
+  }, [selected, selectedImages.length, viewportWidth]);
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -502,6 +534,8 @@ export function WorldScreen({
             (item) =>
               (consultProvider === "all" ||
                 item.provider_type === consultProvider) &&
+              (!focusedVeterinarianId ||
+                item.veterinarian_id === focusedVeterinarianId) &&
               (consultSpecialty === "all" ||
                 (item.specialties ?? []).some(
                   (specialty) =>
@@ -512,9 +546,10 @@ export function WorldScreen({
         : mode === "petspot"
           ? items.petspot.filter((item) => spotCategoryFilter === "all" || item.category === spotCategoryFilter)
           : items[mode],
-    [consultProvider, consultSpecialty, items, mode, spotCategoryFilter],
+    [consultProvider, consultSpecialty, focusedVeterinarianId, items, mode, spotCategoryFilter],
   );
   const chooseConsultProvider = (provider: ConsultProviderFilter) => {
+    setFocusedVeterinarianId("");
     setConsultProvider(provider);
     setConsultSpecialty("all");
   };
@@ -632,21 +667,47 @@ export function WorldScreen({
     if (!intent || loading || handledIntent.current === intent.token) return;
     queueMicrotask(() => {
       handledIntent.current = intent.token;
-      setMode("consult");
+      setMode(intent.mode);
+      if (intent.mode === "consult") {
+        setConsultProvider(intent.veterinarianId ? "veterinarian" : "all");
+        setConsultSpecialty("all");
+        setFocusedVeterinarianId(intent.veterinarianId || "");
+        if (!intent.itemId) {
+          setSelected(null);
+          if (
+            intent.veterinarianId &&
+            !items.consult.some(
+              (item) => item.veterinarian_id === intent.veterinarianId,
+            )
+          ) {
+            onAction("Dokter ini belum memiliki paket konsultasi aktif");
+          }
+          return;
+        }
+        const plan = items.consult.find((item) => item.id === intent.itemId);
+        if (!plan) {
+          setSelected(null);
+          onAction("Paket konsultasi sebelumnya sudah tidak tersedia");
+          return;
+        }
+        setSelected(plan);
+        void loadTrainerSlots(plan);
+        return;
+      }
+      setFocusedVeterinarianId("");
       if (!intent.itemId) {
         setSelected(null);
         return;
       }
-      const plan = items.consult.find((item) => item.id === intent.itemId);
-      if (!plan) {
+      const item = items[intent.mode].find((candidate) => candidate.id === intent.itemId);
+      if (!item) {
         setSelected(null);
-        onAction("Paket konsultasi sebelumnya sudah tidak tersedia");
+        onAction("Detail pilihan tersebut belum tersedia");
         return;
       }
-      setSelected(plan);
-      void loadTrainerSlots(plan);
+      setSelected(item);
     });
-  }, [intent, items.consult, loadTrainerSlots, loading, onAction]);
+  }, [intent, items, loadTrainerSlots, loading, onAction]);
   useEffect(() => {
     if (mode === "academy" && selected)
       void trackMobileAcademyProgramClick(selected.id).catch(() => undefined);
@@ -1079,7 +1140,10 @@ export function WorldScreen({
           {modes.map((item) => (
             <Pressable
               key={item.id}
-              onPress={() => setMode(item.id)}
+              onPress={() => {
+                setMode(item.id);
+                if (item.id !== "consult") setFocusedVeterinarianId("");
+              }}
               style={[styles.mode, mode === item.id && styles.activeMode]}
             >
               <Ionicons
@@ -1128,7 +1192,10 @@ export function WorldScreen({
           {modes.map((item) => (
             <Pressable
               key={item.id}
-              onPress={() => setMode(item.id)}
+              onPress={() => {
+                setMode(item.id);
+                if (item.id !== "consult") setFocusedVeterinarianId("");
+              }}
               style={[styles.mode, mode === item.id && styles.activeMode]}
             >
               <Ionicons
@@ -1162,6 +1229,22 @@ export function WorldScreen({
         ) : null}
         {mode === "consult" ? (
           <View style={styles.consultFilters}>
+            {focusedVeterinarianId ? (
+              <View style={styles.consultDoctorFocus}>
+                <View style={styles.consultDoctorFocusIcon}>
+                  <Ionicons name="medkit-outline" size={18} color={colors.sky600} />
+                </View>
+                <View style={styles.consultDoctorFocusCopy}>
+                  <Text style={styles.consultDoctorFocusLabel}>PAKET DOKTER PILIHAN</Text>
+                  <Text numberOfLines={1} style={styles.consultDoctorFocusName}>
+                    {items.consult.find((item) => item.veterinarian_id === focusedVeterinarianId)?.doctor_name || "Dokter hewan pilihanmu"}
+                  </Text>
+                </View>
+                <Pressable onPress={() => setFocusedVeterinarianId("")} hitSlop={8}>
+                  <Text style={styles.consultDoctorFocusAll}>Lihat semua</Text>
+                </Pressable>
+              </View>
+            ) : null}
             <Text style={styles.consultFilterLabel}>Jenis provider</Text>
             <ScrollView
               horizontal
@@ -1210,7 +1293,10 @@ export function WorldScreen({
                   accessibilityState={{
                     selected: consultSpecialty === value,
                   }}
-                  onPress={() => setConsultSpecialty(value)}
+                  onPress={() => {
+                    setFocusedVeterinarianId("");
+                    setConsultSpecialty(value);
+                  }}
                   style={[
                     styles.consultFilterChip,
                     consultSpecialty === value &&
@@ -1398,6 +1484,8 @@ export function WorldScreen({
         visible={!!selected}
         transparent
         animationType="slide"
+        statusBarTranslucent={false}
+        navigationBarTranslucent={false}
         onRequestClose={() => setSelected(null)}
       >
         <Pressable style={styles.backdrop} onPress={() => setSelected(null)}>
@@ -1420,18 +1508,26 @@ export function WorldScreen({
                   <Ionicons name="close" size={21} color={colors.text} />
                 </Pressable>
                 <ScrollView
+                  style={styles.sheetScroll}
+                  nestedScrollEnabled
                   keyboardShouldPersistTaps="handled"
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={styles.sheetContent}
                 >
-                  <View style={styles.sheetHero}>
-                    {mode === "petspot" && selected?.cover_url ? <Image alt="" source={{ uri: selected.cover_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
-                    <Ionicons
-                      name={worldIcon(mode, selected)}
-                      size={48}
-                      color={colors.sky600}
-                    />
-                  </View>
+                  {selectedImages.length ? (
+                    <View>
+                      <ScrollView ref={detailGalleryRef} horizontal pagingEnabled nestedScrollEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={(event) => setSelectedImageIndex(Math.round(event.nativeEvent.contentOffset.x / Math.max(260, viewportWidth - 32)))}>
+                        {selectedImages.map((uri, index) => (
+                          <Pressable key={uri} onPress={() => setImageViewerIndex(index)} style={[styles.sheetHero, { width: Math.max(260, viewportWidth - 32) }]} accessibilityLabel={`Perbesar gambar ${index + 1}`}>
+                            <Image alt="" source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                      {selectedImages.length > 1 ? <View style={styles.sheetGalleryBadge}><Ionicons name="images-outline" size={12} color={colors.white} /><Text style={styles.sheetGalleryBadgeText}>{selectedImageIndex + 1}/{selectedImages.length} · otomatis</Text></View> : null}
+                    </View>
+                  ) : (
+                    <View style={styles.sheetHero}><Ionicons name={worldIcon(mode, selected)} size={48} color={colors.sky600} /></View>
+                  )}
                   <Text style={styles.sheetKicker}>
                     {mode === "pawdating"
                       ? `✦ LEVEL ${selected?.profile_level} · HEALTH ${selected?.health_score}/100`
@@ -2296,6 +2392,13 @@ export function WorldScreen({
           </KeyboardAvoidingView>
         </Pressable>
       </Modal>
+      <Modal visible={imageViewerIndex !== undefined} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setImageViewerIndex(undefined)}>
+        <SafeAreaView style={styles.worldImageViewer}>
+          <Pressable onPress={() => setImageViewerIndex(undefined)} style={styles.worldImageViewerClose}><Ionicons name="close" size={24} color={colors.white} /></Pressable>
+          {selectedImages[imageViewerIndex ?? 0] ? <Image alt="" source={{ uri: selectedImages[imageViewerIndex ?? 0] }} resizeMode="contain" style={styles.worldImageViewerImage} /> : null}
+          {selectedImages.length > 1 ? <View style={styles.worldImageViewerControls}><Pressable onPress={() => setImageViewerIndex((current) => ((current ?? 0) - 1 + selectedImages.length) % selectedImages.length)}><Ionicons name="chevron-back" size={25} color={colors.white} /></Pressable><Text style={styles.worldImageViewerCount}>{(imageViewerIndex ?? 0) + 1} / {selectedImages.length}</Text><Pressable onPress={() => setImageViewerIndex((current) => ((current ?? 0) + 1) % selectedImages.length)}><Ionicons name="chevron-forward" size={25} color={colors.white} /></Pressable></View> : null}
+        </SafeAreaView>
+      </Modal>
       <MobileQrisModal
         payment={payment}
         onClose={() => setPayment(undefined)}
@@ -2644,6 +2747,38 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: colors.white,
   },
+  consultDoctorFocus: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    marginBottom: 3,
+    padding: 9,
+    borderRadius: 14,
+    backgroundColor: colors.sky50,
+  },
+  consultDoctorFocusIcon: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: colors.white,
+  },
+  consultDoctorFocusCopy: { minWidth: 0, flex: 1 },
+  consultDoctorFocusLabel: {
+    color: colors.sky600,
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+  },
+  consultDoctorFocusName: {
+    marginTop: 2,
+    color: colors.navy,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  consultDoctorFocusAll: { color: colors.sky600, fontSize: 9, fontWeight: "700" },
   consultFilterLabel: {
     color: colors.muted,
     fontSize: 9,
@@ -2821,11 +2956,13 @@ const styles = StyleSheet.create({
   sheetKeyboard: { flex: 1, justifyContent: "flex-end" },
   sheetWrap: { width: "100%", maxHeight: "88%" },
   sheet: {
+    flexShrink: 1,
     maxHeight: "100%",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     backgroundColor: colors.white,
   },
+  sheetScroll: { flexShrink: 1 },
   handle: {
     alignSelf: "center",
     width: 42,
@@ -2847,7 +2984,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.canvas,
   },
-  sheetContent: { paddingHorizontal: 16, paddingBottom: 20 },
+  sheetContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 32 },
   sheetHero: {
     height: 118,
     alignItems: "center",
@@ -2855,6 +2992,13 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: colors.sky50,
   },
+  sheetGalleryBadge: { position: "absolute", right: 9, bottom: 9, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(8,33,49,.68)" },
+  sheetGalleryBadgeText: { color: colors.white, fontSize: 8, fontWeight: "700" },
+  worldImageViewer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(3,17,26,.96)" },
+  worldImageViewerImage: { width: "100%", height: "78%" },
+  worldImageViewerClose: { position: "absolute", zIndex: 2, top: 12, right: 14, width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "rgba(255,255,255,.12)" },
+  worldImageViewerControls: { position: "absolute", bottom: 24, flexDirection: "row", alignItems: "center", gap: 20, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, backgroundColor: "rgba(255,255,255,.12)" },
+  worldImageViewerCount: { minWidth: 46, color: colors.white, fontSize: 12, fontWeight: "700", textAlign: "center" },
   sheetHeroText: { fontSize: 54 },
   sheetKicker: {
     marginTop: 13,
@@ -3079,7 +3223,7 @@ const styles = StyleSheet.create({
   formField: { gap: 6 },
   formLabel: {
     color: colors.text,
-    fontSize: 11,
+    fontSize: 12,
     lineHeight: 18,
     fontWeight: "600",
   },

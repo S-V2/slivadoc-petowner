@@ -12,10 +12,17 @@ export type Service = {
   price: string;
   status: string;
   imageUrl?: string;
+  imageUrls?: string[];
   icon: string;
   tone: "blue" | "mint" | "violet" | "peach";
   priceValue:number;
   address:string;
+  description?: string;
+  durationMinutes?: number;
+  inclusions?: string[];
+  supportedSpecies?: string[];
+  cancellationPolicy?: string;
+  licenseStatus?: "not_submitted" | "pending" | "verified" | "rejected";
 };
 
 export type PetView={id:string;name:string;species?:string;breed:string;age:string;weight:string;icon:string;score:number;allergies:string;lastUpdated?:string};

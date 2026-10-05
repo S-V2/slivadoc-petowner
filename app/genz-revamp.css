@@ -473,6 +473,62 @@ textarea {
   border-radius: 15px !important;
 }
 
+/* Keep form typography readable and consistent with the native app. */
+.app-shell :where(.page-content, .modal, .drawer, .cart-drawer, .notification-drawer, .chat-drawer)
+  input:not([type="checkbox"]):not([type="radio"]),
+.app-shell :where(.page-content, .modal, .drawer, .cart-drawer, .notification-drawer, .chat-drawer)
+  select,
+.app-shell :where(.page-content, .modal, .drawer, .cart-drawer, .notification-drawer, .chat-drawer)
+  textarea,
+.petowner-login .login-form input:not([type="checkbox"]) {
+  color: var(--ink-body, #2e4a62);
+  font-size: 14px !important;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.app-shell :where(.page-content, .modal, .drawer, .cart-drawer, .notification-drawer, .chat-drawer)
+  input::placeholder,
+.app-shell :where(.page-content, .modal, .drawer, .cart-drawer, .notification-drawer, .chat-drawer)
+  textarea::placeholder,
+.petowner-login .login-form input::placeholder {
+  color: #8295a5 !important;
+  font-size: 14px !important;
+  font-weight: 500;
+  opacity: 1;
+}
+
+.app-shell :where(.page-content, .modal, .drawer, .cart-drawer, .notification-drawer, .chat-drawer)
+  label {
+  color: var(--ink-strong, #123653);
+  font-size: 12px !important;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+:where(
+    .consult-booking,
+    .world-form,
+    .market-catalog-filters,
+    .market-purchase-box,
+    .market-review-composer,
+    .discover-filter-panel,
+    .login-form,
+    .form-grid,
+    .housing-booking-form,
+    .paw-form-grid,
+    .paw-small-modal,
+    .cw-form
+  )
+  label
+  > span:first-child,
+.field-label {
+  color: var(--ink-strong, #123653);
+  font-size: 12px !important;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
 .modal,
 .drawer,
 .cart-drawer,
@@ -682,6 +738,112 @@ textarea {
   border-radius: 28px;
   box-shadow: var(--shadow-soft);
 }
+
+.home-doctors-section {
+  display: grid;
+  gap: 13px;
+}
+
+.home-doctor-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.home-doctor-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line-playful);
+  border-radius: 23px 23px 23px 11px;
+  background: linear-gradient(145deg, #fff, #f2fbff);
+  box-shadow: var(--shadow-soft);
+}
+
+.home-doctor-avatar {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 19px 19px 19px 8px;
+  color: var(--sky-600);
+  background: var(--sky-100);
+}
+
+.home-doctor-avatar img { object-fit: cover; }
+.home-doctor-avatar i {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--mint);
+}
+
+.home-doctor-card > div { min-width: 0; display: grid; gap: 3px; }
+.home-doctor-card small { color: var(--mint); font-size: 8px; font-weight: 800; letter-spacing: .06em; }
+.home-doctor-card b { overflow: hidden; color: var(--ink-strong); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.home-doctor-card p { overflow: hidden; margin: 0; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.home-doctor-card > div > span { display: flex; align-items: center; gap: 4px; color: #6c7f91; font-size: 9px; }
+.home-doctor-card > div > span svg { color: #e2a62d; }
+.home-doctor-card > button {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 13px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--sky-600), #21b5eb);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.home-health-card { position: relative; }
+.home-pet-switcher {
+  position: absolute;
+  z-index: 7;
+  top: 78px;
+  right: 14px;
+  width: min(330px, calc(100% - 28px));
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,.75);
+  border-radius: 20px 20px 20px 9px;
+  color: var(--text);
+  background: rgba(255,255,255,.98);
+  box-shadow: 0 20px 48px rgba(10,66,99,.28);
+  backdrop-filter: blur(18px);
+}
+.home-pet-switcher > header { display: grid; gap: 2px; padding: 3px 4px 7px; }
+.home-pet-switcher > header b { color: var(--navy); font-size: 12px; }
+.home-pet-switcher > header small { color: var(--muted); font-size: 9px; }
+.home-pet-switcher > button:not(.manage) {
+  width: 100%;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  color: var(--text);
+  background: #fff;
+  text-align: left;
+}
+.home-pet-switcher > button.active { border-color: var(--sky-400); background: var(--sky-50); }
+.home-pet-switcher > button > span { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; background: var(--peach-50); font-size: 21px; }
+.home-pet-switcher > button > div { min-width: 0; flex: 1; display: grid; gap: 2px; }
+.home-pet-switcher > button > div b { color: var(--navy); font-size: 11px; }
+.home-pet-switcher > button > div small { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.home-pet-switcher > button > i { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: var(--sky-600); font-style: normal; }
+.home-pet-switcher > button.manage { min-height: 38px; border: 0; color: var(--sky-600); background: transparent; font-size: 10px; font-weight: 750; }
 
 /* Feature heroes all feel like part of the same friendly universe. */
 :where(
@@ -983,6 +1145,11 @@ textarea {
     border-radius: 24px;
   }
 
+  .home-doctor-row { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 5px; }
+  .home-doctor-card { min-width: min(320px, 88vw); grid-template-columns: 52px minmax(0, 1fr); scroll-snap-align: start; }
+  .home-doctor-card > button { grid-column: 1 / -1; width: 100%; }
+  .home-doctor-avatar { width: 52px; height: 52px; }
+
   .mobile-nav {
     bottom: max(10px, env(safe-area-inset-bottom)) !important;
     border-color: #cfe8f5 !important;
@@ -998,6 +1165,7 @@ textarea {
     color: #fff !important;
     background: linear-gradient(135deg, #28baff, #0a8ed3) !important;
     box-shadow: 0 6px 14px rgba(13, 146, 212, 0.22);
+    transform: translateY(-2px) scale(1.04);
   }
 
   .mobile-more-sheet,

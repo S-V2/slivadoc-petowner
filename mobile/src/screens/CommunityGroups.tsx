@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -12,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   createMobileCommunityGroup,
   getMobileCommunityGroupMessages,
@@ -240,6 +241,7 @@ function CreateGroupSheet({ visible, onClose, onCreated, onAction }: { visible: 
 
 function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { group?: MobileCommunityGroup; owner: MobileOwner; hasPet: boolean; onClose: () => void; onRequirePet: () => void; onAction: (message: string) => void }) {
   const { locale } = useI18n();
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<MobileCommunityGroupMessage[]>([]);
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -282,8 +284,20 @@ function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { 
   };
 
   return (
-    <Modal visible={Boolean(group)} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView edges={["top", "bottom", "left", "right"]} style={styles.roomPage}>
+    <Modal
+      visible={Boolean(group)}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      statusBarTranslucent={false}
+      navigationBarTranslucent={false}
+      onRequestClose={onClose}
+    >
+      <SafeAreaView edges={["top", "left", "right"]} style={styles.roomPage}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+          style={styles.roomKeyboard}
+        >
         {group ? <>
           <View style={styles.roomHeader}>
             <Pressable accessibilityRole="button" accessibilityLabel="Kembali" onPress={onClose} style={styles.roomBack}><Ionicons name="arrow-back" size={22} color={colors.navy} /></Pressable>
@@ -295,11 +309,12 @@ function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { 
             <View style={styles.encryptionNote}><Ionicons name="lock-closed" size={11} color="#8B7123" /><Text style={styles.encryptionText}>Percakapan tersimpan aman di Slivadoc. Jangan bagikan data kontak pribadi.</Text></View>
             {messages.length ? messages.map((message) => <View key={message.id} style={[styles.bubbleWrap, message.mine && styles.myBubbleWrap]}><View style={[styles.bubble, message.mine && styles.myBubble]}>{!message.mine ? <Text style={styles.senderName}>{message.sender_name}</Text> : null}<Text style={styles.messageBody}>{message.body}</Text><Text style={styles.messageTime}>{messageTime(message.created_at, locale)}{message.mine ? "  ✓✓" : ""}</Text></View></View>) : <View style={styles.roomEmpty}><View style={styles.emptyIcon}><Ionicons name="chatbubbles-outline" size={24} color={colors.sky600}/></View><Text style={styles.emptyTitle}>Mulai percakapan</Text><Text style={styles.emptyNote}>Sapa member grup dengan pesan pertama yang ramah.</Text></View>}
           </ScrollView>
-          <View style={styles.roomComposer}>
+          <View style={[styles.roomComposer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
             <TextInput value={body} onChangeText={setBody} editable={hasPet && !sending} multiline maxLength={2000} placeholder={hasPet ? `Pesan sebagai ${owner.full_name.split(" ")[0]}…` : "Mode lihat saja — tambahkan pet untuk membalas"} placeholderTextColor={colors.muted} style={styles.roomInput} />
             <Pressable accessibilityRole="button" accessibilityLabel={hasPet ? "Kirim pesan" : "Tambah profil pet"} disabled={sending || (hasPet && !body.trim())} onPress={() => hasPet ? void send() : onRequirePet()} style={[styles.send, (!body.trim() || sending) && hasPet && styles.disabled]}><Ionicons name={hasPet ? "send" : "lock-closed"} size={18} color={colors.white} /></Pressable>
           </View>
         </> : null}
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );
@@ -346,7 +361,7 @@ const styles = StyleSheet.create({
   sheetKicker: { color: colors.sky600, fontSize: 9, fontWeight: "600", letterSpacing: 1 },
   sheetTitle: { marginTop: 2, color: colors.navy, fontSize: 18, fontWeight: "700" },
   close: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.line, borderRadius: 13 },
-  inputLabel: { marginTop: 10, marginBottom: 5, color: colors.navy, fontSize: 10, fontWeight: "600" },
+  inputLabel: { marginTop: 10, marginBottom: 5, color: colors.navy, fontSize: 12, fontWeight: "600" },
   input: { minHeight: 44, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 13, color: colors.text, fontSize: 12 },
   descriptionInput: { minHeight: 80, paddingTop: 11, textAlignVertical: "top" },
   visibilityRow: { flexDirection: "row", gap: 8 },
@@ -356,7 +371,8 @@ const styles = StyleSheet.create({
   activeVisibilityText: { color: colors.sky600 },
   safetyNote: { marginVertical: 12, color: colors.muted, fontSize: 10, lineHeight: 15 },
   roomPage: { flex: 1, backgroundColor: "#EEF7F5" },
-  roomHeader: { minHeight: 64, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: colors.line, backgroundColor: colors.white },
+  roomKeyboard: { flex: 1 },
+  roomHeader: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 10, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: colors.line, backgroundColor: colors.white, ...shadow },
   roomBack: { width: 40, height: 44, alignItems: "center", justifyContent: "center" },
   roomAvatar: { width: 40, height: 40, borderRadius: 14, backgroundColor: colors.sky50 },
   roomCopy: { minWidth: 0, flex: 1 },
@@ -375,7 +391,7 @@ const styles = StyleSheet.create({
   messageTime: { marginTop: 2, color: colors.muted, fontSize: 8, textAlign: "right" },
   roomEmpty: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80 },
   emptyIcon: { width: 52, height: 52, marginBottom: 10, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 },
-  roomComposer: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 8, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.white },
+  roomComposer: { flexDirection: "row", alignItems: "flex-end", gap: 8, paddingHorizontal: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.white, ...shadow },
   roomInput: { maxHeight: 110, minHeight: 44, flex: 1, paddingHorizontal: 13, paddingVertical: Platform.OS === "ios" ? 12 : 8, borderWidth: 1, borderColor: colors.line, borderRadius: 18, color: colors.text, fontSize: 12 },
   send: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: colors.sky600 },
   disabled: { opacity: 0.45 },

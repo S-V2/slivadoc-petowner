@@ -87,6 +87,96 @@ test("mobile fixed navigation never covers page actions", async ({ page }) => {
   await expect(page.locator(".chat-drawer")).toBeVisible();
 });
 
+test("home service shortcuts open a filtered catalogue before booking", async ({
+  page,
+}) => {
+  const services = [
+    ["62000000-0000-4000-8000-000000000001", "62000000-0000-4000-8000-000000000011", "Home Visit Sehat"],
+    ["62000000-0000-4000-8000-000000000002", "62000000-0000-4000-8000-000000000012", "Home Visit Nyaman"],
+  ].map(([id, branchID, name], index) => ({
+    id,
+    branch_id: branchID,
+    business_id: "62000000-0000-4000-8000-000000000021",
+    business_name: "Sliva Home Care",
+    branch_name: `Cabang ${index + 1}`,
+    name,
+    category: "home_care",
+    image_url: `https://example.com/service-${index + 1}-a.jpg`,
+    image_urls: [
+      `https://example.com/service-${index + 1}-a.jpg`,
+      `https://example.com/service-${index + 1}-b.jpg`,
+    ],
+    duration_minutes: 60,
+    price: 250_000 + index * 50_000,
+    address: `Jalan Sehat ${index + 1}`,
+    city: "Jakarta Selatan",
+    latitude: -6.26,
+    longitude: 106.81,
+    distance_km: 1.2 + index,
+    description: "Perawatan pet di rumah oleh mitra terverifikasi.",
+    inclusions: ["Asesmen awal", "Catatan digital"],
+    supported_species: ["dog", "cat"],
+    cancellation_policy: "Pembatalan gratis maksimal 6 jam sebelum jadwal.",
+    business_license_status: "verified" as const,
+  }));
+  await page.route("**/api/v1/public/**", async (route) => {
+    const url = new URL(route.request().url());
+    const json = (body: unknown) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(body),
+      });
+    if (url.pathname === "/api/v1/public/discovery/services")
+      return json({ data: services, count: services.length });
+    const detail = services.find(
+      (service) =>
+        url.pathname === `/api/v1/public/discovery/services/${service.id}`,
+    );
+    if (detail) {
+      const serviceDetail = Object.fromEntries(
+        Object.entries(detail).filter(([key]) => key !== "distance_km"),
+      );
+      return json({
+        ...serviceDetail,
+        capacity: 1,
+        phone: "+622112345678",
+        timezone: "Asia/Jakarta",
+        opening_hours: {},
+        exclusions: [],
+        preparation: [],
+        aftercare: [],
+        pet_requirements: {},
+        reschedule_policy: "Perubahan jadwal mengikuti slot tersedia.",
+        business_license_number: "NIB-TEST-001",
+      });
+    }
+    if (
+      url.pathname === "/api/v1/public/discovery/products" ||
+      url.pathname === "/api/v1/public/campaigns" ||
+      url.pathname === "/api/v1/public/veterinarians"
+    )
+      return json({ data: [], count: 0 });
+    return route.fallback();
+  });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openApp(page);
+
+  await page.getByRole("button", { name: /Home Care/ }).click();
+  await expect(page).toHaveURL(/view=discover.*service_type=Home(?:\+|%20)Care/);
+  await expect(page.locator(".booking-modal")).toBeHidden();
+  await expect(page.locator(".service-result-card")).toHaveCount(2);
+
+  await page.getByRole("button", { name: "Lihat detail" }).first().click();
+  await expect(page.locator(".service-detail-modal")).toBeVisible();
+  await expect(page).toHaveURL(/service=[0-9a-f-]+/);
+
+  const pager = page.locator(".service-image-pager span");
+  await expect(pager).toBeVisible();
+  const initialImage = await pager.textContent();
+  await expect.poll(() => pager.textContent(), { timeout: 2_500 }).not.toBe(initialImage);
+});
+
 test("community search and live status occupy separate rows on mobile", async ({
   page,
 }) => {

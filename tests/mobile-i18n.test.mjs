@@ -74,8 +74,8 @@ test("marketplace cards use a compact smooth commerce hierarchy", () => {
   assert.match(marketplace, /productCard:[^\n]*borderColor:\s*colors\.sky100/);
   assert.match(marketplace, /productCommerceRow/);
   assert.match(marketplace, /productStoreBadge/);
-  assert.match(marketplace, />Tambah<\/Text>/);
-  assert.match(marketplace, /name="bag-add-outline"/);
+  assert.doesNotMatch(marketplace, />Tambah<\/Text>/);
+  assert.match(marketplace, /name="cart-outline"/);
 });
 
 test("shared surfaces consistently use Slivadoc sky styling", () => {

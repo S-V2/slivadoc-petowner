@@ -3,13 +3,13 @@ import {
   ActivityIndicator,
   Animated,
   BackHandler,
-  Easing,
   Image,
   Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -20,6 +20,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as SecureStore from "expo-secure-store";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { DiscoverScreen } from "./src/screens/DiscoverScreen";
 import { MarketplaceScreen } from "./src/screens/MarketplaceScreen";
@@ -42,6 +43,7 @@ import {
   createMobilePaymentIntent,
   getMobileBootstrap,
   getMobileMedicalRecords,
+  getMobileServiceAvailability,
   getMobileServices,
   hasPlatformSession,
   loginMobile,
@@ -59,6 +61,7 @@ import {
   type MobileNotification,
   type MobilePaymentIntent,
   type MobileService,
+  type MobileServiceAvailability,
   type MobileGlobalSearchResult,
 } from "./src/api";
 import { SlivaCareModal } from "./src/components/SlivaCareModal";
@@ -135,6 +138,95 @@ const moreTabs: TabItem[] = [
   },
 ];
 
+const navigationStorageKey = "slivadoc.petowner.active_tab";
+const petStorageKey = "slivadoc.petowner.active_pet";
+
+function mobileServiceCategory(value: string) {
+  const category = value.toLowerCase();
+  if (category.includes("home")) return "Home Care";
+  if (category.includes("hotel") || category.includes("boarding")) return "Pet Hotel";
+  if (category.includes("groom")) return "Grooming";
+  if (category.includes("shop")) return "Pet Shop";
+  if (category.includes("clinic") || category.includes("veter")) return "Clinic";
+  return value.replaceAll("_", " ");
+}
+const validTabs = new Set<Tab>([
+  ...bottomTabs.map((item) => item.id),
+  ...moreTabs.map((item) => item.id),
+]);
+
+function AnimatedTabButton({
+  item,
+  active,
+  showDot = false,
+  onPress,
+}: {
+  item: TabItem;
+  active: boolean;
+  showDot?: boolean;
+  onPress: () => void;
+}) {
+  const [progress] = useState(() => new Animated.Value(active ? 1 : 0));
+
+  useEffect(() => {
+    Animated.spring(progress, {
+      toValue: active ? 1 : 0,
+      damping: 16,
+      stiffness: 220,
+      mass: 0.7,
+      useNativeDriver: true,
+    }).start();
+  }, [active, progress]);
+
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityLabel={item.label}
+      accessibilityState={{ selected: active }}
+      android_ripple={{ color: colors.sky50, borderless: false }}
+      onPress={onPress}
+      style={({ pressed }) => [styles.tabItem, pressed && styles.tabItemPressed]}
+    >
+      <Animated.View
+        style={[
+          styles.tabAnimatedContent,
+          {
+            transform: [
+              {
+                translateY: progress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -2],
+                }),
+              },
+              {
+                scale: progress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 1.04],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <View style={[styles.tabIcon, active && styles.activeTabIcon]}>
+          <Ionicons
+            name={active ? item.activeIcon : item.icon}
+            size={22}
+            color={active ? colors.white : colors.muted}
+          />
+          {showDot ? <View style={styles.activityDot} /> : null}
+        </View>
+        <Text
+          numberOfLines={1}
+          style={[styles.tabLabel, active && styles.activeTabLabel]}
+        >
+          {item.label}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
 const searchRouteTabs: Record<string, Tab> = {
   home: "home",
   discover: "discover",
@@ -182,6 +274,7 @@ function MobileApp() {
   const [bookingOpen, setBookingOpen] = useState(false);
   const [payment, setPayment] = useState<MobilePaymentIntent>();
   const [selectedService, setSelectedService] = useState<Service>();
+  const [selectedPetId, setSelectedPetId] = useState("");
   const [bootstrap, setBootstrap] = useState<MobileBootstrap>();
   const [services, setServices] = useState<Service[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -195,12 +288,24 @@ function MobileApp() {
   const [marketplaceIntent, setMarketplaceIntent] = useState<{
     token: number;
     productId?: string;
+    businessId?: string;
     items?: Array<{ product_id: string; quantity: number }>;
   }>();
   const [worldIntent, setWorldIntent] = useState<{
     token: number;
-    mode: "consult";
+    mode: "consult" | "academy" | "events" | "petspot";
     itemId?: string;
+    veterinarianId?: string;
+  }>();
+  const [activityIntent, setActivityIntent] = useState<{
+    token: number;
+    itemId?: string;
+    type?: "order";
+  }>();
+  const [serviceIntent, setServiceIntent] = useState<{
+    token: number;
+    category?: string;
+    serviceId?: string;
   }>();
   const intentTokenRef = useRef(0);
   const tabRef = useRef<Tab>("home");
@@ -216,8 +321,11 @@ function MobileApp() {
       branchName: item.branch_name,
       city: item.city,
       name: item.name,
-      category: item.category,
-      rating: "Baru",
+      category: mobileServiceCategory(item.category),
+      rating:
+        typeof item.rating === "number" && Number.isFinite(item.rating)
+          ? item.rating.toFixed(1)
+          : "Baru",
       distance:
         typeof item.distance_km === "number" &&
         Number.isFinite(item.distance_km)
@@ -226,6 +334,11 @@ function MobileApp() {
       price: formatCurrency(item.price),
       status: "Tersedia untuk booking",
       imageUrl: item.image_url,
+      imageUrls: item.image_urls?.length
+        ? item.image_urls
+        : item.image_url
+          ? [item.image_url]
+          : [],
       icon: item.category.toLowerCase().includes("groom")
         ? "🛁"
         : item.category.toLowerCase().includes("hotel")
@@ -236,6 +349,12 @@ function MobileApp() {
       tone: (["mint", "blue", "violet", "peach"] as const)[index % 4] ?? "blue",
       priceValue: item.price,
       address: `${item.branch_name} · ${item.address}`,
+      description: item.description,
+      durationMinutes: item.duration_minutes,
+      inclusions: item.inclusions,
+      supportedSpecies: item.supported_species,
+      cancellationPolicy: item.cancellation_policy,
+      licenseStatus: item.business_license_status,
     }),
     [formatCurrency],
   );
@@ -259,9 +378,23 @@ function MobileApp() {
     allergies: item.allergies,
     lastUpdated: item.last_medical_record_at,
   }));
-  const pet = pets[0];
+  const pet = pets.find((item) => item.id === selectedPetId) ?? pets[0];
   const petId = pet?.id;
   const hasPet = pets.length > 0;
+
+  useEffect(() => {
+    if (!pets.length) return;
+    if (pets.some((item) => item.id === selectedPetId)) return;
+    void SecureStore.getItemAsync(petStorageKey).then((saved) => {
+      const next = pets.find((item) => item.id === saved)?.id ?? pets[0]?.id ?? "";
+      setSelectedPetId(next);
+    });
+  }, [pets, selectedPetId]);
+
+  const selectPet = useCallback((petIdToSelect: string) => {
+    setSelectedPetId(petIdToSelect);
+    void SecureStore.setItemAsync(petStorageKey, petIdToSelect);
+  }, []);
 
   const notify = useCallback((message: string) => setToast(message), []);
   useEffect(() => {
@@ -367,7 +500,16 @@ function MobileApp() {
   };
 
   useEffect(() => {
-    queueMicrotask(() => void reloadData(false));
+    queueMicrotask(() => {
+      void SecureStore.getItemAsync(navigationStorageKey)
+        .then((saved) => {
+          if (!saved || !validTabs.has(saved as Tab)) return;
+          const restored = saved as Tab;
+          tabRef.current = restored;
+          setTab(restored);
+        })
+        .finally(() => void reloadData(false));
+    });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const navigateTo = useCallback(
@@ -380,6 +522,7 @@ function MobileApp() {
       tabRef.current = next;
       screenTransition.setValue(0);
       setTab(next);
+      void SecureStore.setItemAsync(navigationStorageKey, next);
     },
     [screenTransition],
   );
@@ -391,22 +534,25 @@ function MobileApp() {
       tabRef.current = previous;
       screenTransition.setValue(0);
       setTab(previous);
+      void SecureStore.setItemAsync(navigationStorageKey, previous);
       return true;
     }
     if (tabRef.current !== "home") {
       tabRef.current = "home";
       screenTransition.setValue(0);
       setTab("home");
+      void SecureStore.setItemAsync(navigationStorageKey, "home");
       return true;
     }
     return false;
   }, [screenTransition]);
 
   useEffect(() => {
-    Animated.timing(screenTransition, {
+    Animated.spring(screenTransition, {
       toValue: 1,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
+      damping: 20,
+      stiffness: 185,
+      mass: 0.72,
       useNativeDriver: true,
     }).start();
   }, [screenTransition, tab]);
@@ -469,6 +615,10 @@ function MobileApp() {
     setSelectedService(service);
     setBookingOpen(true);
   };
+  const openServiceCatalog = (category?: string, serviceId?: string) => {
+    setServiceIntent({ token: nextIntentToken(), category, serviceId });
+    navigateTo("discover");
+  };
   const nextIntentToken = () => {
     intentTokenRef.current += 1;
     return intentTokenRef.current;
@@ -478,6 +628,10 @@ function MobileApp() {
   }, []);
   const openMarketplace = (productId?: string) => {
     setMarketplaceIntent({ token: nextIntentToken(), productId });
+    navigateTo("marketplace");
+  };
+  const openPartnerProfile = (businessId: string) => {
+    setMarketplaceIntent({ token: nextIntentToken(), businessId });
     navigateTo("marketplace");
   };
   const reorderProducts = (items: MobileActivityOrderItem[]) => {
@@ -490,9 +644,25 @@ function MobileApp() {
     });
     navigateTo("marketplace");
   };
-  const openConsultation = (itemId?: string) => {
+  const openConsultation = (veterinarianId?: string) => {
+    setWorldIntent({ token: nextIntentToken(), mode: "consult", veterinarianId });
+    navigateTo("world");
+  };
+  const openConsultationPlan = (itemId?: string) => {
     setWorldIntent({ token: nextIntentToken(), mode: "consult", itemId });
     navigateTo("world");
+  };
+  const openWorldItem = (mode: "academy" | "events" | "petspot", itemId: string) => {
+    setWorldIntent({ token: nextIntentToken(), mode, itemId });
+    navigateTo("world");
+  };
+  const openActivity = (itemId?: string) => {
+    setActivityIntent({ token: nextIntentToken(), itemId });
+    navigateTo("activity");
+  };
+  const openOrderActivity = () => {
+    setActivityIntent({ token: nextIntentToken(), type: "order" });
+    navigateTo("activity");
   };
   const rebookService = (serviceId?: string) => {
     const service = services.find((item) => item.id === serviceId);
@@ -510,13 +680,27 @@ function MobileApp() {
     }
     if (result.category === "service") {
       const service = services.find((item) => item.id === result.id);
-      if (service) {
-        openBooking(service);
-        return;
-      }
+      openServiceCatalog(service?.category, result.id);
+      return;
+    }
+    if (result.category === "product") {
+      openMarketplace(result.id);
+      return;
     }
     if (result.route === "consult" || result.category === "veterinarian") {
-      openConsultation();
+      openConsultation(result.category === "veterinarian" ? result.id : undefined);
+      return;
+    }
+    if (result.category === "academy") {
+      openWorldItem("academy", result.id);
+      return;
+    }
+    if (result.category === "event") {
+      openWorldItem("events", result.id);
+      return;
+    }
+    if (result.category === "petspot") {
+      openWorldItem("petspot", result.id);
       return;
     }
     navigateTo(searchRouteTabs[result.route] ?? "discover");
@@ -597,14 +781,17 @@ function MobileApp() {
             >
               {tab === "home" ? (
                 <HomeScreen
-                  onAction={notify}
-                  onBook={openBooking}
-                  onOpenConsultation={() => openConsultation()}
+                  onExploreService={openServiceCatalog}
+                  onOpenPartner={openPartnerProfile}
+                  onOpenConsultation={openConsultation}
+                  onOpenActivity={openActivity}
                   onOpenNotifications={() => setNotificationsOpen(true)}
                   onSearchResult={openSearchResult}
                   onNavigate={navigateTo}
                   ownerName={bootstrap?.user.full_name}
                   pet={pet}
+                  pets={pets}
+                  onSelectPet={selectPet}
                   services={services}
                   activities={bootstrap?.activities ?? []}
                 />
@@ -633,6 +820,7 @@ function MobileApp() {
                       );
                     }
                   }}
+                  intent={serviceIntent}
                 />
               ) : null}
               {tab === "marketplace" ? (
@@ -669,6 +857,9 @@ function MobileApp() {
                   }}
                   intent={marketplaceIntent}
                   onIntentHandled={consumeMarketplaceIntent}
+                  onOpenService={(service) => openServiceCatalog(service.category, service.id)}
+                  onExploreServices={(category) => openServiceCatalog(category)}
+                  onOpenOrders={openOrderActivity}
                 />
               ) : null}
               {tab === "world" ? (
@@ -715,9 +906,10 @@ function MobileApp() {
                     if (requirePet()) reorderProducts(items);
                   }}
                   onReconsult={(itemId) => {
-                    if (requirePet()) openConsultation(itemId);
+                    if (requirePet()) openConsultationPlan(itemId);
                   }}
                   onOpenProduct={openMarketplace}
+                  intent={activityIntent}
                 />
               ) : null}
               {tab === "health" ? (
@@ -769,47 +961,19 @@ function MobileApp() {
             </Animated.View>
 
             <View style={[styles.tabBar, { bottom: navigationBottom }]}>
-              {bottomTabs.map((item) => {
-                const active = item.id === tab;
-                return (
-                  <Pressable
-                    key={item.id}
-                    accessibilityRole="tab"
-                    accessibilityLabel={item.label}
-                    accessibilityState={{ selected: active }}
-                    onPress={() => {
-                      setMoreOpen(false);
-                      if (item.id === "marketplace") setMarketplaceIntent(undefined);
-                      navigateTo(item.id);
-                    }}
-                    style={({ pressed }) => [
-                      styles.tabItem,
-                      active && styles.activeTabItem,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <View
-                      style={[styles.tabIcon, active && styles.activeTabIcon]}
-                    >
-                      <Ionicons
-                        name={active ? item.activeIcon : item.icon}
-                        size={22}
-                        color={active ? colors.white : colors.muted}
-                      />
-                      {item.id === "activity" &&
-                      Boolean(bootstrap?.activities.length) ? (
-                        <View style={styles.activityDot} />
-                      ) : null}
-                    </View>
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.tabLabel, active && styles.activeTabLabel]}
-                    >
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              {bottomTabs.map((item) => (
+                <AnimatedTabButton
+                  key={item.id}
+                  item={item}
+                  active={item.id === tab}
+                  showDot={item.id === "activity" && Boolean(bootstrap?.activities.length)}
+                  onPress={() => {
+                    setMoreOpen(false);
+                    if (item.id === "marketplace") setMarketplaceIntent(undefined);
+                    navigateTo(item.id);
+                  }}
+                />
+              ))}
               <Pressable
                 accessibilityRole="tab"
                 accessibilityLabel="Fitur lainnya"
@@ -944,6 +1108,9 @@ function MobileApp() {
           visible={bookingOpen}
           service={selectedService}
           pet={pet}
+          pets={pets}
+          selectedPetId={pet?.id ?? ""}
+          onSelectPet={selectPet}
           busy={submitting}
           onClose={() => setBookingOpen(false)}
           onDone={async (input) => {
@@ -1679,10 +1846,115 @@ function LoginModal({
   );
 }
 
+function NativeServiceGallery({ service }: { service: Service }) {
+  const { width } = useWindowDimensions();
+  const [previewIndex, setPreviewIndex] = useState<number>();
+  const images = Array.from(
+    new Set([...(service.imageUrls ?? []), service.imageUrl].filter(Boolean)),
+  ) as string[];
+  if (!images.length) return null;
+  const galleryWidth = Math.max(260, width - 64);
+  return (
+    <>
+      <View style={styles.bookingServiceGalleryWrap}>
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          style={styles.bookingServiceGallery}
+        >
+          {images.map((uri, index) => (
+            <Pressable
+              key={uri}
+              onPress={() => setPreviewIndex(index)}
+              style={{ width: galleryWidth }}
+              accessibilityRole="imagebutton"
+              accessibilityLabel={`Perbesar foto ${index + 1} ${service.name}`}
+            >
+              <Image
+                source={{ uri }}
+                alt={`Foto ${index + 1} ${service.name}`}
+                accessibilityLabel={`Foto ${index + 1} ${service.name}`}
+                resizeMode="cover"
+                style={styles.bookingServiceGalleryImage}
+              />
+            </Pressable>
+          ))}
+        </ScrollView>
+        {images.length > 1 ? (
+          <View style={styles.bookingServiceGalleryCount}>
+            <Ionicons name="images-outline" size={13} color={colors.white} />
+            <Text style={styles.bookingServiceGalleryCountText}>
+              {images.length} foto · geser
+            </Text>
+          </View>
+        ) : null}
+      </View>
+      <Modal
+        visible={previewIndex !== undefined}
+        animationType="fade"
+        transparent
+        statusBarTranslucent
+        onRequestClose={() => setPreviewIndex(undefined)}
+      >
+        <SafeAreaView style={styles.bookingServiceViewer}>
+          <Pressable
+            onPress={() => setPreviewIndex(undefined)}
+            style={styles.bookingServiceViewerClose}
+            accessibilityLabel="Tutup galeri"
+          >
+            <Ionicons name="close" size={25} color={colors.white} />
+          </Pressable>
+          <Image
+            source={{ uri: images[previewIndex ?? 0] }}
+            alt={`Foto ${service.name}`}
+            resizeMode="contain"
+            accessibilityLabel={`Foto ${service.name}`}
+            style={styles.bookingServiceViewerImage}
+          />
+          {images.length > 1 ? (
+            <View style={styles.bookingServiceViewerControls}>
+              <Pressable
+                onPress={() =>
+                  setPreviewIndex(
+                    (value) =>
+                      ((value ?? 0) - 1 + images.length) % images.length,
+                  )
+                }
+              >
+                <Ionicons name="chevron-back" size={26} color={colors.white} />
+              </Pressable>
+              <Text style={styles.bookingServiceViewerCount}>
+                {(previewIndex ?? 0) + 1} / {images.length}
+              </Text>
+              <Pressable
+                onPress={() =>
+                  setPreviewIndex(
+                    (value) => ((value ?? 0) + 1) % images.length,
+                  )
+                }
+              >
+                <Ionicons
+                  name="chevron-forward"
+                  size={26}
+                  color={colors.white}
+                />
+              </Pressable>
+            </View>
+          ) : null}
+        </SafeAreaView>
+      </Modal>
+    </>
+  );
+}
+
 function BookingModal({
   visible,
   service,
   pet,
+  pets,
+  selectedPetId,
+  onSelectPet,
   busy,
   onClose,
   onDone,
@@ -1690,6 +1962,9 @@ function BookingModal({
   visible: boolean;
   service: Service;
   pet?: PetView;
+  pets: PetView[];
+  selectedPetId: string;
+  onSelectPet: (petId: string) => void;
   busy: boolean;
   onClose: () => void;
   onDone: (input: {
@@ -1700,17 +1975,36 @@ function BookingModal({
 }) {
   const { formatDate } = useI18n();
   const [step, setStep] = useState(1);
-  const toDate = (value: Date) =>
-    `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
-  const dates = Array.from({ length: 5 }, (_, index) => {
-    const value = new Date();
-    value.setDate(value.getDate() + index + 1);
-    return value;
-  });
-  const [date, setDate] = useState(() => toDate(dates[0] ?? new Date()));
-  const [time, setTime] = useState("16.00");
+  const [availability, setAvailability] = useState<MobileServiceAvailability>();
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState("");
+  const [date, setDate] = useState("");
+  const [startsAt, setStartsAt] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [notes, setNotes] = useState("");
+  const selectedDay = availability?.data.find((item) => item.date === date);
+  const selectedSlot = selectedDay?.slots.find((item) => item.starts_at === startsAt);
+  useEffect(() => {
+    if (!visible || !service.id || !service.branchId) return;
+    queueMicrotask(() => {
+      setStep(1);
+      setAvailabilityLoading(true);
+      setAvailabilityError("");
+    });
+    void getMobileServiceAvailability(service.id, service.branchId, 14)
+      .then((result) => {
+        setAvailability(result);
+        const firstDay = result.data.find((item) => item.slots.length > 0);
+        setDate(firstDay?.date ?? "");
+        setStartsAt(firstDay?.slots[0]?.starts_at ?? "");
+        if (!firstDay) setAvailabilityError(result.reason || "Belum ada slot dalam 14 hari ke depan.");
+      })
+      .catch((cause) => {
+        setAvailability(undefined);
+        setAvailabilityError(cause instanceof Error ? cause.message : "Jadwal cabang belum dapat dimuat.");
+      })
+      .finally(() => setAvailabilityLoading(false));
+  }, [service.branchId, service.id, visible]);
   return (
     <Modal
       visible={visible}
@@ -1775,28 +2069,23 @@ function BookingModal({
               </View>
               {step === 1 ? (
                 <View>
+                  <View style={styles.bookingStepIntro}>
+                    <View style={styles.bookingStepIntroNumber}><Text style={styles.bookingStepIntroNumberText}>1</Text></View>
+                    <View style={styles.bookingStepIntroCopy}><Text style={styles.bookingStepIntroTitle}>Untuk siapa booking ini?</Text><Text style={styles.bookingStepIntroNote}>Pilih pet agar riwayat layanan tersimpan di profil yang tepat.</Text></View>
+                  </View>
                   <Text style={styles.fieldLabel}>Pilih hewan</Text>
-                  <View style={styles.selectedPet}>
-                    <Text style={styles.selectedPetEmoji}>
-                      {pet?.icon || "🐾"}
-                    </Text>
-                    <View style={styles.selectedPetCopy}>
-                      <Text style={styles.selectedPetName}>
-                        {pet?.name || "Pet"}
-                      </Text>
-                      <Text style={styles.selectedPetMeta}>
-                        {pet?.breed || "Profil pet"} • {pet?.weight || "—"}
-                      </Text>
-                    </View>
-                    <View style={styles.selectedCheck}>
-                      <Ionicons
-                        name="checkmark"
-                        size={12}
-                        color={colors.white}
-                      />
-                    </View>
+                  <View style={styles.bookingPetOptions}>
+                    {pets.map((option) => {
+                      const active = option.id === selectedPetId;
+                      return <Pressable key={option.id} onPress={() => onSelectPet(option.id)} style={[styles.selectedPet, !active && styles.selectedPetInactive]}>
+                        <Text style={styles.selectedPetEmoji}>{option.icon || "🐾"}</Text>
+                        <View style={styles.selectedPetCopy}><Text style={styles.selectedPetName}>{option.name}</Text><Text style={styles.selectedPetMeta}>{option.breed} • {option.weight}</Text></View>
+                        {active ? <View style={styles.selectedCheck}><Ionicons name="checkmark" size={12} color={colors.white} /></View> : null}
+                      </Pressable>;
+                    })}
                   </View>
                   <Text style={styles.fieldLabel}>Layanan yang dipilih</Text>
+                  <NativeServiceGallery service={service} />
                   <View style={styles.selectedService}>
                     <Text style={styles.serviceOptionEmoji}>
                       {service.icon}
@@ -1817,67 +2106,74 @@ function BookingModal({
               ) : null}
               {step === 2 ? (
                 <View>
+                  <View style={styles.bookingStepIntro}>
+                    <View style={styles.bookingStepIntroNumber}><Text style={styles.bookingStepIntroNumberText}>2</Text></View>
+                    <View style={styles.bookingStepIntroCopy}><Text style={styles.bookingStepIntroTitle}>Pilih slot aktual</Text><Text style={styles.bookingStepIntroNote}>Jadwal dan sisa kapasitas berasal langsung dari cabang mitra.</Text></View>
+                  </View>
                   <Text style={styles.fieldLabel}>Pilih tanggal</Text>
-                  <View style={styles.dateRow}>
-                    {dates.map((item) => {
-                      const value = toDate(item);
+                  {availabilityLoading ? <View style={styles.availabilityState}><ActivityIndicator color={colors.sky600} /><Text style={styles.availabilityStateText}>Menyinkronkan jadwal cabang…</Text></View> : null}
+                  {availabilityError && !availabilityLoading ? <View style={styles.availabilityError}><Ionicons name="alert-circle-outline" size={18} color={colors.red} /><Text style={styles.availabilityErrorText}>{availabilityError}</Text></View> : null}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRow}>
+                    {availability?.data.filter((item) => item.slots.length > 0).map((item) => {
+                      const localDate = new Date(`${item.date}T12:00:00`);
                       return (
                         <Pressable
-                          key={value}
-                          onPress={() => setDate(value)}
+                          key={item.date}
+                          onPress={() => { setDate(item.date); setStartsAt(item.slots[0]?.starts_at ?? ""); }}
                           style={[
                             styles.dateOption,
-                            date === value && styles.activeDate,
+                            date === item.date && styles.activeDate,
                           ]}
                         >
                           <Text
                             style={[
                               styles.dateDay,
-                              date === value && styles.activeDateText,
+                              date === item.date && styles.activeDateText,
                             ]}
                           >
-                            {formatDate(item, { weekday: "short" }).toUpperCase()}
+                            {formatDate(localDate, { weekday: "short" }).toUpperCase()}
                           </Text>
                           <Text
                             style={[
                               styles.dateNumber,
-                              date === value && styles.activeDateText,
+                              date === item.date && styles.activeDateText,
                             ]}
                           >
-                            {item.getDate()}
+                            {localDate.getDate()}
                           </Text>
                           <Text
                             style={[
                               styles.dateMonth,
-                              date === value && styles.activeDateText,
+                              date === item.date && styles.activeDateText,
                             ]}
                           >
-                            {formatDate(item, { month: "short" })}
+                            {formatDate(localDate, { month: "short" })}
                           </Text>
                         </Pressable>
                       );
                     })}
-                  </View>
+                  </ScrollView>
                   <Text style={styles.fieldLabel}>Pilih waktu</Text>
                   <View style={styles.timeGrid}>
-                    {["09.00", "10.30", "13.00", "14.30", "16.00", "17.30"].map(
-                      (item) => (
+                    {selectedDay?.slots.map(
+                      (slot) => (
                         <Pressable
-                          key={item}
-                          onPress={() => setTime(item)}
+                          key={slot.starts_at}
+                          onPress={() => setStartsAt(slot.starts_at)}
                           style={[
                             styles.timeOption,
-                            time === item && styles.activeTime,
+                            startsAt === slot.starts_at && styles.activeTime,
                           ]}
                         >
                           <Text
                             style={[
                               styles.timeText,
-                              time === item && styles.activeTimeText,
+                              startsAt === slot.starts_at && styles.activeTimeText,
                             ]}
                           >
-                            {item}
+                            {slot.local_time}
                           </Text>
+                          {slot.remaining_capacity <= 3 ? <Text style={[styles.slotCapacity, startsAt === slot.starts_at && styles.activeTimeText]}>Sisa {slot.remaining_capacity}</Text> : null}
                         </Pressable>
                       ),
                     )}
@@ -1896,6 +2192,10 @@ function BookingModal({
               ) : null}
               {step === 3 ? (
                 <View>
+                  <View style={styles.bookingStepIntro}>
+                    <View style={styles.bookingStepIntroNumber}><Text style={styles.bookingStepIntroNumberText}>3</Text></View>
+                    <View style={styles.bookingStepIntroCopy}><Text style={styles.bookingStepIntroTitle}>Periksa sekali lagi</Text><Text style={styles.bookingStepIntroNote}>Pastikan pet, cabang, jadwal, dan biaya sudah benar.</Text></View>
+                  </View>
                   <View style={styles.bookingSummary}>
                     <View style={styles.summaryIcon}>
                       <Text>{service.icon}</Text>
@@ -1916,7 +2216,7 @@ function BookingModal({
                     <SummaryLine label="Layanan" value={service.name} />
                     <SummaryLine
                       label="Jadwal"
-                      value={`${formatDate(new Date(`${date}T12:00:00`))} • ${time} WIB`}
+                      value={selectedSlot ? `${formatDate(new Date(selectedSlot.starts_at), { day: "numeric", month: "long", year: "numeric" })} • ${selectedSlot.local_time} ${availability?.timezone ?? ""}` : "Belum dipilih"}
                     />
                     <SummaryLine
                       label="Total pembayaran"
@@ -1957,21 +2257,19 @@ function BookingModal({
                   }
                   icon="arrow-forward"
                   onPress={() => {
-                    if (busy) return;
+                    if (busy || (step === 1 && !pet) || (step === 2 && (!startsAt || availabilityLoading))) return;
                     if (step < 3) {
                       setStep(step + 1);
                       return;
                     }
-                    const [hour, minute] = time.split(".");
                     void onDone({
-                      scheduled_at: new Date(
-                        `${date}T${hour}:${minute}:00`,
-                      ).toISOString(),
+                      scheduled_at: startsAt,
                       notes,
                       payment_method: paymentMethod,
                     });
                   }}
-                  style={[styles.footerButton, { opacity: busy ? 0.65 : 1 }]}
+                  disabled={busy || (step === 1 && !pet) || (step === 2 && (!startsAt || availabilityLoading))}
+                  style={[styles.footerButton, { opacity: busy || (step === 2 && (!startsAt || availabilityLoading)) ? 0.65 : 1 }]}
                 />
               </View>
             </ScrollView>
@@ -2085,10 +2383,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 2,
     borderRadius: 16,
+    overflow: "hidden",
   },
-  activeTabItem: {
-    transform: [{ translateY: -1 }],
-  },
+  tabItemPressed: { opacity: 0.82 },
+  activeTabItem: { transform: [{ translateY: -1 }] },
+  tabAnimatedContent: { alignItems: "center", justifyContent: "center", gap: 2 },
   tabIcon: {
     position: "relative",
     width: 36,
@@ -2625,6 +2924,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   bookingContent: { paddingBottom: 8 },
+  bookingStepIntro: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4, marginBottom: 9, padding: 10, borderWidth: 1, borderColor: colors.sky100, borderRadius: 15, backgroundColor: colors.sky50 },
+  bookingStepIntroNumber: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: colors.sky600 },
+  bookingStepIntroNumberText: { color: colors.white, fontSize: 11, fontWeight: "700" },
+  bookingStepIntroCopy: { minWidth: 0, flex: 1 },
+  bookingStepIntroTitle: { color: colors.navy, fontSize: 12, fontWeight: "700" },
+  bookingStepIntroNote: { marginTop: 2, color: colors.muted, fontSize: 9, lineHeight: 14 },
   stepper: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -2664,6 +2969,8 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: colors.sky50,
   },
+  bookingPetOptions: { gap: 7 },
+  selectedPetInactive: { borderColor: colors.line, backgroundColor: colors.white },
   selectedPetEmoji: {
     width: 40,
     height: 40,
@@ -2684,6 +2991,72 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.sky600,
+  },
+  bookingServiceGalleryWrap: {
+    position: "relative",
+    overflow: "hidden",
+    marginBottom: 8,
+    borderRadius: 16,
+  },
+  bookingServiceGallery: { borderRadius: 16 },
+  bookingServiceGalleryImage: {
+    width: "100%",
+    height: 170,
+    borderRadius: 16,
+  },
+  bookingServiceGalleryCount: {
+    position: "absolute",
+    right: 10,
+    bottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(7,34,52,.7)",
+  },
+  bookingServiceGalleryCountText: {
+    color: colors.white,
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  bookingServiceViewer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(3,17,26,.96)",
+  },
+  bookingServiceViewerImage: { width: "100%", height: "78%" },
+  bookingServiceViewerClose: {
+    position: "absolute",
+    zIndex: 2,
+    top: 12,
+    right: 14,
+    width: 46,
+    height: 46,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,.12)",
+  },
+  bookingServiceViewerControls: {
+    position: "absolute",
+    bottom: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,.12)",
+  },
+  bookingServiceViewerCount: {
+    minWidth: 46,
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
   },
   selectedService: {
     minHeight: 62,
@@ -2727,9 +3100,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "right",
   },
-  dateRow: { flexDirection: "row", gap: 6 },
+  dateRow: { flexDirection: "row", gap: 6, paddingRight: 10 },
   dateOption: {
-    flex: 1,
+    width: 62,
     minHeight: 60,
     borderWidth: 1,
     borderColor: colors.line,
@@ -2748,6 +3121,10 @@ const styles = StyleSheet.create({
   },
   dateMonth: { color: colors.muted, fontSize: 10 },
   activeDateText: { color: colors.white },
+  availabilityState: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8, borderRadius: 13, backgroundColor: colors.sky50 },
+  availabilityStateText: { color: colors.sky600, fontSize: 10, fontWeight: "600" },
+  availabilityError: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8, padding: 10, borderWidth: 1, borderColor: "#F5C8CE", borderRadius: 13, backgroundColor: colors.red50 },
+  availabilityErrorText: { minWidth: 0, flex: 1, color: colors.red, fontSize: 10, lineHeight: 15 },
   timeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   timeOption: {
     width: "31.5%",
@@ -2760,6 +3137,7 @@ const styles = StyleSheet.create({
   },
   activeTime: { borderColor: colors.sky500, backgroundColor: colors.sky50 },
   timeText: { color: colors.text, fontSize: 11 },
+  slotCapacity: { marginTop: 2, color: colors.red, fontSize: 8 },
   activeTimeText: { color: colors.sky600, fontWeight: "700" },
   notes: {
     minHeight: 76,

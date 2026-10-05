@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   label: {
     marginBottom: 8,
     color: colors.text,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
   },
   methodRow: { gap: 8, paddingRight: 8 },

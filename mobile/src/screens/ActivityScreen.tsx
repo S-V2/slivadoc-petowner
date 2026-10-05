@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -11,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { WebView } from "react-native-webview";
 
 import {
   getMobileActivityCenter,
@@ -55,6 +55,7 @@ type ActivityScreenProps = {
   onReorder: (items: MobileActivityOrderItem[]) => void;
   onReconsult: (planId?: string) => void;
   onOpenProduct: (productId: string) => void;
+  intent?: { token: number; itemId?: string; type?: "order" };
 };
 
 const typeOptions: Array<{
@@ -382,6 +383,7 @@ function ActivityDetailSheet({
 }) {
   const { formatCurrency, locale } = useI18n();
   const [invoiceBusy, setInvoiceBusy] = useState(false);
+  const [invoiceHTML, setInvoiceHTML] = useState("");
   if (!item) return null;
   const presentation = typePresentation(item.type);
   const status = statusPresentation(item.status);
@@ -391,7 +393,7 @@ function ActivityDetailSheet({
       : item.type === "consultation"
         ? "consultation"
         : "shop_order";
-  return (
+  return <>
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <SafeAreaView
@@ -789,11 +791,7 @@ function ActivityDetailSheet({
                     invoiceReferenceType,
                     item.id,
                   )
-                    .then((html) =>
-                      Linking.openURL(
-                        `data:text/html;charset=utf-8,${encodeURIComponent(html)}`,
-                      ),
-                    )
+                    .then(setInvoiceHTML)
                     .catch((cause) =>
                       Alert.alert(
                         "Invoice belum dapat dibuka",
@@ -818,7 +816,36 @@ function ActivityDetailSheet({
         </SafeAreaView>
       </Pressable>
     </Modal>
-  );
+    <Modal
+      visible={Boolean(invoiceHTML)}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      statusBarTranslucent={false}
+      onRequestClose={() => setInvoiceHTML("")}
+    >
+      <SafeAreaView edges={["top", "bottom", "left", "right"]} style={styles.invoicePage}>
+        <View style={styles.invoiceHeader}>
+          <View style={styles.invoiceHeaderIcon}><Ionicons name="document-text" size={20} color={colors.white} /></View>
+          <View style={styles.invoiceHeaderCopy}>
+            <Text style={styles.invoiceHeaderEyebrow}>DOKUMEN TRANSAKSI</Text>
+            <Text numberOfLines={1} style={styles.invoiceHeaderTitle}>{item.code}</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Tutup invoice" onPress={() => setInvoiceHTML("")} style={styles.invoiceClose}>
+            <Ionicons name="close" size={22} color={colors.navy} />
+          </Pressable>
+        </View>
+        {invoiceHTML ? (
+          <WebView
+            source={{ html: invoiceHTML, baseUrl: "https://slivadoc.com" }}
+            originWhitelist={["about:blank", "https://*"]}
+            setSupportMultipleWindows={false}
+            javaScriptEnabled={false}
+            style={styles.invoiceWebView}
+          />
+        ) : null}
+      </SafeAreaView>
+    </Modal>
+  </>;
 }
 
 export function ActivityScreen({
@@ -836,6 +863,7 @@ export function ActivityScreen({
   onReorder,
   onReconsult,
   onOpenProduct,
+  intent,
 }: ActivityScreenProps) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [stateFilter, setStateFilter] = useState<MobileActivityState>("all");
@@ -853,6 +881,7 @@ export function ActivityScreen({
   const [createOpen, setCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const requestSequence = useRef(0);
+  const handledIntent = useRef(0);
 
   const loadActivities = useCallback(async (silent = false) => {
     if (!authenticated) return;
@@ -882,6 +911,19 @@ export function ActivityScreen({
   useEffect(() => {
     queueMicrotask(() => void loadActivities());
   }, [loadActivities, refreshVersion]);
+  useEffect(() => {
+    if (!intent || loading || handledIntent.current === intent.token) return;
+    handledIntent.current = intent.token;
+    const requestedType = intent.type;
+    if (requestedType) queueMicrotask(() => setTypeFilter(requestedType));
+    if (!intent.itemId) return;
+    const match = activities.find(
+      (activity) =>
+        activity.id === intent.itemId || activity.reference_id === intent.itemId,
+    );
+    if (match) queueMicrotask(() => setSelected(match));
+    else onAction("Detail aktivitas tersebut belum tersedia");
+  }, [activities, intent, loading, onAction]);
   const loadHousing = useCallback(async () => {
     if (!authenticated) return;
     try {
@@ -1305,12 +1347,16 @@ const styles = StyleSheet.create({
   activityCopy: { minWidth: 0, flex: 1 },
   activityMetaRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 6,
   },
   activityType: {
+    minWidth: 0,
+    flex: 1,
+    flexShrink: 1,
     fontSize: 9,
+    lineHeight: 14,
     fontWeight: "600",
     letterSpacing: 0.7,
     textTransform: "uppercase",
@@ -1436,6 +1482,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(10,38,58,.38)",
   },
   sheetSafeArea: { width: "100%", maxHeight: "88%" },
+  invoicePage: { flex: 1, backgroundColor: colors.white },
+  invoiceHeader: { minHeight: 66, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.sky100, backgroundColor: colors.sky25 },
+  invoiceHeaderIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.sky600 },
+  invoiceHeaderCopy: { minWidth: 0, flex: 1 },
+  invoiceHeaderEyebrow: { color: colors.sky600, fontSize: 8, fontWeight: "700", letterSpacing: 1 },
+  invoiceHeaderTitle: { marginTop: 2, color: colors.navy, fontSize: 14, fontWeight: "700" },
+  invoiceClose: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.white },
+  invoiceWebView: { flex: 1, backgroundColor: colors.white },
   sheet: {
     overflow: "hidden",
     maxHeight: "100%",

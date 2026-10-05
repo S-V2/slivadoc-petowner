@@ -506,6 +506,7 @@ function CommentsSheet({
 }) {
   const [items, setItems] = useState<CommunityComment[]>([]);
   const [text, setText] = useState("");
+  const [replyingTo, setReplyingTo] = useState<CommunityComment | null>(null);
   const [busy, setBusy] = useState(true);
   useEffect(() => {
     void getCommunityComments(post.id)
@@ -523,7 +524,7 @@ function CommentsSheet({
     if (!text.trim()) return;
     setBusy(true);
     try {
-      const result = await createCommunityComment(post.id, text.trim());
+      const result = await createCommunityComment(post.id, text.trim(), replyingTo?.id);
       setItems((current) => [
         ...current,
         {
@@ -531,10 +532,12 @@ function CommentsSheet({
           user_id: "me",
           author_name: "Kamu",
           body: text.trim(),
+          parent_id: replyingTo?.id,
           created_at: result.created_at,
         },
       ]);
       setText("");
+      setReplyingTo(null);
       updated();
     } catch (error) {
       notify(
@@ -562,25 +565,31 @@ function CommentsSheet({
           {busy && !items.length ? (
             <p>Memuat komentar…</p>
           ) : items.length ? (
-            items.map((item) => (
-              <div key={item.id}>
+            items.map((item) => {
+              const parent = item.parent_id
+                ? items.find((candidate) => candidate.id === item.parent_id)
+                : undefined;
+              return (
+              <div key={item.id} className={item.parent_id ? "comment-reply" : "comment-root"}>
                 <span>{item.author_name.slice(0, 1)}</span>
                 <p>
+                  {parent && <mark><Icon name="arrow" size={11} /> Membalas {parent.author_name}</mark>}
                   <b>{item.author_name}</b>
                   <small>{item.body}</small>
-                  <em>{relativeTime(item.created_at)}</em>
+                  <em>{relativeTime(item.created_at)} <button type="button" onClick={() => setReplyingTo(item)}>Balas</button></em>
                 </p>
               </div>
-            ))
+            );})
           ) : (
             <div className="empty-state compact">Belum ada komentar.</div>
           )}
         </div>
+        {replyingTo && <div className="comment-replying"><span><Icon name="arrow" size={12} /> Membalas <b>{replyingTo.author_name}</b></span><button type="button" onClick={() => setReplyingTo(null)} aria-label="Batal membalas"><Icon name="close" size={14} /></button></div>}
         <footer className="comment-input">
           <input
             value={text}
             onChange={(event) => setText(event.target.value)}
-            placeholder="Tulis komentar yang suportif…"
+            placeholder={replyingTo ? `Balas ${replyingTo.author_name}…` : "Tulis komentar yang suportif…"}
             onKeyDown={(event) => event.key === "Enter" && void send()}
           />
           <button disabled={busy || !text.trim()} onClick={() => void send()}>

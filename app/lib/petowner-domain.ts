@@ -58,6 +58,10 @@ export type Pet = {
 export type Service = {
   id: string;
   branchId?: string;
+  businessId?: string;
+  businessName?: string;
+  branchName?: string;
+  city?: string;
   priceValue?: number;
   name: string;
   type: "Clinic" | "Grooming" | "Pet Shop" | "Pet Hotel" | "Home Care";
@@ -68,6 +72,7 @@ export type Service = {
   status: string;
   address: string;
   imageUrl?: string;
+  imageUrls?: string[];
   emoji: string;
   accent: string;
   tags: string[];
@@ -104,6 +109,7 @@ export type Product = {
   sold: string;
   emoji: string;
   imageUrl?: string;
+  imageUrls?: string[];
   category: string;
   createdAt?: string;
   badge?: string;

@@ -2,6 +2,7 @@ import {
   apiRequest,
   hasSession,
   getAccessToken,
+  refreshSession,
   getCurrentUserID,
   getCurrentUser,
   clearSession,
@@ -14,6 +15,46 @@ import {
 
 export const PLATFORM_API_URL =
   process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? "http://localhost:8080";
+
+export async function getTransactionInvoiceHTML(
+  referenceType:
+    | "shop_order"
+    | "pos_invoice"
+    | "brand_purchase_order"
+    | "petowner_booking"
+    | "consultation"
+    | "academy_enrollment"
+    | "event_registration"
+    | "document_request"
+    | "fundraiser_donation",
+  referenceID: string,
+) {
+  const path = `/api/v1/transaction-documents/${referenceType}/${referenceID}/invoice`;
+  const send = () =>
+    fetch(`${PLATFORM_API_URL}${path}`, {
+      headers: {
+        Accept: "text/html",
+        ...(getAccessToken()
+          ? { Authorization: `Bearer ${getAccessToken()}` }
+          : {}),
+      },
+    });
+  let response = await send();
+  if (response.status === 401) {
+    await refreshSession();
+    response = await send();
+  }
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      message?: string;
+    };
+    throw new ApiError(
+      payload.message ?? "Invoice belum dapat dimuat",
+      response.status,
+    );
+  }
+  return response.text();
+}
 
 export type PlatformList<T> = {
   data: T[];
@@ -340,6 +381,7 @@ export type DiscoveryService = {
   name: string;
   category: string;
   image_url: string;
+  image_urls: string[];
   duration_minutes: number;
   price: number;
   address: string;
@@ -406,6 +448,7 @@ export type DiscoveryProduct = {
   category: string;
   description: string;
   image_url: string;
+  image_urls: string[];
   price: number;
   stock: number;
   minimum_stock: number;
@@ -624,6 +667,7 @@ export type AcademyProgram = {
   price: number;
   capacity: number;
   cover_url: string;
+  image_urls: string[];
   status: string;
   trainer_name: string;
   trainer_rating: number;
@@ -637,6 +681,7 @@ export type PetEvent = {
   category: string;
   description: string;
   banner_url: string;
+  image_urls: string[];
   venue: string;
   address: string;
   city: string;
@@ -669,6 +714,7 @@ export type PetSpot = {
   phone: string;
   website_url: string;
   cover_url: string;
+  image_urls: string[];
   pet_facilities: string[];
   opening_hours: Record<string, string>;
   rating: number;
@@ -2057,10 +2103,10 @@ export const getCommunityComments = (postId: string) =>
     `/api/v1/community/posts/${postId}/comments`,
   );
 
-export const createCommunityComment = (postId: string, body: string) =>
+export const createCommunityComment = (postId: string, body: string, parentId?: string) =>
   request<{ id: string; created_at: string; message: string }>(
     `/api/v1/community/posts/${postId}/comments`,
-    { method: "POST", body: JSON.stringify({ body }) },
+    { method: "POST", body: JSON.stringify({ body, parent_id: parentId || undefined }) },
   );
 
 export const getCommunityGroups = (search = "") =>

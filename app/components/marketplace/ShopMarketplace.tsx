@@ -212,14 +212,12 @@ function ProductCard({
   onOpen,
   onStore,
   onFavorite,
-  onAdd,
 }: {
   product: Product;
   favorite: boolean;
   onOpen: () => void;
   onStore: () => void;
   onFavorite: () => void;
-  onAdd: () => void;
 }) {
   const badge = !product.available
     ? "Stok habis"
@@ -332,18 +330,6 @@ function ProductCard({
             }}
           >
             Detail <Icon name="arrow" size={14} />
-          </button>
-          <button
-            type="button"
-            className="market-add-button"
-            disabled={!product.available}
-            aria-label={`Tambah ${product.name} ke keranjang`}
-            onClick={(event) => {
-              event.stopPropagation();
-              onAdd();
-            }}
-          >
-            <Icon name="cart" size={17} />
           </button>
         </footer>
       </div>
@@ -1158,7 +1144,6 @@ function MarketplaceStorefront({
   onOpenService,
   onChat,
   onFavorite,
-  onAdd,
 }: {
   response?: MarketplaceStoreResponse;
   products: Product[];
@@ -1172,7 +1157,6 @@ function MarketplaceStorefront({
   onOpenService: (service: Service) => void;
   onChat: () => void;
   onFavorite: (product: Product) => void;
-  onAdd: (product: Product) => void;
 }) {
   const [section, setSection] = useState<StoreSection>(initialSection);
   const [sort, setSort] = useState<SortMode>("popular");
@@ -1289,7 +1273,7 @@ function MarketplaceStorefront({
           </div>
           <div className="market-product-grid">
             {visible.map((product) => (
-              <ProductCard key={product.id} product={product} favorite={favorites.includes(product.id)} onOpen={() => onOpenProduct(product)} onStore={() => undefined} onFavorite={() => onFavorite(product)} onAdd={() => onAdd(product)} />
+              <ProductCard key={product.id} product={product} favorite={favorites.includes(product.id)} onOpen={() => onOpenProduct(product)} onStore={() => undefined} onFavorite={() => onFavorite(product)} />
             ))}
           </div>
         </section>
@@ -1700,7 +1684,6 @@ export default function ShopMarketplace({
           onOpenService={onOpenService}
           onChat={() => void openChat()}
           onFavorite={(product) => toggleFavorite(product.id)}
-          onAdd={(product) => addToCart(product.id)}
         />
         {chat && <MarketplaceChatPanel {...chat} onClose={() => setChat(undefined)} onShortcut={openChatShortcut} notify={notify} />}
       </>
@@ -1865,7 +1848,6 @@ export default function ShopMarketplace({
                 onOpen={() => openProduct(product)}
                 onStore={() => openStore(product.businessId)}
                 onFavorite={() => toggleFavorite(product.id)}
-                onAdd={() => addToCart(product.id)}
               />
             ))}
           </div>

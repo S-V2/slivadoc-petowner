@@ -43,6 +43,8 @@ test("web marketplace cards expose purchase-critical product data", () => {
   }
   assert.match(web, /Sliva Point/);
   assert.match(web, /aria-label=\{`Lihat detail \$\{product\.name\}`\}/);
+  assert.doesNotMatch(web, /market-add-button/);
+  assert.match(css, /\.market-product-card\s*\{[\s\S]*?border-radius:\s*16px/);
 });
 
 test("product cards deep-link to detail and verified review APIs", () => {

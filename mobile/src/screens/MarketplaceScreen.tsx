@@ -333,14 +333,12 @@ function ProductCard({
   favorite,
   onOpen,
   onStore,
-  onAdd,
   onFavorite,
 }: {
   product: MobileProduct;
   favorite: boolean;
   onOpen: () => void;
   onStore: () => void;
-  onAdd: () => void;
   onFavorite: () => void;
 }) {
   const { formatCurrency, formatDate, formatNumber } = useI18n();
@@ -417,21 +415,6 @@ function ProductCard({
               </Text>
             </View>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            disabled={!product.available}
-            onPress={(event) => {
-              event.stopPropagation();
-              onAdd();
-            }}
-            style={({ pressed }) => [
-              styles.addButton,
-              !product.available && styles.disabledButton,
-              pressed && product.available && styles.pressed,
-            ]}
-          >
-            <Ionicons name="cart-outline" size={19} color={colors.white} />
-          </Pressable>
         </View>
         <View style={styles.productFulfillment}>
           <View style={styles.productFulfillmentItem}>
@@ -1482,7 +1465,6 @@ export function MarketplaceScreen({
                 favorite={favorites.includes(product.id)}
                 onOpen={() => openProduct(product)}
                 onStore={() => void openStore(product.business_id)}
-                onAdd={() => addToCart(product)}
                 onFavorite={() => {
                   if (!authenticated) return onRequireLogin();
                   void onToggleFavorite(product.id);
@@ -1566,7 +1548,6 @@ export function MarketplaceScreen({
           if (!authenticated) return onRequireLogin();
           void onToggleFavorite(product.id);
         }}
-        onAdd={addToCart}
       />
 
       {chat ? (
@@ -2052,7 +2033,6 @@ function StorefrontSheet({
   onOpenService,
   onChat,
   onFavorite,
-  onAdd,
 }: {
   visible: boolean;
   response?: MobileMarketplaceStoreResponse;
@@ -2067,7 +2047,6 @@ function StorefrontSheet({
   onOpenService: (service: Service) => void;
   onChat: () => void;
   onFavorite: (product: MobileProduct) => void;
-  onAdd: (product: MobileProduct) => void;
 }) {
   const { formatDate } = useI18n();
   const { height: windowHeight } = useWindowDimensions();
@@ -2343,7 +2322,6 @@ function StorefrontSheet({
                     favorite={favorites.includes(product.id)}
                     onOpen={() => onOpenProduct(product)}
                     onStore={() => undefined}
-                    onAdd={() => onAdd(product)}
                     onFavorite={() => onFavorite(product)}
                   />
                 ))}
@@ -3456,7 +3434,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     rowGap: 14,
   },
-  productCard: { width: "48.5%", overflow: "hidden", borderRadius: 22, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, ...shadow },
+  productCard: { width: "48.5%", overflow: "hidden", borderRadius: 16, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, ...shadow },
   pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
   productVisualWrap: { position: "relative", height: 122 },
   productImage: { width: "100%", height: "100%" },
@@ -3620,14 +3598,6 @@ const styles = StyleSheet.create({
     height: 10,
     marginHorizontal: 2,
     backgroundColor: colors.line,
-  },
-  addButton: {
-    width: 38,
-    height: 38,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 13,
-    backgroundColor: colors.sky600,
   },
   productFulfillment: {
     minWidth: 0,

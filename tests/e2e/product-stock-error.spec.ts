@@ -97,8 +97,11 @@ test("stock error returns to cart and marks affected product", async ({ page }) 
 
   await page.goto("/?view=shop", { waitUntil: "domcontentloaded" });
   await expect(
-    page.getByRole("button", { name: "Tambah Cat Teaser Feather ke keranjang" }),
+    page.getByRole("link", { name: "Lihat detail Cat Teaser Feather" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Tambah Cat Teaser Feather ke keranjang" }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Keranjang", exact: true }).last().click();
   await page.getByRole("button", { name: "Atur pengiriman" }).click();
 

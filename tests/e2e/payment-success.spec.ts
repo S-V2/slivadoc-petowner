@@ -140,8 +140,11 @@ test("mobile checkout keeps address readable and confirms paid orders", async ({
   await page.setViewportSize({ width: 428, height: 701 });
   await page.goto("/?view=shop", { waitUntil: "domcontentloaded" });
   await expect(
-    page.getByRole("button", { name: "Tambah Test Food ke keranjang" }),
+    page.getByRole("link", { name: "Lihat detail Test Food" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Tambah Test Food ke keranjang" }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Keranjang", exact: true }).last().click();
   await expect(page.locator(".cart-item")).toHaveCount(1);
   await page.getByRole("button", { name: "Atur pengiriman" }).click();

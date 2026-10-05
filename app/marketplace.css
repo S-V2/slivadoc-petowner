@@ -407,7 +407,7 @@
   display: flex;
   flex-direction: column;
   border: 1px solid var(--sky-100);
-  border-radius: 22px;
+  border-radius: 16px;
   outline: 0;
   background: #fff;
   box-shadow: 0 12px 30px rgba(25, 84, 109, 0.08);
@@ -672,7 +672,7 @@
 
 .market-card-content footer {
   display: grid;
-  grid-template-columns: auto minmax(92px, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 7px;
   margin-top: auto;
   padding-top: 12px;
@@ -704,19 +704,10 @@
   transform: translateX(2px);
 }
 
-.market-add-button {
-  border: 0;
-  color: #fff;
-  background: var(--sky-600);
-  box-shadow: 0 8px 18px rgba(4, 132, 180, 0.18);
-}
-
-.market-add-button:hover:not(:disabled),
 .market-purchase-box > div > button:last-child:hover:not(:disabled) {
   background: var(--sky-500);
 }
 
-.market-add-button:disabled,
 .market-purchase-box button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -1897,7 +1888,7 @@
   }
 
   .market-product-card {
-    border-radius: 18px;
+    border-radius: 14px;
     box-shadow: 0 9px 22px rgba(25, 84, 109, 0.08);
   }
 
@@ -1945,19 +1936,15 @@
   }
 
   .market-card-content footer {
-    grid-template-columns: 40px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .market-detail-link {
-    font-size: 0 !important;
+    font-size: 10px !important;
   }
 
   .market-detail-link svg {
     margin: 0;
-  }
-
-  .market-add-button {
-    font-size: 9px !important;
   }
 
   .market-confidence-strip {

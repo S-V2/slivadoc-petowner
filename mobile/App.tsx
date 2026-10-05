@@ -1449,7 +1449,11 @@ function MoreModal({
               title="Mau ke mana?"
               onClose={onClose}
             />
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.moreContent}>
+            <ScrollView
+              style={styles.moreScroll}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.moreContent}
+            >
               <Text style={styles.moreSectionEyebrow}>AKUN & PERAWATAN</Text>
               <View style={styles.moreGrid}>
               {moreTabs.filter((item) => item.id !== "world").map((item) => {
@@ -2612,37 +2616,41 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   notificationSheet: { flex: 1, paddingHorizontal: 16, paddingBottom: 4 },
-  moreSheetWrap: { height: "90%" },
+  moreSheetWrap: { width: "100%", maxHeight: "82%" },
   moreSheet: {
+    maxHeight: "100%",
+    flexShrink: 1,
+    overflow: "hidden",
     paddingHorizontal: 16,
     paddingBottom: 16,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     backgroundColor: colors.white,
   },
-  moreGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 14 },
-  moreContent: { paddingBottom: 22 },
-  moreSectionEyebrow: { marginTop: 12, color: colors.sky600, fontSize: 9, fontWeight: "700", letterSpacing: 1 },
+  moreScroll: { flexShrink: 1 },
+  moreGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 10 },
+  moreContent: { paddingBottom: 10 },
+  moreSectionEyebrow: { marginTop: 10, color: colors.sky600, fontSize: 9, fontWeight: "700", letterSpacing: 1 },
   moreSectionNote: { marginTop: 4, color: colors.muted, fontSize: 10, lineHeight: 15 },
   moreCard: {
     width: "31%",
-    minHeight: 94,
+    minHeight: 76,
     alignItems: "center",
     justifyContent: "center",
     gap: 7,
     padding: 8,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 16,
+    borderRadius: 13,
     backgroundColor: "#FBFDFE",
   },
   moreCardActive: { borderColor: colors.sky400, backgroundColor: colors.sky50 },
   moreCardIcon: {
-    width: 42,
-    height: 42,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 15,
+    borderRadius: 12,
     backgroundColor: colors.sky50,
   },
   moreCardIconActive: { backgroundColor: colors.sky600 },

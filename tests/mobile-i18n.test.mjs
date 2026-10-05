@@ -70,12 +70,12 @@ test("locale-aware formatters replace hard-coded Indonesian formatting", () => {
 });
 
 test("marketplace cards use a compact smooth commerce hierarchy", () => {
-  assert.match(marketplace, /productCard:[^\n]*borderRadius:\s*22/);
+  assert.match(marketplace, /productCard:[^\n]*borderRadius:\s*16/);
   assert.match(marketplace, /productCard:[^\n]*borderColor:\s*colors\.sky100/);
   assert.match(marketplace, /productCommerceRow/);
   assert.match(marketplace, /productStoreBadge/);
   assert.doesNotMatch(marketplace, />Tambah<\/Text>/);
-  assert.match(marketplace, /name="cart-outline"/);
+  assert.doesNotMatch(marketplace, /name="cart-outline"/);
 });
 
 test("shared surfaces consistently use Slivadoc sky styling", () => {

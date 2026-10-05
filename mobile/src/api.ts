@@ -195,6 +195,15 @@ export function clearMobileCache() {
   mobileCache.clear();
 }
 
+export class MobileApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "MobileApiError";
+    this.status = status;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const baseURL = requireServiceURL(
     PETOWNER_API_URL,
@@ -268,7 +277,10 @@ async function platformRequest<T>(
     }
     const payload = await response.json().catch(() => ({}));
     if (!response.ok)
-      throw new Error(payload.message ?? "Layanan Slivadoc belum tersedia");
+      throw new MobileApiError(
+        payload.message ?? "Layanan Slivadoc belum tersedia",
+        response.status,
+      );
     if (method === "GET")
       mobileCache.set(key, { expires: Date.now() + 15_000, value: payload });
     else mobileCache.clear();

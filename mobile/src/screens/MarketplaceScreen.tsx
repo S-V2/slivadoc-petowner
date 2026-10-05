@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   createMobileOrder,
   createMobileMarketplaceChat,
+  MobileApiError,
   createMobilePaymentIntent,
   getMobileDistricts,
   getMobileProductReviews,
@@ -487,6 +488,11 @@ export function MarketplaceScreen({
     null,
   );
   const directCheckoutRef = useRef(false);
+  const pendingOrder = useRef<{
+    id: string;
+    orderNumber: string;
+    key: string;
+  } | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [reviews, setReviews] = useState<MobileProductReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -1212,17 +1218,34 @@ export function MarketplaceScreen({
     setCheckoutBusy(true);
     try {
       const orderInput = buildOrderInput(shippingSelectionsRef.current);
-      const order = await createMobileOrder(orderInput);
-      const intent = await createMobilePaymentIntent(
-        "shop_order",
-        order.id,
-        paymentMethod,
-      );
+      // The order outlives a failed payment intent: retry pays it again
+      // instead of creating a second order. A cart change alters the key.
+      const key = JSON.stringify(orderInput);
+      let order =
+        pendingOrder.current?.key === key ? pendingOrder.current : null;
+      if (!order) {
+        const created = await createMobileOrder(orderInput);
+        order = { id: created.id, orderNumber: created.order_number, key };
+        pendingOrder.current = order;
+      }
+      let intent: MobilePaymentIntent;
+      try {
+        intent = await createMobilePaymentIntent(
+          "shop_order",
+          order.id,
+          paymentMethod,
+        );
+      } catch (cause) {
+        // A 4xx means the order can no longer be paid (closed or expired).
+        if (cause instanceof MobileApiError && cause.status < 500)
+          pendingOrder.current = null;
+        throw cause;
+      }
       setPayment(intent);
       setCartOpen(false);
       directCheckoutRef.current = Boolean(directBuyCart);
       if (directBuyCart) setDirectBuyCart(null);
-      onAction(`Pesanan ${order.order_number} siap dibayar`);
+      onAction(`Pesanan ${order.orderNumber} siap dibayar`);
     } catch (cause) {
       onAction(
         cause instanceof Error
@@ -1685,6 +1708,7 @@ export function MarketplaceScreen({
         payment={payment}
         onClose={() => setPayment(undefined)}
         onPaid={() => {
+          pendingOrder.current = null;
           if (!directCheckoutRef.current) setCart({});
           directCheckoutRef.current = false;
           setDirectBuyCart(null);

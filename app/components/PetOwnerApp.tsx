@@ -7620,6 +7620,7 @@ function CartDrawer({
   const [voucherBusy, setVoucherBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
+  const pendingOrder = useRef<{ id: string; key: string } | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<"cart" | "shipping">("cart");
   const [busy, setBusy] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState(0);
@@ -8071,16 +8072,35 @@ function CartDrawer({
       return;
     }
     setBusy(true);
+    // The order outlives a failed payment intent: retry pays it again instead
+    // of creating a second order. A cart change makes the key differ.
+    const key = JSON.stringify([
+      orderItems,
+      appliedVoucher,
+      redeemPoints,
+      shippingInput ?? null,
+    ]);
     try {
-      const order = await createPetOwnerOrder({
-        items: orderItems,
-        voucher_code: appliedVoucher,
-        redeem_points: redeemPoints,
-        ...(shippingInput ? { shipping: shippingInput } : {}),
-      });
-      setPayment(
-        await createPaymentIntent("shop_order", order.id, paymentMethod),
-      );
+      let orderID =
+        pendingOrder.current?.key === key ? pendingOrder.current.id : "";
+      if (!orderID) {
+        const order = await createPetOwnerOrder({
+          items: orderItems,
+          voucher_code: appliedVoucher,
+          redeem_points: redeemPoints,
+          ...(shippingInput ? { shipping: shippingInput } : {}),
+        });
+        orderID = order.id;
+        pendingOrder.current = { id: orderID, key };
+      }
+      try {
+        setPayment(await createPaymentIntent("shop_order", orderID, paymentMethod));
+      } catch (error) {
+        // A 4xx means the order can no longer be paid (closed or expired).
+        if (error instanceof ApiError && error.status < 500)
+          pendingOrder.current = null;
+        throw error;
+      }
     } catch (error) {
       if (!returnToCartForUnavailableProduct(error)) {
         notify(
@@ -8127,6 +8147,7 @@ function CartDrawer({
           <QrisPaymentPanel
             payment={payment}
             onPaid={() => {
+              pendingOrder.current = null;
               setCart({});
               onCheckoutSuccess();
               void onRewardChanged();

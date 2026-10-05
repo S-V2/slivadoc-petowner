@@ -19,6 +19,15 @@ import {
 import { LocalizedText as Text, useI18n } from "../i18n";
 import { colors, shadow } from "../theme";
 
+// Copy for every status that must not render a payable QR.
+const qrClosedMessages: Record<string, string> = {
+  expired: "QR kedaluwarsa. Buat pembayaran baru dari Aktivitas.",
+  refund_pending:
+    "Pembayaran diterima setelah transaksi ditutup. Dana akan dikembalikan setelah diverifikasi.",
+  refunded: "Dana sudah dikembalikan.",
+  failed: "Pembayaran gagal.",
+};
+
 // No provider name may reach a customer. BatPay stays in the pattern because errors
 // and references written before the Yokke cutover can still carry it.
 const providerBrandPattern = /\b(?:bat[\s-]?pay|yokke)\b/gi;
@@ -203,6 +212,23 @@ function MobileQrisModalState({
                   </Text>
                 </Pressable>
               </View>
+            ) : current.status !== "pending" ? (
+              <View style={styles.center}>
+                <Text style={styles.title}>Pembayaran</Text>
+                <Text style={styles.amount}>
+                  {formatCurrency(current.amount)}
+                </Text>
+                <Text
+                  style={
+                    current.status === "refund_pending"
+                      ? styles.wait
+                      : styles.failed
+                  }
+                >
+                  {qrClosedMessages[current.status] ??
+                    "Pembayaran tidak dapat dilanjutkan."}
+                </Text>
+              </View>
             ) : (
               <View style={styles.center}>
                 <Text style={styles.kicker}>PEMBAYARAN · QRIS</Text>
@@ -235,18 +261,8 @@ function MobileQrisModalState({
                 <Text style={styles.amount}>
                   {formatCurrency(current.amount)}
                 </Text>
-                <Text
-                  style={
-                    current.status === "failed" || current.status === "refunded"
-                      ? styles.failed
-                      : styles.wait
-                  }
-                >
-                  {current.status === "refunded"
-                    ? "Pembayaran sudah direfund"
-                    : current.status === "failed"
-                      ? "Pembayaran gagal atau kedaluwarsa"
-                      : "● Menunggu konfirmasi pembayaran…"}
+                <Text style={styles.wait}>
+                  ● Menunggu konfirmasi pembayaran…
                 </Text>
               </View>
             )}

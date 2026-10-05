@@ -107,9 +107,9 @@ No workflow file exists yet. The planned job:
 
 **Precondition:** MOB-04's pending booking, with its QRIS sheet open.
 
-1. Pay the charge through the sandbox, recording the time. **Expected:** The sheet polls `GET /api/v1/payment-intents/{id}` every 5 seconds (`src/components/QrisPayment.tsx:154-167`; backend `handler.go:171`). On the first poll after confirmation it shows "Pembayaran berhasil" and "Selesai". The app opens Aktivitas, and the toast "Pembayaran berhasil, booking sudah dikonfirmasi" appears (`App.tsx:982-991`). Record the delay between confirmation and that screen.
-2. In Aktivitas, tap the "Booking" filter (`src/screens/ActivityScreen.tsx:64-69`). **Expected:** The booking appears as Grooming Small at Paws & Care Kemang, at the chosen time, confirmed (`GET /api/v1/petowner/activities?view=center`; `src/api.ts:895-905`; backend `petowner_activity_center.go:145`).
-3. Inspect the database. **Expected:** The payment is paid, the booking is `confirmed`, and so is its activity (backend `payments.go:405-412`).
+1. Pay the charge through the sandbox, recording the time. **Expected:** The sheet polls `GET /api/v1/payment-intents/{id}` every 5 seconds (`src/components/QrisPayment.tsx`; backend `handler.go:171`). On the first poll after confirmation the sheet closes, the toast "Pembayaran berhasil, booking sudah dikonfirmasi" appears, and Aktivitas opens on the booking's detail (`openActivity` in `App.tsx`). Record the delay between confirmation and that screen.
+2. Close the detail, then tap the "Booking" filter in Aktivitas (`src/screens/ActivityScreen.tsx`). **Expected:** The booking appears as Grooming Small at Paws & Care Kemang, at the chosen time, confirmed (`GET /api/v1/petowner/activities?limit=100`; `getMobileActivityCenter` in `src/api.ts`; backend `petowner_activity_center.go`).
+3. Inspect the database. **Expected:** The payment is paid and the booking is `confirmed` (backend `payments.go`).
 4. Have the sandbox resend the same confirmation. **Expected:** No new booking or payment is created and the state is unchanged.
 
 ## Veterinary consultation with QRIS (critical)

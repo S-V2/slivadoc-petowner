@@ -115,10 +115,12 @@ export function MobileQrisModal({
   payment,
   onClose,
   onPaid,
+  onOpenActivity,
 }: {
   payment?: MobilePaymentIntent;
   onClose: () => void;
   onPaid: () => void;
+  onOpenActivity?: () => void;
 }) {
   if (!payment) return null;
   return (
@@ -127,6 +129,7 @@ export function MobileQrisModal({
       payment={payment}
       onClose={onClose}
       onPaid={onPaid}
+      onOpenActivity={onOpenActivity}
     />
   );
 }
@@ -135,10 +138,12 @@ function MobileQrisModalState({
   payment,
   onClose,
   onPaid,
+  onOpenActivity,
 }: {
   payment: MobilePaymentIntent;
   onClose: () => void;
   onPaid: () => void;
+  onOpenActivity?: () => void;
 }) {
   const { formatCurrency } = useI18n();
   const [current, setCurrent] = useState(payment);
@@ -190,10 +195,12 @@ function MobileQrisModalState({
                 </Text>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={onClose}
+                  onPress={onOpenActivity ?? onClose}
                   style={styles.primary}
                 >
-                  <Text style={styles.primaryText}>Selesai</Text>
+                  <Text style={styles.primaryText}>
+                    {onOpenActivity ? "Lihat di Aktivitas" : "Selesai"}
+                  </Text>
                 </Pressable>
               </View>
             ) : (

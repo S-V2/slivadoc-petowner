@@ -14,11 +14,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import {
   getMobileGlobalSearch,
   getMobileVeterinarians,
-  type MobileActivity,
+  type MobileActivityCenterItem,
+  type MobileActivityType,
   type MobileGlobalSearchResult,
   type WorldItem,
 } from "../api";
 import type { PetView, Service } from "../data";
+import { activityTypePresentation } from "../activity";
 import { colors, radius, shadow, spacing, typography } from "../theme";
 import { Pill, Screen } from "../components/ui";
 import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
@@ -27,7 +29,6 @@ type Props = {
   onExploreService: (category?: string, serviceId?: string) => void;
   onOpenPartner: (businessId: string) => void;
   onOpenConsultation: (doctorId?: string) => void;
-  onOpenActivity: (activityId?: string) => void;
   onOpenNotifications: () => void;
   onSearchResult: (result: MobileGlobalSearchResult) => void;
   onNavigate: (tab: "discover" | "world" | "activity" | "health") => void;
@@ -36,7 +37,8 @@ type Props = {
   pets: PetView[];
   onSelectPet: (petId: string) => void;
   services: Service[];
-  activities: MobileActivity[];
+  activities: MobileActivityCenterItem[];
+  onOpenActivity: (type: MobileActivityType, id: string) => void;
 };
 
 const searchCategories = [
@@ -84,12 +86,6 @@ function serviceGradient(tone: Service["tone"]): [string, string] {
   if (tone === "violet") return ["#ECE7FF", "#F8F6FF"];
   if (tone === "peach") return ["#FFF0E5", "#FFF9F4"];
   return ["#DDF3FF", "#F3FBFF"];
-}
-
-function activityIcon(category: string): keyof typeof Ionicons.glyphMap {
-  if (category === "health") return "medical-outline";
-  if (category === "booking") return "calendar-outline";
-  return "clipboard-outline";
 }
 
 function HomeSectionHeader({
@@ -315,7 +311,10 @@ export function HomeScreen({
       .catch(() => setVeterinarians([]));
   }, []);
   const petView = pet ?? { id: "", name: "pet kamu", breed: "Login untuk melihat profil", age: "—", weight: "—", icon: "", score: 0, allergies: "" };
-  const featuredActivities = activities.slice(0, 3);
+  const featuredActivities = activities
+    .filter((item) => item.state !== "history")
+    .sort((left, right) => Date.parse(left.scheduled_at ?? left.occurred_at) - Date.parse(right.scheduled_at ?? right.occurred_at))
+    .slice(0, 3);
   const healthStatus = petView.score >= 80 ? "Kondisi prima" : petView.score >= 60 ? "Tetap terpantau" : pet ? "Lengkapi datanya" : "Mulai profil pet";
   const nearestPartners = Array.from(
     services
@@ -491,7 +490,7 @@ export function HomeScreen({
             </View>
             <Pressable accessibilityRole="button" onPress={() => onNavigate("activity")} style={({ pressed }) => [styles.insight, pressed && styles.pressed]}>
               <View style={styles.insightIcon}><Ionicons name="sparkles" size={16} color={colors.sky600} /></View>
-              <View style={styles.insightCopy}><Text style={styles.insightTitle}>Insight untuk {petView.name}</Text><Text numberOfLines={2} style={styles.insightText}>{activities[0]?.description || "Belum ada aktivitas kesehatan terjadwal."}</Text></View>
+              <View style={styles.insightCopy}><Text style={styles.insightTitle}>Insight untuk {petView.name}</Text><Text numberOfLines={2} style={styles.insightText}>{featuredActivities[0]?.subtitle || "Belum ada aktivitas kesehatan terjadwal."}</Text></View>
               <View style={styles.insightArrow}><Ionicons name="arrow-forward" size={14} color={colors.white} /></View>
             </Pressable>
           </LinearGradient>
@@ -501,20 +500,23 @@ export function HomeScreen({
           <HomeSectionHeader icon="calendar" eyebrow="CARE PLAN" title="Perawatan terdekat" note="Biar jadwal nggak kelewat" action="Semua" onAction={() => onNavigate("activity")} tone="mint" />
           <LinearGradient colors={["#F2FFFB", "#FFFFFF", "#F2FAFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.careCard}>
             <View style={styles.careGlow} />
-            {featuredActivities.map((item, index) => (
-              <Pressable key={item.id} onPress={() => onOpenActivity(item.reference_id || item.id)} style={[styles.careRow, index < featuredActivities.length - 1 && styles.careDivider]}>
+            {featuredActivities.map((item, index) => {
+              const presentation = activityTypePresentation[item.type];
+              return (
+              <Pressable key={`${item.type}-${item.id}`} onPress={() => onOpenActivity(item.type, item.id)} style={[styles.careRow, index < featuredActivities.length - 1 && styles.careDivider]}>
                 <View style={styles.careTimeline}>
-                  <View style={[styles.careIcon, item.category === "health" ? styles.mint : item.category === "booking" ? styles.violet : styles.blue]}><Ionicons name={activityIcon(item.category)} size={19} color={item.category === "health" ? "#14836E" : item.category === "booking" ? "#6655C7" : colors.sky600} /></View>
+                  <View style={[styles.careIcon, { backgroundColor: presentation.surface }]}><Ionicons name={presentation.icon} size={19} color={presentation.color} /></View>
                   {index < featuredActivities.length - 1 ? <View style={styles.careLine} /> : null}
                 </View>
                 <View style={styles.careCopy}>
-                  <View style={styles.careTimePill}><Ionicons name="time-outline" size={11} color="#14836E" /><Text style={styles.careTime}>{formatDate(item.starts_at || item.occurred_at, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</Text></View>
+                  <View style={styles.careTimePill}><Ionicons name="time-outline" size={11} color="#14836E" /><Text style={styles.careTime}>{formatDate(item.scheduled_at || item.occurred_at, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</Text></View>
                   <Text numberOfLines={1} style={styles.careTitle}>{item.title}</Text>
-                  <Text numberOfLines={2} style={styles.careNote}>{item.description}</Text>
+                  <Text numberOfLines={2} style={styles.careNote}>{item.subtitle}</Text>
                 </View>
                 <View style={styles.careArrow}><Ionicons name="chevron-forward" size={14} color={colors.sky600} /></View>
               </Pressable>
-            ))}
+              );
+            })}
             {featuredActivities.length === 0 ? (
               <View style={styles.emptyCare}>
                 <View style={styles.emptyCareVisual}>
@@ -715,10 +717,6 @@ const styles = StyleSheet.create({
   careIcon: { zIndex: 1, width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 14 },
   careEmoji: { fontSize: 19 },
   careLine: { position: "absolute", top: "72%", bottom: -18, width: 2, backgroundColor: "#D9F2EB" },
-  blue: { backgroundColor: colors.sky50 },
-  mint: { backgroundColor: colors.mint50 },
-  violet: { backgroundColor: colors.violet50 },
-  peach: { backgroundColor: colors.peach50 },
   careCopy: { minWidth: 0, flex: 1, gap: 2 },
   careTimePill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 7, backgroundColor: colors.mint50 },
   careTime: { color: "#14836E", fontSize: 9, fontWeight: "600" },

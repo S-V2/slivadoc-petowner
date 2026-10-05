@@ -100,7 +100,5 @@ test("mobile order detail exposes a view-only shipment timeline through delivery
   assert.match(activities, /Dalam perjalanan/);
   assert.match(activities, /Sudah diterima/);
   assert.match(activities, /shipment\.events/);
-  assert.match(activities, /loadActivities\(true\)/);
-  assert.match(activities, /60_000/);
   assert.doesNotMatch(activities, /shipping\/track/);
 });

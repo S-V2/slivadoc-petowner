@@ -41,6 +41,7 @@ import {
   clearMobileCache,
   createMobileBooking,
   createMobilePaymentIntent,
+  getMobileActivityCenter,
   getMobileBootstrap,
   getMobileMedicalRecords,
   getMobileServiceAvailability,
@@ -56,7 +57,9 @@ import {
   toggleMobileFavorite,
   verifyMobileRegistrationOTP,
   type MobileBootstrap,
+  type MobileActivityCenterResponse,
   type MobileActivityOrderItem,
+  type MobileActivityType,
   type MobileMedicalRecord,
   type MobileNotification,
   type MobilePaymentIntent,
@@ -158,12 +161,12 @@ const validTabs = new Set<Tab>([
 function AnimatedTabButton({
   item,
   active,
-  showDot = false,
+  badge = 0,
   onPress,
 }: {
   item: TabItem;
   active: boolean;
-  showDot?: boolean;
+  badge?: number;
   onPress: () => void;
 }) {
   const [progress] = useState(() => new Animated.Value(active ? 1 : 0));
@@ -214,7 +217,13 @@ function AnimatedTabButton({
             size={22}
             color={active ? colors.white : colors.muted}
           />
-          {showDot ? <View style={styles.activityDot} /> : null}
+          {badge > 0 ? (
+            <View style={styles.activityBadge}>
+              <Text style={styles.activityBadgeText}>
+                {badge > 9 ? "9+" : badge}
+              </Text>
+            </View>
+          ) : null}
         </View>
         <Text
           numberOfLines={1}
@@ -285,6 +294,16 @@ function MobileApp() {
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [activityCenter, setActivityCenter] =
+    useState<MobileActivityCenterResponse>();
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityIntent, setActivityIntent] = useState<{
+    token: number;
+    type: MobileActivityType;
+    // Without an id the intent only filters (the marketplace "Pesanan" shortcut).
+    id?: string;
+  }>();
+  const activityRequestRef = useRef(0);
   const [marketplaceIntent, setMarketplaceIntent] = useState<{
     token: number;
     productId?: string;
@@ -296,11 +315,6 @@ function MobileApp() {
     mode: "consult" | "academy" | "events" | "petspot";
     itemId?: string;
     veterinarianId?: string;
-  }>();
-  const [activityIntent, setActivityIntent] = useState<{
-    token: number;
-    itemId?: string;
-    type?: "order";
   }>();
   const [serviceIntent, setServiceIntent] = useState<{
     token: number;
@@ -426,6 +440,39 @@ function MobileApp() {
     setFavorites(data.favorites.map((item) => item.entity_id));
     return data;
   }, []);
+  const loadActivityCenter = useCallback(
+    async (silent = false) => {
+      const request = activityRequestRef.current + 1;
+      activityRequestRef.current = request;
+      setActivityLoading(true);
+      try {
+        const result = await getMobileActivityCenter();
+        if (activityRequestRef.current === request) setActivityCenter(result);
+      } catch (cause) {
+        if (!silent)
+          notify(
+            (cause instanceof Error && cause.message) ||
+              "Aktivitas belum dapat dimuat",
+          );
+      } finally {
+        if (activityRequestRef.current === request) setActivityLoading(false);
+      }
+    },
+    [notify],
+  );
+  const signedIn = Boolean(bootstrap);
+  useEffect(() => {
+    if (!signedIn) return;
+    queueMicrotask(() => void loadActivityCenter(true));
+    const timer = setInterval(() => void loadActivityCenter(true), 60_000);
+    return () => clearInterval(timer);
+  }, [loadActivityCenter, signedIn]);
+  useEffect(() => {
+    if (tab === "activity" && signedIn)
+      queueMicrotask(() => void loadActivityCenter(true));
+  }, [loadActivityCenter, signedIn, tab]);
+  const needsActionCount =
+    activityCenter?.data.filter((item) => item.needs_action).length ?? 0;
   const loadServices = useCallback(async () => {
     let coordinates: { latitude: number; longitude: number } | undefined;
     try {
@@ -463,7 +510,8 @@ function MobileApp() {
     clearMobileCache();
     try {
       const tasks: Promise<unknown>[] = [loadServices()];
-      if (hasPlatformSession()) tasks.push(refreshAccount());
+      if (hasPlatformSession())
+        tasks.push(refreshAccount(), loadActivityCenter(true));
       if (petId)
         tasks.push(
           getMobileMedicalRecords(petId).then((result) =>
@@ -619,10 +667,33 @@ function MobileApp() {
     setServiceIntent({ token: nextIntentToken(), category, serviceId });
     navigateTo("discover");
   };
-  const nextIntentToken = () => {
+  const nextIntentToken = useCallback(() => {
     intentTokenRef.current += 1;
     return intentTokenRef.current;
-  };
+  }, []);
+  const openActivity = useCallback(
+    (type: MobileActivityType, id: string) => {
+      navigateTo("activity");
+      // The tap that gets here usually closes a Modal (notifications, booking,
+      // QRIS). iOS drops a sheet presented while another is still dismissing,
+      // so the detail opens no sooner than that animation takes.
+      const dismissed = Date.now() + 400;
+      void loadActivityCenter(true).finally(() =>
+        setTimeout(
+          () => setActivityIntent({ token: nextIntentToken(), type, id }),
+          Math.max(0, dismissed - Date.now()),
+        ),
+      );
+    },
+    [loadActivityCenter, navigateTo, nextIntentToken],
+  );
+  const consumeActivityIntent = useCallback(
+    (token: number) =>
+      setActivityIntent((current) =>
+        current?.token === token ? undefined : current,
+      ),
+    [],
+  );
   const consumeMarketplaceIntent = useCallback((token: number) => {
     setMarketplaceIntent((current) => current?.token === token ? undefined : current);
   }, []);
@@ -655,10 +726,6 @@ function MobileApp() {
   const openWorldItem = (mode: "academy" | "events" | "petspot", itemId: string) => {
     setWorldIntent({ token: nextIntentToken(), mode, itemId });
     navigateTo("world");
-  };
-  const openActivity = (itemId?: string) => {
-    setActivityIntent({ token: nextIntentToken(), itemId });
-    navigateTo("activity");
   };
   const openOrderActivity = () => {
     setActivityIntent({ token: nextIntentToken(), type: "order" });
@@ -793,7 +860,7 @@ function MobileApp() {
                   pets={pets}
                   onSelectPet={selectPet}
                   services={services}
-                  activities={bootstrap?.activities ?? []}
+                  activities={activityCenter?.data ?? []}
                 />
               ) : null}
               {tab === "discover" ? (
@@ -877,12 +944,18 @@ function MobileApp() {
                     requirePet();
                   }}
                   intent={worldIntent}
+                  onOpenActivity={openActivity}
                 />
               ) : null}
               {tab === "activity" ? (
                 <ActivityScreen
                   authenticated={Boolean(bootstrap)}
-                  refreshVersion={refreshVersion}
+                  activities={activityCenter?.data ?? []}
+                  summary={activityCenter?.summary}
+                  loading={activityLoading}
+                  onReload={() => loadActivityCenter(true)}
+                  intent={activityIntent}
+                  onIntentHandled={consumeActivityIntent}
                   onAction={notify}
                   onOpenNotifications={() => setNotificationsOpen(true)}
                   onLogin={() => setLoginOpen(true)}
@@ -909,7 +982,6 @@ function MobileApp() {
                     if (requirePet()) openConsultationPlan(itemId);
                   }}
                   onOpenProduct={openMarketplace}
-                  intent={activityIntent}
                 />
               ) : null}
               {tab === "health" ? (
@@ -944,7 +1016,7 @@ function MobileApp() {
                   owner={bootstrap?.user}
                   pets={bootstrap?.pets ?? []}
                   petCount={pets.length}
-                  activityCount={bootstrap?.activities.length ?? 0}
+                  activityCount={activityCenter?.data.length ?? 0}
                   points={bootstrap?.points.balance ?? 0}
                   membership={bootstrap?.points.membership}
                   rewardFormula={bootstrap?.points.formula}
@@ -952,6 +1024,7 @@ function MobileApp() {
                   onLogout={async () => {
                     await logoutMobile();
                     setBootstrap(undefined);
+                    setActivityCenter(undefined);
                     setRecords([]);
                     navigateTo("home", true);
                     notify("Sesi berhasil diakhiri");
@@ -966,7 +1039,7 @@ function MobileApp() {
                   key={item.id}
                   item={item}
                   active={item.id === tab}
-                  showDot={item.id === "activity" && Boolean(bootstrap?.activities.length)}
+                  badge={item.id === "activity" ? needsActionCount : 0}
                   onPress={() => {
                     setMoreOpen(false);
                     if (item.id === "marketplace") setMarketplaceIntent(undefined);
@@ -1080,12 +1153,18 @@ function MobileApp() {
           );
         }}
         onOpenTarget={(item) => {
+          setNotificationsOpen(false);
+          const activityType = item.metadata?.activity_type;
+          const activityId = item.metadata?.activity_id;
+          if (typeof activityType === "string" && typeof activityId === "string") {
+            openActivity(activityType as MobileActivityType, activityId);
+            return;
+          }
           const route = (String(item.action_route ?? "")
             .split("?")[0] ?? "")
             .split("/")
             .filter(Boolean)
             .at(-1) ?? "home";
-          setNotificationsOpen(false);
           if (route === "consult") {
             openConsultation();
           } else {
@@ -1133,8 +1212,8 @@ function MobileApp() {
                   ),
                 );
               else {
-                await refreshAccount();
-                navigateTo("activity");
+                void refreshAccount().catch(() => undefined);
+                openActivity("booking", result.id);
                 notify(result.message);
               }
               setBookingOpen(false);
@@ -1154,10 +1233,11 @@ function MobileApp() {
         payment={payment}
         onClose={() => setPayment(undefined)}
         onPaid={() => {
-          void refreshAccount().then(() => {
-            navigateTo("activity");
-            notify("Pembayaran berhasil, booking sudah dikonfirmasi");
-          });
+          const bookingId = payment?.reference_id;
+          setPayment(undefined);
+          void refreshAccount().catch(() => undefined);
+          if (bookingId) openActivity("booking", bookingId);
+          notify("Pembayaran berhasil, booking sudah dikonfirmasi");
         }}
       />
       <LoginModal
@@ -2399,17 +2479,21 @@ const styles = StyleSheet.create({
   activeTabIcon: { backgroundColor: colors.sky600, shadowColor: colors.sky600, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
   tabLabel: { color: colors.muted, fontSize: 10, fontWeight: "600" },
   activeTabLabel: { color: colors.sky600, fontWeight: "700" },
-  activityDot: {
+  activityBadge: {
     position: "absolute",
-    right: 6,
-    top: 2,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+    right: 0,
+    top: -2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.white,
     backgroundColor: colors.red,
   },
+  activityBadgeText: { color: colors.white, fontSize: 9, fontWeight: "700" },
   toast: {
     position: "absolute",
     left: 18,

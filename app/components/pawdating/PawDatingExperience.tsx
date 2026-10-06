@@ -19,6 +19,8 @@ import {
   getPawDatingCompatibility,
   getPawDatingInterests,
   getPawDatingMessages,
+  getPetOwnerFavorites,
+  togglePetOwnerFavorite,
   getPawDatingProfile,
   getPawDatingProfiles,
   getPawDatingStandards,
@@ -96,6 +98,7 @@ export default function PawDatingExperience({
     null,
   );
   const [submitting, setSubmitting] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   const loadProfiles = useCallback(async () => {
     setLoading(true);
@@ -128,10 +131,16 @@ export default function PawDatingExperience({
   const loadPrivateData = useCallback(async () => {
     if (!isPetOwnerAuthenticated()) return;
     try {
-      const [mine, requests] = await Promise.all([
+      const [mine, requests, favorites] = await Promise.all([
         getMyPawDatingProfiles(),
         getPawDatingInterests(),
+        getPetOwnerFavorites(),
       ]);
+      setFavoriteIds(
+        favorites.data
+          .filter((item) => item.entity_type === "pawdating")
+          .map((item) => item.entity_id),
+      );
       setMyProfiles(mine.data);
       setInterests(requests.data);
       const published = mine.data.find(
@@ -278,6 +287,30 @@ export default function PawDatingExperience({
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function toggleFavorite(profile: PawDatingProfile) {
+    if (!isPetOwnerAuthenticated()) {
+      window.dispatchEvent(new Event("slivadoc:login-required"));
+      return;
+    }
+    try {
+      const result = await togglePetOwnerFavorite("pawdating", profile.id);
+      setFavoriteIds((current) =>
+        result.favorite
+          ? [...current, profile.id]
+          : current.filter((id) => id !== profile.id),
+      );
+      notify(
+        result.favorite
+          ? `${profile.name} disimpan ke favorit`
+          : `${profile.name} dihapus dari favorit`,
+      );
+    } catch (error) {
+      notify(
+        error instanceof Error ? error.message : "Favorit belum dapat diperbarui",
+      );
     }
   }
 
@@ -551,6 +584,8 @@ export default function PawDatingExperience({
             <PawDatingSwipeDeck
               profiles={visibleProfiles}
               busy={submitting}
+              favorites={favoriteIds}
+              onFavorite={(profile) => void toggleFavorite(profile)}
               onOpen={(profile) => void openProfile(profile)}
               onSwipe={(profile, decision) =>
                 void swipeProfile(profile, decision)
@@ -760,8 +795,9 @@ export default function PawDatingExperience({
             }
           }}
           onReport={() => setReportProfile(selected)}
+          favorite={favoriteIds.includes(selected.id)}
+          onFavorite={() => void toggleFavorite(selected)}
           submitting={submitting}
-          notify={notify}
         />
       )}
       {interestOpen && selected && (
@@ -848,9 +884,13 @@ export default function PawDatingExperience({
 
 function ProfileCard({
   profile,
+  favorite,
+  onFavorite,
   onOpen,
 }: {
   profile: PawDatingProfile;
+  favorite: boolean;
+  onFavorite: () => void;
   onOpen: () => void;
 }) {
   return (
@@ -869,17 +909,14 @@ function ProfileCard({
         </div>
         <button
           type="button"
-          aria-label={`Simpan ${profile.name}`}
+          aria-label={`${favorite ? "Hapus" : "Simpan"} ${profile.name}`}
+          aria-pressed={favorite}
           onClick={(event) => {
             event.stopPropagation();
-            window.dispatchEvent(
-              new CustomEvent("slivadoc:notice", {
-                detail: `${profile.name} disimpan`,
-              }),
-            );
+            onFavorite();
           }}
         >
-          ♡
+          {favorite ? "♥" : "♡"}
         </button>
       </div>
       <div className="paw-profile-body">
@@ -935,11 +972,15 @@ function ProfileCard({
 function PawDatingSwipeDeck({
   profiles,
   busy,
+  favorites,
+  onFavorite,
   onOpen,
   onSwipe,
 }: {
   profiles: PawDatingProfile[];
   busy: boolean;
+  favorites: string[];
+  onFavorite: (profile: PawDatingProfile) => void;
   onOpen: (profile: PawDatingProfile) => void;
   onSwipe: (profile: PawDatingProfile, decision: "like" | "pass") => void;
 }) {
@@ -975,7 +1016,12 @@ function PawDatingSwipeDeck({
             className="paw-swipe-card paw-swipe-card-next"
             aria-hidden="true"
           >
-            <ProfileCard profile={next} onOpen={() => undefined} />
+            <ProfileCard
+              profile={next}
+              favorite={favorites.includes(next.id)}
+              onFavorite={() => onFavorite(next)}
+              onOpen={() => undefined}
+            />
           </div>
         )}
         <div
@@ -1005,6 +1051,8 @@ function PawDatingSwipeDeck({
           <span className="paw-swipe-stamp paw-swipe-pass">LEWATI</span>
           <ProfileCard
             profile={active}
+            favorite={favorites.includes(active.id)}
+            onFavorite={() => onFavorite(active)}
             onOpen={() => {
               if (!skipClick.current) onOpen(active);
             }}
@@ -1095,8 +1143,9 @@ function ProfileDetail({
   onCheck,
   onInterest,
   onReport,
+  favorite,
+  onFavorite,
   submitting,
-  notify,
 }: {
   profile: PawDatingProfile;
   health?: PawDatingHealthReport;
@@ -1108,8 +1157,9 @@ function ProfileDetail({
   onCheck: () => void;
   onInterest: () => void;
   onReport: () => void;
+  favorite: boolean;
+  onFavorite: () => void;
   submitting: boolean;
-  notify: Notify;
 }) {
   const sections = health
     ? ([
@@ -1352,9 +1402,10 @@ function ProfileDetail({
         <div className="paw-safety-actions">
           <button
             type="button"
-            onClick={() => notify(`${profile.name} disimpan ke favorit`)}
+            onClick={onFavorite}
+            aria-pressed={favorite}
           >
-            ♡ Simpan
+            {favorite ? "♥ Tersimpan" : "♡ Simpan"}
           </button>
           <button type="button" onClick={onReport}>
             ⚑ Laporkan profil

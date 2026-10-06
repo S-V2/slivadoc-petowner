@@ -16,14 +16,18 @@ import { WebView } from "react-native-webview";
 
 import {
   cancelMobileBooking,
+  cancelMobileOrder,
+  MobileApiError,
   createMobilePaymentIntent,
   getMobileTransactionInvoiceHTML,
+  requestMobileOrderReturn,
   resubmitMobileDocuments,
   type MobilePaymentIntent,
   type MobileActivityCenterItem,
   type MobileActivityOrderItem,
   type MobileActivityState,
   type MobileActivityType,
+  type MobileOrderFulfillment,
 } from "../api";
 import {
   activityAttentionReason,
@@ -36,6 +40,7 @@ import {
 import {
   BoundedBottomSheet,
   Card,
+  ChatUnreadBadge,
   EmptyState,
   PetRequiredNotice,
   Pill,
@@ -49,7 +54,7 @@ import {
   DocumentPhotoPicker,
   type DocumentPhotos,
 } from "../components/DocumentPhotoPicker";
-import { LocalizedText as Text, useI18n } from "../i18n";
+import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
 import { colors, shadow, typography } from "../theme";
 
 type TypeFilter = MobileActivityType | "all";
@@ -66,6 +71,9 @@ type ActivityScreenProps = {
   summary?: Record<MobileActivityType, number>;
   loading: boolean;
   onReload: () => Promise<void>;
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
   // Without an id the intent only applies the type filter.
   intent?: { token: number; type: MobileActivityType; id?: string };
   onIntentHandled: (token: number) => void;
@@ -366,6 +374,103 @@ function DetailRow({
   );
 }
 
+// Retur is offered only for delivered packages still inside the return window.
+function ReturnRequest({
+  orderId,
+  fulfillment,
+  onReload,
+}: {
+  orderId: string;
+  fulfillment: MobileOrderFulfillment;
+  onReload: () => Promise<void>;
+}) {
+  const { formatDate } = useI18n();
+  const [openedAt] = useState(() => Date.now());
+  const [formOpen, setFormOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (fulfillment.return_requested)
+    return (
+      <View style={styles.returnRequested}>
+        <Ionicons name="checkmark-circle-outline" size={15} color={colors.mint} />
+        <Text style={styles.returnNote}>
+          Retur diajukan · {fulfillment.business_name}
+        </Text>
+      </View>
+    );
+  if (
+    fulfillment.status !== "delivered" ||
+    !fulfillment.return_until ||
+    Date.parse(fulfillment.return_until) <= openedAt
+  )
+    return null;
+  const submit = async () => {
+    const text = reason.trim();
+    if (text.length < 10 || text.length > 1000) {
+      setError("Alasan retur wajib diisi 10–1000 karakter.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const result = await requestMobileOrderReturn(orderId, fulfillment.id, text);
+      setFormOpen(false);
+      setReason("");
+      await onReload();
+      Alert.alert(`Permintaan retur terkirim (${result.ticket_number})`);
+    } catch (cause) {
+      if (cause instanceof MobileApiError && cause.code === "return_already_requested")
+        void onReload();
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Permintaan retur belum dapat dikirim.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <View style={styles.returnCard}>
+      <Text style={styles.returnTitle}>Paket dari {fulfillment.business_name}</Text>
+      <Text style={styles.returnNote}>
+        Retur dapat diajukan hingga{" "}
+        {formatDate(fulfillment.return_until, { dateStyle: "medium" })}.
+      </Text>
+      {formOpen ? (
+        <>
+          <TextInput
+            multiline
+            maxLength={1000}
+            value={reason}
+            onChangeText={setReason}
+            placeholder="Ceritakan alasan retur (minimal 10 karakter)"
+            placeholderTextColor={colors.muted}
+            style={styles.returnInput}
+          />
+          {error ? <Text style={styles.returnError}>{error}</Text> : null}
+          <PrimaryButton
+            compact
+            disabled={busy}
+            label={busy ? "Mengirim…" : "Kirim permintaan retur"}
+            icon="send-outline"
+            onPress={() => void submit()}
+          />
+        </>
+      ) : (
+        <PrimaryButton
+          compact
+          light
+          label="Ajukan retur"
+          icon="return-down-back-outline"
+          onPress={() => setFormOpen(true)}
+        />
+      )}
+    </View>
+  );
+}
+
 function ActivityDetailSheet({
   item,
   autoPay,
@@ -389,6 +494,7 @@ function ActivityDetailSheet({
   const [paymentError, setPaymentError] = useState("");
   const autoPayStarted = useRef(false);
   const [cancelBusy, setCancelBusy] = useState(false);
+  const [orderCancelBusy, setOrderCancelBusy] = useState(false);
   const [documentPhotos, setDocumentPhotos] = useState<DocumentPhotos>({});
   const [resubmitBusy, setResubmitBusy] = useState(false);
   const bookingCancellable =
@@ -432,6 +538,42 @@ function ActivityDetailSheet({
                 ),
               )
               .finally(() => setCancelBusy(false));
+          },
+        },
+      ],
+    );
+  const confirmCancelOrder = () =>
+    Alert.alert(
+      "Batalkan pesanan?",
+      "Pesanan akan dibatalkan sebelum diproses penjual dan dana masuk antrean pengembalian.",
+      [
+        { text: "Kembali", style: "cancel" },
+        {
+          text: "Batalkan pesanan",
+          style: "destructive",
+          onPress: () => {
+            setOrderCancelBusy(true);
+            cancelMobileOrder(item.reference_id)
+              .then(async (result) => {
+                await onReload();
+                Alert.alert(
+                  result.refund_queued
+                    ? "Pesanan dibatalkan. Dana akan dikembalikan setelah diverifikasi tim finance."
+                    : "Pesanan dibatalkan.",
+                );
+              })
+              .catch((cause) => {
+                // Order state moved on (e.g. seller started processing): resync so the button disappears.
+                if (cause instanceof MobileApiError && cause.code === "order_not_cancellable")
+                  void onReload();
+                Alert.alert(
+                  "Pesanan belum dapat dibatalkan",
+                  cause instanceof Error
+                    ? cause.message
+                    : "Silakan coba lagi beberapa saat.",
+                );
+              })
+              .finally(() => setOrderCancelBusy(false));
           },
         },
       ],
@@ -822,6 +964,26 @@ function ActivityDetailSheet({
                       ))}
                     </View>
                   ))}
+                  {(item.fulfillments ?? []).map((fulfillment) => (
+                    <ReturnRequest
+                      key={fulfillment.id}
+                      orderId={item.reference_id}
+                      fulfillment={fulfillment}
+                      onReload={onReload}
+                    />
+                  ))}
+                  {item.cancellable ? (
+                    <View style={styles.orderAction}>
+                      <PrimaryButton
+                        compact
+                        light
+                        disabled={orderCancelBusy}
+                        label={orderCancelBusy ? "Membatalkan…" : "Batalkan pesanan"}
+                        icon="close-circle-outline"
+                        onPress={confirmCancelOrder}
+                      />
+                    </View>
+                  ) : null}
                 </View>
               ) : null}
 
@@ -1395,6 +1557,9 @@ export function ActivityScreen({
   hasPet,
   activities,
   summary = emptyActivitySummary,
+  hasMore,
+  loadingMore,
+  onLoadMore,
   loading,
   onReload,
   intent,
@@ -1496,6 +1661,7 @@ export function ActivityScreen({
             style={styles.headerButton}
           >
             <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+            <ChatUnreadBadge />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -1541,6 +1707,7 @@ export function ActivityScreen({
             style={styles.headerButton}
           >
             <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+            <ChatUnreadBadge />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -1732,6 +1899,17 @@ export function ActivityScreen({
             />
           </Card>
         )}
+        {hasMore ? (
+          <PrimaryButton
+            compact
+            light
+            disabled={loadingMore}
+            label={loadingMore ? "Memuat…" : "Muat lebih banyak"}
+            icon="chevron-down"
+            onPress={onLoadMore}
+            style={styles.loadMore}
+          />
+        ) : null}
       </Screen>
       {selected && detailItem ? (
         <ActivityDetailSheet
@@ -2269,6 +2447,31 @@ const styles = StyleSheet.create({
     borderColor: "#CCE9F8",
     backgroundColor: colors.sky50,
   },
+  orderAction: { gap: 8, marginTop: 14 },
+  returnCard: {
+    gap: 8,
+    marginTop: 12,
+    padding: 13,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    backgroundColor: colors.white,
+  },
+  returnTitle: { color: colors.navy, fontSize: 12, fontWeight: "700" },
+  returnNote: { color: colors.muted, fontSize: 10, lineHeight: 15 },
+  returnInput: {
+    minHeight: 92,
+    padding: 11,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 13,
+    color: colors.text,
+    fontSize: 12,
+    textAlignVertical: "top",
+  },
+  returnError: { color: colors.red, fontSize: 10, lineHeight: 15 },
+  returnRequested: { flexDirection: "row", alignItems: "center", gap: 6 },
+  loadMore: { marginTop: 12 },
   trackingReadOnlyNote: {
     flexDirection: "row",
     alignItems: "center",

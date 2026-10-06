@@ -89,17 +89,47 @@ export function activityItem(
   };
 }
 
-/** GET /api/v1/petowner/activities?limit=100: the list and a count per kind. */
-export function activityCenter(data: Array<{ type: string }> = []) {
+/**
+ * GET /api/v1/petowner/activities?limit=100: one page, the cursor of the next
+ * (null on the last) and a count per kind over everything the caller has.
+ */
+export function activityCenter(
+  data: Array<{ type: string }> = [],
+  nextCursor: string | null = null,
+  all: Array<{ type: string }> = data,
+) {
   return {
     data,
     count: data.length,
+    next_cursor: nextCursor,
     summary: Object.fromEntries(
       activityTypes.map((type) => [
         type,
-        data.filter((item) => item.type === type).length,
+        all.filter((item) => item.type === type).length,
       ]),
     ),
+  };
+}
+
+/** A row of GET /api/v1/petowner/marketplace/chats. */
+export function marketplaceChatThread(
+  overrides: { id: string; business_id: string } & Record<string, unknown>,
+) {
+  return {
+    business_name: "Sliva Pet Shop",
+    store_logo_url: "",
+    buyer_user_id: petOwner.id,
+    buyer_name: "Pet Parent",
+    product_id: "",
+    product_name: "",
+    product_image_url: "",
+    last_message: "Halo",
+    last_message_created_at: "2026-10-05T08:00:00Z",
+    last_message_at: "2026-10-05T08:00:00Z",
+    store_is_online: true,
+    store_last_seen_at: "2026-10-05T01:00:00Z",
+    unread_count: 0,
+    ...overrides,
   };
 }
 

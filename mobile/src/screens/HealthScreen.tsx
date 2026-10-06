@@ -7,7 +7,7 @@ import { colors, shadow } from "../theme";
 import { BoundedBottomSheet, Card, Screen, SectionTitle, TopHeader } from "../components/ui";
 import { LocalizedText as Text, useI18n } from "../i18n";
 
-export function HealthScreen({ onAction, onBook, onOpenNotifications,pet,records,loading }: { onAction: (message: string) => void; onBook: () => void; onOpenNotifications: () => void;pet?:PetView;records:MobileMedicalRecord[];loading:boolean }) {
+export function HealthScreen({ onBook, onOpenNotifications,pet,records,loading }: { onBook: () => void; onOpenNotifications: () => void;pet?:PetView;records:MobileMedicalRecord[];loading:boolean }) {
   const { formatDate } = useI18n();
   const [tab, setTab] = useState("Ringkasan");
   const [selectedRecord, setSelectedRecord] = useState<MobileMedicalRecord>();
@@ -41,7 +41,7 @@ export function HealthScreen({ onAction, onBook, onOpenNotifications,pet,records
         {([[
           "Keluhan utama", selectedRecord.complaint, "chatbubble-ellipses-outline"
         ], ["Diagnosis", selectedRecord.diagnosis, "pulse-outline"], ["Tindakan & terapi", selectedRecord.treatment, "bandage-outline"], ["Catatan klinis", selectedRecord.clinical_notes, "clipboard-outline"]] as Array<[string, string, keyof typeof Ionicons.glyphMap]>).filter(([, value]) => Boolean(value)).map(([label, value, icon]) => <View key={label} style={styles.detailSection}><View style={styles.detailSectionIcon}><Ionicons name={icon} size={17} color={colors.sky600}/></View><View style={styles.detailSectionCopy}><Text style={styles.detailSectionTitle}>{label}</Text><Text style={styles.detailSectionText}>{value}</Text></View></View>)}
-        <Pressable accessibilityRole="button" onPress={() => { onAction(`Rekam medis ${selectedRecord.title} tersimpan aman di akun ${petView.name}.`); setSelectedRecord(undefined); }} style={styles.detailDone}><Ionicons name="shield-checkmark" size={18} color={colors.white}/><Text style={styles.detailDoneText}>Selesai</Text></Pressable>
+        <Pressable accessibilityRole="button" onPress={() => setSelectedRecord(undefined)} style={styles.detailDone}><Ionicons name="checkmark-circle" size={18} color={colors.white}/><Text style={styles.detailDoneText}>Selesai</Text></Pressable>
       </ScrollView> : null}
     </BoundedBottomSheet>
   </Screen>;

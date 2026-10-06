@@ -47,6 +47,7 @@ import {
 } from "../components/QrisPayment";
 import { RegionSelectSheet } from "../components/RegionSelectSheet";
 import {
+  ChatUnreadBadge,
   EmptyState,
   PetRequiredNotice,
   Pill,
@@ -1307,6 +1308,7 @@ export function MarketplaceScreen({
             style={styles.headerButton}
           >
             <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+            <ChatUnreadBadge />
           </Pressable>
           <Pressable
             accessibilityRole="button"

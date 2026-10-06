@@ -8,9 +8,10 @@ import {
   activityStatusText,
   activityTypeOrder,
   getActivityTypeMeta,
+  shipmentPresentation,
 } from "../app/lib/activity-center.ts";
 
-test("Aktivitas lists the nine kinds in the chip order and repeats only the original three", () => {
+test("Aktivitas lists the ten kinds in the chip order and repeats only the original three", () => {
   assert.deepEqual(activityTypeOrder, [
     "booking",
     "order",
@@ -21,6 +22,7 @@ test("Aktivitas lists the nine kinds in the chip order and repeats only the orig
     "document",
     "donation",
     "hotel",
+    "home_service",
   ]);
   assert.deepEqual(Object.keys(activityRepeatLabels), [
     "booking",
@@ -49,7 +51,10 @@ test("status labels put payability and expiry ahead of the raw status", () => {
   assert.equal(label("reserved", "not_required"), "Terjadwal");
   assert.equal(label("need_revision"), "Perlu revisi");
   assert.equal(label("checked_out"), "Selesai");
-  assert.equal(label("on_the_way"), "on the way");
+  assert.equal(label("some_future_status"), "some future status");
+  assert.equal(label("on_the_way", "not_required"), "Driver menuju lokasi");
+  assert.equal(label("cancelled", "refund_pending"), "Menunggu pengembalian dana");
+  assert.equal(label("cancelled", "refunded"), "Dana dikembalikan");
   assert.equal(activityStatusText("refunded"), "Dana dikembalikan");
 });
 
@@ -81,4 +86,18 @@ test("the attention reason names what the owner has to do", () => {
     reason({ scheduled_at: "2026-10-05T07:00:00Z" }),
     "Sedang berlangsung",
   );
+});
+
+test("shipment status maps to an owner-facing label and progress stage", () => {
+  assert.deepEqual(shipmentPresentation("delivered"), {
+    label: "Sudah diterima",
+    stage: 3,
+  });
+  assert.deepEqual(shipmentPresentation("PICKUP_REQUESTED"), {
+    label: "Pickup dijadwalkan",
+    stage: 1,
+  });
+  assert.equal(shipmentPresentation("exception").label, "Ada kendala pengiriman");
+  assert.equal(shipmentPresentation("cancelled").stage, 0);
+  assert.equal(shipmentPresentation("unknown").label, "Sedang diproses");
 });

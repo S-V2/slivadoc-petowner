@@ -85,7 +85,7 @@ test("activity detail cancels eligible bookings, shows home service rows and res
   assert.match(mobileApi, /\/api\/v1\/pet-document-requests\/\$\{id\}\/documents/);
   assert.match(mobileApi, /method: "PATCH"/);
   assert.match(activity, /item\.source !== "clinic"/);
-  assert.match(activity, /Date\.now\(\) <= Date\.parse\(item\.cancellable_until/);
+  assert.match(activity, /openedAt <= Date\.parse\(item\.cancellable_until/);
   assert.match(activity, /Batalkan booking/);
   assert.match(activity, /Bisa dibatalkan hingga \$\{item\.cancellation_cutoff_hours\} jam sebelum jadwal/);
   assert.match(activity, /Dana akan dikembalikan setelah diverifikasi tim finance/);

@@ -1154,10 +1154,12 @@ export function WorldScreen({
       setSpotDetailLoading(true);
       try {
         const detail = await getMobilePetSpot(item.id);
-        if (request === spotDetailRequest.current)
+        if (request === spotDetailRequest.current) {
           setSelected((current) =>
             current?.id === item.id ? { ...current, ...detail } : current,
           );
+          setItems((current) => ({ ...current, petspot: current.petspot.map((venue) => venue.id === detail.id ? { ...venue, ...detail } : venue) }));
+        }
       } catch (cause) {
         if (request === spotDetailRequest.current)
           onAction(

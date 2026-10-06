@@ -169,8 +169,8 @@ function WorldImageGallery({
           aria-label={`Buka galeri ${alt}`}
         >
           <NextImage
-            src={gallery[active]}
-            alt={`${alt} ${active + 1}`}
+            src={gallery[active % gallery.length]}
+            alt={`${alt} ${(active % gallery.length) + 1}`}
             fill
             sizes="(max-width: 720px) 100vw, 680px"
             unoptimized
@@ -187,7 +187,7 @@ function WorldImageGallery({
               ‹
             </button>
             <span>
-              {active + 1} / {gallery.length}
+              {(active % gallery.length) + 1} / {gallery.length}
             </span>
             <button
               type="button"
@@ -220,8 +220,8 @@ function WorldImageGallery({
             onClick={(event) => event.stopPropagation()}
           >
             <NextImage
-              src={gallery[active]}
-              alt={`${alt} ${active + 1}`}
+              src={gallery[active % gallery.length]}
+              alt={`${alt} ${(active % gallery.length) + 1}`}
               fill
               sizes="100vw"
               unoptimized
@@ -253,7 +253,7 @@ function WorldImageGallery({
                 ›
               </button>
               <span className="world-image-count">
-                {active + 1} / {gallery.length}
+                {(active % gallery.length) + 1} / {gallery.length}
               </span>
             </>
           ) : null}

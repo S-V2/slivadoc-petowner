@@ -6,9 +6,9 @@
 #   ghcr.io/s-v2/slivadoc-petowner      <- the vinext web app (repo root)
 #   ghcr.io/s-v2/slivadoc-petowner-api  <- services/petowner-api
 #
-# mobile/ is deliberately NOT built here. It is an Expo/React Native client
-# (expo ~54, react-native 0.81.5) built through EAS, not a server image; the
-# existing ci.yml already typechecks it.
+# mobile/ is deliberately NOT built here. It is an Expo/React Native client built
+# through EAS (mobile-release.yml for Google Play, mobile-update.yml for OTA), not a
+# server image; ci.yml typechecks it.
 #
 # Images are built HERE, in CI, for linux/amd64 only — the deployment VM is
 # x86_64. Nothing is built on the VM itself; it only pulls.

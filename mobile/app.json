@@ -2,7 +2,11 @@
   "expo": {
     "name": "Slivadoc",
     "slug": "slivadoc-pet-owner",
+    "owner": "s-v2",
     "version": "0.1.0",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
     "orientation": "default",
     "userInterfaceStyle": "light",
     "scheme": "slivadoc",
@@ -58,6 +62,14 @@
       ],
       "expo-secure-store",
       "expo-video"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "db196d33-c3da-4046-8a30-4715755458c3"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/db196d33-c3da-4046-8a30-4715755458c3"
+    }
   }
 }

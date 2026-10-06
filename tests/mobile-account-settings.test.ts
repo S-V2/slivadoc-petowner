@@ -31,7 +31,8 @@ test("family access uses platform endpoints for list, invite, and revoke", () =>
 test("help opens the dedicated customer support conversation", () => {
   assert.match(profile, /Chat Customer Support/);
   assert.match(app, /setChatContext\("support"\)/);
-  assert.match(chat, /support-\$\{owner\.id\}/);
+  assert.match(chat, /getMobileSupportChat\(\)/);
+  assert.doesNotMatch(chat, /support-\$\{/);
   assert.match(chat, /Customer Support/);
 });
 

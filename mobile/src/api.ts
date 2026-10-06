@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 import { NativeModules, Platform } from "react-native";
-import { io } from "socket.io-client";
+import { io, type Socket } from "socket.io-client";
 import { uniqueById } from "./collections";
 
 export { uniqueById } from "./collections";
@@ -42,10 +42,6 @@ export const PETOWNER_API_URL = resolveServiceURL(
 export const PLATFORM_API_URL = resolveServiceURL(
   process.env.EXPO_PUBLIC_PLATFORM_API_URL,
   8080,
-);
-export const REALTIME_API_URL = resolveServiceURL(
-  process.env.EXPO_PUBLIC_REALTIME_URL,
-  8091,
 );
 
 export type AssistantMessage = { role: "user" | "assistant"; content: string };
@@ -90,7 +86,6 @@ export async function restorePlatformSession(): Promise<boolean> {
     if (access) {
       platformAccessToken = access;
       platformRefreshToken = refresh ?? "";
-      realtime.auth = { token: access };
       return true;
     } else if (refresh) {
       platformRefreshToken = refresh;
@@ -106,7 +101,6 @@ export async function restorePlatformSession(): Promise<boolean> {
 export async function setPlatformTokens(access: string, refresh: string) {
   platformAccessToken = access;
   platformRefreshToken = refresh;
-  realtime.auth = { token: access };
   try {
     await Promise.all([
       access
@@ -123,7 +117,6 @@ export async function setPlatformTokens(access: string, refresh: string) {
 
 export function setPlatformAccessToken(token: string) {
   platformAccessToken = token;
-  realtime.auth = { token };
 }
 
 export function hasPlatformSession() {
@@ -134,7 +127,7 @@ export async function clearMobileSession() {
   platformAccessToken = "";
   platformRefreshToken = "";
   mobileOwnerHasPet = undefined;
-  realtime.auth = { token: "" };
+  petownerSocket?.disconnect();
   mobileCache.clear();
   mobileInFlight.clear();
   try {
@@ -247,7 +240,7 @@ async function platformRequest<T>(
     throw new Error(PET_PROFILE_REQUIRED_MESSAGE);
   }
   const key = `${path}:${platformAccessToken.slice(-12)}`;
-  if (method === "GET") {
+  if (method === "GET" && init?.cache !== "no-store") {
     const cached = mobileCache.get(key);
     if (cached && cached.expires > Date.now()) return cached.value as T;
     const pending = mobileInFlight.get(key);
@@ -2059,11 +2052,42 @@ export async function uploadMobileMedia(
   };
 }
 
-export const realtime = io(
-  REALTIME_API_URL || "https://realtime-not-configured.invalid",
-  {
-    autoConnect: false,
-    auth: { token: platformAccessToken },
-    transports: ["websocket", "polling"],
-  },
-);
+export type MobileSupportMessage = {
+  id: string;
+  ticket_id: string;
+  sender_id: string;
+  sender_name: string;
+  sender_role: "owner" | "support";
+  body: string;
+  created_at: string;
+};
+export const getMobileSupportChat = () =>
+  platformRequest<{ ticket_id: string | null; messages: MobileSupportMessage[] }>(
+    "/api/v1/petowner/support-chat",
+    { cache: "no-store" },
+  );
+export const sendMobileSupportChatMessage = (body: string) =>
+  platformRequest<MobileSupportMessage>("/api/v1/petowner/support-chat", {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+
+let petownerSocket: Socket | null = null;
+let petownerSocketToken = "";
+
+/** Socket.IO client to the petowner-api (care chat); rebuilt when the access token changes. */
+export function petownerRealtime() {
+  if (!petownerSocket || petownerSocketToken !== platformAccessToken) {
+    petownerSocket?.disconnect();
+    petownerSocket = io(
+      requireServiceURL(PETOWNER_API_URL, "EXPO_PUBLIC_PETOWNER_API_URL"),
+      {
+        autoConnect: false,
+        auth: { token: platformAccessToken },
+        transports: ["websocket", "polling"],
+      },
+    );
+    petownerSocketToken = platformAccessToken;
+  }
+  return petownerSocket;
+}

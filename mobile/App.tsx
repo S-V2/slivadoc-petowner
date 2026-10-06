@@ -395,6 +395,7 @@ function MobileApp() {
       inclusions: item.inclusions,
       supportedSpecies: item.supported_species,
       cancellationPolicy: item.cancellation_policy,
+      cancellationCutoffHours: item.cancellation_cutoff_hours,
       licenseStatus: item.business_license_status,
     }),
     [formatCurrency],
@@ -418,6 +419,7 @@ function MobileApp() {
     score: item.health_score,
     allergies: item.allergies,
     lastUpdated: item.last_medical_record_at,
+    shared: Boolean(item.access_role) && item.access_role !== "owner",
   }));
   const pet = pets.find((item) => item.id === selectedPetId) ?? pets[0];
   const petId = pet?.id;

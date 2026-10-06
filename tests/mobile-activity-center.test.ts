@@ -77,3 +77,24 @@ test("activity center stays compact while preserving contextual creation", () =>
   assert.match(activity, /Belanja produk/);
   assert.match(activity, /Konsultasi dokter/);
 });
+
+test("activity detail cancels eligible bookings, shows home service rows and resubmits documents", () => {
+  assert.match(mobileApi, /"home_service"/);
+  assert.match(mobileApi, /\/api\/v1\/petowner\/bookings\/\$\{id\}\/cancel/);
+  assert.match(mobileApi, /cancelMobileBooking/);
+  assert.match(mobileApi, /\/api\/v1\/pet-document-requests\/\$\{id\}\/documents/);
+  assert.match(mobileApi, /method: "PATCH"/);
+  assert.match(activity, /item\.source !== "clinic"/);
+  assert.match(activity, /Date\.now\(\) <= Date\.parse\(item\.cancellable_until/);
+  assert.match(activity, /Batalkan booking/);
+  assert.match(activity, /Bisa dibatalkan hingga \$\{item\.cancellation_cutoff_hours\} jam sebelum jadwal/);
+  assert.match(activity, /Dana akan dikembalikan setelah diverifikasi tim finance/);
+  assert.match(activity, /item\.type === "home_service"/);
+  for (const field of ["job_code", "service_type", "pickup_address", "destination_address", "driver_name"])
+    assert.match(activity, new RegExp(`item\\.${field}`));
+  assert.match(activity, /Lengkapi dokumen/);
+  assert.match(activity, /resubmitMobileDocuments\(item\.reference_id/);
+  assert.match(world, /DocumentPhotoPicker/);
+  assert.match(world, /submitted_documents: submittedDocuments/);
+  assert.doesNotMatch(world, /submitted_documents: \[\]/);
+});

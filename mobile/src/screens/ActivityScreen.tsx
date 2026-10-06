@@ -15,8 +15,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 
 import {
+  cancelMobileBooking,
   createMobilePaymentIntent,
   getMobileTransactionInvoiceHTML,
+  resubmitMobileDocuments,
   type MobilePaymentIntent,
   type MobileActivityCenterItem,
   type MobileActivityOrderItem,
@@ -42,6 +44,11 @@ import {
   useAppSurface,
 } from "../components/ui";
 import { MobileQrisModal } from "../components/QrisPayment";
+import {
+  completeDocuments,
+  DocumentPhotoPicker,
+  type DocumentPhotos,
+} from "../components/DocumentPhotoPicker";
 import { LocalizedText as Text, useI18n } from "../i18n";
 import { colors, shadow, typography } from "../theme";
 
@@ -90,6 +97,7 @@ const typeOptions: Array<{
   { id: "document", ...activityTypePresentation.document },
   { id: "donation", ...activityTypePresentation.donation },
   { id: "hotel", ...activityTypePresentation.hotel },
+  { id: "home_service", ...activityTypePresentation.home_service },
 ];
 
 const stateOptions: Array<{ id: MobileActivityState; label: string }> = [
@@ -380,6 +388,78 @@ function ActivityDetailSheet({
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const autoPayStarted = useRef(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [documentPhotos, setDocumentPhotos] = useState<DocumentPhotos>({});
+  const [resubmitBusy, setResubmitBusy] = useState(false);
+  const bookingCancellable =
+    item.type === "booking" && item.source !== "clinic";
+  const cancellable =
+    bookingCancellable &&
+    Boolean(item.cancellable_until) &&
+    Date.now() <= Date.parse(item.cancellable_until ?? "");
+  const cancelHint =
+    bookingCancellable && item.cancellation_cutoff_hours !== undefined
+      ? `Bisa dibatalkan hingga ${item.cancellation_cutoff_hours} jam sebelum jadwal`
+      : undefined;
+  const confirmCancel = () =>
+    Alert.alert(
+      "Batalkan booking?",
+      [item.cancellation_policy, cancelHint].filter(Boolean).join("\n\n"),
+      [
+        { text: "Kembali", style: "cancel" },
+        {
+          text: "Batalkan booking",
+          style: "destructive",
+          onPress: () => {
+            setCancelBusy(true);
+            cancelMobileBooking(item.reference_id)
+              .then(async (result) => {
+                await onReload();
+                Alert.alert(
+                  result.refund_queued
+                    ? "Booking dibatalkan. Dana akan dikembalikan setelah diverifikasi tim finance."
+                    : "Booking dibatalkan.",
+                );
+              })
+              .catch((cause) =>
+                Alert.alert(
+                  "Booking belum dapat dibatalkan",
+                  cause instanceof Error
+                    ? cause.message
+                    : "Silakan coba lagi beberapa saat.",
+                ),
+              )
+              .finally(() => setCancelBusy(false));
+          },
+        },
+      ],
+    );
+  const resubmit = async () => {
+    const documents = completeDocuments(
+      item.missing_requirements ?? [],
+      documentPhotos,
+    );
+    if (!documents) {
+      Alert.alert("Unggah foto untuk semua dokumen yang kurang");
+      return;
+    }
+    setResubmitBusy(true);
+    try {
+      await resubmitMobileDocuments(item.reference_id, documents);
+      setDocumentPhotos({});
+      await onReload();
+      Alert.alert("Dokumen dikirim ulang dan akan ditinjau kembali.");
+    } catch (cause) {
+      Alert.alert(
+        "Dokumen belum dapat dikirim",
+        cause instanceof Error
+          ? cause.message
+          : "Silakan coba lagi beberapa saat.",
+      );
+    } finally {
+      setResubmitBusy(false);
+    }
+  };
   const { payable, payment_reference_type, reference_id } = item;
   const pay = useCallback(async () => {
     setPaymentBusy(true);
@@ -549,6 +629,22 @@ function ActivityDetailSheet({
                     label="Catatan"
                     value={item.notes || "Tidak ada catatan tambahan"}
                   />
+                  <DetailRow
+                    icon="shield-checkmark-outline"
+                    label="Pembatalan"
+                    value={cancelHint}
+                  />
+                  {cancellable ? (
+                    <PrimaryButton
+                      compact
+                      light
+                      disabled={cancelBusy}
+                      label={cancelBusy ? "Membatalkan…" : "Batalkan booking"}
+                      icon="close-circle-outline"
+                      onPress={confirmCancel}
+                      style={styles.detailAction}
+                    />
+                  ) : null}
                 </View>
               ) : null}
 
@@ -1012,6 +1108,34 @@ function ActivityDetailSheet({
                     }
                   />
                   <DetailRow icon="paw-outline" label="Pet" value={item.pet_name} />
+                  {item.status === "need_revision" &&
+                  item.missing_requirements?.length ? (
+                    <View style={styles.detailResubmit}>
+                      <Text style={styles.detailSectionTitle}>
+                        Lengkapi dokumen
+                      </Text>
+                      <DocumentPhotoPicker
+                        requirements={item.missing_requirements}
+                        photos={documentPhotos}
+                        onChange={(requirement, document) =>
+                          setDocumentPhotos((current) => ({
+                            ...current,
+                            [requirement]: document,
+                          }))
+                        }
+                        onAction={(message) => Alert.alert(message)}
+                        disabled={resubmitBusy}
+                      />
+                      <PrimaryButton
+                        compact
+                        disabled={resubmitBusy}
+                        label={resubmitBusy ? "Mengirim…" : "Kirim ulang dokumen"}
+                        icon="cloud-upload-outline"
+                        onPress={() => void resubmit()}
+                        style={styles.detailAction}
+                      />
+                    </View>
+                  ) : null}
                   {item.status === "issued" && item.issued_document_url ? (
                     <PrimaryButton
                       compact
@@ -1109,6 +1233,25 @@ function ActivityDetailSheet({
                       .filter(Boolean)
                       .join(" · ")}
                   />
+                  <DetailRow icon="paw-outline" label="Pet" value={item.pet_name} />
+                </View>
+              ) : null}
+
+              {item.type === "home_service" ? (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>
+                    Informasi layanan jemput
+                  </Text>
+                  <DetailRow icon="barcode-outline" label="Kode" value={item.job_code} />
+                  <DetailRow icon="cut-outline" label="Layanan" value={item.service_type} />
+                  <DetailRow icon="location-outline" label="Jemput" value={item.pickup_address} />
+                  <DetailRow icon="flag-outline" label="Tujuan" value={item.destination_address} />
+                  <DetailRow
+                    icon="calendar-outline"
+                    label="Jadwal"
+                    value={formatActivityDate(item.scheduled_at, locale)}
+                  />
+                  <DetailRow icon="person-outline" label="Driver" value={item.driver_name} />
                   <DetailRow icon="paw-outline" label="Pet" value={item.pet_name} />
                 </View>
               ) : null}
@@ -1656,6 +1799,7 @@ const styles = StyleSheet.create({
   progressFill: { height: "100%", backgroundColor: "#19A37F" },
   progressNote: { marginTop: 2, color: colors.muted, fontSize: 9 },
   detailAction: { marginTop: 12 },
+  detailResubmit: { gap: 8, marginTop: 12 },
   paymentError: { marginTop: 8, color: colors.red, fontSize: 11 },
   header: {
     minHeight: 78,

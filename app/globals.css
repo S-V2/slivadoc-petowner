@@ -11543,3 +11543,85 @@ textarea {
   border-color: #1d77a8;
   background: #1d77a8;
 }
+
+/* Promise surfaces: adoption listing and application management */
+.adoption-tabs {
+  margin: 14px 0;
+}
+.adoption-manage-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+.adoption-manage-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--sky-100, #dcebf3);
+  border-radius: 18px;
+  background: #fff;
+}
+.adoption-manage-card > header,
+.adoption-applications > section > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.adoption-manage-card small {
+  display: block;
+  color: var(--muted, #547286);
+}
+.adoption-applications {
+  display: grid;
+  gap: 10px;
+}
+.adoption-applications > section {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f5f8fa;
+}
+.adoption-applications dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 3px 12px;
+  margin: 0;
+  font-size: 12px;
+}
+.adoption-applications dt {
+  color: var(--muted, #547286);
+}
+.adoption-applications dd {
+  margin: 0;
+}
+.adoption-applications input {
+  padding: 9px 12px;
+  border: 1px solid #dcebf3;
+  border-radius: 12px;
+}
+.adoption-application-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.adoption-status {
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: #315a6f;
+  background: #e8f3f9;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.adoption-status-approved,
+.adoption-status-completed {
+  color: #1d6b3f;
+  background: #e3f5ea;
+}
+.adoption-status-rejected,
+.adoption-status-withdrawn {
+  color: #8a4a2a;
+  background: #fbeae1;
+}

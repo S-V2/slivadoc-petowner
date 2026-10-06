@@ -70,7 +70,13 @@ import {
   MobileQrisModal,
   MobilePaymentMethods,
 } from "../components/QrisPayment";
+import {
+  completeDocuments,
+  DocumentPhotoPicker,
+  type DocumentPhotos,
+} from "../components/DocumentPhotoPicker";
 import { PetHubExperience } from "./PetHubExperience";
+import { AdoptionManager } from "./AdoptionManager";
 
 export type WorldMode =
   | "pawdating"
@@ -513,6 +519,7 @@ export function WorldScreen({
     useState<AdoptionForm>(emptyAdoptionForm);
   const [documentForm, setDocumentForm] =
     useState<DocumentForm>(emptyDocumentForm);
+  const [documentPhotos, setDocumentPhotos] = useState<DocumentPhotos>({});
   const handledIntent = useRef(0);
   const consultSpecialties = useMemo<Array<[string, string]>>(() => {
     const specialties = new Map<string, string>();
@@ -768,7 +775,10 @@ export function WorldScreen({
         phone: owner?.phone ?? "",
       });
     }
-    if (mode === "documents") setDocumentForm(emptyDocumentForm());
+    if (mode === "documents") {
+      setDocumentForm(emptyDocumentForm());
+      setDocumentPhotos({});
+    }
     if (mode === "consult") {
       void loadTrainerSlots(item);
     }
@@ -878,6 +888,14 @@ export function WorldScreen({
       mode === "documents" && selected.category !== "birth_certificate";
     if (mode === "documents" && !pet) {
       onAction("Tambahkan atau pilih pet sebelum mengajukan dokumen");
+      return;
+    }
+    const submittedDocuments =
+      mode === "documents"
+        ? completeDocuments(selected.requirements ?? [], documentPhotos)
+        : [];
+    if (!submittedDocuments) {
+      onAction("Unggah foto untuk semua dokumen yang diperlukan");
       return;
     }
     let departureAt: string | undefined;
@@ -1010,7 +1028,7 @@ export function WorldScreen({
                 transport_type: documentForm.transportType,
               }
             : {}),
-          submitted_documents: [],
+          submitted_documents: submittedDocuments,
         });
         if (source.amount > 0)
           setPayment(
@@ -1487,6 +1505,9 @@ export function WorldScreen({
             ))}
           </View>
         )}
+        {mode === "adoption" && owner ? (
+          <AdoptionManager onAction={onAction} />
+        ) : null}
       </Screen>
       <Modal
         visible={!!selected}
@@ -2336,13 +2357,20 @@ export function WorldScreen({
                       {selected?.requirements?.length ? (
                         <View style={styles.requirements}>
                           <Text style={styles.formLabel}>
-                            Dokumen yang perlu disiapkan
+                            Unggah dokumen yang diperlukan
                           </Text>
-                          {selected.requirements.map((requirement) => (
-                            <Text key={requirement} style={styles.requirement}>
-                              ✓ {requirement}
-                            </Text>
-                          ))}
+                          <DocumentPhotoPicker
+                            requirements={selected.requirements}
+                            photos={documentPhotos}
+                            onChange={(requirement, document) =>
+                              setDocumentPhotos((current) => ({
+                                ...current,
+                                [requirement]: document,
+                              }))
+                            }
+                            onAction={onAction}
+                            disabled={busy}
+                          />
                         </View>
                       ) : null}
                     </View>

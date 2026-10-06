@@ -352,7 +352,8 @@ export type MobileActivityType =
   | "reservation"
   | "document"
   | "donation"
-  | "hotel";
+  | "hotel"
+  | "home_service";
 export type MobileActivityState = "all" | "upcoming" | "ongoing" | "history";
 export type MobileActivityOrderItem = {
   id: string;
@@ -496,6 +497,15 @@ export type MobileActivityCenterItem = {
   room_name?: string;
   checked_in_at?: string | null;
   checked_out_at?: string | null;
+  source?: "clinic";
+  cancellable_until?: string;
+  cancellation_cutoff_hours?: number;
+  cancellation_policy?: string;
+  job_code?: string;
+  service_type?: string;
+  pickup_address?: string;
+  destination_address?: string;
+  driver_name?: string;
 };
 export type MobileActivityCenterResponse = {
   data: MobileActivityCenterItem[];
@@ -515,6 +525,7 @@ export type MobileBootstrap = {
   user: MobileOwner;
   pets: MobilePet[];
   notifications: MobileNotification[];
+  unread_notifications?: number;
   favorites: Array<{
     entity_type: string;
     entity_id: string;
@@ -525,7 +536,6 @@ export type MobileBootstrap = {
     earned: number;
     redeemed: number;
     membership?: MobileMembership;
-  unread_notifications?: number;
     formula: {
       enabled: boolean;
       point_value_rupiah?: number;
@@ -573,6 +583,7 @@ export type MobileService = {
   inclusions?: string[];
   supported_species?: string[];
   cancellation_policy?: string;
+  cancellation_cutoff_hours?: number;
   business_license_status?: "not_submitted" | "pending" | "verified" | "rejected";
 };
 export type MobileServiceAvailability = {
@@ -1197,6 +1208,11 @@ export const createMobileBooking = (input: Record<string, unknown>) =>
     method: "POST",
     body: JSON.stringify(input),
   });
+export const cancelMobileBooking = (id: string, reason?: string) =>
+  platformRequest<{ id: string; status: string; refund_queued: boolean }>(
+    `/api/v1/petowner/bookings/${id}/cancel`,
+    { method: "POST", body: JSON.stringify(reason ? { reason } : {}) },
+  );
 export const getMobilePaymentMethods = () =>
   platformRequest<{ data: MobilePaymentMethod[] }>("/api/v1/payment-methods");
 export const createMobilePaymentIntent = (
@@ -1226,6 +1242,10 @@ export const readAllMobileNotifications = (category = "") =>
     `/api/v1/notifications/read-all?category=${encodeURIComponent(category)}`,
     { method: "PATCH" },
   );
+export const getMobileNotifications = (limit = 100) =>
+  platformRequest<{ data: MobileNotification[]; count: number; unread_count: number }>(
+    `/api/v1/notifications?limit=${limit}`,
+  );
 export const toggleMobileFavorite = (
   entityId: string,
   entityType = "service",
@@ -1242,10 +1262,6 @@ export type MobileCommunityPost = {
   group_name: string;
   body: string;
   category: string;
-export const getMobileNotifications = (limit = 100) =>
-  platformRequest<{ data: MobileNotification[]; count: number; unread_count: number }>(
-    `/api/v1/notifications?limit=${limit}`,
-  );
   image_url: string;
   location: string;
   like_count: number;
@@ -1712,13 +1728,90 @@ export const applyMobileAdoption = (
     `/api/v1/adoptions/${listingId}/applications`,
     { method: "POST", body: JSON.stringify(input) },
   );
+export type MobileAdoptionApplicationStatus =
+  | "submitted"
+  | "screening"
+  | "home_visit"
+  | "approved"
+  | "rejected"
+  | "withdrawn"
+  | "completed";
+export type MobileMyAdoptionListing = {
+  id: string;
+  pet_id: string;
+  name: string;
+  species: string;
+  breed: string;
+  city: string;
+  description: string;
+  status: string;
+  applicant_count: number;
+  created_at: string;
+};
+export type MobileAdoptionApplicationRecord = {
+  id: string;
+  listing_id: string;
+  applicant_name: string;
+  phone: string;
+  address: string;
+  housing_type: string;
+  has_other_pets: boolean;
+  experience: string;
+  reason: string;
+  status: MobileAdoptionApplicationStatus;
+  status_note: string;
+  created_at: string;
+  updated_at: string;
+};
+export type MobileMyAdoptionApplication = {
+  id: string;
+  listing_id: string;
+  listing_name: string;
+  listing_status: string;
+  status: MobileAdoptionApplicationStatus;
+  status_note: string;
+  created_at: string;
+  updated_at: string;
+};
+export const getMobileMyAdoptionApplications = () =>
+  platformRequest<{ data: MobileMyAdoptionApplication[] }>(
+    "/api/v1/petowner/adoption-applications",
+  );
+export const withdrawMobileAdoptionApplication = (applicationId: string) =>
+  platformRequest<{ id: string; status: MobileAdoptionApplicationStatus }>(
+    `/api/v1/petowner/adoption-applications/${applicationId}/withdraw`,
+    { method: "POST" },
+  );
+export const getMobileMyAdoptionListings = () =>
+  platformRequest<{ data: MobileMyAdoptionListing[] }>(
+    "/api/v1/petowner/adoptions",
+  );
+export const getMobileAdoptionListingApplications = (listingId: string) =>
+  platformRequest<{ data: MobileAdoptionApplicationRecord[] }>(
+    `/api/v1/petowner/adoptions/${listingId}/applications`,
+  );
+export const reviewMobileAdoptionApplication = (
+  applicationId: string,
+  status: "screening" | "home_visit" | "approved" | "rejected" | "completed",
+  note: string,
+) =>
+  platformRequest<{ id: string; status: MobileAdoptionApplicationStatus }>(
+    `/api/v1/petowner/adoption-applications/${applicationId}/status`,
+    { method: "PATCH", body: JSON.stringify({ status, note }) },
+  );
+export type MobileSubmittedDocument = {
+  requirement: string;
+  url: string;
+  file_name: string;
+  mime_type: string;
+};
 export type MobileDocumentRequestInput = {
   pet_id?: string;
   origin_city?: string;
   destination_city?: string;
   departure_at?: string;
   transport_type?: "flight" | "ship";
-  submitted_documents: string[];
+  submitted_documents: MobileSubmittedDocument[];
 };
 export const createMobileDocumentRequest = (
   productId: string,
@@ -1730,6 +1823,14 @@ export const createMobileDocumentRequest = (
       method: "POST",
       body: JSON.stringify({ product_id: productId, ...input }),
     },
+  );
+export const resubmitMobileDocuments = (
+  id: string,
+  submitted_documents: MobileSubmittedDocument[],
+) =>
+  platformRequest<{ id: string; status: string }>(
+    `/api/v1/pet-document-requests/${id}/documents`,
+    { method: "PATCH", body: JSON.stringify({ submitted_documents }) },
   );
 export const commentMobilePetHubPost = (postId: string, content: string) =>
   platformRequest<{ id: string }>(`/api/v1/pethub/posts/${postId}/comments`, {

@@ -2072,16 +2072,20 @@ export function WorldScreen({
         navigationBarTranslucent={false}
         onRequestClose={() => setSelected(null)}
       >
-        <Pressable style={styles.backdrop} onPress={() => setSelected(null)}>
+        <View style={styles.backdrop}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tutup detail"
+            onPress={() => setSelected(null)}
+            style={StyleSheet.absoluteFill}
+          />
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
+            pointerEvents="box-none"
             style={styles.sheetKeyboard}
           >
             <SafeAreaView style={styles.sheetWrap}>
-              <Pressable
-                style={styles.sheet}
-                onPress={(event) => event.stopPropagation()}
-              >
+              <View style={styles.sheet}>
                 <View style={styles.handle} />
                 <Pressable
                   accessibilityRole="button"
@@ -2093,9 +2097,12 @@ export function WorldScreen({
                 </Pressable>
                 <ScrollView
                   style={styles.sheetScroll}
+                  scrollEnabled
                   nestedScrollEnabled
                   bounces
+                  alwaysBounceVertical
                   overScrollMode="always"
+                  keyboardDismissMode="on-drag"
                   keyboardShouldPersistTaps="handled"
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={styles.sheetContent}
@@ -3265,10 +3272,10 @@ export function WorldScreen({
                     }
                   />
                 </ScrollView>
-              </Pressable>
+              </View>
             </SafeAreaView>
           </KeyboardAvoidingView>
-        </Pressable>
+        </View>
       </Modal>
       <Modal
         visible={!!pawDatingChat}
@@ -3351,9 +3358,15 @@ export function WorldScreen({
         statusBarTranslucent={false}
         onRequestClose={() => setAcademyTrainer(undefined)}
       >
-        <Pressable style={styles.backdrop} onPress={() => setAcademyTrainer(undefined)}>
+        <View style={styles.backdrop}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tutup profil trainer"
+            onPress={() => setAcademyTrainer(undefined)}
+            style={StyleSheet.absoluteFill}
+          />
           <SafeAreaView style={styles.trainerSheetWrap}>
-            <Pressable style={styles.trainerSheet} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.trainerSheet}>
               <View style={styles.handle} />
               <Pressable accessibilityRole="button" accessibilityLabel="Tutup profil trainer" style={styles.sheetClose} onPress={() => setAcademyTrainer(undefined)}>
                 <Ionicons name="close" size={21} color={colors.text} />
@@ -3361,8 +3374,10 @@ export function WorldScreen({
               <ScrollView
                 style={styles.trainerSheetScroll}
                 contentContainerStyle={styles.trainerSheetContent}
+                scrollEnabled
                 nestedScrollEnabled
                 bounces
+                alwaysBounceVertical
                 overScrollMode="always"
                 showsVerticalScrollIndicator={false}
               >
@@ -3393,9 +3408,9 @@ export function WorldScreen({
                   </View>
                 ) : null}
               </ScrollView>
-            </Pressable>
+            </View>
           </SafeAreaView>
-        </Pressable>
+        </View>
       </Modal>
       <Modal visible={imageViewerIndex !== undefined} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setImageViewerIndex(undefined)}>
         <SafeAreaView style={styles.worldImageViewer}>

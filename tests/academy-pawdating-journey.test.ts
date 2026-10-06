@@ -73,6 +73,9 @@ test("Event and Academy details keep a bounded independently scrollable body", (
   assert.match(mobileWorld, /sheet:\s*\{[\s\S]*?flex:\s*1,[\s\S]*?minHeight:\s*0/);
   assert.match(mobileWorld, /sheetScroll:\s*\{\s*flex:\s*1,\s*minHeight:\s*0\s*\}/);
   assert.match(mobileWorld, /trainerSheetScroll:\s*\{\s*flex:\s*1,\s*minHeight:\s*0\s*\}/);
+  assert.match(mobileWorld, /<View style=\{styles\.backdrop\}>[\s\S]*?accessibilityLabel="Tutup detail"[\s\S]*?<View style=\{styles\.sheet\}>/);
+  assert.match(mobileWorld, /<View style=\{styles\.trainerSheet\}>[\s\S]*?<ScrollView[\s\S]*?scrollEnabled[\s\S]*?alwaysBounceVertical/);
+  assert.doesNotMatch(mobileWorld, /<Pressable style=\{styles\.(?:sheet|trainerSheet)\}/);
 });
 
 test("Academy rails and Pet Event cards expose swipe and next-button affordances", () => {

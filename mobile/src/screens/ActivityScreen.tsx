@@ -393,10 +393,12 @@ function ActivityDetailSheet({
   const [resubmitBusy, setResubmitBusy] = useState(false);
   const bookingCancellable =
     item.type === "booking" && item.source !== "clinic";
+  // Read once per opened sheet; the backend re-checks the cutoff on cancel.
+  const [openedAt] = useState(() => Date.now());
   const cancellable =
     bookingCancellable &&
     Boolean(item.cancellable_until) &&
-    Date.now() <= Date.parse(item.cancellable_until ?? "");
+    openedAt <= Date.parse(item.cancellable_until ?? "");
   const cancelHint =
     bookingCancellable && item.cancellation_cutoff_hours !== undefined
       ? `Bisa dibatalkan hingga ${item.cancellation_cutoff_hours} jam sebelum jadwal`

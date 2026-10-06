@@ -58,7 +58,7 @@ function ListingApplications({ listingId, onAction, changed }: { listingId: stri
     }
   }, [listingId, onAction]);
   useEffect(() => {
-    void load();
+    queueMicrotask(() => void load());
   }, [load]);
   const review = async (app: MobileAdoptionApplicationRecord, status: ReviewStatus) => {
     setBusy(true);
@@ -142,8 +142,10 @@ export function AdoptionManager({ onAction }: { onAction: (message: string) => v
     }
   }, [onAction]);
   useEffect(() => {
-    void loadApplications();
-    void loadListings();
+    queueMicrotask(() => {
+      void loadApplications();
+      void loadListings();
+    });
   }, [loadApplications, loadListings]);
   const withdraw = async (item: MobileMyAdoptionApplication) => {
     setBusy(true);

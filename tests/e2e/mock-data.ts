@@ -55,6 +55,7 @@ const activityTypes = [
   "document",
   "donation",
   "hotel",
+  "home_service",
 ] as const;
 
 /**

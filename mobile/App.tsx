@@ -84,6 +84,7 @@ import {
   MobilePaymentMethods,
 } from "./src/components/QrisPayment";
 import slivadocLogo from "./assets/slivadoc-logo.png";
+import { MobileNetworkLogger } from "./src/debug/MobileNetworkLogger";
 import { LanguageProvider, LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "./src/i18n";
 
 type Tab =
@@ -302,7 +303,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <LanguageProvider>
-        <MobileApp />
+        <MobileNetworkLogger>
+          <MobileApp />
+        </MobileNetworkLogger>
       </LanguageProvider>
     </SafeAreaProvider>
   );

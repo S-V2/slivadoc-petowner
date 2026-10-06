@@ -94,6 +94,29 @@ HP dan komputer harus berada di Wi-Fi yang sama. Jalankan backend pada host `0.0
 
 Untuk menguji login di Expo Go, scan QR dari `npm start`, buka menu **Lainnya → Masuk ke akun**, lalu gunakan akun Pet Owner yang tersedia pada backend yang sedang dijalankan. Tarik layar dari atas untuk memuat ulang data tanpa berpindah tab. Tombol Back Android menutup popup terlebih dahulu, kembali ke halaman sebelumnya bila ada, dan mengikuti perilaku sistem saat sudah berada di Beranda.
 
+### Network logger Android/iOS
+
+Network inspector aktif otomatis saat menjalankan Expo dalam development dan
+build EAS `development`/`preview`. Ketuk tombol kecil dengan ikon network/code
+yang mengambang di kiri bawah, di atas bottom bar, untuk membuka **Dev Tool → Logs**.
+Tombol ini bisa digeser agar tidak menutupi konten.
+
+Lakukan aksi yang bermasalah, lalu buka log dan cari endpoint/method-nya.
+Request gagal ditandai merah. Ketuk request untuk melihat URL API sebenarnya,
+HTTP status, durasi, request/response headers dan body, termasuk `code`,
+`message`, serta request ID dari backend. Gunakan **Clear** untuk membersihkan
+log dan **Export** pada detail untuk membagikan laporan melalui share sheet.
+
+Inspector mendukung native `fetch` Expo pada Android/iOS. Token, cookie,
+password, OTP, dan secret disamarkan sebelum masuk ke panel/export; request
+asli tetap dikirim tanpa perubahan. Log hanya berada di memori perangkat dan
+tidak dikirim ke server lain. Panel juga menyediakan mock untuk QA, tetapi
+tidak ada mock yang aktif secara default.
+
+Production tidak mengaktifkan inspector. Untuk build QA tersendiri, isi
+`EXPO_PUBLIC_NETWORK_LOGGER_ENABLED=1` sebelum build. Setelah memasang dependency
+baru, mulai ulang Metro sekali dengan `cd mobile && npm run start:clear`.
+
 ## Setup Cloudinary
 
 1. Buat akun/proyek Cloudinary dan buka Dashboard.

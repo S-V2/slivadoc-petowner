@@ -67,8 +67,22 @@ test("Academy promotions retain the original price and final payable price", () 
 
 test("Event and Academy details keep a bounded independently scrollable body", () => {
   assert.match(discoveryCss, /\.world-modal\s*\{[\s\S]*?overflow:\s*hidden/);
-  assert.match(discoveryCss, /\.world-modal>\.modal-world-body\s*\{[\s\S]*?overflow-y:\s*auto/);
-  assert.match(mobileWorld, /sheetWrap:\s*\{[^\n]*height:\s*"88%"/);
+  assert.match(discoveryCss, /\.world-modal>\.modal-world-body\s*\{[\s\S]*?flex:\s*1 1 0[\s\S]*?overflow-y:\s*scroll/);
+  assert.match(discoveryCss, /\.academy-trainer-profile-body\s*\{[\s\S]*?overflow-y:\s*auto/);
+  assert.match(mobileWorld, /sheetWrap:\s*\{[^\n]*height:\s*"92%"/);
   assert.match(mobileWorld, /sheet:\s*\{[\s\S]*?flex:\s*1,[\s\S]*?minHeight:\s*0/);
   assert.match(mobileWorld, /sheetScroll:\s*\{\s*flex:\s*1,\s*minHeight:\s*0\s*\}/);
+  assert.match(mobileWorld, /trainerSheetScroll:\s*\{\s*flex:\s*1,\s*minHeight:\s*0\s*\}/);
+});
+
+test("Academy rails and Pet Event cards expose swipe and next-button affordances", () => {
+  assert.match(academy, /aria-label="Lihat jenis pet berikutnya"/);
+  assert.match(academy, /aria-label="Lihat pet trainer berikutnya"/);
+  assert.match(discoveryCss, /grid-auto-columns:calc\(\(100% - 16px\)\/3\)/);
+  assert.match(academy, /event-card--experience/);
+  assert.match(academy, /event-social-summary/);
+  assert.match(mobileWorld, /academySpeciesChoice/);
+  assert.match(mobileWorld, /accessibilityLabel="Lihat pet trainer berikutnya"/);
+  assert.match(mobileWorld, /eventExperienceVisual/);
+  assert.match(mobileWorld, /eventSocialSummary/);
 });

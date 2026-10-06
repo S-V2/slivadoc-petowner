@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type RefObject,
+} from "react";
 import {
   Animated,
   Image,
@@ -126,6 +134,14 @@ type PetSpotReservationForm = {
   petCount: number;
   specialRequest: string;
 };
+const academySpeciesOptions = [
+  { id: "all", label: "Semua pet", icon: "apps-outline" },
+  { id: "dog", label: "Anjing", icon: "paw" },
+  { id: "cat", label: "Kucing", icon: "paw-outline" },
+  { id: "rabbit", label: "Kelinci", icon: "leaf-outline" },
+  { id: "bird", label: "Burung", icon: "airplane-outline" },
+  { id: "small_mammal", label: "Small pet", icon: "sparkles-outline" },
+] as const;
 
 const emptyAdoptionForm = (): AdoptionForm => ({
   applicantName: "",
@@ -464,6 +480,13 @@ export function WorldScreen({
     value
       ? formatDate(value, { dateStyle: "medium", timeStyle: "short" })
       : "Segera";
+  const eventDatePart = (value: string | undefined, part: "day" | "month") =>
+    value
+      ? formatDate(
+          value,
+          part === "day" ? { day: "2-digit" } : { month: "short" },
+        )
+      : "—";
   const [mode, setMode] = useState<Mode>(intent?.mode ?? "academy");
   const [items, setItems] = useState<Record<Mode, WorldItem[]>>(emptyWorld);
   const [consultProvider, setConsultProvider] =
@@ -519,6 +542,18 @@ export function WorldScreen({
   const [academySpecies, setAcademySpecies] = useState(
     pet?.species?.toLowerCase() || "all",
   );
+  const academySpeciesRailRef = useRef<ScrollView>(null);
+  const academyTrainerRailRef = useRef<ScrollView>(null);
+  const academySpeciesOffset = useRef(0);
+  const academyTrainerOffset = useRef(0);
+  const advanceAcademyRail = (
+    rail: RefObject<ScrollView | null>,
+    offset: MutableRefObject<number>,
+  ) => {
+    const step = Math.max(240, viewportWidth * 0.72);
+    offset.current += step;
+    rail.current?.scrollTo({ x: offset.current, animated: true });
+  };
   const [selectedAcademyPetID, setSelectedAcademyPetID] = useState("");
   const [selectedAcademyScheduleID, setSelectedAcademyScheduleID] =
     useState("");
@@ -1694,45 +1729,91 @@ export function WorldScreen({
               </View>
               <Ionicons name="shield-checkmark" size={22} color="#128464" />
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
-              {["all", ...new Set(pets.map((candidate) => (candidate.species ?? "other").toLowerCase()))].map((speciesName) => (
+            <View style={styles.academyRailWrap}>
+              <ScrollView
+                ref={academySpeciesRailRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.academySpeciesRow}
+                onMomentumScrollEnd={(event) => {
+                  academySpeciesOffset.current = event.nativeEvent.contentOffset.x;
+                }}
+              >
+                {academySpeciesOptions.map((species) => (
+                  <Pressable
+                    key={species.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: academySpecies === species.id }}
+                    onPress={() => setAcademySpecies(species.id)}
+                    style={[
+                      styles.choice,
+                      styles.academySpeciesChoice,
+                      { width: Math.max(96, (viewportWidth - 62) / 3) },
+                      academySpecies === species.id && styles.choiceActive,
+                    ]}
+                  >
+                    <Ionicons
+                      name={species.icon}
+                      size={15}
+                      color={academySpecies === species.id ? colors.white : colors.sky600}
+                    />
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.choiceText, academySpecies === species.id && styles.choiceTextActive]}
+                    >
+                      {species.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Lihat jenis pet berikutnya"
+                style={styles.academyRailNext}
+                onPress={() => advanceAcademyRail(academySpeciesRailRef, academySpeciesOffset)}
+              >
+                <Ionicons name="chevron-forward" size={19} color={colors.sky600} />
+              </Pressable>
+            </View>
+            <View style={styles.academyRailWrap}>
+              <ScrollView
+                ref={academyTrainerRailRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.academyTrainerRow}
+                onMomentumScrollEnd={(event) => {
+                  academyTrainerOffset.current = event.nativeEvent.contentOffset.x;
+                }}
+              >
+                {academyTrainers.map((trainer) => (
+                  <Pressable
+                    key={trainer.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Lihat profil trainer ${trainer.full_name}`}
+                    style={[styles.academyTrainerCard, { width: Math.min(230, viewportWidth * 0.62) }]}
+                    onPress={() => void openAcademyTrainer(trainer)}
+                  >
+                    <View style={styles.academyTrainerAvatar}>
+                      {trainer.photo_url ? <Image alt="" source={{ uri: trainer.photo_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Text style={styles.academyTrainerInitial}>{trainer.full_name.slice(0, 1)}</Text>}
+                    </View>
+                    <Text style={styles.academyTrainerName} numberOfLines={1}>{trainer.full_name}</Text>
+                    <Text style={styles.academyTrainerMeta}>★ {trainer.rating.toFixed(1)} · {trainer.experience_years} th</Text>
+                    <Text style={styles.academyTrainerSpecialty} numberOfLines={1}>{trainer.specialties.join(" · ")}</Text>
+                    <Text style={styles.academyTrainerDetail}>Lihat profil lengkap</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              {academyTrainers.length > 1 ? (
                 <Pressable
-                  key={speciesName}
                   accessibilityRole="button"
-                  accessibilityState={{ selected: academySpecies === speciesName }}
-                  onPress={() => setAcademySpecies(speciesName)}
-                  style={[styles.choice, academySpecies === speciesName && styles.choiceActive]}
+                  accessibilityLabel="Lihat pet trainer berikutnya"
+                  style={styles.academyRailNext}
+                  onPress={() => advanceAcademyRail(academyTrainerRailRef, academyTrainerOffset)}
                 >
-                  <Ionicons
-                    name={speciesName === "dog" ? "paw" : speciesName === "cat" ? "paw-outline" : "apps-outline"}
-                    size={14}
-                    color={academySpecies === speciesName ? colors.white : colors.sky600}
-                  />
-                  <Text style={[styles.choiceText, academySpecies === speciesName && styles.choiceTextActive]}>
-                    {speciesName === "all" ? "Semua" : speciesName === "dog" ? "Anjing" : speciesName === "cat" ? "Kucing" : speciesName}
-                  </Text>
+                  <Ionicons name="chevron-forward" size={19} color={colors.sky600} />
                 </Pressable>
-              ))}
-            </ScrollView>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.academyTrainerRow}>
-              {academyTrainers.map((trainer) => (
-                <Pressable
-                  key={trainer.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Lihat profil trainer ${trainer.full_name}`}
-                  style={styles.academyTrainerCard}
-                  onPress={() => void openAcademyTrainer(trainer)}
-                >
-                  <View style={styles.academyTrainerAvatar}>
-                    {trainer.photo_url ? <Image alt="" source={{ uri: trainer.photo_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Text style={styles.academyTrainerInitial}>{trainer.full_name.slice(0, 1)}</Text>}
-                  </View>
-                  <Text style={styles.academyTrainerName} numberOfLines={1}>{trainer.full_name}</Text>
-                  <Text style={styles.academyTrainerMeta}>★ {trainer.rating.toFixed(1)} · {trainer.experience_years} th</Text>
-                  <Text style={styles.academyTrainerSpecialty} numberOfLines={1}>{trainer.specialties.join(" · ")}</Text>
-                  <Text style={styles.academyTrainerDetail}>Lihat detail →</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
+              ) : null}
+            </View>
           </View>
         ) : null}
         {mode === "petspot" ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
@@ -1757,24 +1838,26 @@ export function WorldScreen({
               <Pressable
                 key={item.id}
                 onPress={() => openItem(item)}
-                style={[
-                  styles.card,
-                  mode === "academy" && styles.academyProgramCard,
-                ]}
-              >
+                  style={[
+                    styles.card,
+                    mode === "academy" && styles.academyProgramCard,
+                    mode === "events" && styles.eventExperienceCard,
+                  ]}
+                >
                 <View
                   style={[
                     styles.visual,
                     mode === "academy" && styles.academyProgramVisual,
+                    mode === "events" && styles.eventExperienceVisual,
                     index % 3 === 1 && styles.visualPeach,
                     index % 3 === 2 && styles.visualViolet,
                   ]}
                 >
-                  {(["academy", "petspot"].includes(mode) &&
-                    (item.cover_url || item.image_urls?.[0])) ? (
+                  {(["academy", "events", "petspot"].includes(mode) &&
+                    (item.cover_url || item.banner_url || item.image_urls?.[0])) ? (
                     <Image
                       alt=""
-                      source={{ uri: item.cover_url || item.image_urls?.[0] }}
+                      source={{ uri: item.cover_url || item.banner_url || item.image_urls?.[0] }}
                       style={StyleSheet.absoluteFill}
                       resizeMode="cover"
                     />
@@ -1806,6 +1889,29 @@ export function WorldScreen({
                       <Ionicons name="images-outline" size={11} color={colors.white} />
                       <Text style={styles.academyGalleryText}>{item.image_urls?.length}</Text>
                     </View>
+                  ) : null}
+                  {mode === "events" ? (
+                    <>
+                      <View style={styles.eventDateBadge}>
+                        <Text style={styles.eventDateDay}>
+                          {eventDatePart(item.starts_at, "day")}
+                        </Text>
+                        <Text style={styles.eventDateMonth}>
+                          {eventDatePart(item.starts_at, "month")}
+                        </Text>
+                      </View>
+                      <View style={styles.eventCategoryBadge}>
+                        <Text style={styles.eventCategoryText}>
+                          {item.featured ? "✦ PILIHAN" : item.category || "PET EVENT"}
+                        </Text>
+                      </View>
+                      {(item.image_urls?.length ?? 0) > 1 ? (
+                        <View style={styles.academyGalleryBadge}>
+                          <Ionicons name="images-outline" size={11} color={colors.white} />
+                          <Text style={styles.academyGalleryText}>{item.image_urls?.length}</Text>
+                        </View>
+                      ) : null}
+                    </>
                   ) : null}
                   {mode === "pawdating" ? (
                     <View style={styles.verified}>
@@ -1868,6 +1974,26 @@ export function WorldScreen({
                         <Text style={styles.academyProgramStatText}>
                           Sejak {item.running_since ? formatDate(item.running_since, { month: "short", year: "numeric" }) : "baru"}
                         </Text>
+                      </View>
+                    </View>
+                  ) : null}
+                  {mode === "events" ? (
+                    <View style={styles.eventCardStats}>
+                      <View style={styles.eventCardStat}>
+                        <Ionicons name="people-outline" size={12} color={colors.sky600} />
+                        <Text style={styles.eventCardStatText}>
+                          {formatNumber(item.registered_count ?? 0)} terdaftar
+                        </Text>
+                      </View>
+                      <View style={styles.eventCardStat}>
+                        <Ionicons name="ticket-outline" size={12} color="#7658C9" />
+                        <Text style={styles.eventCardStatText}>
+                          {Math.max(0, Number(item.capacity ?? 0) - Number(item.registered_count ?? 0))} slot
+                        </Text>
+                      </View>
+                      <View style={styles.eventCardStat}>
+                        <Ionicons name="location-outline" size={12} color="#128464" />
+                        <Text numberOfLines={1} style={styles.eventCardStatText}>{item.city}</Text>
                       </View>
                     </View>
                   ) : null}
@@ -1946,6 +2072,8 @@ export function WorldScreen({
                 <ScrollView
                   style={styles.sheetScroll}
                   nestedScrollEnabled
+                  bounces
+                  overScrollMode="always"
                   keyboardShouldPersistTaps="handled"
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={styles.sheetContent}
@@ -1975,6 +2103,28 @@ export function WorldScreen({
                     {selected?.title || selected?.name}
                   </Text>
                   <Text style={styles.sheetNote}>{selected?.description}</Text>
+                  {mode === "events" ? (
+                    <View style={styles.eventSocialSummary}>
+                      <View style={styles.eventSocialItem}>
+                        <Text style={styles.eventSocialValue}>
+                          {formatNumber(selected?.registered_count ?? 0)}
+                        </Text>
+                        <Text style={styles.eventSocialLabel}>Terdaftar</Text>
+                      </View>
+                      <View style={styles.eventSocialItem}>
+                        <Text style={styles.eventSocialValue}>
+                          {Math.max(0, Number(selected?.capacity ?? 0) - Number(selected?.registered_count ?? 0))}
+                        </Text>
+                        <Text style={styles.eventSocialLabel}>Slot tersedia</Text>
+                      </View>
+                      <View style={styles.eventSocialItem}>
+                        <Text style={styles.eventSocialValue}>
+                          {eventDatePart(selected?.starts_at, "day")} {eventDatePart(selected?.starts_at, "month")}
+                        </Text>
+                        <Text style={styles.eventSocialLabel}>Tanggal event</Text>
+                      </View>
+                    </View>
+                  ) : null}
                   {(["academy", "consult"].includes(mode) &&
                     Number(selected?.price ?? selected?.total_fee ?? 0) > 0) ? (
                     <View style={styles.worldPromoPrice}>
@@ -3184,7 +3334,14 @@ export function WorldScreen({
               <Pressable accessibilityRole="button" accessibilityLabel="Tutup profil trainer" style={styles.sheetClose} onPress={() => setAcademyTrainer(undefined)}>
                 <Ionicons name="close" size={21} color={colors.text} />
               </Pressable>
-              <ScrollView contentContainerStyle={styles.trainerSheetContent} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.trainerSheetScroll}
+                contentContainerStyle={styles.trainerSheetContent}
+                nestedScrollEnabled
+                bounces
+                overScrollMode="always"
+                showsVerticalScrollIndicator={false}
+              >
                 <View style={styles.trainerProfileTop}>
                   <View style={styles.trainerProfilePhoto}>
                     {academyTrainer?.photo_url ? <Image alt="" source={{ uri: academyTrainer.photo_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Text style={styles.trainerProfileInitial}>{academyTrainer?.full_name.slice(0, 1)}</Text>}
@@ -3679,6 +3836,7 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   academyProgramCard: { minHeight: 0, flexDirection: "column", borderRadius: 20 },
+  eventExperienceCard: { minHeight: 0, flexDirection: "column", borderRadius: 20 },
   visual: {
     position: "relative",
     width: 96,
@@ -3687,12 +3845,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.mint50,
   },
   academyProgramVisual: { width: "100%", height: 186 },
+  eventExperienceVisual: { width: "100%", height: 190, backgroundColor: "#EFE9FA" },
   academyFeaturedBadge: { position: "absolute", left: 10, top: 10, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 9, backgroundColor: "rgba(8,99,145,.92)" },
   academyFeaturedText: { color: colors.white, fontSize: 8, fontWeight: "700", letterSpacing: 0.7 },
   academyDiscountBadge: { position: "absolute", right: 10, top: 10, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 9, backgroundColor: "#F16F5A" },
   academyDiscountText: { color: colors.white, fontSize: 9, fontWeight: "700" },
   academyGalleryBadge: { position: "absolute", right: 10, bottom: 10, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 99, backgroundColor: "rgba(7,35,57,.72)" },
   academyGalleryText: { color: colors.white, fontSize: 9, fontWeight: "700" },
+  eventDateBadge: { position: "absolute", left: 10, bottom: 10, width: 48, height: 51, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: "rgba(255,255,255,.95)" },
+  eventDateDay: { color: "#62458F", fontSize: 20, lineHeight: 21, fontWeight: "700" },
+  eventDateMonth: { color: "#7D6B94", fontSize: 8, fontWeight: "700", textTransform: "uppercase" },
+  eventCategoryBadge: { position: "absolute", left: 10, top: 10, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 9, backgroundColor: "rgba(47,32,72,.75)" },
+  eventCategoryText: { color: colors.white, fontSize: 8, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
   visualPeach: { backgroundColor: "#FFF0E5" },
   visualViolet: { backgroundColor: colors.violet50 },
   visualEmoji: { fontSize: 41 },
@@ -3729,6 +3893,9 @@ const styles = StyleSheet.create({
   academyProgramStats: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 10 },
   academyProgramStat: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 5, borderRadius: 8, backgroundColor: "#F0F8FB" },
   academyProgramStatText: { color: colors.text, fontSize: 8, fontWeight: "600" },
+  eventCardStats: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 10 },
+  eventCardStat: { minWidth: "29%", flex: 1, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 6, borderRadius: 9, backgroundColor: "#F8F4FE" },
+  eventCardStatText: { minWidth: 0, flex: 1, color: colors.text, fontSize: 8, fontWeight: "600" },
   cardFooter: {
     flexDirection: "row",
     alignItems: "center",
@@ -3743,7 +3910,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
-  cardPriceBlock: { minWidth: 0, flex: 1 },
+  cardPriceBlock: { minWidth: 0, minHeight: 34, flex: 1, justifyContent: "center" },
   cardOriginalPrice: { marginBottom: 2, color: colors.muted, fontSize: 8, textDecorationLine: "line-through" },
   arrow: {
     width: 31,
@@ -3799,10 +3966,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(14,32,55,.42)",
   },
   sheetKeyboard: { flex: 1, justifyContent: "flex-end" },
-  sheetWrap: { width: "100%", height: "88%", maxHeight: "88%" },
+  sheetWrap: { width: "100%", height: "92%", maxHeight: "92%" },
   sheet: {
     flex: 1,
     minHeight: 0,
+    overflow: "hidden",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     backgroundColor: colors.white,
@@ -3829,7 +3997,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.canvas,
   },
-  sheetContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 32 },
+  sheetContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 48 },
   sheetHero: {
     height: 118,
     alignItems: "center",
@@ -3878,6 +4046,10 @@ const styles = StyleSheet.create({
   academySocialValue: { color: colors.navy, fontSize: 11, fontWeight: "700", textAlign: "center" },
   academySocialLabel: { marginTop: 3, color: colors.muted, fontSize: 7, textAlign: "center" },
   academySocialDivider: { width: 1, backgroundColor: colors.line },
+  eventSocialSummary: { flexDirection: "row", gap: 8, marginTop: 12 },
+  eventSocialItem: { minWidth: 0, flex: 1, alignItems: "center", paddingHorizontal: 6, paddingVertical: 11, borderWidth: 1, borderColor: "#E4DCF3", borderRadius: 13, backgroundColor: "#FBF9FF" },
+  eventSocialValue: { color: "#513477", fontSize: 12, fontWeight: "700", textAlign: "center" },
+  eventSocialLabel: { marginTop: 3, color: colors.muted, fontSize: 7, textAlign: "center" },
   details: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -4506,8 +4678,12 @@ const styles = StyleSheet.create({
   academyTrainerHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   academyTrainerKicker: { color: colors.sky600, fontSize: 10, fontWeight: "700", letterSpacing: 1 },
   academyTrainerTitle: { color: colors.text, fontSize: 18, fontWeight: "700", marginTop: 3 },
-  academyTrainerRow: { gap: 10, paddingRight: 4 },
-  academyTrainerCard: { width: 164, padding: 12, borderWidth: 1, borderColor: "#DCEAF1", borderRadius: 15, backgroundColor: colors.white },
+  academyRailWrap: { position: "relative", minWidth: 0 },
+  academySpeciesRow: { gap: 7, paddingRight: 50 },
+  academySpeciesChoice: { minHeight: 48, justifyContent: "center", paddingHorizontal: 9 },
+  academyRailNext: { position: "absolute", zIndex: 3, right: 2, top: "50%", width: 40, height: 40, alignItems: "center", justifyContent: "center", marginTop: -20, borderWidth: 1, borderColor: "#CAE5F1", borderRadius: 14, backgroundColor: colors.white, ...shadow },
+  academyTrainerRow: { gap: 10, paddingRight: 50 },
+  academyTrainerCard: { padding: 12, borderWidth: 1, borderColor: "#DCEAF1", borderRadius: 15, backgroundColor: colors.white },
   academyTrainerAvatar: { width: 48, height: 48, overflow: "hidden", alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: colors.sky600, marginBottom: 9 },
   academyTrainerInitial: { color: colors.white, fontSize: 20, fontWeight: "700" },
   academyTrainerName: { color: colors.text, fontSize: 12, fontWeight: "700" },
@@ -4579,9 +4755,10 @@ const styles = StyleSheet.create({
   pawChatInput: { flex: 1, maxHeight: 96, minHeight: 44, paddingHorizontal: 13, paddingVertical: 10, borderWidth: 1, borderColor: "#D5E5ED", borderRadius: 15, color: colors.text, fontSize: 12, backgroundColor: "#F9FCFD" },
   pawChatSend: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.sky600 },
   pawChatSendDisabled: { opacity: 0.42 },
-  trainerSheetWrap: { width: "100%", height: "78%" },
-  trainerSheet: { flex: 1, minHeight: 0, borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: colors.white },
-  trainerSheetContent: { padding: 18, paddingBottom: 34 },
+  trainerSheetWrap: { width: "100%", height: "86%", maxHeight: "86%" },
+  trainerSheet: { flex: 1, minHeight: 0, overflow: "hidden", borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: colors.white },
+  trainerSheetScroll: { flex: 1, minHeight: 0 },
+  trainerSheetContent: { flexGrow: 1, padding: 18, paddingBottom: 48 },
   trainerProfileTop: { alignItems: "center", paddingTop: 10 },
   trainerProfilePhoto: { width: 92, height: 92, alignItems: "center", justifyContent: "center", overflow: "hidden", borderRadius: 28, backgroundColor: colors.sky600, marginBottom: 12 },
   trainerProfileInitial: { color: colors.white, fontSize: 38, fontWeight: "700" },

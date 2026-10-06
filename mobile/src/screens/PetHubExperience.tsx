@@ -23,6 +23,7 @@ import {
   getMobilePetHubReels,
   getMobilePetHubStories,
   reactMobilePetHubPost,
+  likeMobilePetHubPost,
   saveMobilePetHubPost,
   viewMobilePetHubStory,
   uploadMobileMedia,
@@ -37,6 +38,8 @@ import {
 } from "../i18n";
 import { BoundedBottomSheet, PrimaryButton } from "../components/ui";
 import { PetHubPhotos } from "../components/PetHubPhotos";
+import { PetHubStoryPlayer } from "../components/PetHubStoryPlayer";
+import { DoubleTapLike } from "../components/DoubleTapLike";
 import { colors, shadow } from "../theme";
 
 type ComposerMode = "story" | "feed" | "reel";
@@ -130,6 +133,14 @@ export function PetHubExperience({
   const asset = assets[0];
   const [publishing, setPublishing] = useState(false);
   const [story, setStory] = useState<WorldItem>();
+  const [heartBurst, setHeartBurst] = useState("");
+  const heartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (heartTimer.current) clearTimeout(heartTimer.current);
+    },
+    [],
+  );
   const [commentPost, setCommentPost] = useState<WorldItem>();
   const [comments, setComments] = useState<MobilePetHubComment[]>([]);
   const [comment, setComment] = useState("");
@@ -286,7 +297,7 @@ export function PetHubExperience({
     }
   };
 
-  const toggleLike = async (item: WorldItem) => {
+  const toggleLike = async (item: WorldItem, ensureLiked = false) => {
     if (!owner) {
       onLogin();
       return;
@@ -296,9 +307,21 @@ export function PetHubExperience({
       return;
     }
     if (likePending.current.has(item.id)) return;
+    const burst = () => {
+      setHeartBurst(item.id);
+      if (heartTimer.current) clearTimeout(heartTimer.current);
+      heartTimer.current = setTimeout(() => setHeartBurst(""), 900);
+    };
+    if (ensureLiked && item.liked) {
+      burst();
+      return;
+    }
     likePending.current.add(item.id);
     try {
-      const result = await reactMobilePetHubPost(item.id);
+      const result = await (ensureLiked
+        ? likeMobilePetHubPost(item.id)
+        : reactMobilePetHubPost(item.id));
+      if (ensureLiked) burst();
       const update = (current: WorldItem[]) =>
         current.map((post) =>
           post.id === item.id
@@ -357,6 +380,17 @@ export function PetHubExperience({
           ),
         )
         .catch(() => onAction("Jumlah penonton story belum dapat diperbarui"));
+  };
+  const sharePost = async (item: WorldItem) => {
+    const link = `https://slivadoc.com/?view=pethub&post=${encodeURIComponent(item.id)}`;
+    try {
+      await Share.share({
+        title: "PetHub · Slivadoc",
+        message: `${item.content || t("Momen dari PetHub Slivadoc")}\n${link}`,
+      });
+    } catch {
+      onAction("Tautan konten belum dapat dibagikan");
+    }
   };
   const openComments = async (item: WorldItem) => {
     const sequence = ++commentSequence.current;
@@ -633,17 +667,28 @@ export function PetHubExperience({
                   ]}
                 >
                   {video ? (
-                    <InlineVideo uri={url} style={styles.media} />
+                    <DoubleTapLike
+                      onLike={() => void toggleLike(item, true)}
+                      style={styles.media}
+                    >
+                      <InlineVideo uri={url} style={styles.media} />
+                    </DoubleTapLike>
                   ) : poster ? (
                     <PetHubPhotos
                       urls={[...new Set([...(item.media_urls ?? []), url])]}
                       author={item.author_name || "pet parent"}
+                      onDoubleTap={() => void toggleLike(item, true)}
                     />
                   ) : (
                     <View style={[styles.media, styles.videoFallback]}>
                       <Ionicons name="images" size={42} color={colors.white} />
                     </View>
                   )}
+                  {heartBurst === item.id ? (
+                    <View pointerEvents="none" style={styles.likeBurst}>
+                      <Ionicons name="heart" size={86} color="#fff" />
+                    </View>
+                  ) : null}
                   {activeTab === "reels" ? (
                     <View style={styles.reelLabel}>
                       <Ionicons
@@ -691,11 +736,7 @@ export function PetHubExperience({
                         <Pressable
                           accessibilityRole="button"
                           accessibilityLabel="Bagikan reel"
-                          onPress={() =>
-                            void Share.share({
-                              message: `${item.content || "PetHub Slivadoc"}\n${url}`,
-                            })
-                          }
+                          onPress={() => void sharePost(item)}
                           style={styles.reelAction}
                         >
                           <Ionicons
@@ -759,11 +800,7 @@ export function PetHubExperience({
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel="Bagikan posting"
-                        onPress={() =>
-                          void Share.share({
-                            message: `${item.author_name || t("Pet Parent")}: ${item.content || t("Momen dari PetHub Slivadoc")}${url ? `\n${url}` : ""}`,
-                          })
-                        }
+                        onPress={() => void sharePost(item)}
                         style={styles.actionButton}
                       >
                         <Ionicons
@@ -938,50 +975,28 @@ export function PetHubExperience({
         maxHeight="84%"
       >
         {story ? (
-          <View style={styles.storyViewer}>
-            <View style={styles.postHeader}>
-              <View style={styles.authorAvatar}>
-                <Text style={styles.authorInitial}>
-                  {initials(story.author_name)}
-                </Text>
-              </View>
-              <View style={styles.authorCopy}>
-                <Text style={styles.authorName}>
-                  {story.author_name || "Pet Parent"}
-                </Text>
-                <Text style={styles.authorMeta}>
-                  Story · {formatAge(story.created_at, language)}
-                </Text>
-              </View>
-              <Pressable onPress={() => setStory(undefined)}>
-                <Ionicons name="close" size={22} color={colors.navy} />
-              </Pressable>
-            </View>
-            <View style={styles.storyViewerMedia}>
-              {isVideo(story) ? (
-                <InlineVideo
-                  uri={mediaURL(story)}
-                  style={styles.storyViewerImage}
-                />
-              ) : mediaURL(story) ? (
-                <Image
-                  accessibilityLabel={`Story ${story.author_name || "pet parent"}`}
-                  source={{ uri: mediaURL(story) }}
-                  style={styles.storyViewerImage}
-                />
-              ) : (
-                <View style={[styles.storyViewerImage, styles.videoFallback]}>
-                  <Ionicons name="images" size={46} color={colors.white} />
-                </View>
-              )}
-            </View>
-            <Text style={styles.authorMeta}>
-              {story.view_count ?? 0} penonton
-            </Text>
-            {story.content ? (
-              <Text style={styles.storyCaption}>{story.content}</Text>
-            ) : null}
-          </View>
+          <PetHubStoryPlayer
+            key={story.id}
+            story={story}
+            close={() => setStory(undefined)}
+            next={() => {
+              const index = stories.findIndex((item) => item.id === story.id);
+              const nextStory = stories[index + 1];
+              if (nextStory) openStory(nextStory);
+              else setStory(undefined);
+            }}
+            previous={
+              stories.findIndex((item) => item.id === story.id) > 0
+                ? () => {
+                    const index = stories.findIndex(
+                      (item) => item.id === story.id,
+                    );
+                    const previousStory = stories[index - 1];
+                    if (previousStory) openStory(previousStory);
+                  }
+                : undefined
+            }
+          />
         ) : null}
       </BoundedBottomSheet>
 
@@ -1078,6 +1093,15 @@ export function PetHubExperience({
 }
 
 const styles = StyleSheet.create({
+  likeBurst: {
+    position: "absolute",
+    inset: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#194560",
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
   brandRow: {
     marginTop: 8,
     flexDirection: "row",

@@ -1,4 +1,5 @@
 "use client";
+import { DiscountBadge } from "./DiscountBadge";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -1411,6 +1412,7 @@ export default function PetOwnerApp() {
             <CareMarketplace
               mode={activeView as "consult" | "adoption" | "documents"}
               pet={selectedPet}
+              pets={petProfiles}
               notify={notify}
               initialVeterinarianId={
                 activeView === "consult" && typeof window !== "undefined"
@@ -4223,7 +4225,7 @@ function DiscoverView({
               )}
               <em>{service.type}</em>
               {service.discountPercent && service.discountPercent > 0 ? (
-                <span className="service-discount-badge">-{service.discountPercent}%</span>
+                <DiscountBadge percent={service.discountPercent} />
               ) : null}
               <button
                 type="button"

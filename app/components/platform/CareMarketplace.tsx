@@ -1,4 +1,5 @@
 "use client";
+import { DiscountBadge } from "../DiscountBadge";
 
 import NextImage from "next/image";
 import {
@@ -51,6 +52,8 @@ import {
 import { QrisPaymentPanel, PaymentMethodPicker } from "../payments/QrisPayment";
 import { RequirementUploads, type UploadedDocument } from "./DocumentUploads";
 import { MyAdoptionApplications, MyAdoptionListings } from "./AdoptionManager";
+import { AdoptionGallery } from "./AdoptionGallery";
+import { uploadImage } from "../../lib/petowner-api";
 
 type PayableConsultation = Consultation & { qrisPayment?: PaymentIntent };
 type ConsultProviderFilter = "all" | "veterinarian" | "trainer";
@@ -58,6 +61,7 @@ type ConsultProviderFilter = "all" | "veterinarian" | "trainer";
 type Props = {
   mode: "consult" | "adoption" | "documents";
   pet: Pet;
+  pets?: Pet[];
   notify: (message: string) => void;
   initialVeterinarianId?: string;
 };
@@ -94,6 +98,7 @@ function hasSpecialty(specialties: string[] | undefined, selected: string) {
 export default function CareMarketplace({
   mode,
   pet,
+  pets = [pet],
   notify,
   initialVeterinarianId,
 }: Props) {
@@ -127,6 +132,7 @@ export default function CareMarketplace({
   const [consultSpecialty, setConsultSpecialty] = useState("all");
   const [consultQuery, setConsultQuery] = useState("");
   const [adoptionComposer, setAdoptionComposer] = useState(false);
+  const [adoptionVersion, setAdoptionVersion] = useState(0);
   const [adoptionSearch, setAdoptionSearch] = useState("");
   const [adoptionTab, setAdoptionTab] = useState<
     "browse" | "listings" | "applications"
@@ -183,7 +189,9 @@ export default function CareMarketplace({
     handledInitialVeterinarian.current = initialVeterinarianId;
     const doctor = doctors.find((item) => item.id === initialVeterinarianId);
     if (!doctor) {
-      notify("Dokter yang dipilih sudah tidak tersedia. Silakan pilih dokter lain.");
+      notify(
+        "Dokter yang dipilih sudah tidak tersedia. Silakan pilih dokter lain.",
+      );
       return;
     }
     queueMicrotask(() => {
@@ -662,7 +670,7 @@ export default function CareMarketplace({
                       <strong>{money.format(plan.price)}</strong>
                     )}
                     {plan.discount_percent > 0 && (
-                      <mark>Hemat {plan.discount_percent}%</mark>
+                      <DiscountBadge percent={plan.discount_percent} />
                     )}
                   </button>
                 ))}
@@ -746,7 +754,7 @@ export default function CareMarketplace({
                       <strong>{money.format(plan.price)}</strong>
                     )}
                     {plan.discount_percent > 0 && (
-                      <mark>Hemat {plan.discount_percent}%</mark>
+                      <DiscountBadge percent={plan.discount_percent} />
                     )}
                   </button>
                 ))}
@@ -793,8 +801,8 @@ export default function CareMarketplace({
       <>
         <section className="adoption-hero">
           <div>
-            <span>ADOPT WITH CONFIDENCE</span>
-            <h2>Dari pet parent, untuk keluarga baru.</h2>
+            <span>SLIVA HOME · PET PASSPORT</span>
+            <h2>Rumah baru. Cerita bahagia berikutnya.</h2>
             <p>
               Pet owner dapat mengajukan pet miliknya. Tim pendamping memeriksa
               identitas, kesehatan, kesiapan adopter, dan proses serah terima.
@@ -808,7 +816,7 @@ export default function CareMarketplace({
           </div>
           <aside>
             ♡<b>Responsible adoption</b>
-            <small>Bukan jual beli hewan</small>
+            <small>Pengajuan + biaya tetap. Tanpa lelang.</small>
           </aside>
         </section>
         <div className="adoption-steps">
@@ -846,148 +854,160 @@ export default function CareMarketplace({
             </button>
           ))}
         </div>
-        {adoptionTab === "listings" && <MyAdoptionListings notify={notify} />}
+        {adoptionTab === "listings" && (
+          <MyAdoptionListings key={adoptionVersion} notify={notify} />
+        )}
         {adoptionTab === "applications" && (
           <MyAdoptionApplications notify={notify} />
         )}
         {adoptionTab === "browse" && (
           <>
-        <section className="adoption-filter-panel" aria-label="Filter adopsi">
-          <label className="adoption-search">
-            <span>⌕</span>
-            <input
-              value={adoptionSearch}
-              onChange={(event) => setAdoptionSearch(event.target.value)}
-              placeholder="Cari nama, ras, kota, atau karakter pet…"
-            />
-          </label>
-          <select
-            value={species}
-            onChange={(event) => setSpecies(event.target.value)}
-            aria-label="Jenis hewan"
-          >
-            <option value="all">Semua hewan</option>
-            <option value="dog">Anjing</option>
-            <option value="cat">Kucing</option>
-          </select>
-          <select
-            value={sex}
-            onChange={(event) => setSex(event.target.value)}
-            aria-label="Jenis kelamin"
-          >
-            <option value="all">Semua gender</option>
-            <option value="male">Jantan</option>
-            <option value="female">Betina</option>
-          </select>
-          <select
-            value={size}
-            onChange={(event) => setSize(event.target.value)}
-            aria-label="Ukuran"
-          >
-            <option value="all">Semua ukuran</option>
-            <option value="small">Small</option>
-            <option value="medium">Medium</option>
-            <option value="large">Large</option>
-          </select>
-          <select
-            value={city}
-            onChange={(event) => setCity(event.target.value)}
-            aria-label="Kota"
-          >
-            <option value="all">Semua kota</option>
-            {adoptionCities.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-          <select
-            value={health}
-            onChange={(event) => setHealth(event.target.value)}
-            aria-label="Standar kesehatan"
-          >
-            <option value="all">Semua kesehatan</option>
-            <option value="vaccinated">Sudah vaksin</option>
-            <option value="sterilized">Sudah steril</option>
-          </select>
-        </section>
-        <div className="adoption-result-count">
-          <b>{filteredAdoptions.length} pet</b>
-          <span>sesuai filter dan siap dikenalkan</span>
-        </div>
-        <div className="adoption-grid">
-          {filteredAdoptions.map((item, index) => (
-            <article className="adoption-card" key={item.id}>
-              <div className={`adoption-photo adoption-${index % 3}`}>
-                {item.photo_urls?.[0] ? (
-                  <NextImage
-                    src={item.photo_urls[0]}
-                    alt={item.name}
-                    width={640}
-                    height={480}
-                    unoptimized
-                  />
-                ) : (
-                  <span>
-                    {item.species.toLowerCase() === "cat" ? "🐈" : "🐕"}
-                  </span>
-                )}
-                {item.featured && <i>PILIHAN</i>}
+            <section
+              className="adoption-filter-panel"
+              aria-label="Filter adopsi"
+            >
+              <label className="adoption-search">
+                <span>⌕</span>
+                <input
+                  value={adoptionSearch}
+                  onChange={(event) => setAdoptionSearch(event.target.value)}
+                  placeholder="Cari nama, ras, kota, atau karakter pet…"
+                />
+              </label>
+              <select
+                value={species}
+                onChange={(event) => setSpecies(event.target.value)}
+                aria-label="Jenis hewan"
+              >
+                <option value="all">Semua hewan</option>
+                <option value="dog">Anjing</option>
+                <option value="cat">Kucing</option>
+              </select>
+              <select
+                value={sex}
+                onChange={(event) => setSex(event.target.value)}
+                aria-label="Jenis kelamin"
+              >
+                <option value="all">Semua gender</option>
+                <option value="male">Jantan</option>
+                <option value="female">Betina</option>
+              </select>
+              <select
+                value={size}
+                onChange={(event) => setSize(event.target.value)}
+                aria-label="Ukuran"
+              >
+                <option value="all">Semua ukuran</option>
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </select>
+              <select
+                value={city}
+                onChange={(event) => setCity(event.target.value)}
+                aria-label="Kota"
+              >
+                <option value="all">Semua kota</option>
+                {adoptionCities.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+              <select
+                value={health}
+                onChange={(event) => setHealth(event.target.value)}
+                aria-label="Standar kesehatan"
+              >
+                <option value="all">Semua kesehatan</option>
+                <option value="vaccinated">Sudah vaksin</option>
+                <option value="sterilized">Sudah steril</option>
+              </select>
+            </section>
+            <div className="adoption-result-count">
+              <b>{filteredAdoptions.length} pet</b>
+              <span>sesuai filter dan siap dikenalkan</span>
+            </div>
+            <div className="adoption-grid">
+              {filteredAdoptions.map((item, index) => (
+                <article className="adoption-card" key={item.id}>
+                  <div className={`adoption-photo adoption-${index % 3}`}>
+                    {item.photo_urls?.[0] ? (
+                      <NextImage
+                        src={item.photo_urls[0]}
+                        alt={item.name}
+                        width={640}
+                        height={480}
+                        unoptimized
+                      />
+                    ) : (
+                      <span>
+                        {item.species.toLowerCase() === "cat" ? "🐈" : "🐕"}
+                      </span>
+                    )}
+                    {item.featured && <i>PILIHAN</i>}
+                  </div>
+                  <div>
+                    <small>⌖ {item.city}</small>
+                    <span className="adoption-source">
+                      {item.source_type === "pet_owner"
+                        ? "Diajukan pet owner"
+                        : "Mitra penyelamat"}{" "}
+                      · {item.submitted_by_name}
+                    </span>
+                    <h3>{item.name}</h3>
+                    <p>
+                      {item.breed} ·{" "}
+                      {item.age_months < 12
+                        ? `${item.age_months} bulan`
+                        : `${Math.floor(item.age_months / 12)} tahun`}{" "}
+                      ·{" "}
+                      {item.sex === "male"
+                        ? "Jantan"
+                        : item.sex === "female"
+                          ? "Betina"
+                          : item.sex}
+                    </p>
+                    <em>{item.description}</em>
+                    <div className="pet-tags">
+                      {item.personality.map((x) => (
+                        <span key={x}>{x}</span>
+                      ))}
+                    </div>
+                    <div className="health-checks">
+                      <span className={item.vaccinated ? "pass" : "pending"}>
+                        {item.vaccinated
+                          ? "✓ Sudah vaksin"
+                          : "Vaksin belum dikonfirmasi"}
+                      </span>
+                      <span className={item.sterilized ? "pass" : "pending"}>
+                        {item.sterilized
+                          ? "✓ Sudah steril"
+                          : "Sterilisasi belum dikonfirmasi"}
+                      </span>
+                    </div>
+                    <footer>
+                      <b>
+                        {item.adoption_fee
+                          ? `Biaya tetap ${money.format(item.adoption_fee)}`
+                          : "Tanpa biaya"}
+                      </b>
+                      <button
+                        className="primary-button"
+                        onClick={() => setSelectedAdoption(item)}
+                      >
+                        Kenalan
+                      </button>
+                    </footer>
+                  </div>
+                </article>
+              ))}
+            </div>
+            {filteredAdoptions.length === 0 && (
+              <div className="empty-state">
+                <span>🐾</span>
+                <h3>Belum ada pet yang cocok</h3>
+                <p>Ubah kombinasi filter untuk melihat kandidat adopsi lain.</p>
               </div>
-              <div>
-                <small>⌖ {item.city}</small>
-                <span className="adoption-source">
-                  {item.source_type === "pet_owner"
-                    ? "Diajukan pet owner"
-                    : "Mitra penyelamat"}{" "}
-                  · {item.submitted_by_name}
-                </span>
-                <h3>{item.name}</h3>
-                <p>
-                  {item.breed} · {Math.max(1, Math.round(item.age_months / 12))}{" "}
-                  tahun ·{" "}
-                  {item.sex === "male"
-                    ? "Jantan"
-                    : item.sex === "female"
-                      ? "Betina"
-                      : item.sex}
-                </p>
-                <em>{item.description}</em>
-                <div className="pet-tags">
-                  {item.personality.map((x) => (
-                    <span key={x}>{x}</span>
-                  ))}
-                </div>
-                <div className="health-checks">
-                  <span className={item.vaccinated ? "pass" : "pending"}>
-                    ✓ {item.vaccinated ? "Vaksin lengkap" : "Vaksin proses"}
-                  </span>
-                  <span className={item.sterilized ? "pass" : "pending"}>
-                    ✓ {item.sterilized ? "Steril" : "Belum steril"}
-                  </span>
-                </div>
-                <footer>
-                  <b>
-                    {item.adoption_fee
-                      ? `Donasi ${money.format(item.adoption_fee)}`
-                      : "Tanpa biaya"}
-                  </b>
-                  <button
-                    className="primary-button"
-                    onClick={() => setSelectedAdoption(item)}
-                  >
-                    Kenalan
-                  </button>
-                </footer>
-              </div>
-            </article>
-          ))}
-        </div>
-        {filteredAdoptions.length === 0 && (
-          <div className="empty-state">
-            <span>🐾</span>
-            <h3>Belum ada pet yang cocok</h3>
-            <p>Ubah kombinasi filter untuk melihat kandidat adopsi lain.</p>
-          </div>
-        )}
+            )}
           </>
         )}
         {selectedAdoption && (
@@ -1000,9 +1020,15 @@ export default function CareMarketplace({
         {adoptionComposer && (
           <AdoptionListingModal
             pet={pet}
+            pets={pets.filter(
+              (item) => !item.accessRole || item.accessRole === "owner",
+            )}
             close={() => setAdoptionComposer(false)}
             notify={notify}
-            created={async () => setAdoptions((await getAdoptions()).data)}
+            created={async () => {
+              setAdoptionVersion((v) => v + 1);
+              setAdoptionTab("listings");
+            }}
           />
         )}
       </>
@@ -1312,7 +1338,10 @@ function ConsultBooking({
       <button
         className="primary-button full"
         disabled={
-          busy || availabilityLoading || (planCharge(plan) > 0 && !paymentMethod) || (plan.mode !== "chat" && !slots.length)
+          busy ||
+          availabilityLoading ||
+          (planCharge(plan) > 0 && !paymentMethod) ||
+          (plan.mode !== "chat" && !slots.length)
         }
       >
         {busy
@@ -1495,7 +1524,10 @@ function TrainerConsultBooking({
       <button
         className="primary-button full"
         disabled={
-          busy || availabilityLoading || (planCharge(plan) > 0 && !paymentMethod) || (plan.mode !== "chat" && !slots.length)
+          busy ||
+          availabilityLoading ||
+          (planCharge(plan) > 0 && !paymentMethod) ||
+          (plan.mode !== "chat" && !slots.length)
         }
       >
         {busy
@@ -1867,23 +1899,54 @@ function ConsultationRoom({
 
 function AdoptionListingModal({
   pet,
+  pets,
   close,
   notify,
   created,
 }: {
   pet: Pet;
+  pets: Pet[];
   close: () => void;
   notify: (m: string) => void;
   created: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
+  const [petID, setPetID] = useState(
+    pets.some((item) => item.id === pet.id) ? pet.id : (pets[0]?.id ?? ""),
+  );
+  const selectedPet = pets.find((item) => item.id === petID);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  async function upload(files: FileList | null) {
+    if (!files || uploading) return;
+    if (photos.length + files.length > 10) {
+      notify("Maksimal 10 foto");
+      return;
+    }
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/"))
+          throw new Error("Gunakan file foto");
+        const result = await uploadImage(file);
+        setPhotos((current) => [...current, result.url]);
+      }
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Upload foto gagal");
+    } finally {
+      setUploading(false);
+    }
+  }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending.current || uploading || !selectedPet) return;
+    pending.current = true;
     setBusy(true);
     const values = Object.fromEntries(new FormData(event.currentTarget));
     try {
       await createAdoptionListing({
-        pet_id: pet.id,
+        pet_id: selectedPet.id,
         city: values.city,
         description: values.description,
         personality: String(values.personality || "")
@@ -1893,7 +1956,11 @@ function AdoptionListingModal({
         health_status: values.health_status,
         vaccinated: values.vaccinated === "yes",
         sterilized: values.sterilized === "yes",
-        photo_urls: pet.photoUrl ? [pet.photoUrl] : [],
+        photo_urls: photos.length
+          ? photos
+          : selectedPet.photoUrl
+            ? [selectedPet.photoUrl]
+            : [],
         adoption_fee: Number(values.adoption_fee || 0),
       });
       await created();
@@ -1904,6 +1971,7 @@ function AdoptionListingModal({
         error instanceof Error ? error.message : "Pengajuan belum dapat dibuat",
       );
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   }
@@ -1911,13 +1979,16 @@ function AdoptionListingModal({
     <div className="modal-overlay" onMouseDown={close}>
       <section
         className="modal form-modal adoption-listing-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Ajukan pet untuk adopsi"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <button className="modal-close" onClick={close}>
           ×
         </button>
         <span className="section-eyebrow">AJUKAN PET SAYA</span>
-        <h2>Carikan keluarga baru untuk {pet.name}</h2>
+        <h2>Mulai pet passport adopsi</h2>
         <p className="muted-copy">
           Hanya pet milikmu yang dapat diajukan. Data identitas dan kesehatan
           akan diperiksa sebelum listing tampil.
@@ -1925,8 +1996,68 @@ function AdoptionListingModal({
         <form className="world-form" onSubmit={submit}>
           <label>
             <span>Pet</span>
-            <input value={`${pet.name} · ${pet.breed}`} readOnly />
+            <select
+              value={petID}
+              disabled={uploading || busy}
+              onChange={(event) => {
+                setPetID(event.target.value);
+                setPhotos([]);
+              }}
+              required
+            >
+              <option value="" disabled>
+                Pilih pet dari koleksi
+              </option>
+              {pets.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} · {item.breed}
+                </option>
+              ))}
+            </select>
           </label>
+          <label>
+            <span>Galeri foto (maksimal 10)</span>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              disabled={uploading || busy}
+              onChange={(event) => void upload(event.target.files)}
+            />
+            <small>
+              {uploading
+                ? "Mengunggah foto…"
+                : photos.length
+                  ? `${photos.length} foto diunggah`
+                  : "Foto profil pet dipakai jika tidak menambah foto."}
+            </small>
+          </label>
+          {photos.length > 0 && (
+            <div className="adoption-upload-grid">
+              {photos.map((url, index) => (
+                <button
+                  type="button"
+                  key={url}
+                  onClick={() =>
+                    setPhotos((current) =>
+                      current.filter((_, i) => i !== index),
+                    )
+                  }
+                  aria-label={`Hapus foto ${index + 1}`}
+                  disabled={uploading || busy}
+                >
+                  <NextImage
+                    src={url}
+                    alt={`Foto pet ${index + 1}`}
+                    width={120}
+                    height={120}
+                    unoptimized
+                  />
+                  <span>×</span>
+                </button>
+              ))}
+            </div>
+          )}
           <label>
             <span>Kota domisili</span>
             <input name="city" minLength={2} required />
@@ -1955,28 +2086,42 @@ function AdoptionListingModal({
             <label>
               <span>Status vaksin</span>
               <select name="vaccinated">
-                <option value="yes">Lengkap</option>
-                <option value="no">Belum lengkap</option>
+                <option value="no">Belum dikonfirmasi</option>
+                <option value="yes">Sudah vaksin</option>
               </select>
             </label>
             <label>
               <span>Sterilisasi</span>
               <select name="sterilized">
+                <option value="no">Belum dikonfirmasi</option>
                 <option value="yes">Sudah</option>
-                <option value="no">Belum</option>
               </select>
             </label>
           </div>
           <label>
-            <span>Donasi biaya perawatan (opsional)</span>
-            <input name="adoption_fee" type="number" min="0" defaultValue="0" />
+            <span>Biaya adopsi tetap (Rp) · 0 jika gratis</span>
+            <input
+              name="adoption_fee"
+              type="number"
+              min="0"
+              max="100000000"
+              step="1"
+              defaultValue="0"
+            />
+            <small>
+              Jelaskan alasan biaya di cerita pet. Tidak ada penawaran harga
+              atau pembayaran saat screening.
+            </small>
           </label>
           <div className="adoption-review-note">
             Setelah dikirim: pemeriksaan oleh tim Operasional & Pendamping
             Adopsi → publikasi → screening calon adopter → persetujuan pet owner
             → serah terima terpantau.
           </div>
-          <button className="primary-button full" disabled={busy}>
+          <button
+            className="primary-button full"
+            disabled={busy || uploading || !selectedPet}
+          >
             {busy ? "Mengirim pengajuan…" : "Kirim untuk diperiksa"}
           </button>
         </form>
@@ -1995,9 +2140,14 @@ function AdoptionModal({
   notify: (m: string) => void;
 }) {
   const [step, setStep] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!requireLogin(notify)) return;
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
     const v = Object.fromEntries(new FormData(event.currentTarget));
     try {
       await applyAdoption(item.id, {
@@ -2012,17 +2162,26 @@ function AdoptionModal({
           ? error.message
           : "Pengajuan belum dapat dikirim",
       );
+    } finally {
+      pending.current = false;
+      setBusy(false);
     }
   }
   return (
     <div className="modal-overlay" onMouseDown={close}>
       <section
         className="modal adoption-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Pet passport ${item.name}`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <button className="modal-close" onClick={close}>
           ×
         </button>
+        {step !== 2 && (
+          <AdoptionGallery photos={item.photo_urls ?? []} name={item.name} />
+        )}
         {step === 2 ? (
           <div className="world-success">
             <span>✓</span>
@@ -2053,6 +2212,23 @@ function AdoptionModal({
             {step === 0 ? (
               <>
                 <p>{item.description}</p>
+                <div className="adoption-passport-fee">
+                  <small>BIAYA ADOPSI TETAP</small>
+                  <strong>
+                    {item.adoption_fee
+                      ? money.format(item.adoption_fee)
+                      : "Tanpa biaya"}
+                  </strong>
+                  <p>
+                    Pengajuan screening gratis. Biaya tidak ditarik otomatis dan
+                    bukan penawaran lelang.
+                  </p>
+                </div>
+                <div className="pet-tags">
+                  {item.personality.map((trait) => (
+                    <span key={trait}>{trait}</span>
+                  ))}
+                </div>
                 <div className="world-detail-grid">
                   <span>
                     <small>Diajukan oleh</small>
@@ -2064,12 +2240,19 @@ function AdoptionModal({
                   </span>
                   <span>
                     <small>Vaksin</small>
-                    <b>{item.vaccinated ? "Lengkap" : "Dalam proses"}</b>
+                    <b>
+                      {item.vaccinated ? "Sudah vaksin" : "Belum dikonfirmasi"}
+                    </b>
                   </span>
                   <span>
                     <small>Sterilisasi</small>
-                    <b>{item.sterilized ? "Sudah" : "Belum"}</b>
+                    <b>{item.sterilized ? "Sudah" : "Belum dikonfirmasi"}</b>
                   </span>
+                </div>
+                <div className="adoption-review-note">
+                  1. Screening kesiapan keluarga · 2. Tinjauan pet owner &
+                  pendamping · 3. Meet & greet · 4. Persetujuan dan serah
+                  terima. Pengajuan bukan jaminan langsung diterima.
                 </div>
                 <button
                   className="primary-button full"
@@ -2080,6 +2263,13 @@ function AdoptionModal({
               </>
             ) : (
               <form className="world-form" onSubmit={submit}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setStep(0)}
+                >
+                  ← Kembali ke pet passport
+                </button>
                 <label>
                   <span>Nama lengkap</span>
                   <input name="applicant_name" required />
@@ -2119,8 +2309,8 @@ function AdoptionModal({
                   Kontak disimpan untuk proses verifikasi dan tidak tampil pada
                   posting atau percakapan publik.
                 </p>
-                <button className="primary-button full">
-                  Kirim pengajuan screening
+                <button className="primary-button full" disabled={busy}>
+                  {busy ? "Mengirim pengajuan…" : "Kirim pengajuan screening"}
                 </button>
               </form>
             )}
@@ -2298,7 +2488,9 @@ function DocumentModal({
               )}
               <button
                 className="primary-button full"
-                disabled={busy || !allUploaded || (item.total_fee > 0 && !paymentMethod)}
+                disabled={
+                  busy || !allUploaded || (item.total_fee > 0 && !paymentMethod)
+                }
               >
                 {busy
                   ? "Membuat pembayaran…"

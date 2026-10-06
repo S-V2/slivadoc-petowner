@@ -1,5 +1,6 @@
 import { Image, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { DiscountBadge } from "../components/DiscountBadge";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { Service } from "../data";
 import { colors, shadow } from "../theme";
@@ -58,7 +59,7 @@ export function DiscoverScreen({ onBook, onOpenNotifications,services,favorites,
             <Pressable key={service.id} onPress={() => setSelected(service)} style={({ pressed }) => [styles.serviceCard, pressed && styles.pressed]}>
               <View style={[styles.serviceVisual, service.tone === "mint" ? styles.mint : service.tone === "violet" ? styles.violet : service.tone === "peach" ? styles.peach : styles.blue]}>
                 {service.imageUrl ? <Image source={{ uri: service.imageUrl }} alt={`Gambar ${service.name}`} style={styles.serviceImage} resizeMode="cover" /> : <Ionicons name={serviceIcon(service)} size={38} color={service.tone === "mint" ? "#14836E" : service.tone === "violet" ? "#6655C7" : service.tone === "peach" ? "#8B4A20" : colors.sky600} />}<Pill>{service.category}</Pill>
-                {service.discountPercent ? <View style={styles.promoBadge}><Text style={styles.promoBadgeText}>-{Math.round(service.discountPercent)}%</Text></View> : null}
+                <DiscountBadge percent={service.discountPercent} />
                 <Pressable hitSlop={10} onPress={(event) => { event.stopPropagation();onToggleFavorite(service.id) }} style={styles.favorite}><Ionicons name={favorite ? "heart" : "heart-outline"} size={18} color={favorite ? colors.red : colors.text} /></Pressable>
               </View>
               <View style={styles.serviceBody}>
@@ -107,6 +108,7 @@ function ServiceDetailSheet({ service, onClose, onBook }: { service?: Service; o
               <View style={[styles.detailHero, service.tone === "mint" ? styles.mint : service.tone === "violet" ? styles.violet : service.tone === "peach" ? styles.peach : styles.blue]}>
                 {activeImage ? <Pressable onPress={() => setViewerOpen(true)} accessibilityRole="imagebutton" accessibilityLabel={`Perbesar gambar ${service.name}`} style={styles.detailHeroImageButton}><Image source={{ uri: activeImage }} alt={`Foto ${service.name}`} style={styles.detailHeroImage} resizeMode="cover" /></Pressable> : <Ionicons name={serviceIcon(service)} size={58} color={colors.sky600} />}
                 <View style={styles.detailCategory}><Text style={styles.detailCategoryText}>{service.category}</Text></View>
+                <DiscountBadge percent={service.discountPercent} />
                 {images.length > 1 ? <View style={styles.detailPager}><Pressable onPress={() => setImageIndex((activeIndex - 1 + images.length) % images.length)}><Ionicons name="chevron-back" size={18} color={colors.white} /></Pressable><Text style={styles.detailPagerText}>{activeIndex + 1}/{images.length} · otomatis</Text><Pressable onPress={() => setImageIndex((activeIndex + 1) % images.length)}><Ionicons name="chevron-forward" size={18} color={colors.white} /></Pressable></View> : null}
               </View>
               <View style={styles.detailTitleRow}><View style={styles.detailTitleCopy}><Text style={styles.detailName}>{service.name}</Text><Text style={styles.detailAddress}><Ionicons name="location-outline" size={12} /> {service.address}</Text></View><View style={styles.detailRating}><Ionicons name="star" size={12} color={colors.yellow} /><Text style={styles.detailRatingText}>{service.rating}</Text></View></View>

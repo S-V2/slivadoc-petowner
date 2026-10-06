@@ -60,7 +60,7 @@ test("Academy promotions retain the original price and final payable price", () 
   assert.match(webApi, /original_price/);
   assert.match(webApi, /discount_percent/);
   assert.match(academy, /AcademyPrice/);
-  assert.match(academy, /Hemat \{program\.discount_percent\}%/);
+  assert.match(academy, /<DiscountBadge percent=\{program\.discount_percent\}/);
   assert.match(mobileWorld, /cardOriginalPrice/);
   assert.match(mobileWorld, /worldPromoPrice/);
 });

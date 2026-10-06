@@ -2004,4 +2004,8 @@
     padding-top: 8px;
     text-align: left;
   }
+  .paw-swipe-stage { height: max(540px, calc(100svh - 156px)); }
+  .paw-swipe-card .paw-profile-card { height: max(526px, calc(100svh - 170px)); display: flex; flex-direction: column; }
+  .paw-swipe-card .paw-profile-art { height: 66%; flex-shrink: 0; }
+  .paw-swipe-card .paw-profile-body { flex: 1; }
 }

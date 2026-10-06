@@ -101,6 +101,8 @@ import {
   PetSpotVenueInformation,
 } from "../components/PetSpotExperience";
 import { AdoptionManager } from "./AdoptionManager";
+import { AdoptionExperience } from "./AdoptionExperience";
+import { DiscountBadge } from "../components/DiscountBadge";
 
 export type WorldMode =
   | "pawdating"
@@ -119,6 +121,8 @@ type WorldPet = {
   species?: string;
   breed: string;
   icon?: string;
+  photo_url?: string;
+  access_role?: string;
 };
 type AdoptionForm = {
   applicantName: string;
@@ -339,6 +343,8 @@ function MobilePawDatingDeck({
   onDetail: (profile: WorldItem) => void;
   onSwipe: (profile: WorldItem, decision: "like" | "pass") => void;
 }) {
+  const { height: screenHeight } = useWindowDimensions();
+  const cardHeight = Math.max(520, screenHeight - 170);
   const active = profiles[0];
   const next = profiles[1];
   const [position] = useState(() => new Animated.ValueXY());
@@ -393,8 +399,8 @@ function MobilePawDatingDeck({
 
   if (!active) return null;
   const renderCard = (item: WorldItem) => (
-    <View style={styles.swipeCard}>
-      <View style={styles.swipeVisual}>
+    <View style={[styles.swipeCard, { height: cardHeight }]}>
+      <View style={[styles.swipeVisual, { height: cardHeight * 0.66 }]}>
         {item.photo_urls?.[0] ? (
           <Image
             source={{ uri: item.photo_urls[0] }}
@@ -441,7 +447,7 @@ function MobilePawDatingDeck({
       <Text style={styles.swipeGuide}>
         ← kiri untuk lewati · kanan untuk suka →
       </Text>
-      <View style={styles.swipeStage}>
+      <View style={[styles.swipeStage, { height: cardHeight + 14 }]}>
         {next ? (
           <View style={styles.swipeCardNext}>{renderCard(next)}</View>
         ) : null}
@@ -1556,7 +1562,7 @@ export function WorldScreen({
       icon: "document-text-outline",
     },
   };
-  if (mode === "pethub") {
+  if (["pethub", "adoption"].includes(mode)) {
     return (
       <Screen>
         <TopHeader
@@ -1597,14 +1603,14 @@ export function WorldScreen({
             </Pressable>
           ))}
         </ScrollView>
-        <PetHubExperience
+        {mode === "adoption" ? <AdoptionExperience owner={owner} pets={pets} onLogin={onLogin} onRequirePet={onRequirePet} onAction={onAction} refreshVersion={refreshVersion} /> : <PetHubExperience
           refreshVersion={refreshVersion}
           owner={owner}
           hasPet={hasPet}
           onLogin={onLogin}
           onRequirePet={onRequirePet}
           onAction={onAction}
-        />
+        />}
       </Screen>
     );
   }
@@ -2145,18 +2151,10 @@ export function WorldScreen({
                     </View>
                   ) : null}
                   {mode === "academy" && item.discount_percent ? (
-                    <View style={styles.academyDiscountBadge}>
-                      <Text style={styles.academyDiscountText}>
-                        -{Math.round(item.discount_percent)}%
-                      </Text>
-                    </View>
+                    <DiscountBadge percent={item.discount_percent} />
                   ) : null}
                   {mode === "consult" && item.discount_percent ? (
-                    <View style={styles.academyDiscountBadge}>
-                      <Text style={styles.academyDiscountText}>
-                        -{Math.round(item.discount_percent)}%
-                      </Text>
-                    </View>
+                    <DiscountBadge percent={item.discount_percent} />
                   ) : null}
                   {mode === "academy" && (item.image_urls?.length ?? 0) > 1 ? (
                     <View style={styles.academyGalleryBadge}>
@@ -2524,12 +2522,11 @@ export function WorldScreen({
                   ) : null}
                   {["academy", "consult"].includes(mode) &&
                   Number(selected?.price ?? selected?.total_fee ?? 0) > 0 ? (
-                    <View style={styles.worldPromoPrice}>
+                    <View style={[styles.worldPromoPrice, selected?.discount_percent ? { paddingRight: 94 } : null]}>
+                      <DiscountBadge percent={selected?.discount_percent} />
                       <View style={styles.worldPromoPriceCopy}>
                         <Text style={styles.worldPromoLabel}>
-                          {selected?.discount_percent
-                            ? `PROMO ${Math.round(selected.discount_percent)}%`
-                            : "BIAYA PROGRAM"}
+                          BIAYA PAKET
                         </Text>
                         {selected?.original_price &&
                         selected.original_price >
@@ -2542,14 +2539,6 @@ export function WorldScreen({
                           {money(selected?.price ?? selected?.total_fee)}
                         </Text>
                       </View>
-                      {selected?.discount_percent ? (
-                        <View style={styles.worldPromoSaving}>
-                          <Ionicons name="pricetag" size={15} color="#128464" />
-                          <Text style={styles.worldPromoSavingText}>
-                            Harga spesial Slivadoc
-                          </Text>
-                        </View>
-                      ) : null}
                     </View>
                   ) : null}
                   {mode === "academy" ? (

@@ -653,3 +653,16 @@
   font-size: 12px;
   color: #51788c;
 }
+.hub-like-surface { position: relative; }
+.hub-like-burst { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; font-size: 88px; color: white; filter: drop-shadow(0 5px 15px #12446565); animation: hub-heart-pop .9s ease both; z-index: 5; }
+@keyframes hub-heart-pop { 0% { transform: scale(.3); opacity: 0; } 25% { transform: scale(1.12); opacity: 1; } 75% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.2); opacity: 0; } }
+.hub-shared-post, .hub-story-toolbar, .hub-story-navigation { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.hub-shared-post { padding: 16px; background: #ebf7ff; border-radius: 16px; margin-bottom: 12px; }
+.hub-story-progress { height: 4px; background: #bddae9; border-radius: 4px; overflow: hidden; margin: 10px 46px 12px 0; }
+.hub-story-progress > span { display: block; height: 100%; background: #168fdc; transition: width .1s linear; }
+.hub-story-toolbar { color: #557389; }
+.hub-story-toolbar button, .hub-story-navigation button { border: 1px solid #d3eafa; border-radius: 12px; padding: 8px 12px; color: #076c9f; background: #edf8ff; min-height: 40px; }
+.hub-story-navigation { margin: 12px 0; }
+.hub-story-navigation small { font-size: 12px; }
+.hub-story-media { touch-action: manipulation; }
+@media (prefers-reduced-motion: reduce) { .hub-like-burst { animation: none; } .hub-story-progress > span { transition: none; } }

@@ -1527,6 +1527,8 @@ export type WorldItem = {
   sex?: string;
   species?: string;
   age_months?: number;
+  adoption_fee?: number;
+  submitted_by_name?: string;
   health_status?: string;
   health_score?: number;
   health_valid_until?: string;
@@ -2002,6 +2004,8 @@ export const applyMobileAdoption = (
     `/api/v1/adoptions/${listingId}/applications`,
     { method: "POST", body: JSON.stringify(input) },
   );
+export const createMobileAdoptionListing = (input: { pet_id: string; city: string; description: string; personality: string[]; health_status: string; vaccinated: boolean; sterilized: boolean; photo_urls: string[]; adoption_fee: number }) =>
+  platformRequest<{ id: string; status: string }>("/api/v1/petowner/adoptions", { method: "POST", body: JSON.stringify(input) });
 export type MobileAdoptionApplicationStatus =
   | "submitted"
   | "screening"
@@ -2207,6 +2211,8 @@ export const reactMobilePetHubPost = (postId: string) =>
     `/api/v1/pethub/posts/${postId}/reactions`,
     { method: "POST" },
   );
+export const likeMobilePetHubPost = (postId: string) =>
+  platformRequest<{ liked: boolean; like_count: number }>(`/api/v1/pethub/posts/${postId}/like`, { method: "PUT" });
 export const saveMobilePetHubPost = (postId: string) => platformRequest<{ saved: boolean }>(`/api/v1/pethub/posts/${postId}/save`, { method: "POST" });
 export const viewMobilePetHubStory = (storyId: string) => platformRequest<{ view_count: number }>(`/api/v1/pethub/stories/${storyId}/views`, { method: "POST" });
 

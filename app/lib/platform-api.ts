@@ -1532,6 +1532,7 @@ export const getPetHubFeed = async (options?: {
   tab?: string;
   type?: string;
   search?: string;
+  post_id?: string;
 }) => {
   const query = new URLSearchParams();
   Object.entries(options ?? {}).forEach(([key, value]) => {
@@ -1565,6 +1566,7 @@ export const reactPetHubPost = (postId: string) =>
     method: "POST",
   });
 export const savePetHubPost = (postId: string) => request<{ saved: boolean }>(`/api/v1/pethub/posts/${postId}/save`, { method: "POST" });
+export const likePetHubPost = (postId: string) => request<{ liked: boolean; like_count: number }>(`/api/v1/pethub/posts/${postId}/like`, { method: "PUT" });
 export const viewPetHubStory = (storyId: string) => request<{ view_count: number }>(`/api/v1/pethub/stories/${storyId}/views`, { method: "POST" });
 
 export const togglePetHubChannel = (channelId: string) =>

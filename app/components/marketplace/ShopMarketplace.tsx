@@ -1,4 +1,5 @@
 "use client";
+import { DiscountBadge } from "../DiscountBadge";
 
 import Image from "next/image";
 import {
@@ -255,7 +256,7 @@ function ProductCard({
           {badge}
         </span>
         {discountPercent > 0 ? (
-          <span className="market-discount-badge">-{discountPercent}%</span>
+          <DiscountBadge percent={discountPercent} />
         ) : null}
         <button
           className={`market-favorite ${favorite ? "is-favorite" : ""}`}
@@ -681,6 +682,7 @@ function ProductDetail({
       <section className="market-detail-hero">
         <div className="market-detail-gallery">
           <ProductPicture product={product} detail />
+          <DiscountBadge percent={discountPercent} />
           <div className="market-detail-assurance">
             <span>
               <Icon name="shield" size={17} />
@@ -731,7 +733,7 @@ function ProductDetail({
           </div>
           <div className="market-detail-price-block">
             {discountPercent > 0 ? (
-              <span><em>-{discountPercent}%</em><s>{formatRupiah(product.originalPrice!)}</s></span>
+              <span><s>{formatRupiah(product.originalPrice!)}</s></span>
             ) : null}
             <strong className="market-detail-price">{formatRupiah(product.price)}</strong>
             {discountPercent > 0 ? <small>Kamu hemat {formatRupiah(product.originalPrice! - product.price)}</small> : null}

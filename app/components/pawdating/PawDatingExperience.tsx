@@ -200,7 +200,7 @@ export default function PawDatingExperience({
           profile.profile_level >= Number(level || 1) &&
           profile.health_score >= Number(health || 0) &&
           (!city || profile.city.toLowerCase().includes(city.toLowerCase())) &&
-          (profile.distance_km === undefined ||
+          (profile.distance_km == null ||
             profile.distance_km <= Number(distance || 9999))
         );
       }),

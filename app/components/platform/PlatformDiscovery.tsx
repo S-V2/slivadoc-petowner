@@ -10,10 +10,15 @@ import {
   type ReactNode,
 } from "react";
 import { Icon } from "../Icon";
+import { DiscountBadge } from "../DiscountBadge";
 import { PetSpotDetail } from "./PetSpotDetail";
 import { PetHubComposer } from "./PetHubComposer";
 import { PetHubStoryView } from "./PetHubStoryView";
 import { petHubPhotos, petHubVideoPoster } from "../../lib/pethub-media";
+import {
+  petHubContentLink,
+  PET_HUB_DOUBLE_TAP_MS,
+} from "../../lib/pethub-interactions";
 import { petSpotCategory } from "../../lib/petspot-booking";
 import {
   createPetHubComment,
@@ -32,6 +37,7 @@ import {
   getPetHubStreams,
   getPetSpots,
   reactPetHubPost,
+  likePetHubPost,
   savePetHubPost,
   togglePetHubChannel,
   isPetOwnerAuthenticated,
@@ -118,7 +124,6 @@ function AcademyPrice({
       <strong>
         {program.price > 0 ? money.format(program.price) : "Gratis"}
       </strong>
-      {discounted ? <em>Hemat {program.discount_percent}%</em> : null}
     </span>
   );
 }
@@ -129,18 +134,27 @@ function WorldImageGallery({
   fallback,
   tag,
   className = "",
+  onDoubleTap,
 }: {
   images: Array<string | undefined>;
   alt: string;
   fallback: string;
   tag: string;
   className?: string;
+  onDoubleTap?: () => void;
 }) {
   const gallery = [
     ...new Set(images.filter((url): url is string => Boolean(url?.trim()))),
   ];
   const [active, setActive] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (tapTimer.current) clearTimeout(tapTimer.current);
+    },
+    [],
+  );
   useEffect(() => {
     if (gallery.length < 2 || expanded) return;
     const timer = window.setInterval(
@@ -171,7 +185,25 @@ function WorldImageGallery({
         <button
           type="button"
           className="world-image-open"
-          onClick={() => setExpanded(true)}
+          onClick={(event) => {
+            if (!onDoubleTap) {
+              setExpanded(true);
+              return;
+            }
+            if (tapTimer.current) clearTimeout(tapTimer.current);
+            if (event.detail < 2)
+              tapTimer.current = setTimeout(
+                () => setExpanded(true),
+                PET_HUB_DOUBLE_TAP_MS,
+              );
+          }}
+          onDoubleClick={(event) => {
+            if (!onDoubleTap) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (tapTimer.current) clearTimeout(tapTimer.current);
+            onDoubleTap();
+          }}
           aria-label={`Buka galeri ${alt}`}
         >
           <NextImage
@@ -309,6 +341,19 @@ export default function PlatformDiscovery({
   const [spotSearch, setSpotSearch] = useState("");
   const [maxDistance, setMaxDistance] = useState(25);
   const [hubTab, setHubTab] = useState("Untuk Kamu");
+  const [sharedPostID, setSharedPostID] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : new URL(window.location.href).searchParams.get("post") || "",
+  );
+  const [heartBurst, setHeartBurst] = useState("");
+  const heartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (heartTimer.current) clearTimeout(heartTimer.current);
+    },
+    [],
+  );
   const pendingLikes = useRef(new Set<string>());
   const pendingSaves = useRef(new Set<string>());
   const speciesRailRef = useRef<HTMLDivElement>(null);
@@ -387,7 +432,7 @@ export default function PlatformDiscovery({
       hubTab === "Reels" ? "video" : hubTab === "Thread" ? "thread" : "";
     const tab = hubTab === "Mengikuti" ? "following" : "for_you";
     void Promise.resolve().then(() => setLoading(true));
-    void getPetHubFeed({ tab, type })
+    void getPetHubFeed(sharedPostID ? { post_id: sharedPostID } : { tab, type })
       .then((response) => {
         if (active) setPosts(response.data);
       })
@@ -404,7 +449,7 @@ export default function PlatformDiscovery({
     return () => {
       active = false;
     };
-  }, [hubTab, mode, notify, ownerEmail]);
+  }, [hubTab, mode, notify, ownerEmail, sharedPostID]);
   const categorySpots = useMemo(
     () =>
       spots.filter(
@@ -454,11 +499,27 @@ export default function PlatformDiscovery({
       { enableHighAccuracy: true, timeout: 12000 },
     );
   }
-  async function like(post: PetHubPost) {
+  async function like(post: PetHubPost, ensureLiked = false) {
+    if (!isPetOwnerAuthenticated()) {
+      loginRequired();
+      return;
+    }
+    const burst = () => {
+      setHeartBurst(post.id);
+      if (heartTimer.current) clearTimeout(heartTimer.current);
+      heartTimer.current = setTimeout(() => setHeartBurst(""), 900);
+    };
+    if (ensureLiked && post.liked) {
+      burst();
+      return;
+    }
     if (pendingLikes.current.has(post.id)) return;
     pendingLikes.current.add(post.id);
     try {
-      const result = await reactPetHubPost(post.id);
+      const result = await (ensureLiked
+        ? likePetHubPost(post.id)
+        : reactPetHubPost(post.id));
+      if (ensureLiked) burst();
       setPosts((current) =>
         current.map((item) =>
           item.id === post.id
@@ -477,10 +538,14 @@ export default function PlatformDiscovery({
   async function sharePost(post: PetHubPost) {
     try {
       if (navigator.share)
-        await navigator.share({ title: "PetHub", text: post.content });
+        await navigator.share({
+          title: "PetHub · Slivadoc",
+          text: post.content,
+          url: petHubContentLink(post.id),
+        });
       else {
-        await navigator.clipboard.writeText(post.content);
-        notify("Konten disalin");
+        await navigator.clipboard.writeText(petHubContentLink(post.id));
+        notify("Tautan konten Slivadoc disalin");
       }
     } catch (cause) {
       if (!(cause instanceof Error && cause.name === "AbortError"))
@@ -725,7 +790,7 @@ export default function PlatformDiscovery({
                         <b>{item.level}</b>
                       )}
                       {item.discount_percent > 0 ? (
-                        <em>-{item.discount_percent}%</em>
+                        <DiscountBadge percent={item.discount_percent} />
                       ) : null}
                     </span>
                     <span className="academy-media-bottomline">
@@ -1225,6 +1290,21 @@ export default function PlatformDiscovery({
       </div>
       <div className="pethub-layout">
         <section className="hub-feed">
+          {sharedPostID ? (
+            <div className="hub-shared-post">
+              <b>Posting yang dibagikan</b>
+              <button
+                onClick={() => {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete("post");
+                  window.history.replaceState({}, "", url);
+                  setSharedPostID("");
+                }}
+              >
+                Lihat semua posting
+              </button>
+            </div>
+          ) : null}
           <div className="hub-tabs">
             {["Untuk Kamu", "Mengikuti", "Reels", "Thread"].map((item) => (
               <button
@@ -1272,26 +1352,40 @@ export default function PlatformDiscovery({
                     {post.saved ? "✓" : "＋"}
                   </button>
                 </header>
-                {post.media_url &&
-                  (post.post_type === "video" ||
-                  /\.(mp4|mov|webm)(\?|$)/i.test(post.media_url) ? (
-                    <video
-                      className="hub-media"
-                      src={post.media_url}
-                      controls
-                      playsInline
-                      preload="metadata"
-                      aria-label={`Video ${post.author_name}`}
-                    />
-                  ) : (
-                    <WorldImageGallery
-                      images={petHubPhotos(post)}
-                      alt={`Album ${post.author_name}`}
-                      fallback="🐾"
-                      tag=""
-                      className="hub-photo-gallery"
-                    />
-                  ))}
+                <div
+                  className="hub-like-surface"
+                  onDoubleClick={(event) => {
+                    if ((event.target as HTMLElement).closest("button")) return;
+                    void like(post, true);
+                  }}
+                >
+                  {post.media_url &&
+                    (post.post_type === "video" ||
+                    /\.(mp4|mov|webm)(\?|$)/i.test(post.media_url) ? (
+                      <video
+                        className="hub-media"
+                        src={post.media_url}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        aria-label={`Video ${post.author_name}`}
+                      />
+                    ) : (
+                      <WorldImageGallery
+                        images={petHubPhotos(post)}
+                        alt={`Album ${post.author_name}`}
+                        fallback="🐾"
+                        tag=""
+                        className="hub-photo-gallery"
+                        onDoubleTap={() => void like(post, true)}
+                      />
+                    ))}
+                  {heartBurst === post.id ? (
+                    <span className="hub-like-burst" aria-hidden="true">
+                      ♥
+                    </span>
+                  ) : null}
+                </div>
                 <p className="hub-caption">{post.content}</p>
                 <footer>
                   <button
@@ -1325,7 +1419,11 @@ export default function PlatformDiscovery({
           ) : (
             <div className="empty-state">
               <span>▶</span>
-              <h3>Feed ini masih kosong</h3>
+              <h3>
+                {sharedPostID
+                  ? "Posting tidak tersedia"
+                  : "Feed ini masih kosong"}
+              </h3>
               <p>Ikuti channel atau terbitkan thread pertama.</p>
             </div>
           )}
@@ -1427,7 +1525,27 @@ export default function PlatformDiscovery({
       )}
       {viewStory ? (
         <Modal close={() => setViewStory(null)} className="story-modal">
-          <PetHubStoryView story={viewStory} notify={notify} />
+          <PetHubStoryView
+            key={viewStory.id}
+            story={viewStory}
+            notify={notify}
+            next={() => {
+              const index = stories.findIndex(
+                (item) => item.id === viewStory.id,
+              );
+              setViewStory(stories[index + 1] || null);
+            }}
+            previous={
+              stories.findIndex((item) => item.id === viewStory.id) > 0
+                ? () => {
+                    const index = stories.findIndex(
+                      (item) => item.id === viewStory.id,
+                    );
+                    setViewStory(stories[index - 1]);
+                  }
+                : undefined
+            }
+          />
         </Modal>
       ) : null}
     </>
@@ -1630,13 +1748,16 @@ function ProgramModal({
   }
   return (
     <Modal close={close} className="world-modal">
-      <WorldImageGallery
-        images={[program.cover_url, ...(program.image_urls ?? [])]}
-        alt={program.title}
-        fallback="🎓"
-        tag={program.academy_name}
-        className="academy-modal-cover"
-      />
+      <div className="promo-media">
+        <WorldImageGallery
+          images={[program.cover_url, ...(program.image_urls ?? [])]}
+          alt={program.title}
+          fallback="🎓"
+          tag={program.academy_name}
+          className="academy-modal-cover"
+        />
+        <DiscountBadge percent={program.discount_percent} />
+      </div>
       <div className="modal-world-body">
         {done ? (
           <Success
@@ -1654,9 +1775,6 @@ function ProgramModal({
             </small>
             <div className="academy-detail-heading-row">
               <h2>{program.title}</h2>
-              {program.discount_percent > 0 ? (
-                <span>Hemat {program.discount_percent}%</span>
-              ) : null}
             </div>
             <p>{program.description}</p>
             <div className="academy-social-summary">

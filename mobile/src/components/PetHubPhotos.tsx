@@ -15,9 +15,11 @@ import { BoundedBottomSheet } from "./ui";
 export function PetHubPhotos({
   urls,
   author,
+  onDoubleTap,
 }: {
   urls: string[];
   author: string;
+  onDoubleTap?: () => void;
 }) {
   const [width, setWidth] = useState(300),
     [index, setIndex] = useState(0),
@@ -27,6 +29,14 @@ export function PetHubPhotos({
   );
   const [dragging, setDragging] = useState(false);
   const scroll = useRef<ScrollView>(null);
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTap = useRef(0);
+  useEffect(
+    () => () => {
+      if (tapTimer.current) clearTimeout(tapTimer.current);
+    },
+    [],
+  );
   useEffect(() => {
     const s = AppState.addEventListener("change", (state) =>
       setForeground(state === "active"),
@@ -74,7 +84,22 @@ export function PetHubPhotos({
               accessibilityLabel={`Perbesar foto ${i + 1} ${author}`}
               onPress={() => {
                 setIndex(i);
-                setExpanded(true);
+                if (!onDoubleTap) {
+                  setExpanded(true);
+                  return;
+                }
+                const now = Date.now();
+                if (tapTimer.current) clearTimeout(tapTimer.current);
+                if (lastTap.current && now - lastTap.current < 300) {
+                  lastTap.current = 0;
+                  onDoubleTap();
+                } else {
+                  lastTap.current = now;
+                  tapTimer.current = setTimeout(() => {
+                    lastTap.current = 0;
+                    setExpanded(true);
+                  }, 300);
+                }
               }}
             >
               <Image

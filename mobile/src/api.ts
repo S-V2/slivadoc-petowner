@@ -3,8 +3,10 @@ import * as SecureStore from "expo-secure-store";
 import { NativeModules, Platform } from "react-native";
 import { io, type Socket } from "socket.io-client";
 import { uniqueById } from "./collections";
+import { buildMobilePawDatingDiscoveryPath } from "./pawdating";
 
 export { uniqueById } from "./collections";
+export { buildMobilePawDatingDiscoveryPath } from "./pawdating";
 
 function resolveDevelopmentHost() {
   const scriptUrl = String(NativeModules.SourceCode?.scriptURL ?? "");
@@ -1724,20 +1726,7 @@ export const getMobileDocumentProducts = () =>
 export const getMobilePawDatingProfiles = (location?: {
   latitude: number;
   longitude: number;
-}) => {
-  const params = new URLSearchParams({
-    min_level: "2",
-    min_health_score: "80",
-    max_distance_km: "200",
-  });
-  if (location) {
-    params.set("latitude", String(location.latitude));
-    params.set("longitude", String(location.longitude));
-  }
-  return getUniqueWorldItems(
-    `/api/v1/public/pawdating/profiles?${params.toString()}`,
-  );
-};
+}) => getUniqueWorldItems(buildMobilePawDatingDiscoveryPath(location));
 export const getMobilePawDatingProfile = (
   profileId: string,
   location?: { latitude: number; longitude: number },

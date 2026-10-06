@@ -20,6 +20,9 @@ import {
   getMobileCommunityGroups,
   joinMobileCommunityGroup,
   sendMobileCommunityGroupMessage,
+  getMobileCommunityGroupMembers,
+  updateMobileCommunityGroupMember,
+  type MobileCommunityGroupMember,
   type MobileCommunityGroup,
   type MobileCommunityGroupMessage,
   type MobileOwner,
@@ -239,6 +242,46 @@ function CreateGroupSheet({ visible, onClose, onCreated, onAction }: { visible: 
   );
 }
 
+function JoinRequests({ group, onAction }: { group: MobileCommunityGroup; onAction: (message: string) => void }) {
+  const [requests, setRequests] = useState<MobileCommunityGroupMember[]>([]);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(async () => {
+    try {
+      setRequests((await getMobileCommunityGroupMembers(group.id, "pending")).data ?? []);
+    } catch (cause) {
+      onAction(cause instanceof Error ? cause.message : "Permintaan bergabung belum dapat dimuat");
+    }
+  }, [group.id, onAction]);
+  useEffect(() => {
+    queueMicrotask(() => void load());
+  }, [load]);
+  const review = async (member: MobileCommunityGroupMember, status: "active" | "blocked") => {
+    setBusy(true);
+    try {
+      await updateMobileCommunityGroupMember(group.id, member.user_id, status);
+      onAction(status === "active" ? `${member.full_name} bergabung ke grup` : `Permintaan ${member.full_name} ditolak`);
+      await load();
+    } catch (cause) {
+      onAction(cause instanceof Error ? cause.message : "Permintaan belum dapat diproses");
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!requests.length) return null;
+  return (
+    <View style={styles.requests}>
+      <Text style={styles.requestsTitle}>Permintaan bergabung</Text>
+      {requests.map((member) => (
+        <View key={member.user_id} style={styles.requestRow}>
+          <Text numberOfLines={1} style={styles.requestName}>{member.full_name}</Text>
+          <Pressable accessibilityRole="button" disabled={busy} onPress={() => void review(member, "blocked")} style={[styles.requestReject, busy && { opacity: 0.55 }]}><Text style={styles.requestRejectText}>Tolak</Text></Pressable>
+          <Pressable accessibilityRole="button" disabled={busy} onPress={() => void review(member, "active")} style={[styles.requestApprove, busy && { opacity: 0.55 }]}><Text style={styles.requestApproveText}>Setujui</Text></Pressable>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { group?: MobileCommunityGroup; owner: MobileOwner; hasPet: boolean; onClose: () => void; onRequirePet: () => void; onAction: (message: string) => void }) {
   const { locale } = useI18n();
   const insets = useSafeAreaInsets();
@@ -307,6 +350,7 @@ function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { 
           </View>
           <ScrollView ref={scrollRef} onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.messages}>
             <View style={styles.encryptionNote}><Ionicons name="lock-closed" size={11} color="#8B7123" /><Text style={styles.encryptionText}>Percakapan tersimpan aman di Slivadoc. Jangan bagikan data kontak pribadi.</Text></View>
+            {group.owner ? <JoinRequests group={group} onAction={onAction} /> : null}
             {messages.length ? messages.map((message) => <View key={message.id} style={[styles.bubbleWrap, message.mine && styles.myBubbleWrap]}><View style={[styles.bubble, message.mine && styles.myBubble]}>{!message.mine ? <Text style={styles.senderName}>{message.sender_name}</Text> : null}<Text style={styles.messageBody}>{message.body}</Text><Text style={styles.messageTime}>{messageTime(message.created_at, locale)}{message.mine ? "  ✓✓" : ""}</Text></View></View>) : <View style={styles.roomEmpty}><View style={styles.emptyIcon}><Ionicons name="chatbubbles-outline" size={24} color={colors.sky600}/></View><Text style={styles.emptyTitle}>Mulai percakapan</Text><Text style={styles.emptyNote}>Sapa member grup dengan pesan pertama yang ramah.</Text></View>}
           </ScrollView>
           <View style={[styles.roomComposer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
@@ -350,6 +394,14 @@ const styles = StyleSheet.create({
   groupMetaRow: { minHeight: 16, flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 },
   ownerBadge: { flexDirection: "row", alignItems: "center", gap: 3 },
   ownerText: { color: "#13856F", fontSize: 9, fontWeight: "600" },
+  requests: { gap: 8, padding: 12, marginBottom: 9, borderWidth: 1, borderColor: colors.sky100, borderRadius: 16, backgroundColor: colors.white },
+  requestsTitle: { color: colors.navy, fontSize: 13, fontWeight: "700" },
+  requestRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  requestName: { flex: 1, color: colors.text, fontSize: 12, fontWeight: "600" },
+  requestApprove: { minHeight: 34, justifyContent: "center", paddingHorizontal: 12, borderRadius: 11, backgroundColor: colors.sky600 },
+  requestApproveText: { color: colors.white, fontSize: 11, fontWeight: "700" },
+  requestReject: { minHeight: 34, justifyContent: "center", paddingHorizontal: 12, borderRadius: 11, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white },
+  requestRejectText: { color: colors.red, fontSize: 11, fontWeight: "700" },
   joinButton: { minHeight: 34, justifyContent: "center", paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.sky50 },
   joinText: { color: colors.sky600, fontSize: 10, fontWeight: "600" },
   emptyCard: { alignItems: "center", gap: 7, marginTop: 12, padding: 22, borderWidth: 1, borderColor: colors.sky100, borderRadius: 22, backgroundColor: colors.white, ...shadow },

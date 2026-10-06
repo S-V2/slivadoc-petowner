@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 import { NativeModules, Platform } from "react-native";
-import { io } from "socket.io-client";
+import { io, type Socket } from "socket.io-client";
 import { uniqueById } from "./collections";
 
 export { uniqueById } from "./collections";
@@ -42,10 +42,6 @@ export const PETOWNER_API_URL = resolveServiceURL(
 export const PLATFORM_API_URL = resolveServiceURL(
   process.env.EXPO_PUBLIC_PLATFORM_API_URL,
   8080,
-);
-export const REALTIME_API_URL = resolveServiceURL(
-  process.env.EXPO_PUBLIC_REALTIME_URL,
-  8091,
 );
 
 export type AssistantMessage = { role: "user" | "assistant"; content: string };
@@ -90,7 +86,6 @@ export async function restorePlatformSession(): Promise<boolean> {
     if (access) {
       platformAccessToken = access;
       platformRefreshToken = refresh ?? "";
-      realtime.auth = { token: access };
       return true;
     } else if (refresh) {
       platformRefreshToken = refresh;
@@ -106,7 +101,6 @@ export async function restorePlatformSession(): Promise<boolean> {
 export async function setPlatformTokens(access: string, refresh: string) {
   platformAccessToken = access;
   platformRefreshToken = refresh;
-  realtime.auth = { token: access };
   try {
     await Promise.all([
       access
@@ -123,7 +117,6 @@ export async function setPlatformTokens(access: string, refresh: string) {
 
 export function setPlatformAccessToken(token: string) {
   platformAccessToken = token;
-  realtime.auth = { token };
 }
 
 export function hasPlatformSession() {
@@ -134,7 +127,7 @@ export async function clearMobileSession() {
   platformAccessToken = "";
   platformRefreshToken = "";
   mobileOwnerHasPet = undefined;
-  realtime.auth = { token: "" };
+  petownerSocket?.disconnect();
   mobileCache.clear();
   mobileInFlight.clear();
   try {
@@ -195,6 +188,15 @@ export function clearMobileCache() {
   mobileCache.clear();
 }
 
+export class MobileApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "MobileApiError";
+    this.status = status;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const baseURL = requireServiceURL(
     PETOWNER_API_URL,
@@ -238,7 +240,7 @@ async function platformRequest<T>(
     throw new Error(PET_PROFILE_REQUIRED_MESSAGE);
   }
   const key = `${path}:${platformAccessToken.slice(-12)}`;
-  if (method === "GET") {
+  if (method === "GET" && init?.cache !== "no-store") {
     const cached = mobileCache.get(key);
     if (cached && cached.expires > Date.now()) return cached.value as T;
     const pending = mobileInFlight.get(key);
@@ -268,7 +270,10 @@ async function platformRequest<T>(
     }
     const payload = await response.json().catch(() => ({}));
     if (!response.ok)
-      throw new Error(payload.message ?? "Layanan Slivadoc belum tersedia");
+      throw new MobileApiError(
+        payload.message ?? "Layanan Slivadoc belum tersedia",
+        response.status,
+      );
     if (method === "GET")
       mobileCache.set(key, { expires: Date.now() + 15_000, value: payload });
     else mobileCache.clear();
@@ -295,6 +300,8 @@ export type MobilePet = {
   vaccination_status: string;
   photo_url: string;
   last_medical_record_at?: string;
+  access_role?: string;
+  permissions?: string[];
 };
 export type MobileOwner = {
   id: string;
@@ -338,7 +345,8 @@ export type MobileActivityType =
   | "reservation"
   | "document"
   | "donation"
-  | "hotel";
+  | "hotel"
+  | "home_service";
 export type MobileActivityState = "all" | "upcoming" | "ongoing" | "history";
 export type MobileActivityOrderItem = {
   id: string;
@@ -482,6 +490,15 @@ export type MobileActivityCenterItem = {
   room_name?: string;
   checked_in_at?: string | null;
   checked_out_at?: string | null;
+  source?: "clinic";
+  cancellable_until?: string;
+  cancellation_cutoff_hours?: number;
+  cancellation_policy?: string;
+  job_code?: string;
+  service_type?: string;
+  pickup_address?: string;
+  destination_address?: string;
+  driver_name?: string;
 };
 export type MobileActivityCenterResponse = {
   data: MobileActivityCenterItem[];
@@ -501,6 +518,7 @@ export type MobileBootstrap = {
   user: MobileOwner;
   pets: MobilePet[];
   notifications: MobileNotification[];
+  unread_notifications?: number;
   favorites: Array<{
     entity_type: string;
     entity_id: string;
@@ -558,6 +576,7 @@ export type MobileService = {
   inclusions?: string[];
   supported_species?: string[];
   cancellation_policy?: string;
+  cancellation_cutoff_hours?: number;
   business_license_status?: "not_submitted" | "pending" | "verified" | "rejected";
 };
 export type MobileServiceAvailability = {
@@ -1182,6 +1201,11 @@ export const createMobileBooking = (input: Record<string, unknown>) =>
     method: "POST",
     body: JSON.stringify(input),
   });
+export const cancelMobileBooking = (id: string, reason?: string) =>
+  platformRequest<{ id: string; status: string; refund_queued: boolean }>(
+    `/api/v1/petowner/bookings/${id}/cancel`,
+    { method: "POST", body: JSON.stringify(reason ? { reason } : {}) },
+  );
 export const getMobilePaymentMethods = () =>
   platformRequest<{ data: MobilePaymentMethod[] }>("/api/v1/payment-methods");
 export const createMobilePaymentIntent = (
@@ -1210,6 +1234,10 @@ export const readAllMobileNotifications = (category = "") =>
   platformRequest<{ updated: number }>(
     `/api/v1/notifications/read-all?category=${encodeURIComponent(category)}`,
     { method: "PATCH" },
+  );
+export const getMobileNotifications = (limit = 100) =>
+  platformRequest<{ data: MobileNotification[]; count: number; unread_count: number }>(
+    `/api/v1/notifications?limit=${limit}`,
   );
 export const toggleMobileFavorite = (
   entityId: string,
@@ -1322,6 +1350,34 @@ export const sendMobileCommunityGroupMessage = (id: string, body: string) =>
     `/api/v1/community/groups/${id}/messages`,
     { method: "POST", body: JSON.stringify({ body }) },
   );
+export type MobileCommunityGroupMember = {
+  user_id: string;
+  full_name: string;
+  role: "owner" | "moderator" | "member";
+  status: "pending" | "active" | "blocked";
+  joined_at: string;
+};
+export const getMobileCommunityGroupMembers = (
+  id: string,
+  status: "pending" | "active",
+) =>
+  platformRequest<{ data: MobileCommunityGroupMember[] }>(
+    `/api/v1/community/groups/${id}/members?status=${status}`,
+  );
+export const updateMobileCommunityGroupMember = (
+  id: string,
+  userId: string,
+  status: "active" | "blocked",
+) =>
+  platformRequest<{
+    group_id: string;
+    user_id: string;
+    status: "active" | "blocked";
+    member_count: number;
+  }>(`/api/v1/community/groups/${id}/members/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 
 export type WorldItem = {
   id: string;
@@ -1693,13 +1749,90 @@ export const applyMobileAdoption = (
     `/api/v1/adoptions/${listingId}/applications`,
     { method: "POST", body: JSON.stringify(input) },
   );
+export type MobileAdoptionApplicationStatus =
+  | "submitted"
+  | "screening"
+  | "home_visit"
+  | "approved"
+  | "rejected"
+  | "withdrawn"
+  | "completed";
+export type MobileMyAdoptionListing = {
+  id: string;
+  pet_id: string;
+  name: string;
+  species: string;
+  breed: string;
+  city: string;
+  description: string;
+  status: string;
+  applicant_count: number;
+  created_at: string;
+};
+export type MobileAdoptionApplicationRecord = {
+  id: string;
+  listing_id: string;
+  applicant_name: string;
+  phone: string;
+  address: string;
+  housing_type: string;
+  has_other_pets: boolean;
+  experience: string;
+  reason: string;
+  status: MobileAdoptionApplicationStatus;
+  status_note: string;
+  created_at: string;
+  updated_at: string;
+};
+export type MobileMyAdoptionApplication = {
+  id: string;
+  listing_id: string;
+  listing_name: string;
+  listing_status: string;
+  status: MobileAdoptionApplicationStatus;
+  status_note: string;
+  created_at: string;
+  updated_at: string;
+};
+export const getMobileMyAdoptionApplications = () =>
+  platformRequest<{ data: MobileMyAdoptionApplication[] }>(
+    "/api/v1/petowner/adoption-applications",
+  );
+export const withdrawMobileAdoptionApplication = (applicationId: string) =>
+  platformRequest<{ id: string; status: MobileAdoptionApplicationStatus }>(
+    `/api/v1/petowner/adoption-applications/${applicationId}/withdraw`,
+    { method: "POST" },
+  );
+export const getMobileMyAdoptionListings = () =>
+  platformRequest<{ data: MobileMyAdoptionListing[] }>(
+    "/api/v1/petowner/adoptions",
+  );
+export const getMobileAdoptionListingApplications = (listingId: string) =>
+  platformRequest<{ data: MobileAdoptionApplicationRecord[] }>(
+    `/api/v1/petowner/adoptions/${listingId}/applications`,
+  );
+export const reviewMobileAdoptionApplication = (
+  applicationId: string,
+  status: "screening" | "home_visit" | "approved" | "rejected" | "completed",
+  note: string,
+) =>
+  platformRequest<{ id: string; status: MobileAdoptionApplicationStatus }>(
+    `/api/v1/petowner/adoption-applications/${applicationId}/status`,
+    { method: "PATCH", body: JSON.stringify({ status, note }) },
+  );
+export type MobileSubmittedDocument = {
+  requirement: string;
+  url: string;
+  file_name: string;
+  mime_type: string;
+};
 export type MobileDocumentRequestInput = {
   pet_id?: string;
   origin_city?: string;
   destination_city?: string;
   departure_at?: string;
   transport_type?: "flight" | "ship";
-  submitted_documents: string[];
+  submitted_documents: MobileSubmittedDocument[];
 };
 export const createMobileDocumentRequest = (
   productId: string,
@@ -1711,6 +1844,14 @@ export const createMobileDocumentRequest = (
       method: "POST",
       body: JSON.stringify({ product_id: productId, ...input }),
     },
+  );
+export const resubmitMobileDocuments = (
+  id: string,
+  submitted_documents: MobileSubmittedDocument[],
+) =>
+  platformRequest<{ id: string; status: string }>(
+    `/api/v1/pet-document-requests/${id}/documents`,
+    { method: "PATCH", body: JSON.stringify({ submitted_documents }) },
   );
 export const commentMobilePetHubPost = (postId: string, content: string) =>
   platformRequest<{ id: string }>(`/api/v1/pethub/posts/${postId}/comments`, {
@@ -1911,11 +2052,42 @@ export async function uploadMobileMedia(
   };
 }
 
-export const realtime = io(
-  REALTIME_API_URL || "https://realtime-not-configured.invalid",
-  {
-    autoConnect: false,
-    auth: { token: platformAccessToken },
-    transports: ["websocket", "polling"],
-  },
-);
+export type MobileSupportMessage = {
+  id: string;
+  ticket_id: string;
+  sender_id: string;
+  sender_name: string;
+  sender_role: "owner" | "support";
+  body: string;
+  created_at: string;
+};
+export const getMobileSupportChat = () =>
+  platformRequest<{ ticket_id: string | null; messages: MobileSupportMessage[] }>(
+    "/api/v1/petowner/support-chat",
+    { cache: "no-store" },
+  );
+export const sendMobileSupportChatMessage = (body: string) =>
+  platformRequest<MobileSupportMessage>("/api/v1/petowner/support-chat", {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+
+let petownerSocket: Socket | null = null;
+let petownerSocketToken = "";
+
+/** Socket.IO client to the petowner-api (care chat); rebuilt when the access token changes. */
+export function petownerRealtime() {
+  if (!petownerSocket || petownerSocketToken !== platformAccessToken) {
+    petownerSocket?.disconnect();
+    petownerSocket = io(
+      requireServiceURL(PETOWNER_API_URL, "EXPO_PUBLIC_PETOWNER_API_URL"),
+      {
+        autoConnect: false,
+        auth: { token: platformAccessToken },
+        transports: ["websocket", "polling"],
+      },
+    );
+    petownerSocketToken = platformAccessToken;
+  }
+  return petownerSocket;
+}

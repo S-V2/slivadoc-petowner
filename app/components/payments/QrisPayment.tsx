@@ -178,10 +178,10 @@ function QrisPaymentState({
   if (current.status === "refund_pending")
     return (
       <section className="qris-result pending" role="status">
-        <h3>Menunggu pengembalian manual</h3>
+        <h3>Menunggu pengembalian dana</h3>
         <p>
-          Dana sudah diterima, tetapi layanan tidak dapat dilanjutkan.
-          Permintaan sedang ditinjau; dana belum dinyatakan dikembalikan.
+          Pembayaran diterima setelah transaksi ditutup. Dana akan
+          dikembalikan setelah diverifikasi.
         </p>
         <p>{current.order_id}</p>
         {message && <p className="form-message">{message}</p>}
@@ -206,13 +206,17 @@ function QrisPaymentState({
         <span>!</span>
         <h3>
           {current.status === "refunded"
-            ? "Pembayaran direfund"
-            : "Pembayaran gagal"}
+            ? "Dana sudah dikembalikan"
+            : current.status === "expired"
+              ? "QR kedaluwarsa"
+              : "Pembayaran gagal"}
         </h3>
         <p>
           {current.status === "refunded"
-            ? "Dana transaksi ini telah dikembalikan."
-            : "Kode pembayaran sudah tidak dapat digunakan. Buat transaksi baru."}
+            ? "Dana sudah dikembalikan."
+            : current.status === "expired"
+              ? "QR kedaluwarsa. Buat pembayaran baru dari Aktivitas."
+              : "Pembayaran gagal."}
         </p>
         {onClose && (
           <button

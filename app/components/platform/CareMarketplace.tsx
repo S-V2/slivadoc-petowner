@@ -49,6 +49,8 @@ import {
   type VeterinarianAvailabilitySlot,
 } from "../../lib/platform-api";
 import { QrisPaymentPanel, PaymentMethodPicker } from "../payments/QrisPayment";
+import { RequirementUploads, type UploadedDocument } from "./DocumentUploads";
+import { MyAdoptionApplications, MyAdoptionListings } from "./AdoptionManager";
 
 type PayableConsultation = Consultation & { qrisPayment?: PaymentIntent };
 type ConsultProviderFilter = "all" | "veterinarian" | "trainer";
@@ -126,6 +128,9 @@ export default function CareMarketplace({
   const [consultQuery, setConsultQuery] = useState("");
   const [adoptionComposer, setAdoptionComposer] = useState(false);
   const [adoptionSearch, setAdoptionSearch] = useState("");
+  const [adoptionTab, setAdoptionTab] = useState<
+    "browse" | "listings" | "applications"
+  >("browse");
   const [species, setSpecies] = useState("all");
   const [sex, setSex] = useState("all");
   const [size, setSize] = useState("all");
@@ -820,6 +825,33 @@ export default function CareMarketplace({
             </span>
           ))}
         </div>
+        <div className="hub-tabs adoption-tabs" aria-label="Menu adopsi">
+          {(
+            [
+              ["browse", "Jelajahi"],
+              ["listings", "Listing saya"],
+              ["applications", "Lamaran saya"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              className={adoptionTab === key ? "active" : ""}
+              aria-pressed={adoptionTab === key}
+              onClick={() =>
+                (key === "browse" || requireLogin(notify)) &&
+                setAdoptionTab(key)
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {adoptionTab === "listings" && <MyAdoptionListings notify={notify} />}
+        {adoptionTab === "applications" && (
+          <MyAdoptionApplications notify={notify} />
+        )}
+        {adoptionTab === "browse" && (
+          <>
         <section className="adoption-filter-panel" aria-label="Filter adopsi">
           <label className="adoption-search">
             <span>⌕</span>
@@ -955,6 +987,8 @@ export default function CareMarketplace({
             <h3>Belum ada pet yang cocok</h3>
             <p>Ubah kombinasi filter untuk melihat kandidat adopsi lain.</p>
           </div>
+        )}
+          </>
         )}
         {selectedAdoption && (
           <AdoptionModal
@@ -2112,6 +2146,10 @@ function DocumentModal({
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [requestNumber, setRequestNumber] = useState("");
   const [requestId, setRequestId] = useState("");
+  const [uploaded, setUploaded] = useState<UploadedDocument[]>([]);
+  const allUploaded = item.requirements.every((req) =>
+    uploaded.some((doc) => doc.requirement === req),
+  );
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!requireLogin(notify)) return;
@@ -2127,7 +2165,7 @@ function DocumentModal({
           ? new Date(String(v.departure_at)).toISOString()
           : undefined,
         transport_type: v.transport_type,
-        submitted_documents: [],
+        submitted_documents: uploaded,
       });
       setRequestNumber(result.request_number);
       setRequestId(result.id);
@@ -2233,15 +2271,12 @@ function DocumentModal({
                   </div>
                 </>
               )}
-              <div className="requirement-upload">
-                {item.requirements.map((req) => (
-                  <label key={req}>
-                    <span>✓ {req}</span>
-                    <input type="file" accept="image/*,.pdf" />
-                    <button type="button">Unggah</button>
-                  </label>
-                ))}
-              </div>
+              <RequirementUploads
+                requirements={item.requirements}
+                value={uploaded}
+                onChange={setUploaded}
+                disabled={busy}
+              />
               <div className="checkout-line">
                 <span>Estimasi biaya</span>
                 <b>{money.format(item.total_fee)}</b>
@@ -2253,7 +2288,15 @@ function DocumentModal({
                   disabled={busy}
                 />
               )}
-              <button className="primary-button full" disabled={busy}>
+              {!allUploaded && (
+                <small className="requirement-upload-hint">
+                  Unggah semua dokumen persyaratan
+                </small>
+              )}
+              <button
+                className="primary-button full"
+                disabled={busy || !allUploaded}
+              >
                 {busy
                   ? "Membuat pembayaran…"
                   : item.total_fee > 0

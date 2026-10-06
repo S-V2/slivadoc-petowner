@@ -22,7 +22,8 @@ export type Service = {
   inclusions?: string[];
   supportedSpecies?: string[];
   cancellationPolicy?: string;
+  cancellationCutoffHours?: number;
   licenseStatus?: "not_submitted" | "pending" | "verified" | "rejected";
 };
 
-export type PetView={id:string;name:string;species?:string;breed:string;age:string;weight:string;icon:string;score:number;allergies:string;lastUpdated?:string};
+export type PetView={id:string;name:string;species?:string;breed:string;age:string;weight:string;icon:string;score:number;allergies:string;lastUpdated?:string;shared?:boolean};

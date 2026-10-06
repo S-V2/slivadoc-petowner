@@ -11508,3 +11508,143 @@ textarea {
   border: 0;
   background: #fff;
 }
+
+/* Promise surfaces: community join requests */
+.group-join-requests {
+  display: grid;
+  gap: 6px;
+  padding: 10px 17px;
+  background: #fff8ec;
+  border-bottom: 1px solid #f1e2c4;
+  font-size: 11px;
+}
+.group-join-requests > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.group-join-requests > div > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-join-requests button {
+  padding: 5px 11px;
+  border: 1px solid #cfe0ea;
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 700;
+  font-size: 11px;
+}
+.group-join-requests button:first-of-type {
+  color: #fff;
+  border-color: #1d77a8;
+  background: #1d77a8;
+}
+
+/* Promise surfaces: adoption listing and application management */
+.adoption-tabs {
+  margin: 14px 0;
+}
+.adoption-manage-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+.adoption-manage-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--sky-100, #dcebf3);
+  border-radius: 18px;
+  background: #fff;
+}
+.adoption-manage-card > header,
+.adoption-applications > section > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.adoption-manage-card small {
+  display: block;
+  color: var(--muted, #547286);
+}
+.adoption-applications {
+  display: grid;
+  gap: 10px;
+}
+.adoption-applications > section {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f5f8fa;
+}
+.adoption-applications dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 3px 12px;
+  margin: 0;
+  font-size: 12px;
+}
+.adoption-applications dt {
+  color: var(--muted, #547286);
+}
+.adoption-applications dd {
+  margin: 0;
+}
+.adoption-applications input {
+  padding: 9px 12px;
+  border: 1px solid #dcebf3;
+  border-radius: 12px;
+}
+.adoption-application-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.adoption-status {
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: #315a6f;
+  background: #e8f3f9;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.adoption-status-approved,
+.adoption-status-completed {
+  color: #1d6b3f;
+  background: #e3f5ea;
+}
+.adoption-status-rejected,
+.adoption-status-withdrawn {
+  color: #8a4a2a;
+  background: #fbeae1;
+}
+
+/* Promise surfaces: shipments in Aktivitas, ticket threads, shared pets, PetSpot review page. */
+.activity-shipments{display:grid;gap:10px}
+.activity-shipment{display:grid;gap:6px;padding:12px;border:1px solid #dbe7ef;border-radius:14px;background:#f8fbfd}
+.activity-shipment ul{display:grid;gap:6px;margin:4px 0 0;padding:0;list-style:none}
+.activity-shipment li{display:grid;gap:2px;padding-left:10px;border-left:2px solid #c9d8e3}
+.activity-shipment small{color:#617789}
+.support-thread{display:grid;gap:8px;margin-top:10px}
+.support-thread>button{justify-self:start;border:0;background:none;color:#0b7bb8;font-weight:600;cursor:pointer;padding:0}
+.support-thread ul{display:grid;gap:8px;margin:0;padding:0;list-style:none;max-height:260px;overflow:auto}
+.support-thread li{display:grid;gap:2px;padding:8px 10px;border-radius:12px;background:#f1f6fa}
+.support-thread li.support{background:#e6f5ef}
+.support-thread li p{margin:0}
+.support-thread li time{color:#617789;font-size:11px}
+.support-thread li.empty{background:none;color:#617789}
+.support-thread form{display:flex;gap:8px}
+.support-thread form input{flex:1;min-width:0;padding:8px 10px;border:1px solid #c9d8e3;border-radius:10px}
+.shared-pet-badge{color:#6655c7;font-weight:600}
+.petspot-review{max-width:560px;margin:0 auto}
+.petspot-review-stars{display:flex;justify-content:center;gap:6px;margin:10px 0}
+.petspot-review-stars button{border:0;background:none;font-size:34px;line-height:1;color:#c9d8e3;cursor:pointer}
+.petspot-review-stars button.active{color:#f5b301}
+.requirement-upload-hint{display:block;color:#617789;margin-bottom:6px}

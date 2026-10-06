@@ -17,6 +17,7 @@ export const activityTypeMeta: Record<
   document: { label: "Dokumen", icon: "shield", tone: "mint" },
   donation: { label: "Donasi", icon: "heart", tone: "mint" },
   hotel: { label: "Pet hotel", icon: "home", tone: "sky" },
+  home_service: { label: "Layanan jemput", icon: "map", tone: "sky" },
 };
 
 export const activityTypeOrder = Object.keys(
@@ -70,6 +71,12 @@ const statusLabels: Record<string, string> = {
   failed: "Gagal",
   expired: "Kedaluwarsa",
   refunded: "Dana dikembalikan",
+  refund_pending: "Menunggu pengembalian dana",
+  assigned: "Driver ditugaskan",
+  on_the_way: "Driver menuju lokasi",
+  picked_up: "Pet dijemput",
+  in_service: "Sedang dilayani",
+  returning: "Dalam perjalanan pulang",
 };
 
 export function activityStatusText(status: string) {
@@ -85,7 +92,34 @@ export function activityStatusLabel(
     (item.payment_status === "expired" || item.payment_status === "failed")
   )
     return "Kedaluwarsa";
+  // A queued or finished refund is what the payer wants to see, ahead of the
+  // cancelled/closed state that caused it.
+  if (item.payment_status === "refund_pending" || item.payment_status === "refunded")
+    return activityStatusText(item.payment_status);
   return activityStatusText(item.status);
+}
+
+// Lion Parcel shipment status -> owner-facing label and progress stage (0-3).
+export function shipmentPresentation(status: string): {
+  label: string;
+  stage: number;
+} {
+  const normalized = status.toLowerCase();
+  if (normalized === "delivered") return { label: "Sudah diterima", stage: 3 };
+  if (normalized === "returning")
+    return { label: "Dalam perjalanan retur", stage: 2 };
+  if (normalized === "returned")
+    return { label: "Diretur ke pengirim", stage: 2 };
+  if (normalized === "exception")
+    return { label: "Ada kendala pengiriman", stage: 2 };
+  if (normalized === "in_transit")
+    return { label: "Dalam perjalanan", stage: 2 };
+  if (normalized === "booked") return { label: "Menunggu pickup", stage: 1 };
+  if (normalized === "pickup_requested")
+    return { label: "Pickup dijadwalkan", stage: 1 };
+  if (normalized === "cancelled")
+    return { label: "Pengiriman dibatalkan", stage: 0 };
+  return { label: "Sedang diproses", stage: 0 };
 }
 
 export function activityAttentionReason(

@@ -22,7 +22,7 @@ import {
 import type { PetView, Service } from "../data";
 import { getActivityTypePresentation } from "../activity";
 import { colors, radius, shadow, spacing, typography } from "../theme";
-import { Pill, Screen } from "../components/ui";
+import { Pill, Screen, useAppSurface } from "../components/ui";
 import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
 
 type Props = {
@@ -302,6 +302,7 @@ export function HomeScreen({
   activities,
 }: Props) {
   const { formatDate } = useI18n();
+  const { unreadNotifications } = useAppSurface();
   const [searchOpen, setSearchOpen] = useState(false);
   const [petPickerOpen, setPetPickerOpen] = useState(false);
   const [veterinarians, setVeterinarians] = useState<WorldItem[]>([]);
@@ -386,7 +387,7 @@ export function HomeScreen({
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={onOpenNotifications} style={styles.notificationButton}>
             <Ionicons name="notifications-outline" size={20} color={colors.text} />
-            <View style={styles.notificationDot} />
+            {unreadNotifications > 0 ? <View style={styles.notificationDot} /> : null}
           </Pressable>
         </View>
 
@@ -436,7 +437,7 @@ export function HomeScreen({
             <View style={styles.healthTop}>
               <View style={styles.petAvatar}><Ionicons name="paw" size={26} color={colors.sky600} /><View style={styles.checkDot}><Ionicons name="checkmark" size={10} color={colors.white} /></View></View>
               <View style={styles.healthCopy}>
-                <View style={styles.activePetLabel}><View style={styles.activePetPulse} /><Text style={styles.activePetLabelText}>PET AKTIF</Text></View>
+                <View style={styles.activePetLabel}><View style={styles.activePetPulse} /><Text style={styles.activePetLabelText}>PET AKTIF</Text>{petView.shared ? <><Ionicons name="people" size={9} color={colors.white} /><Text style={styles.activePetLabelText}>Dibagikan</Text></> : null}</View>
                 <Text numberOfLines={1} style={styles.petName}>{petView.name}</Text>
                 <Text numberOfLines={1} style={styles.petMeta}>{petView.breed} • {petView.age}</Text>
               </View>
@@ -577,7 +578,7 @@ export function HomeScreen({
                 const active = item.id === pet?.id;
                 return <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => { onSelectPet(item.id); setPetPickerOpen(false); }} style={[styles.petPickerItem, active && styles.petPickerItemActive]}>
                   <View style={styles.petPickerAvatar}><Text style={styles.petPickerEmoji}>{item.icon}</Text></View>
-                  <View style={styles.petPickerCopy}><Text style={styles.petPickerName}>{item.name}</Text><Text style={styles.petPickerMeta}>{item.breed} · {item.age}</Text></View>
+                  <View style={styles.petPickerCopy}><Text style={styles.petPickerName}>{item.name}</Text><Text style={styles.petPickerMeta}>{item.breed} · {item.age}</Text>{item.shared ? <View style={{ alignSelf: "flex-start", marginTop: 4 }}><Pill tone="violet">Dibagikan</Pill></View> : null}</View>
                   <Ionicons name={active ? "checkmark-circle" : "chevron-forward"} size={20} color={active ? colors.sky600 : colors.muted} />
                 </Pressable>;
               })}

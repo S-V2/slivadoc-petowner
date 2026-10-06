@@ -1,7 +1,6 @@
 const requiredURLs = [
   "EXPO_PUBLIC_PETOWNER_API_URL",
   "EXPO_PUBLIC_PLATFORM_API_URL",
-  "EXPO_PUBLIC_REALTIME_URL",
 ];
 
 const buildProfile = process.env.EAS_BUILD_PROFILE;

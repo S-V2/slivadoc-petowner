@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { petOwner, petOwnerBootstrap } from "./mock-data";
+import { activityCenter, petOwner, petOwnerBootstrap } from "./mock-data";
 
 test("account settings update the profile, filter security alerts, and manage family access", async ({
   page,
@@ -110,11 +110,12 @@ test("account settings update the profile, filter security alerts, and manage fa
             medical_record_count: 2,
             last_medical_record_at: "2026-09-01T08:00:00Z",
             health_score: 92,
+            access_role: "owner",
+            permissions: ["profile", "health", "booking", "family", "lost_mode"],
           },
         ],
         notifications: [securityNotification, healthNotification],
         unread_notifications: 2,
-        activities: [],
       });
     if (
       path === "/api/v1/public/discovery/services" ||
@@ -123,12 +124,7 @@ test("account settings update the profile, filter security alerts, and manage fa
       path === "/api/v1/public/veterinarians"
     )
       return json({ data: [], count: 0 });
-    if (path === "/api/v1/petowner/activities")
-      return json({
-        data: [],
-        count: 0,
-        summary: { booking: 0, order: 0, consultation: 0 },
-      });
+    if (path === "/api/v1/petowner/activities") return json(activityCenter());
     if (path === "/api/v1/petowner/shipping-addresses")
       return json({ addresses: [] });
     if (

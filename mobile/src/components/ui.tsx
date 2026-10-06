@@ -32,15 +32,17 @@ type AppSurfaceContextValue = {
   bottomInset: number;
   refreshing: boolean;
   onRefresh: () => void;
+  unreadNotifications: number;
 };
 
 const AppSurfaceContext = createContext<AppSurfaceContextValue>({
   bottomInset: 0,
   refreshing: false,
   onRefresh: () => undefined,
+  unreadNotifications: 0,
 });
-export function AppSurfaceProvider({ children, bottomInset, refreshing, onRefresh }: PropsWithChildren<AppSurfaceContextValue>) {
-  return <AppSurfaceContext.Provider value={{ bottomInset, refreshing, onRefresh }}>{children}</AppSurfaceContext.Provider>;
+export function AppSurfaceProvider({ children, bottomInset, refreshing, onRefresh, unreadNotifications }: PropsWithChildren<AppSurfaceContextValue>) {
+  return <AppSurfaceContext.Provider value={{ bottomInset, refreshing, onRefresh, unreadNotifications }}>{children}</AppSurfaceContext.Provider>;
 }
 
 export function useAppSurface() {
@@ -63,6 +65,7 @@ export function Screen({ children, contentStyle }: PropsWithChildren<{ contentSt
 }
 
 export function TopHeader({ title, subtitle, onNotification }: { title: string; subtitle: string; onNotification: () => void }) {
+  const { unreadNotifications } = useAppSurface();
   return (
     <View style={styles.topHeader}>
       <View style={styles.brandIcon}><Ionicons name="sparkles" size={18} color={colors.white} /></View>
@@ -72,7 +75,7 @@ export function TopHeader({ title, subtitle, onNotification }: { title: string; 
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" style={styles.iconButton} onPress={onNotification}>
         <Ionicons name="notifications-outline" size={20} color={colors.text} />
-        <View style={styles.notificationDot} />
+        {unreadNotifications > 0 ? <View style={styles.notificationDot} /> : null}
       </Pressable>
     </View>
   );

@@ -60,7 +60,7 @@ export const PET_PROFILE_REQUIRED_MESSAGE =
   "Tambahkan profil pet terlebih dahulu. Tanpa pet, akun hanya dapat melihat konten.";
 
 const petProtectedMutationPatterns = [
-  /^\/api\/v1\/petowner\/(?:bookings|orders|favorites\/toggle|products\/[^/]+\/reviews|petship|fundraisers|reminders)(?:\/|$)/,
+  /^\/api\/v1\/petowner\/(?:bookings|orders|favorites\/toggle|products\/[^/]+\/reviews|academy\/programs\/[^/]+\/reviews|petship|fundraisers|reminders)(?:\/|$)/,
   /^\/api\/v1\/community\//,
   /^\/api\/v1\/pethub\//,
   /^\/api\/v1\/consultations(?:\/|$)/,
@@ -581,6 +581,8 @@ export type MobileService = {
   image_url: string;
   image_urls: string[];
   price: number;
+  original_price?: number;
+  discount_percent?: number;
   distance_km?: number | null;
   city: string;
   address: string;
@@ -631,6 +633,8 @@ export type MobileProduct = {
   image_url: string;
   image_urls: string[];
   price: number;
+  original_price?: number;
+  discount_percent?: number;
   stock: number;
   minimum_stock: number;
   available: boolean;
@@ -681,6 +685,11 @@ function normalizeMobileProduct(product: MobileProduct): MobileProduct {
       productText(product.image_url),
     ].filter(Boolean))),
     price: Math.max(0, productNumber(product.price)),
+    original_price: Math.max(
+      productNumber(product.price),
+      productNumber(product.original_price),
+    ),
+    discount_percent: Math.max(0, productNumber(product.discount_percent)),
     stock,
     minimum_stock: Math.max(0, productNumber(product.minimum_stock)),
     available:
@@ -1494,6 +1503,7 @@ export type WorldItem = {
   trainer_name?: string;
   trainers?: MobileAcademyTrainer[];
   schedules?: MobileAcademySchedule[];
+  reviews?: MobileAcademyReview[];
   supported_species?: string[];
   full_name?: string;
   doctor_name?: string;
@@ -1503,6 +1513,7 @@ export type WorldItem = {
   trainer_id?: string;
   provider_type?: "veterinarian" | "trainer";
   discount_percent?: number;
+  original_price?: number;
   followup_days?: number;
   duration_minutes?: number;
   total_fee?: number;
@@ -1557,6 +1568,10 @@ export type WorldItem = {
   author_name?: string;
   like_count?: number;
   comment_count?: number;
+  review_count?: number;
+  participant_count?: number;
+  running_since?: string;
+  featured?: boolean;
   repost_count?: number;
   media_url?: string;
   photo_url?: string;
@@ -1627,6 +1642,17 @@ export type MobileAcademySchedule = {
   remaining_capacity: number;
 };
 
+export type MobileAcademyReview = {
+  id: string;
+  reviewer_name: string;
+  pet_name: string;
+  rating: number;
+  comment: string;
+  verified_enrollment: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type MobilePawDatingInterest = {
   id: string;
   status: string;
@@ -1674,6 +1700,14 @@ export const trackMobileAcademyProgramClick = (programId: string) =>
   platformRequest<void>(`/api/v1/public/academy/programs/${programId}/click`, {
     method: "POST",
   });
+export const saveMobileAcademyProgramReview = (
+  programId: string,
+  input: { rating: number; comment: string },
+) =>
+  platformRequest<{ id: string; verified_enrollment: boolean }>(
+    `/api/v1/petowner/academy/programs/${programId}/reviews`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
 export const getMobileEvents = () =>
   getUniqueWorldItems("/api/v1/public/events");
 export const getMobilePetSpots = () =>

@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { Service } from "../data";
 import { colors, shadow } from "../theme";
 import { Pill, PrimaryButton, Screen, TopHeader } from "../components/ui";
-import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../i18n";
+import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
 import { useEffect, useMemo, useState } from "react";
 
 function serviceIcon(service: Pick<Service, "category" | "name">): keyof typeof Ionicons.glyphMap {
@@ -17,6 +17,7 @@ function serviceIcon(service: Pick<Service, "category" | "name">): keyof typeof 
 }
 
 export function DiscoverScreen({ onBook, onOpenNotifications,services,favorites,onToggleFavorite,intent }: { onBook: (service: Service) => void; onOpenNotifications: () => void;services:Service[];favorites:string[];onToggleFavorite:(id:string)=>void;intent?:{token:number;category?:string;serviceId?:string} }) {
+  const { formatCurrency } = useI18n();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Semua");
   const [selected, setSelected] = useState<Service>();
@@ -57,13 +58,14 @@ export function DiscoverScreen({ onBook, onOpenNotifications,services,favorites,
             <Pressable key={service.id} onPress={() => setSelected(service)} style={({ pressed }) => [styles.serviceCard, pressed && styles.pressed]}>
               <View style={[styles.serviceVisual, service.tone === "mint" ? styles.mint : service.tone === "violet" ? styles.violet : service.tone === "peach" ? styles.peach : styles.blue]}>
                 {service.imageUrl ? <Image source={{ uri: service.imageUrl }} alt={`Gambar ${service.name}`} style={styles.serviceImage} resizeMode="cover" /> : <Ionicons name={serviceIcon(service)} size={38} color={service.tone === "mint" ? "#14836E" : service.tone === "violet" ? "#6655C7" : service.tone === "peach" ? "#8B4A20" : colors.sky600} />}<Pill>{service.category}</Pill>
+                {service.discountPercent ? <View style={styles.promoBadge}><Text style={styles.promoBadgeText}>-{Math.round(service.discountPercent)}%</Text></View> : null}
                 <Pressable hitSlop={10} onPress={(event) => { event.stopPropagation();onToggleFavorite(service.id) }} style={styles.favorite}><Ionicons name={favorite ? "heart" : "heart-outline"} size={18} color={favorite ? colors.red : colors.text} /></Pressable>
               </View>
               <View style={styles.serviceBody}>
                 <View style={styles.serviceTitleRow}><View style={styles.serviceTitleCopy}><Text numberOfLines={2} style={styles.serviceName}>{service.name}</Text><Text numberOfLines={2} style={styles.serviceLocation}><Ionicons name="location-outline" size={10} /> {service.distance} • {service.address}</Text></View><View style={styles.rating}><Ionicons name="star" size={10} color={colors.yellow} /><Text style={styles.ratingText}>{service.rating}</Text></View></View>
                 <View style={styles.tags}><Text style={styles.tagText}>✓ Terverifikasi</Text><Text style={styles.tagText}>Pet friendly</Text></View>
                 <View style={styles.status}><View style={styles.liveDot} /><Text style={styles.statusText}>{service.status}</Text></View>
-                <View style={styles.serviceFooter}><View><Text style={styles.priceLabel}>Estimasi harga</Text><Text style={styles.price}>{service.price}</Text></View><PrimaryButton compact label="Booking" onPress={() => onBook(service)} /></View>
+                <View style={styles.serviceFooter}><View><Text style={styles.priceLabel}>Estimasi harga</Text>{service.originalPrice && service.originalPrice > service.priceValue ? <Text style={styles.oldPrice}>{formatCurrency(service.originalPrice)}</Text> : null}<Text style={styles.price}>{service.price}</Text></View><PrimaryButton compact label="Booking" onPress={() => onBook(service)} /></View>
               </View>
             </Pressable>
           );
@@ -76,6 +78,7 @@ export function DiscoverScreen({ onBook, onOpenNotifications,services,favorites,
 }
 
 function ServiceDetailSheet({ service, onClose, onBook }: { service?: Service; onClose: () => void; onBook: (service: Service) => void }) {
+  const { formatCurrency } = useI18n();
   const [imageIndex, setImageIndex] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
   const images = useMemo(
@@ -110,14 +113,14 @@ function ServiceDetailSheet({ service, onClose, onBook }: { service?: Service; o
               <View style={styles.detailHighlights}>
                 <View style={styles.detailHighlight}><Ionicons name="shield-checkmark-outline" size={19} color={colors.sky600} /><Text style={styles.detailHighlightTitle}>{service.licenseStatus === "verified" ? "Terverifikasi" : "Mitra aktif"}</Text><Text style={styles.detailHighlightNote}>Status mitra</Text></View>
                 <View style={styles.detailHighlight}><Ionicons name="time-outline" size={19} color="#14836E" /><Text style={styles.detailHighlightTitle}>{service.durationMinutes ?? 60} menit</Text><Text style={styles.detailHighlightNote}>Durasi</Text></View>
-                <View style={styles.detailHighlight}><Ionicons name="wallet-outline" size={19} color="#6655C7" /><Text style={styles.detailHighlightTitle}>{service.price}</Text><Text style={styles.detailHighlightNote}>Estimasi</Text></View>
+                <View style={styles.detailHighlight}><Ionicons name="wallet-outline" size={19} color="#6655C7" />{service.originalPrice && service.originalPrice > service.priceValue ? <Text style={styles.detailHighlightOldPrice}>{formatCurrency(service.originalPrice)}</Text> : null}<Text style={styles.detailHighlightTitle}>{service.price}</Text><Text style={styles.detailHighlightNote}>{service.discountPercent ? `Hemat ${Math.round(service.discountPercent)}%` : "Estimasi"}</Text></View>
               </View>
               <Text style={styles.detailSectionTitle}>Tentang layanan</Text>
               <Text style={styles.detailDescription}>{service.description || "Layanan pet care dari mitra Slivadoc dengan jadwal dan kapasitas yang tersinkron langsung."}</Text>
               {service.inclusions?.length ? <><Text style={styles.detailSectionTitle}>Yang termasuk</Text><View style={styles.detailTags}>{service.inclusions.map((item) => <View key={item} style={styles.detailTag}><Ionicons name="checkmark-circle" size={14} color="#14836E" /><Text style={styles.detailTagText}>{item}</Text></View>)}</View></> : null}
               <View style={styles.detailPolicy}><Ionicons name="information-circle-outline" size={21} color={colors.sky600} /><View><Text style={styles.detailPolicyTitle}>Sebelum booking</Text><Text style={styles.detailPolicyText}>{service.cancellationPolicy || "Jadwal aktual, kapasitas, biaya, dan kebijakan akan ditampilkan sebelum konfirmasi."}</Text>{service.cancellationCutoffHours !== undefined ? <Text style={styles.detailPolicyText}>Bisa dibatalkan hingga {service.cancellationCutoffHours} jam sebelum jadwal</Text> : null}</View></View>
             </ScrollView>
-            <View style={styles.detailFooter}><View><Text style={styles.detailFooterLabel}>Mulai dari</Text><Text style={styles.detailFooterPrice}>{service.price}</Text></View><PrimaryButton label="Pilih jadwal" icon="calendar-outline" onPress={() => onBook(service)} /></View>
+            <View style={styles.detailFooter}><View><Text style={styles.detailFooterLabel}>{service.discountPercent ? `Promo ${Math.round(service.discountPercent)}% · mulai dari` : "Mulai dari"}</Text>{service.originalPrice && service.originalPrice > service.priceValue ? <Text style={styles.detailFooterOldPrice}>{formatCurrency(service.originalPrice)}</Text> : null}<Text style={styles.detailFooterPrice}>{service.price}</Text></View><PrimaryButton label="Pilih jadwal" icon="calendar-outline" onPress={() => onBook(service)} /></View>
           </View>
         </SafeAreaView>
       </View>
@@ -140,9 +143,11 @@ const styles = StyleSheet.create({
   resultHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }, resultCount: { color: colors.muted, fontSize: 11 }, resultStrong: { color: colors.text, fontWeight: "600" }, sort: { color: colors.sky600, fontSize: 11, fontWeight: "700" },
   results: { gap: 12 }, serviceCard: { minHeight: 166, overflow: "hidden", flexDirection: "row", borderRadius: 22, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, ...shadow }, pressed: { opacity: .9, transform: [{ scale: .985 }] },
   serviceVisual: { position: "relative", width: 105, overflow: "hidden", alignItems: "center", justifyContent: "center" }, serviceImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, width: "100%", height: "100%" }, blue: { backgroundColor: colors.sky100 }, mint: { backgroundColor: colors.mint50 }, violet: { backgroundColor: colors.violet50 }, peach: { backgroundColor: colors.peach50 }, favorite: { position: "absolute", top: 9, right: 9, width: 31, height: 31, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,.92)" },
+  promoBadge: { position: "absolute", left: 8, bottom: 8, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "#F16F5A" },
+  promoBadgeText: { color: colors.white, fontSize: 9, fontWeight: "700" },
   serviceBody: { minWidth: 0, flex: 1, padding: 12 }, serviceTitleRow: { flexDirection: "row", gap: 7 }, serviceTitleCopy: { minWidth: 0, flex: 1 }, serviceName: { color: colors.navy, fontSize: 14, lineHeight: 18, fontWeight: "700" }, serviceLocation: { marginTop: 3, color: colors.muted, fontSize: 10, lineHeight: 14 }, rating: { height: 27, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2, paddingHorizontal: 7, borderRadius: 9, backgroundColor: colors.yellow50 }, ratingText: { color: colors.yellow, fontSize: 10, fontWeight: "600" },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 7 }, tagText: { overflow: "hidden", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 7, color: colors.sky600, backgroundColor: colors.sky50, fontSize: 8, fontWeight: "600" }, status: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 7 }, liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.mint }, statusText: { color: colors.mint, fontSize: 9, fontWeight: "600" },
-  serviceFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.line }, priceLabel: { color: colors.muted, fontSize: 8 }, price: { marginTop: 2, color: colors.navy, fontSize: 11, fontWeight: "600" },
+  serviceFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.line }, priceLabel: { color: colors.muted, fontSize: 8 }, oldPrice: { marginTop: 2, color: colors.muted, fontSize: 8, textDecorationLine: "line-through" }, price: { marginTop: 1, color: colors.navy, fontSize: 11, fontWeight: "700" },
   empty: { minHeight: 230, alignItems: "center", justifyContent: "center" }, emptyIcon: { width: 58, height: 58, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: colors.sky50 }, emptyTitle: { marginTop: 8, color: colors.navy, fontSize: 17, fontWeight: "600" }, emptyNote: { marginTop: 4, marginBottom: 13, color: colors.muted, fontSize: 12 },
   detailBackdrop: { flex: 1, backgroundColor: "rgba(14,32,55,.46)" },
   detailSafe: { flex: 1, justifyContent: "flex-end" },
@@ -168,6 +173,7 @@ const styles = StyleSheet.create({
   detailHighlights: { flexDirection: "row", gap: 7, marginTop: 15 },
   detailHighlight: { minWidth: 0, flex: 1, gap: 3, padding: 10, borderWidth: 1, borderColor: colors.line, borderRadius: 14, backgroundColor: colors.white },
   detailHighlightTitle: { color: colors.navy, fontSize: 10, fontWeight: "700" },
+  detailHighlightOldPrice: { color: colors.muted, fontSize: 8, textDecorationLine: "line-through" },
   detailHighlightNote: { color: colors.muted, fontSize: 8 },
   detailSectionTitle: { marginTop: 19, color: colors.navy, fontSize: 14, fontWeight: "700" },
   detailDescription: { marginTop: 6, color: colors.muted, fontSize: 12, lineHeight: 19 },
@@ -180,6 +186,7 @@ const styles = StyleSheet.create({
   detailFooter: { minHeight: 78, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, paddingHorizontal: 16, paddingBottom: 8, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.white },
   detailFooterLabel: { color: colors.muted, fontSize: 9 },
   detailFooterPrice: { marginTop: 2, color: colors.sky600, fontSize: 15, fontWeight: "700" },
+  detailFooterOldPrice: { marginTop: 2, color: colors.muted, fontSize: 9, textDecorationLine: "line-through" },
   viewer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(5,18,29,.96)" },
   viewerClose: { position: "absolute", zIndex: 2, top: 24, right: 24, width: 48, height: 48, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,.24)", borderRadius: 17, backgroundColor: "rgba(7,35,57,.72)" },
   viewerImage: { width: "100%", height: "78%" },

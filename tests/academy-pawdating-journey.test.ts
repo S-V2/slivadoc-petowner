@@ -42,6 +42,29 @@ test("Academy detail selects a compatible owned pet and a live class schedule", 
   assert.match(mobileWorld, /createMobilePaymentIntent\(\s*"academy_enrollment"/);
 });
 
+test("Academy catalogue and detail expose real cohort proof, galleries, and verified reviews", () => {
+  assert.match(webApi, /getAcademyProgramReviews/);
+  assert.match(webApi, /saveAcademyProgramReview/);
+  assert.match(academy, /participant_count/);
+  assert.match(academy, /running_since/);
+  assert.match(academy, /WorldImageGallery/);
+  assert.match(academy, /Kirim review terverifikasi/);
+  assert.match(mobileApi, /saveMobileAcademyProgramReview/);
+  assert.match(mobileWorld, /academyProgramVisual/);
+  assert.match(mobileWorld, /academyProgramStats/);
+  assert.match(mobileWorld, /Review & komentar/);
+  assert.match(mobileWorld, /verified_enrollment/);
+});
+
+test("Academy promotions retain the original price and final payable price", () => {
+  assert.match(webApi, /original_price/);
+  assert.match(webApi, /discount_percent/);
+  assert.match(academy, /AcademyPrice/);
+  assert.match(academy, /Hemat \{program\.discount_percent\}%/);
+  assert.match(mobileWorld, /cardOriginalPrice/);
+  assert.match(mobileWorld, /worldPromoPrice/);
+});
+
 test("Event and Academy details keep a bounded independently scrollable body", () => {
   assert.match(discoveryCss, /\.world-modal\s*\{[\s\S]*?overflow:\s*hidden/);
   assert.match(discoveryCss, /\.world-modal>\.modal-world-body\s*\{[\s\S]*?overflow-y:\s*auto/);

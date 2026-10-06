@@ -535,6 +535,8 @@ export type DiscoveryService = {
   image_urls: string[];
   duration_minutes: number;
   price: number;
+  original_price?: number;
+  discount_percent?: number;
   address: string;
   city: string;
   latitude?: number | null;
@@ -602,6 +604,8 @@ export type DiscoveryProduct = {
   image_url: string;
   image_urls: string[];
   price: number;
+  original_price?: number;
+  discount_percent?: number;
   stock: number;
   minimum_stock: number;
   available: boolean;
@@ -817,14 +821,32 @@ export type AcademyProgram = {
   duration_weeks: number;
   session_count: number;
   price: number;
+  original_price: number;
+  discount_percent: number;
   capacity: number;
+  participant_count: number;
   cover_url: string;
   image_urls: string[];
   status: string;
   trainer_name: string;
   trainer_rating: number;
   next_schedule: string;
+  running_since: string;
+  rating: number;
+  review_count: number;
+  featured: boolean;
   supported_species?: string[];
+};
+
+export type AcademyReview = {
+  id: string;
+  reviewer_name: string;
+  pet_name: string;
+  rating: number;
+  comment: string;
+  verified_enrollment: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 export type AcademyTrainer = {
@@ -868,6 +890,7 @@ export type AcademyProgramDetail = AcademyProgram & {
   supported_species: string[];
   trainers: AcademyTrainer[];
   schedules: AcademySchedule[];
+  reviews: AcademyReview[];
 };
 
 export type PetEvent = {
@@ -1392,6 +1415,20 @@ export const getAcademyPrograms = () =>
 export const getAcademyProgram = (programId: string) =>
   request<AcademyProgramDetail>(
     `/api/v1/public/academy/programs/${programId}`,
+  );
+
+export const getAcademyProgramReviews = (programId: string) =>
+  request<PlatformList<AcademyReview>>(
+    `/api/v1/public/academy/programs/${programId}/reviews`,
+  );
+
+export const saveAcademyProgramReview = (
+  programId: string,
+  input: { rating: number; comment: string },
+) =>
+  request<{ id: string; verified_enrollment: boolean }>(
+    `/api/v1/petowner/academy/programs/${programId}/reviews`,
+    { method: "POST", body: JSON.stringify(input) },
   );
 
 export const getAcademyTrainers = (input?: {

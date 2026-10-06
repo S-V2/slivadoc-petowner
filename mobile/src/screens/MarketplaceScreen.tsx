@@ -173,6 +173,16 @@ function productIcon(product: MobileProduct): keyof typeof Ionicons.glyphMap {
   return "cube-outline";
 }
 
+function productDiscount(product: MobileProduct) {
+  if (product.discount_percent && product.discount_percent > 0) {
+    return Math.round(product.discount_percent);
+  }
+  if (product.original_price && product.original_price > product.price) {
+    return Math.round((1 - product.price / product.original_price) * 100);
+  }
+  return 0;
+}
+
 function serviceGradient(tone: Service["tone"]): [string, string] {
   if (tone === "mint") return ["#DDFBF3", "#F4FFFC"];
   if (tone === "violet") return ["#ECE7FF", "#F8F6FF"];
@@ -346,6 +356,7 @@ function ProductCard({
   onFavorite: () => void;
 }) {
   const { formatCurrency, formatDate, formatNumber } = useI18n();
+  const discount = productDiscount(product);
   return (
     <Pressable
       accessibilityRole="button"
@@ -378,6 +389,11 @@ function ProductCard({
             <Text style={styles.soldOutText}>Stok habis</Text>
           </View>
         ) : null}
+        {discount ? (
+          <View style={styles.productPromoBadge}>
+            <Text style={styles.productPromoBadgeText}>-{discount}%</Text>
+          </View>
+        ) : null}
       </View>
       <View style={styles.productCardBody}>
         <Text numberOfLines={1} style={styles.productCategory}>
@@ -405,6 +421,11 @@ function ProductCard({
         </Pressable>
         <View style={styles.productCommerceRow}>
           <View style={styles.productCommerceCopy}>
+            {product.original_price && product.original_price > product.price ? (
+              <Text style={styles.productOriginalPrice}>
+                {formatCurrency(product.original_price)}
+              </Text>
+            ) : null}
             <Text style={styles.productPrice}>
               {formatCurrency(product.price)}
             </Text>
@@ -1827,6 +1848,7 @@ function ProductDetailSheet({
 }) {
   const { formatCurrency, formatDate, formatNumber } = useI18n();
   if (!product) return null;
+  const discount = productDiscount(product);
   const reviewAverage = reviews.length
     ? reviews.reduce((total, review) => total + review.rating, 0) /
       reviews.length
@@ -1880,7 +1902,24 @@ function ProductDetailSheet({
             <Text style={styles.detailStoreActionSecondaryText}>Kunjungi toko</Text>
           </Pressable>
         </View>
-        <Text style={styles.detailPrice}>{formatCurrency(product.price)}</Text>
+        <View style={styles.detailPriceBlock}>
+          {discount ? (
+            <View style={styles.detailPromoPill}>
+              <Text style={styles.detailPromoPillText}>PROMO {discount}%</Text>
+            </View>
+          ) : null}
+          {product.original_price && product.original_price > product.price ? (
+            <Text style={styles.detailOriginalPrice}>
+              {formatCurrency(product.original_price)}
+            </Text>
+          ) : null}
+          <Text style={styles.detailPrice}>{formatCurrency(product.price)}</Text>
+          {discount && product.original_price ? (
+            <Text style={styles.detailSaving}>
+              Hemat {formatCurrency(product.original_price - product.price)}
+            </Text>
+          ) : null}
+        </View>
         <View style={styles.detailMetaRow}>
           <Stars value={product.rating} />
           <Text style={styles.detailMetaText}>
@@ -3588,6 +3627,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(21,59,91,.82)",
   },
   soldOutText: { color: colors.white, fontSize: 8, fontWeight: "600" },
+  productPromoBadge: { position: "absolute", left: 8, bottom: 8, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "#F16F5A" },
+  productPromoBadgeText: { color: colors.white, fontSize: 9, fontWeight: "700" },
   productCardBody: { padding: 11 },
   productCategory: {
     marginBottom: 3,
@@ -3664,6 +3705,7 @@ const styles = StyleSheet.create({
     marginTop: 9,
   },
   productCommerceCopy: { minWidth: 0, flex: 1 },
+  productOriginalPrice: { color: colors.muted, fontSize: 8, lineHeight: 11, textDecorationLine: "line-through" },
   productPrice: {
     color: colors.sky600,
     fontSize: 14,
@@ -3840,13 +3882,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
+  detailPriceBlock: { alignItems: "flex-start", marginTop: 14 },
+  detailPromoPill: { marginBottom: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 7, backgroundColor: "#FFF0ED" },
+  detailPromoPillText: { color: "#D55443", fontSize: 9, fontWeight: "700", letterSpacing: 0.5 },
+  detailOriginalPrice: { color: colors.muted, fontSize: 10, textDecorationLine: "line-through" },
   detailPrice: {
-    marginTop: 14,
+    marginTop: 1,
     color: colors.sky600,
     fontSize: 22,
     lineHeight: 28,
     fontWeight: "700",
   },
+  detailSaving: { marginTop: 2, color: "#128464", fontSize: 10, fontWeight: "700" },
   detailMetaRow: {
     flexDirection: "row",
     flexWrap: "wrap",

@@ -20,6 +20,7 @@ import {
   getAcademyPrograms,
   getAcademyTrainer,
   getAcademyTrainers,
+  saveAcademyProgramReview,
   trackAcademyProgramClick,
   getPetEvents,
   getPetHubFeed,
@@ -36,6 +37,7 @@ import {
   registerEvent,
   type AcademyProgram,
   type AcademyProgramDetail,
+  type AcademyReview,
   type AcademyTrainer,
   type PetEvent,
   type PetHubPost,
@@ -83,6 +85,27 @@ const when = (value?: string) =>
         timeStyle: "short",
       }).format(new Date(value))
     : "Segera diumumkan";
+
+const academySince = (value?: string) => {
+  if (!value) return "Program baru";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Program baru";
+  return `Berjalan sejak ${new Intl.DateTimeFormat("id-ID", {
+    month: "short",
+    year: "numeric",
+  }).format(date)}`;
+};
+
+function AcademyPrice({ program, compact = false }: { program: AcademyProgram; compact?: boolean }) {
+  const discounted = program.discount_percent > 0 && program.original_price > program.price;
+  return (
+    <span className={`academy-price ${compact ? "is-compact" : ""}`}>
+      {discounted ? <s>{money.format(program.original_price)}</s> : null}
+      <strong>{program.price > 0 ? money.format(program.price) : "Gratis"}</strong>
+      {discounted ? <em>Hemat {program.discount_percent}%</em> : null}
+    </span>
+  );
+}
 
 function WorldImageGallery({
   images,
@@ -581,55 +604,83 @@ export default function PlatformDiscovery({
         <div id="academy-catalog" className="academy-grid">
           {programs
             .filter((item) => filter === "all" || item.category === filter)
-            .map((item, index) => (
-              <article className="academy-card" key={item.id}>
-                <div className={`academy-visual tone-${index % 3}`}>
-                  {item.cover_url ? (
-                    <NextImage
-                      src={item.cover_url}
-                      alt=""
-                      width={640}
-                      height={400}
-                      unoptimized
-                    />
-                  ) : (
-                    <>
-                      <span>
-                        {index % 3 === 0 ? "🐕‍🦺" : index % 3 === 1 ? "🐶" : "🏅"}
-                      </span>
-                      <small>{item.academy_name}</small>
-                    </>
-                  )}
-                </div>
-                <div className="academy-card-body">
-                  <div className="card-meta">
-                    <span>{item.level}</span>
-                    <b>★ {item.trainer_rating || 4.9}</b>
-                  </div>
-                  <h3>{item.title}</h3>
-                  <p>{item.description}</p>
-                  <div className="trainer-line">
-                    <span>{item.trainer_name.slice(0, 1)}</span>
-                    <p>
-                      <b>{item.trainer_name}</b>
-                      <small>{item.academy_name}</small>
-                    </p>
-                  </div>
-                  <div className="academy-facts">
-                    <span>◷ {item.duration_weeks} minggu</span>
-                    <span>▤ {item.session_count} sesi</span>
-                    <b>{money.format(item.price)}</b>
-                  </div>
+            .map((item, index) => {
+              const participantCount = item.participant_count ?? 0;
+              const reviewCount = item.review_count ?? 0;
+              const occupancy = Math.min(
+                100,
+                Math.round((participantCount / Math.max(1, item.capacity)) * 100),
+              );
+              const galleryCount = new Set(
+                [item.cover_url, ...(item.image_urls ?? [])].filter(Boolean),
+              ).size;
+              return (
+                <article className="academy-card academy-card--experience" key={item.id}>
                   <button
                     type="button"
-                    className="primary-button full"
+                    className={`academy-visual tone-${index % 3}`}
                     onClick={() => setSelectedProgram(item)}
+                    aria-label={`Lihat detail ${item.title}`}
                   >
-                    Lihat detail & daftar
+                    {item.cover_url ? (
+                      <NextImage
+                        src={item.cover_url}
+                        alt={`Kelas ${item.title}`}
+                        fill
+                        sizes="(max-width: 720px) 100vw, 33vw"
+                        unoptimized
+                      />
+                    ) : (
+                      <span aria-hidden="true">
+                        {index % 3 === 0 ? "🐕‍🦺" : index % 3 === 1 ? "🐶" : "🏅"}
+                      </span>
+                    )}
+                    <span className="academy-media-shade" />
+                    <span className="academy-media-topline">
+                      {item.featured ? <b>✦ PILIHAN SLIVADOC</b> : <b>{item.level}</b>}
+                      {item.discount_percent > 0 ? <em>-{item.discount_percent}%</em> : null}
+                    </span>
+                    <span className="academy-media-bottomline">
+                      <small>{item.academy_name}</small>
+                      {galleryCount > 1 ? <i>▧ {galleryCount} foto</i> : null}
+                    </span>
                   </button>
-                </div>
-              </article>
-            ))}
+                  <div className="academy-card-body">
+                    <div className="academy-card-proof">
+                      <span>{reviewCount > 0 ? `★ ${(item.rating ?? 0).toFixed(1)}` : "☆ Belum dinilai"}</span>
+                      <span>{reviewCount} ulasan</span>
+                      <span>{academySince(item.running_since)}</span>
+                    </div>
+                    <h3>{item.title}</h3>
+                    <p>{item.description}</p>
+                    <div className="academy-cohort-progress">
+                      <div>
+                        <span>Peserta cohort</span>
+                        <b>{participantCount}/{item.capacity} pet</b>
+                      </div>
+                      <i><span style={{ width: `${occupancy}%` }} /></i>
+                    </div>
+                    <div className="trainer-line">
+                      <span>{item.trainer_name.slice(0, 1)}</span>
+                      <p>
+                        <b>{item.trainer_name}</b>
+                        <small>{item.duration_weeks} minggu · {item.session_count} sesi</small>
+                      </p>
+                      <em>{when(item.next_schedule)}</em>
+                    </div>
+                    <div className="academy-card-checkout">
+                      <AcademyPrice program={item} compact />
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProgram(item)}
+                      >
+                        Lihat kelas <Icon name="arrow" size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
         </div>
         {selectedProgram && (
           <ProgramModal
@@ -1237,6 +1288,10 @@ function ProgramModal({
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [enrollmentId, setEnrollmentId] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState("");
   const program = detail ?? item;
   const eligiblePets = pets.filter(
     (candidate) =>
@@ -1327,6 +1382,38 @@ function ProgramModal({
       setBusy(false);
     }
   }
+  async function submitReview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!isPetOwnerAuthenticated()) {
+      notify("Login diperlukan untuk menulis ulasan kelas");
+      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
+      return;
+    }
+    if (reviewComment.trim().length < 10) {
+      setReviewMessage("Ceritakan pengalaman minimal 10 karakter.");
+      return;
+    }
+    setReviewBusy(true);
+    setReviewMessage("");
+    try {
+      await saveAcademyProgramReview(item.id, {
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      });
+      const refreshed = await getAcademyProgram(item.id);
+      setDetail(refreshed);
+      setReviewComment("");
+      setReviewMessage("Ulasan terverifikasi berhasil diterbitkan.");
+    } catch (error) {
+      setReviewMessage(
+        error instanceof Error
+          ? error.message
+          : "Ulasan kelas belum dapat disimpan.",
+      );
+    } finally {
+      setReviewBusy(false);
+    }
+  }
   return (
     <Modal close={close} className="world-modal">
       <WorldImageGallery
@@ -1351,8 +1438,19 @@ function ProgramModal({
             <small className="world-kicker">
               {program.category} · {program.level}
             </small>
-            <h2>{program.title}</h2>
+            <div className="academy-detail-heading-row">
+              <h2>{program.title}</h2>
+              {program.discount_percent > 0 ? (
+                <span>Hemat {program.discount_percent}%</span>
+              ) : null}
+            </div>
             <p>{program.description}</p>
+            <div className="academy-social-summary">
+              <span><b>{(program.review_count ?? 0) > 0 ? `★ ${(program.rating ?? 0).toFixed(1)}` : "☆ Belum dinilai"}</b><small>{program.review_count ?? 0} ulasan peserta</small></span>
+              <span><b>{program.participant_count ?? 0} pet</b><small>sudah bergabung</small></span>
+              <span><b>{program.capacity} kursi</b><small>kapasitas per cohort</small></span>
+              <span><b>{academySince(program.running_since)}</b><small>rekam jejak program</small></span>
+            </div>
             <div className="world-detail-grid">
               <span>
                 <small>Pet trainer</small>
@@ -1370,7 +1468,7 @@ function ProgramModal({
               </span>
               <span>
                 <small>Investasi</small>
-                <b>{money.format(program.price)}</b>
+                <AcademyPrice program={program} compact />
               </span>
             </div>
             {detailLoading ? (
@@ -1398,6 +1496,58 @@ function ProgramModal({
                     speciesName === "dog" ? "🐕 Anjing" : speciesName === "cat" ? "🐈 Kucing" : speciesName,
                   ).join(" · ") || "Semua pet"}
                 </div>
+                <section className="academy-review-section">
+                  <div className="academy-review-heading">
+                    <div>
+                      <small>CERITA ALUMNI</small>
+                      <h3>Review & komentar pet parent</h3>
+                    </div>
+                    <b>{(program.review_count ?? 0) > 0 ? `★ ${(program.rating ?? 0).toFixed(1)}` : "Belum dinilai"}</b>
+                  </div>
+                  <div className="academy-review-list">
+                    {(detail?.reviews ?? []).length ? (
+                      detail?.reviews.map((review: AcademyReview) => (
+                        <article key={review.id}>
+                          <span>{review.reviewer_name.slice(0, 1).toUpperCase()}</span>
+                          <div>
+                            <header><b>{review.reviewer_name}</b><em>{"★".repeat(review.rating)}</em></header>
+                            <small>✓ Peserta terverifikasi · bersama {review.pet_name || "pet-nya"}</small>
+                            <p>{review.comment}</p>
+                            <time>{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(review.created_at))}</time>
+                          </div>
+                        </article>
+                      ))
+                    ) : (
+                      <p className="academy-review-empty">Belum ada ulasan. Peserta terverifikasi dapat menjadi yang pertama.</p>
+                    )}
+                  </div>
+                  <form className="academy-review-form" onSubmit={submitReview}>
+                    <div>
+                      <span>Bagikan pengalaman kelas</span>
+                      <div aria-label="Pilih rating">
+                        {[1, 2, 3, 4, 5].map((rating) => (
+                          <button
+                            type="button"
+                            key={rating}
+                            className={rating <= reviewRating ? "active" : ""}
+                            onClick={() => setReviewRating(rating)}
+                            aria-label={`${rating} bintang`}
+                          >★</button>
+                        ))}
+                      </div>
+                    </div>
+                    <textarea
+                      value={reviewComment}
+                      onChange={(event) => setReviewComment(event.target.value)}
+                      placeholder="Apa perubahan yang paling terasa pada pet-mu?"
+                      maxLength={1500}
+                    />
+                    {reviewMessage ? <p>{reviewMessage}</p> : null}
+                    <button type="submit" disabled={reviewBusy}>
+                      {reviewBusy ? "Menerbitkan…" : "Kirim review terverifikasi"}
+                    </button>
+                  </form>
+                </section>
               </>
             )}
             <button
@@ -1445,7 +1595,7 @@ function ProgramModal({
             </label>
             <div className="checkout-line">
               <span>Total program</span>
-              <b>{money.format(program.price)}</b>
+              <AcademyPrice program={program} compact />
             </div>
             {program.price > 0 && (
               <PaymentMethodPicker

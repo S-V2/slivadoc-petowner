@@ -67,6 +67,8 @@ export type Service = {
   branchName?: string;
   city?: string;
   priceValue?: number;
+  originalPrice?: number;
+  discountPercent?: number;
   name: string;
   type: "Clinic" | "Grooming" | "Pet Shop" | "Pet Hotel" | "Home Care";
   distance: string;

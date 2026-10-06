@@ -393,6 +393,8 @@ function MobileApp() {
           ? `${item.distance_km.toFixed(1)} km`
           : item.city,
       price: formatCurrency(item.price),
+      originalPrice: item.original_price,
+      discountPercent: item.discount_percent,
       status: "Tersedia untuk booking",
       imageUrl: item.image_url,
       imageUrls: item.image_urls?.length

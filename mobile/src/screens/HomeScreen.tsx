@@ -437,7 +437,7 @@ export function HomeScreen({
             <View style={styles.healthTop}>
               <View style={styles.petAvatar}><Ionicons name="paw" size={26} color={colors.sky600} /><View style={styles.checkDot}><Ionicons name="checkmark" size={10} color={colors.white} /></View></View>
               <View style={styles.healthCopy}>
-                <View style={styles.activePetLabel}><View style={styles.activePetPulse} /><Text style={styles.activePetLabelText}>PET AKTIF</Text></View>
+                <View style={styles.activePetLabel}><View style={styles.activePetPulse} /><Text style={styles.activePetLabelText}>PET AKTIF</Text>{petView.shared ? <><Ionicons name="people" size={9} color={colors.white} /><Text style={styles.activePetLabelText}>Dibagikan</Text></> : null}</View>
                 <Text numberOfLines={1} style={styles.petName}>{petView.name}</Text>
                 <Text numberOfLines={1} style={styles.petMeta}>{petView.breed} • {petView.age}</Text>
               </View>
@@ -578,7 +578,7 @@ export function HomeScreen({
                 const active = item.id === pet?.id;
                 return <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => { onSelectPet(item.id); setPetPickerOpen(false); }} style={[styles.petPickerItem, active && styles.petPickerItemActive]}>
                   <View style={styles.petPickerAvatar}><Text style={styles.petPickerEmoji}>{item.icon}</Text></View>
-                  <View style={styles.petPickerCopy}><Text style={styles.petPickerName}>{item.name}</Text><Text style={styles.petPickerMeta}>{item.breed} · {item.age}</Text></View>
+                  <View style={styles.petPickerCopy}><Text style={styles.petPickerName}>{item.name}</Text><Text style={styles.petPickerMeta}>{item.breed} · {item.age}</Text>{item.shared ? <View style={{ alignSelf: "flex-start", marginTop: 4 }}><Pill tone="violet">Dibagikan</Pill></View> : null}</View>
                   <Ionicons name={active ? "checkmark-circle" : "chevron-forward"} size={20} color={active ? colors.sky600 : colors.muted} />
                 </Pressable>;
               })}

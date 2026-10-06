@@ -12,7 +12,7 @@ import {
   type MobileOwner,
   type MobilePet,
 } from "../api";
-import { BoundedBottomSheet, Card, Pill, Screen, SectionTitle, SoftButton, TopHeader } from "../components/ui";
+import { BoundedBottomSheet, Card, Pill, Screen, SectionTitle, SoftButton, TopHeader, useAppSurface } from "../components/ui";
 import { languageOptions, LocalizedText as Text, LocalizedTextInput as TextInput, useI18n, type AppLanguage } from "../i18n";
 import { colors, shadow, typography } from "../theme";
 
@@ -198,6 +198,7 @@ function FamilyAccessScreen({ pets, onBack, onAction, onOpenNotifications }: { p
   const requestVersion = useRef(0);
   const effectivePetId = pets.some((pet) => pet.id === petId) ? petId : pets[0]?.id ?? "";
   const selectedPet = pets.find((pet) => pet.id === effectivePetId);
+  const shared = Boolean(selectedPet?.access_role) && selectedPet?.access_role !== "owner";
 
   const reload = useCallback(async () => {
     if (!effectivePetId) return;
@@ -241,12 +242,13 @@ function FamilyAccessScreen({ pets, onBack, onAction, onOpenNotifications }: { p
       <LinearGradient colors={["#EAF8FF", "#EEFBF7", "#F3EFFF"]} style={styles.detailHero}><View style={styles.detailHeroIcon}><Ionicons name="people" size={22} color={colors.sky600}/></View><View style={styles.detailHeroCopy}><Text style={styles.detailHeroTitle}>Rawat bareng, tetap terkontrol</Text><Text style={styles.detailHeroNote}>Pilih pet, undang orang terpercaya, lalu tentukan data yang boleh mereka akses.</Text></View></LinearGradient>
 
       <SectionTitle eyebrow="PILIH PET" title="Akses berlaku untuk"/>
-      {pets.length ? <View style={styles.petSelector}>{pets.map((pet) => { const active = pet.id === selectedPet?.id; return <Pressable key={pet.id} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => setPetId(pet.id)} style={({ pressed }) => [styles.petChip, active && styles.petChipActive, pressed && styles.pressed]}><Ionicons name="paw-outline" size={17} color={active ? colors.sky600 : colors.muted}/><Text style={[styles.petChipText, active && styles.petChipTextActive]}>{pet.name}</Text>{active ? <Ionicons name="checkmark-circle" size={16} color={colors.sky600}/> : null}</Pressable>; })}</View> : <Card style={styles.emptyCard}><Ionicons name="paw-outline" size={24} color={colors.sky600}/><Text style={styles.emptyTitle}>Tambahkan pet lebih dulu</Text><Text style={styles.emptyNote}>Akses keluarga selalu diatur terpisah untuk setiap pet.</Text></Card>}
+      {pets.length ? <View style={styles.petSelector}>{pets.map((pet) => { const active = pet.id === selectedPet?.id; return <Pressable key={pet.id} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => setPetId(pet.id)} style={({ pressed }) => [styles.petChip, active && styles.petChipActive, pressed && styles.pressed]}><Ionicons name="paw-outline" size={17} color={active ? colors.sky600 : colors.muted}/><Text style={[styles.petChipText, active && styles.petChipTextActive]}>{pet.name}</Text>{pet.access_role && pet.access_role !== "owner" ? <View style={styles.familyStatus}><Text style={styles.familyStatusText}>Dibagikan</Text></View> : null}{active ? <Ionicons name="checkmark-circle" size={16} color={colors.sky600}/> : null}</Pressable>; })}</View> : <Card style={styles.emptyCard}><Ionicons name="paw-outline" size={24} color={colors.sky600}/><Text style={styles.emptyTitle}>Tambahkan pet lebih dulu</Text><Text style={styles.emptyNote}>Akses keluarga selalu diatur terpisah untuk setiap pet.</Text></Card>}
 
       {selectedPet ? <>
         <SectionTitle eyebrow="ORANG TERPERCAYA" title={`Akses ${selectedPet.name}`}/>
-        <Card style={styles.familyList}>{loading ? <View style={styles.loadingRow}><ActivityIndicator color={colors.sky600}/><Text style={styles.loadingText}>Memuat akses keluarga…</Text></View> : items.length ? items.map((item, index) => <FamilyMember key={item.id} item={item} last={index === items.length - 1} onRevoke={item.role === "owner" ? undefined : () => setRevokeItem(item)}/>) : <View style={styles.emptyList}><View style={styles.emptyListIcon}><Ionicons name="person-add-outline" size={20} color={colors.sky600}/></View><View style={styles.emptyListCopy}><Text style={styles.emptyTitle}>Belum ada anggota</Text><Text style={styles.emptyNote}>Undangan pertama untuk {selectedPet.name} akan tampil di sini.</Text></View></View>}</Card>
+        <Card style={styles.familyList}>{loading ? <View style={styles.loadingRow}><ActivityIndicator color={colors.sky600}/><Text style={styles.loadingText}>Memuat akses keluarga…</Text></View> : items.length ? items.map((item, index) => <FamilyMember key={item.id} item={item} last={index === items.length - 1} onRevoke={shared || item.role === "owner" ? undefined : () => setRevokeItem(item)}/>) : <View style={styles.emptyList}><View style={styles.emptyListIcon}><Ionicons name="person-add-outline" size={20} color={colors.sky600}/></View><View style={styles.emptyListCopy}><Text style={styles.emptyTitle}>Belum ada anggota</Text><Text style={styles.emptyNote}>Undangan pertama untuk {selectedPet.name} akan tampil di sini.</Text></View></View>}</Card>
 
+        {shared ? <Text style={styles.formHint}>Pet ini dibagikan kepadamu. Hanya pemilik yang dapat mengatur akses keluarga.</Text> : <>
         <SectionTitle eyebrow="UNDANG ANGGOTA" title="Atur akses baru"/>
         <Card style={styles.inviteCard}>
           <FieldLabel label="Nama lengkap"/><TextInput value={name} onChangeText={setName} placeholder="Nama anggota keluarga" placeholderTextColor={colors.muted} style={styles.input}/>
@@ -255,7 +257,7 @@ function FamilyAccessScreen({ pets, onBack, onAction, onOpenNotifications }: { p
           <FieldLabel label="Izin akses"/><View style={styles.permissionList}>{familyPermissions.map((item, index) => { const enabled = permissions.includes(item.value); return <View key={item.value} style={[styles.permissionRow, index === familyPermissions.length - 1 && styles.noBorder]}><View style={styles.permissionCopy}><Text style={styles.permissionTitle}>{item.label}</Text><Text style={styles.permissionNote}>{item.note}</Text></View><Switch accessibilityLabel={`Izin ${item.label}`} value={enabled} onValueChange={() => setPermissions((current) => enabled ? current.filter((value) => value !== item.value) : [...current, item.value])} trackColor={{ false: "#DCE7ED", true: colors.sky100 }} thumbColor={enabled ? colors.sky500 : "#FFFFFF"}/></View>; })}</View>
           <Pressable accessibilityRole="button" disabled={busy} onPress={() => void invite()} style={({ pressed }) => [styles.primaryAction, busy && styles.disabled, pressed && styles.pressed]}>{busy ? <ActivityIndicator size="small" color={colors.white}/> : <Ionicons name="paper-plane" size={16} color={colors.white}/>}<Text style={styles.primaryActionText}>{busy ? "Memproses…" : "Kirim undangan"}</Text></Pressable>
           <Text style={styles.formHint}>Penerima hanya mendapat izin yang kamu aktifkan untuk pet ini.</Text>
-        </Card>
+        </Card></>}
       </> : null}
     </Screen>
     <ConfirmModal visible={Boolean(revokeItem)} eyebrow="CABUT AKSES" title={`Hapus akses ${revokeItem?.full_name ?? "anggota"}?`} note={`Akses ke data ${selectedPet?.name ?? "pet"} akan langsung dihentikan.`} cancelLabel="Batal" confirmLabel={busy ? "Memproses…" : "Ya, cabut akses"} busy={busy} onCancel={() => setRevokeItem(undefined)} onConfirm={() => void revoke()}/>
@@ -289,7 +291,8 @@ function SecurityScreen({ owner, onBack, onAction, onOpenNotifications, onReques
 }
 
 function AccountPageHeader({ eyebrow, title, onBack, onNotification }: { eyebrow: string; title: string; onBack: () => void; onNotification: () => void }) {
-  return <View style={styles.detailHeader}><Pressable accessibilityRole="button" accessibilityLabel="Kembali" onPress={onBack} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}><Ionicons name="arrow-back" size={20} color={colors.navy}/></Pressable><View style={styles.detailHeaderCopy}><Text style={styles.detailEyebrow}>{eyebrow}</Text><Text style={styles.detailTitle} numberOfLines={1}>{title}</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={onNotification} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}><Ionicons name="notifications-outline" size={19} color={colors.navy}/><View style={styles.headerNotificationDot}/></Pressable></View>;
+  const { unreadNotifications } = useAppSurface();
+  return <View style={styles.detailHeader}><Pressable accessibilityRole="button" accessibilityLabel="Kembali" onPress={onBack} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}><Ionicons name="arrow-back" size={20} color={colors.navy}/></Pressable><View style={styles.detailHeaderCopy}><Text style={styles.detailEyebrow}>{eyebrow}</Text><Text style={styles.detailTitle} numberOfLines={1}>{title}</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={onNotification} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}><Ionicons name="notifications-outline" size={19} color={colors.navy}/>{unreadNotifications > 0 ? <View style={styles.headerNotificationDot}/> : null}</Pressable></View>;
 }
 function Stat({ value, label, last }: { value: string; label: string; last?: boolean }) { return <View style={[styles.stat, last && styles.statLast]}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>; }
 function Benefit({ text }: { text: string }) { return <View style={styles.benefit}><View style={styles.benefitCheck}><Ionicons name="checkmark" size={10} color={colors.sky600}/></View><Text style={styles.benefitText}>{text}</Text></View>; }

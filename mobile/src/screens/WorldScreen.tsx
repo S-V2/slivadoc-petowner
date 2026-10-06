@@ -489,6 +489,7 @@ export function WorldScreen({
     longitude: number;
   }>();
   const [pawDatingCreateOpen, setPawDatingCreateOpen] = useState(false);
+  const [pawDatingLoadError, setPawDatingLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("qris");
@@ -647,6 +648,20 @@ export function WorldScreen({
             documents,
           ]) => {
             if (!current) return;
+            const pawDatingFailure =
+              pawdating.status === "rejected" ? pawdating.reason : undefined;
+            const pawDatingError = pawDatingFailure
+              ? pawDatingFailure instanceof Error
+                ? pawDatingFailure.message
+                : "Profil PAW Dating belum dapat dimuat"
+              : "";
+            setPawDatingLoadError(pawDatingError);
+            if (pawDatingError) {
+              console.warn(
+                "[PAW Dating] Discovery profile gagal dimuat",
+                pawDatingFailure,
+              );
+            }
             setItems({
               pawdating:
                 pawdating.status === "fulfilled" ? pawdating.value.data : [],
@@ -1351,6 +1366,9 @@ export function WorldScreen({
           <Text style={styles.cardNote}>
             {mode === "consult"
               ? "Belum ada provider dengan filter tersebut."
+              : mode === "pawdating"
+                ? pawDatingLoadError ||
+                  "Belum ada profil terverifikasi untuk ditampilkan."
               : "Belum ada data pada kategori ini."}
           </Text>
         ) : null}

@@ -4,6 +4,7 @@ import NextImage from "next/image";
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
@@ -95,11 +96,19 @@ const academySince = (value?: string) => {
     year: "numeric",
   }).format(date)}`;
 };
+const academySpecies = [
+  { id: "all", label: "Semua pet", icon: "✦" },
+  { id: "dog", label: "Anjing", icon: "🐕" },
+  { id: "cat", label: "Kucing", icon: "🐈" },
+  { id: "rabbit", label: "Kelinci", icon: "🐇" },
+  { id: "bird", label: "Burung", icon: "🦜" },
+  { id: "small_mammal", label: "Small pet", icon: "🐹" },
+] as const;
 
 function AcademyPrice({ program, compact = false }: { program: AcademyProgram; compact?: boolean }) {
   const discounted = program.discount_percent > 0 && program.original_price > program.price;
   return (
-    <span className={`academy-price ${compact ? "is-compact" : ""}`}>
+    <span className={`academy-price ${compact ? "is-compact" : ""} ${discounted ? "is-discounted" : ""}`}>
       {discounted ? <s>{money.format(program.original_price)}</s> : null}
       <strong>{program.price > 0 ? money.format(program.price) : "Gratis"}</strong>
       {discounted ? <em>Hemat {program.discount_percent}%</em> : null}
@@ -289,6 +298,14 @@ export default function PlatformDiscovery({
   const [spotSearch, setSpotSearch] = useState("");
   const [maxDistance, setMaxDistance] = useState(25);
   const [hubTab, setHubTab] = useState("Untuk Kamu");
+  const speciesRailRef = useRef<HTMLDivElement>(null);
+  const trainerRailRef = useRef<HTMLDivElement>(null);
+  const advanceRail = (node: HTMLDivElement | null) => {
+    if (!node) return;
+    const nextLeft = node.scrollLeft + Math.max(240, node.clientWidth * 0.82);
+    const reachedEnd = nextLeft >= node.scrollWidth - 8;
+    node.scrollTo({ left: reachedEnd ? 0 : nextLeft, behavior: "smooth" });
+  };
   useEffect(() => {
     void Promise.resolve().then(() => setLoading(true));
     const failed = (label: string) => (error: unknown) => {
@@ -516,64 +533,78 @@ export default function PlatformDiscovery({
               <h2>Trainer sesuai jenis pet</h2>
               <p>Pilih spesialis yang paling cocok sebelum menentukan kelas.</p>
             </div>
-            <div className="academy-species-filter" aria-label="Filter jenis pet">
-              <button
-                type="button"
-                className={trainerSpecies === "all" ? "active" : ""}
-                onClick={() => setTrainerSpecies("all")}
+            <div className="academy-carousel academy-species-carousel">
+              <div
+                ref={speciesRailRef}
+                className="academy-species-filter"
+                aria-label="Filter jenis pet"
               >
-                Semua
-              </button>
-              {[...new Set(pets.map((item) => item.species.toLowerCase()))].map(
-                (speciesName) => (
+                {academySpecies.map((species) => (
                   <button
                     type="button"
-                    key={speciesName}
-                    className={trainerSpecies === speciesName ? "active" : ""}
-                    onClick={() => setTrainerSpecies(speciesName)}
+                    key={species.id}
+                    className={trainerSpecies === species.id ? "active" : ""}
+                    onClick={() => setTrainerSpecies(species.id)}
                   >
-                    {speciesName === "dog"
-                      ? "🐕 Anjing"
-                      : speciesName === "cat"
-                        ? "🐈 Kucing"
-                        : `🐾 ${speciesName}`}
+                    <span>{species.icon}</span>
+                    <b>{species.label}</b>
                   </button>
-                ),
-              )}
-            </div>
-          </div>
-          <div className="academy-trainer-list">
-            {academyTrainers.map((trainer) => (
+                ))}
+              </div>
               <button
                 type="button"
-                className="academy-trainer-card"
-                key={trainer.id}
-                onClick={() => void openTrainer(trainer)}
+                className="academy-carousel-next"
+                onClick={() => advanceRail(speciesRailRef.current)}
+                aria-label="Lihat jenis pet berikutnya"
               >
-                <span className="academy-trainer-avatar">
-                  {trainer.photo_url ? (
-                    <NextImage
-                      src={trainer.photo_url}
-                      alt=""
-                      width={72}
-                      height={72}
-                      unoptimized
-                    />
-                  ) : (
-                    trainer.full_name.slice(0, 1)
-                  )}
-                </span>
-                <span>
-                  <small>{trainer.academy_name}</small>
-                  <b>{trainer.full_name}</b>
-                  <em>
-                    ★ {trainer.rating.toFixed(1)} · {trainer.experience_years} tahun
-                  </em>
-                  <i>{trainer.specialties.slice(0, 3).join(" · ")}</i>
-                </span>
-                <strong>Detail →</strong>
+                <Icon name="arrow" size={17} />
               </button>
-            ))}
+            </div>
+          </div>
+          <div className="academy-carousel academy-trainer-carousel">
+            <div ref={trainerRailRef} className="academy-trainer-list">
+              {academyTrainers.map((trainer) => (
+                <button
+                  type="button"
+                  className="academy-trainer-card"
+                  key={trainer.id}
+                  onClick={() => void openTrainer(trainer)}
+                >
+                  <span className="academy-trainer-avatar">
+                    {trainer.photo_url ? (
+                      <NextImage
+                        src={trainer.photo_url}
+                        alt=""
+                        width={72}
+                        height={72}
+                        unoptimized
+                      />
+                    ) : (
+                      trainer.full_name.slice(0, 1)
+                    )}
+                  </span>
+                  <span>
+                    <small>{trainer.academy_name}</small>
+                    <b>{trainer.full_name}</b>
+                    <em>
+                      ★ {trainer.rating.toFixed(1)} · {trainer.experience_years} tahun
+                    </em>
+                    <i>{trainer.specialties.slice(0, 3).join(" · ")}</i>
+                  </span>
+                  <strong>Lihat profil</strong>
+                </button>
+              ))}
+            </div>
+            {academyTrainers.length > 3 ? (
+              <button
+                type="button"
+                className="academy-carousel-next academy-trainer-next"
+                onClick={() => advanceRail(trainerRailRef.current)}
+                aria-label="Lihat pet trainer berikutnya"
+              >
+                <Icon name="arrow" size={18} />
+              </button>
+            ) : null}
           </div>
         </section>
         <div className="world-toolbar">
@@ -707,7 +738,19 @@ export default function PlatformDiscovery({
       <>
         <UniverseNav active={mode} navigate={navigate} />
         {featured && (
-          <section className="event-banner">
+          <section className={`event-banner ${featured.banner_url ? "has-media" : ""}`}>
+            {featured.banner_url ? (
+              <NextImage
+                className="event-banner-media"
+                src={featured.banner_url}
+                alt=""
+                fill
+                sizes="100vw"
+                unoptimized
+                priority
+              />
+            ) : null}
+            <span className="event-banner-shade" />
             <div className="event-banner-date">
               <b>{new Date(featured.starts_at).getDate()}</b>
               <small>
@@ -717,7 +760,7 @@ export default function PlatformDiscovery({
               </small>
             </div>
             <div>
-              <span>FEATURED PET EVENT</span>
+              <span className="event-featured-label">✦ FEATURED PET EVENT</span>
               <h2>{featured.title}</h2>
               <p>{featured.description}</p>
               <div className="event-meta">
@@ -725,6 +768,11 @@ export default function PlatformDiscovery({
                   ⌖ {featured.venue}, {featured.city}
                 </span>
                 <span>◷ {when(featured.starts_at)}</span>
+              </div>
+              <div className="event-banner-chips">
+                <span>✓ Pet friendly</span>
+                <span>{featured.price ? money.format(featured.price) : "Gratis"}</span>
+                <span>{Math.max(0, featured.capacity - featured.registered_count)} slot tersisa</span>
               </div>
               <button type="button" onClick={() => setSelectedEvent(featured)}>
                 Lihat detail event <Icon name="arrow" size={16} />
@@ -757,39 +805,71 @@ export default function PlatformDiscovery({
           </button>
         </div>
         <div className="event-grid">
-          {events.map((item, index) => (
-            <button
-              type="button"
-              className="event-card"
-              key={item.id}
-              onClick={() => setSelectedEvent(item)}
-            >
-              <div className={`event-art event-art-${index % 3}`}>
-                <span>
-                  {item.category === "sport"
-                    ? "🏃‍♀️🐕"
-                    : item.category === "community"
-                      ? "☕🐾"
-                      : "🎪"}
-                </span>
-                <i>{item.category}</i>
-              </div>
-              <div>
-                <small>{when(item.starts_at)}</small>
-                <h3>{item.title}</h3>
-                <p>
-                  ⌖ {item.venue} · {item.city}
-                </p>
-                <footer>
-                  <b>{item.price ? money.format(item.price) : "Gratis"}</b>
-                  <span>
-                    {Math.max(0, item.capacity - item.registered_count)} tiket
-                    tersisa ›
+          {events.map((item, index) => {
+            const eventImages = [
+              ...new Set(
+                [item.banner_url, ...(item.image_urls ?? [])].filter(Boolean),
+              ),
+            ];
+            const remaining = Math.max(0, item.capacity - item.registered_count);
+            const occupancy = Math.min(100, Math.round((item.registered_count / Math.max(1, item.capacity)) * 100));
+            return (
+              <button
+                type="button"
+                className="event-card event-card--experience"
+                key={item.id}
+                onClick={() => setSelectedEvent(item)}
+              >
+                <div className={`event-art event-art-${index % 3}`}>
+                  {item.banner_url ? (
+                    <NextImage
+                      src={item.banner_url}
+                      alt={`Event ${item.title}`}
+                      fill
+                      sizes="(max-width: 720px) 100vw, 33vw"
+                      unoptimized
+                    />
+                  ) : (
+                    <span>
+                      {item.category === "sport"
+                        ? "🏃‍♀️🐕"
+                        : item.category === "community"
+                          ? "☕🐾"
+                          : "🎪"}
+                    </span>
+                  )}
+                  <span className="event-art-shade" />
+                  <span className="event-art-topline">
+                    <i>{item.category}</i>
+                    {item.featured ? <b>✦ Pilihan</b> : null}
                   </span>
-                </footer>
-              </div>
-            </button>
-          ))}
+                  <span className="event-date-chip">
+                    <b>{new Date(item.starts_at).getDate()}</b>
+                    <small>{new Intl.DateTimeFormat("id-ID", { month: "short" }).format(new Date(item.starts_at))}</small>
+                  </span>
+                  {eventImages.length > 1 ? <em>▧ {eventImages.length} foto</em> : null}
+                </div>
+                <div>
+                  <small>{when(item.starts_at)}</small>
+                  <h3>{item.title}</h3>
+                  <p>⌖ {item.venue} · {item.city}</p>
+                  <div className="event-card-stats">
+                    <span><b>{item.registered_count}</b><small>terdaftar</small></span>
+                    <span><b>{remaining}</b><small>slot tersisa</small></span>
+                    <span><b>{item.allowed_pet_species?.length || "Semua"}</b><small>jenis pet</small></span>
+                  </div>
+                  <div className="event-seat-progress" aria-label={`${occupancy}% kapasitas terisi`}>
+                    <i><span style={{ width: `${occupancy}%` }} /></i>
+                    <small>{occupancy}% kapasitas terisi</small>
+                  </div>
+                  <footer>
+                    <span><small>Mulai dari</small><b>{item.price ? money.format(item.price) : "Gratis"}</b></span>
+                    <strong>Lihat event <Icon name="arrow" size={14} /></strong>
+                  </footer>
+                </div>
+              </button>
+            );
+          })}
         </div>
         {selectedEvent && (
           <EventModal
@@ -1635,7 +1715,12 @@ function AcademyTrainerModal({
           <p>★ {trainer.rating.toFixed(1)} · {trainer.experience_years} tahun pengalaman</p>
         </div>
       </div>
-      <div className="academy-trainer-profile-body">
+      <div
+        className="academy-trainer-profile-body"
+        role="region"
+        aria-label={`Detail ${trainer.full_name}`}
+        tabIndex={0}
+      >
         <p>{trainer.bio || "Profil trainer terverifikasi Slivadoc."}</p>
         <div className="academy-trainer-metrics">
           <span><small>Sertifikasi</small><b>{trainer.certification || "Slivadoc verified"}</b></span>
@@ -1798,8 +1883,20 @@ function EventModal({
         ) : (
           <>
             <small className="world-kicker">{when(item.starts_at)}</small>
-            <h2>{item.title}</h2>
+            <div className="event-detail-heading">
+              <div>
+                <span>{item.featured ? "✦ EVENT PILIHAN" : item.category}</span>
+                <h2>{item.title}</h2>
+              </div>
+              <b>{item.price ? money.format(item.price) : "Gratis"}</b>
+            </div>
             <p>{item.description}</p>
+            <div className="event-social-summary">
+              <span><b>{item.registered_count.toLocaleString("id-ID")}</b><small>pet parent terdaftar</small></span>
+              <span><b>{Math.max(0, item.capacity - item.registered_count)}</b><small>slot masih tersedia</small></span>
+              <span><b>{new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short" }).format(new Date(item.starts_at))}</b><small>tanggal event</small></span>
+              <span><b>{item.allowed_pet_species?.length || "Semua"}</b><small>jenis pet diterima</small></span>
+            </div>
             {item.pet_spot_name ? <div className="event-host"><span>✦</span><div><small>Diselenggarakan oleh</small><b>{item.pet_spot_name}</b></div></div> : null}
             <div className="world-detail-grid">
               <span>
@@ -1823,9 +1920,13 @@ function EventModal({
                 <b>{item.status}</b>
               </span>
             </div>
-            {item.ticket_unit === "owner_pet" ? <><div className="event-species"><small>Pet yang dapat hadir</small><div>{item.allowed_pet_species.map((species) => <span key={species}>{speciesIcon(species)} {speciesLabel(species)}</span>)}</div></div>{item.pet_requirements.length ? <div className="event-requirements"><small>Persiapan sebelum hadir</small><ul>{item.pet_requirements.map((requirement) => <li key={requirement}>✓ {requirement}</li>)}</ul></div> : null}</> : null}
+            {item.ticket_unit === "owner_pet" ? <><div className="event-species"><small>Pet yang dapat hadir</small><div>{item.allowed_pet_species.map((species) => <span key={species}>{speciesIcon(species)} {speciesLabel(species)}</span>)}</div></div>{item.pet_requirements.length ? <div className="event-requirements"><small>Checklist sebelum datang</small><ul>{item.pet_requirements.map((requirement) => <li key={requirement}>✓ {requirement}</li>)}</ul></div> : null}</> : null}
+            <div className="event-experience-note">
+              <span>🎟️</span>
+              <div><b>Ticket tersimpan otomatis</b><small>Sesudah registrasi, QR ticket dan detail event dapat dibuka kembali dari Aktivitas.</small></div>
+            </div>
             <button className="primary-button full" onClick={start}>
-              Ambil tiket
+              {item.price ? "Pilih pet & ambil tiket" : "Amankan tiket gratis"}
             </button>
           </>
         )}

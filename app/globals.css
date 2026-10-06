@@ -11508,3 +11508,38 @@ textarea {
   border: 0;
   background: #fff;
 }
+
+/* Promise surfaces: community join requests */
+.group-join-requests {
+  display: grid;
+  gap: 6px;
+  padding: 10px 17px;
+  background: #fff8ec;
+  border-bottom: 1px solid #f1e2c4;
+  font-size: 11px;
+}
+.group-join-requests > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.group-join-requests > div > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-join-requests button {
+  padding: 5px 11px;
+  border: 1px solid #cfe0ea;
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 700;
+  font-size: 11px;
+}
+.group-join-requests button:first-of-type {
+  color: #fff;
+  border-color: #1d77a8;
+  background: #1d77a8;
+}

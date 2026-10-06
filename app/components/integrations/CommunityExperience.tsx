@@ -8,14 +8,17 @@ import {
   createCommunityGroupMessage,
   createCommunityPost,
   getCommunityComments,
+  getCommunityGroupMembers,
   getCommunityGroupMessages,
   getCommunityGroups,
   getCommunityPosts,
   isPetOwnerAuthenticated,
   joinCommunityGroup,
   reactCommunityPost,
+  updateCommunityGroupMember,
   type CommunityComment,
   type CommunityGroup,
+  type CommunityGroupMember,
   type CommunityGroupMessage,
   type CommunityPost,
 } from "../../lib/platform-api";
@@ -755,6 +758,7 @@ function GroupChat({
             </p>
           </div>
         </header>
+        {group.owner && <GroupJoinRequests group={group} notify={notify} />}
         <div className="group-chat-notice">
           <Icon name="shield" size={15} /> Nomor telepon, akun media sosial,
           email, dan tautan tidak dapat dibagikan untuk menjaga privasi anggota.
@@ -794,6 +798,66 @@ function GroupChat({
         </footer>
       </section>
     </div>
+  );
+}
+
+function GroupJoinRequests({
+  group,
+  notify,
+}: {
+  group: CommunityGroup;
+  notify: (message: string) => void;
+}) {
+  const [pending, setPending] = useState<CommunityGroupMember[]>([]);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(async () => {
+    try {
+      setPending((await getCommunityGroupMembers(group.id, "pending")).data);
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Permintaan bergabung belum dapat dimuat",
+      );
+    }
+  }, [group.id, notify]);
+  useEffect(() => {
+    queueMicrotask(() => void load());
+  }, [load]);
+  async function decide(member: CommunityGroupMember, status: "active" | "blocked") {
+    setBusy(true);
+    try {
+      await updateCommunityGroupMember(group.id, member.user_id, status);
+      notify(
+        status === "active"
+          ? `${member.full_name} disetujui bergabung`
+          : `Permintaan ${member.full_name} ditolak`,
+      );
+      await load();
+    } catch (error) {
+      notify(
+        error instanceof Error ? error.message : "Permintaan belum dapat diproses",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!pending.length) return null;
+  return (
+    <section className="group-join-requests">
+      <b>Permintaan bergabung ({pending.length})</b>
+      {pending.map((member) => (
+        <div key={member.user_id}>
+          <span>{member.full_name}</span>
+          <button type="button" disabled={busy} onClick={() => void decide(member, "active")}>
+            Setujui
+          </button>
+          <button type="button" disabled={busy} onClick={() => void decide(member, "blocked")}>
+            Tolak
+          </button>
+        </div>
+      ))}
+    </section>
   );
 }
 

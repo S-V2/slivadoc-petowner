@@ -97,15 +97,18 @@ Untuk menguji login di Expo Go, scan QR dari `npm start`, buka menu **Lainnya â†
 ### Network logger Android/iOS
 
 Network inspector aktif otomatis saat menjalankan Expo dalam development dan
-build EAS `development`/`preview`. Ketuk tombol kecil dengan ikon network/code
+build EAS `development`/`preview`. Ketuk tombol kecil dengan ikon pulse/network
 yang mengambang di kiri bawah, di atas bottom bar, untuk membuka **Dev Tool â†’ Logs**.
-Tombol ini bisa digeser agar tidak menutupi konten.
+Tombol ditempatkan di atas navigasi bawah, mengikuti safe area perangkat.
 
 Lakukan aksi yang bermasalah, lalu buka log dan cari endpoint/method-nya.
 Request gagal ditandai merah. Ketuk request untuk melihat URL API sebenarnya,
 HTTP status, durasi, request/response headers dan body, termasuk `code`,
 `message`, serta request ID dari backend. Gunakan **Clear** untuk membersihkan
 log dan **Export** pada detail untuk membagikan laporan melalui share sheet.
+
+Jika error terjadi dalam detail/modal, tutup detail terlebih dahulu lalu buka
+logger; request tetap tersimpan selama sesi aplikasi tersebut.
 
 Inspector mendukung native `fetch` Expo pada Android/iOS. Token, cookie,
 password, OTP, dan secret disamarkan sebelum masuk ke panel/export; request

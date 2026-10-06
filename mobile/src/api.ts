@@ -1357,6 +1357,34 @@ export const sendMobileCommunityGroupMessage = (id: string, body: string) =>
     `/api/v1/community/groups/${id}/messages`,
     { method: "POST", body: JSON.stringify({ body }) },
   );
+export type MobileCommunityGroupMember = {
+  user_id: string;
+  full_name: string;
+  role: "owner" | "moderator" | "member";
+  status: "pending" | "active" | "blocked";
+  joined_at: string;
+};
+export const getMobileCommunityGroupMembers = (
+  id: string,
+  status: "pending" | "active",
+) =>
+  platformRequest<{ data: MobileCommunityGroupMember[] }>(
+    `/api/v1/community/groups/${id}/members?status=${status}`,
+  );
+export const updateMobileCommunityGroupMember = (
+  id: string,
+  userId: string,
+  status: "active" | "blocked",
+) =>
+  platformRequest<{
+    group_id: string;
+    user_id: string;
+    status: "active" | "blocked";
+    member_count: number;
+  }>(`/api/v1/community/groups/${id}/members/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 
 export type WorldItem = {
   id: string;

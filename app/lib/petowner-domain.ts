@@ -53,6 +53,9 @@ export type Pet = {
   microchip: string;
   notes?: string;
   allergies?: string;
+  // Family access: "owner" or the role this account holds on a shared pet.
+  accessRole?: string;
+  permissions?: string[];
 };
 
 export type Service = {
@@ -82,6 +85,7 @@ export type Service = {
   supportedSpecies?: string[];
   cancellationPolicy?: string;
   licenseStatus?: "not_submitted" | "pending" | "verified" | "rejected";
+  cancellationCutoffHours?: number;
 };
 
 export type Product = {

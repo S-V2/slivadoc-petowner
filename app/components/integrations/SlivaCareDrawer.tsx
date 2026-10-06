@@ -14,6 +14,7 @@ import { Icon } from "../Icon";
 type Props = {
   pet: Pet;
   owner?: PetOwnerUser;
+  initialMode?: "assistant" | "care-team";
   onClose: () => void;
   notify: (message: string) => void;
 };
@@ -21,10 +22,11 @@ type Props = {
 export default function SlivaCareDrawer({
   pet,
   owner,
+  initialMode = "assistant",
   onClose,
   notify,
 }: Props) {
-  const [mode, setMode] = useState<"assistant" | "care-team">("assistant");
+  const [mode, setMode] = useState<"assistant" | "care-team">(initialMode);
   const [message, setMessage] = useState("");
   const [assistantMessages, setAssistantMessages] = useState<
     AssistantMessage[]
@@ -61,7 +63,13 @@ export default function SlivaCareDrawer({
     socket.on("chat:message", onMessage);
     socket.connect();
     if (socket.connected) onConnect();
+    // Staff replies are persisted by the platform API, not pushed to this
+    // room, so re-joining every 15s refreshes the history.
+    const refresh = window.setInterval(() => {
+      if (socket.connected) socket.emit("chat:join", { conversationId });
+    }, 15_000);
     return () => {
+      window.clearInterval(refresh);
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("chat:history", onHistory);

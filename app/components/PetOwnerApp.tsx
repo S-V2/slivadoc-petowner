@@ -33,7 +33,10 @@ import {
   activateLostPetMode,
   clearPlatformCache,
   closeLostPetMode,
+  cancelPetOwnerBooking,
   createPetOwnerBooking,
+  getMyDocumentRequests,
+  resubmitPetDocuments,
   createPetOwnerSupportTicket,
   getDiscoveryProducts,
   getDiscoveryService,
@@ -46,8 +49,11 @@ import {
   getLostPetMode,
   getPetOwnerBootstrap,
   getPetOwnerActivityCenter,
+  getNotifications,
   getPetOwnerShippingAddresses,
   getPetOwnerSupportTickets,
+  getPetOwnerSupportTicketMessages,
+  sendPetOwnerSupportTicketMessage,
   getTransactionInvoiceHTML,
   deletePetOwnerShippingAddress,
   setPrimaryPetOwnerShippingAddress,
@@ -72,6 +78,7 @@ import {
   createPetOwnerOrder,
   quotePetOwnerOrder,
   snoozeCareReminder,
+  type ActivityShipment,
   type ActivityType,
   type PetOwnerActivityCenterItem,
   type PetOwnerActivityCenterResponse,
@@ -93,10 +100,15 @@ import {
   type RewardFormula,
   type MembershipStatus,
   type PetOwnerSupportTicket,
+  type SupportMessage,
   type ServiceAvailability,
   type Veterinarian,
 } from "../lib/platform-api";
 import { QrisPaymentPanel, PaymentMethodPicker } from "./payments/QrisPayment";
+import {
+  RequirementUploads,
+  type UploadedDocument,
+} from "./platform/DocumentUploads";
 import { QRCodeSVG } from "qrcode.react";
 import {
   activityAttentionReason,
@@ -107,6 +119,7 @@ import {
   activityTypeOrder,
   formatActivityDate,
   getActivityTypeMeta,
+  shipmentPresentation,
 } from "../lib/activity-center";
 import {
   formatRupiah,
@@ -381,6 +394,8 @@ function apiPetToView(pet: PetOwnerBootstrap["pets"][number]): Pet {
     microchip: pet.microchip_number || "Belum terdaftar",
     notes: pet.medical_notes,
     allergies: pet.allergies,
+    accessRole: pet.access_role,
+    permissions: pet.permissions,
   };
 }
 
@@ -397,6 +412,28 @@ export default function PetOwnerApp() {
   const [authenticated, setAuthenticated] = useState(false);
   const [bootstrapLoading, setBootstrapLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  // The badge shows the server's full unread count; notifications holds only a
+  // slice, so reading one locally lowers the count by what changed in the slice.
+  const [unreadSnapshot, setUnreadSnapshot] = useState({
+    server: 0,
+    baseline: 0,
+  });
+  const loadedUnread = notifications.filter((item) => !item.read_at).length;
+  const unreadCount = Math.max(
+    0,
+    unreadSnapshot.server - (unreadSnapshot.baseline - loadedUnread),
+  );
+  function applyNotifications(items: NotificationItem[], serverUnread: number) {
+    setNotifications(items);
+    setUnreadSnapshot({
+      server: serverUnread,
+      baseline: items.filter((item) => !item.read_at).length,
+    });
+  }
+  async function loadAllNotifications() {
+    const result = await getNotifications("", 100);
+    applyNotifications(result.data, result.unread_count);
+  }
   const [activities, setActivities] = useState<PetOwnerActivityCenterItem[]>(
     [],
   );
@@ -420,6 +457,9 @@ export default function PetOwnerApp() {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [notificationCategory, setNotificationCategory] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatMode, setChatMode] = useState<"assistant" | "care-team">(
+    "assistant",
+  );
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [addPetOpen, setAddPetOpen] = useState(false);
@@ -638,7 +678,7 @@ export default function PetOwnerApp() {
     if (!loggedIn) {
       setAccount(null);
       setPetProfiles([]);
-      setNotifications([]);
+      applyNotifications([], 0);
       setActivities([]);
       setActivitySummary(null);
       setFavoriteIds([]);
@@ -668,7 +708,7 @@ export default function PetOwnerApp() {
           ? current
           : (mapped[0]?.id ?? ""),
       );
-      setNotifications(data.notifications);
+      applyNotifications(data.notifications, data.unread_notifications);
       setFavoriteIds(data.favorites.map((item) => item.entity_id));
       setPoints(data.points.balance);
       setMembership(data.points.membership ?? starterMembership);
@@ -692,7 +732,7 @@ export default function PetOwnerApp() {
       void getPetOwnerBootstrap()
         .then((data) => {
           if (cancelled) return;
-          setNotifications(data.notifications);
+          applyNotifications(data.notifications, data.unread_notifications);
           setPoints(data.points.balance);
           setMembership(data.points.membership ?? starterMembership);
           setRewardFormula(data.points.formula);
@@ -783,6 +823,7 @@ export default function PetOwnerApp() {
               inclusions: item.inclusions,
               supportedSpecies: item.supported_species,
               cancellationPolicy: item.cancellation_policy,
+              cancellationCutoffHours: item.cancellation_cutoff_hours,
               licenseStatus: item.business_license_status,
             };
           }).filter(
@@ -1034,7 +1075,14 @@ export default function PetOwnerApp() {
       return;
     }
     const route = item.action_route.split("/").filter(Boolean).pop() ?? "";
-    if (route === "activity" || route === "bookings") navigate("bookings");
+    if (route === "care") {
+      // A Care Team reply: open that pet's team chat.
+      const petID = item.metadata?.pet_id;
+      if (typeof petID === "string" && petID) setSelectedPetId(petID);
+      setChatMode("care-team");
+      setChatOpen(true);
+    } else if (route === "activity" || route === "bookings")
+      navigate("bookings");
     else if (route in titles) navigate(route as AppView);
     else notify(item.title);
   };
@@ -1094,6 +1142,7 @@ export default function PetOwnerApp() {
 
       <main className="main-shell">
         <Topbar
+          unread={unreadCount}
           selectedPet={selectedPet}
           petProfiles={petProfiles}
           selectedPetId={selectedPetId}
@@ -1268,6 +1317,8 @@ export default function PetOwnerApp() {
             <NotificationCenter
               items={notifications}
               setItems={setNotifications}
+              unread={unreadCount}
+              loadAll={loadAllNotifications}
               notify={notify}
               onOpen={openNotificationTarget}
             />
@@ -1336,7 +1387,11 @@ export default function PetOwnerApp() {
         <SlivaCareDrawer
           pet={selectedPet}
           owner={account ?? undefined}
-          onClose={() => setChatOpen(false)}
+          initialMode={chatMode}
+          onClose={() => {
+            setChatOpen(false);
+            setChatMode("assistant");
+          }}
           notify={notify}
         />
       )}
@@ -2014,6 +2069,7 @@ function Topbar({
   onOpenLocation,
   cartCount,
   onOpenNotifications,
+  unread,
   onOpenCart,
   account,
   points,
@@ -2030,6 +2086,7 @@ function Topbar({
   onOpenLocation: () => void;
   cartCount: number;
   onOpenNotifications: () => void;
+  unread: number;
   onOpenCart: () => void;
   account: PetOwnerBootstrap["user"] | null;
   points: number;
@@ -2211,7 +2268,7 @@ function Topbar({
           aria-label="Notifikasi"
         >
           <Icon name="bell" />
-          <span className="notif-dot" />
+          {authenticated && unread > 0 && <span className="notif-dot" />}
         </button>
         {!authenticated && (
           <button className="top-login" type="button" onClick={onLogin}>
@@ -2926,6 +2983,11 @@ function PetsView({
   >(null);
   const pet =
     petProfiles.find((item) => item.id === selectedPetId) ?? petProfiles[0];
+  // Shared pets keep only what the family role grants; the owner can do all.
+  const can = (permission: string) =>
+    !pet?.accessRole ||
+    pet.accessRole === "owner" ||
+    (pet.permissions ?? []).includes(permission);
   if (!pet)
     return (
       <div className="empty-state">
@@ -2975,6 +3037,9 @@ function PetsView({
                 <small>{item.breed}</small>
                 <em>
                   {item.gender} • {item.age}
+                  {item.accessRole && item.accessRole !== "owner" && (
+                    <span className="shared-pet-badge"> · Dibagikan</span>
+                  )}
                 </em>
               </span>
               <span className="pet-score-small">
@@ -3002,13 +3067,15 @@ function PetsView({
               <span className="section-eyebrow">PET IDENTITY</span>
               <h3>Profil {pet.name}</h3>
             </div>
-            <button
-              className="secondary-button small"
-              type="button"
-              onClick={() => setModal("edit")}
-            >
-              <Icon name="edit" size={15} /> Edit profil
-            </button>
+            {can("profile") && (
+              <button
+                className="secondary-button small"
+                type="button"
+                onClick={() => setModal("edit")}
+              >
+                <Icon name="edit" size={15} /> Edit profil
+              </button>
+            )}
           </div>
           <div className="pet-identity-banner">
             <div className="pet-id-avatar">{pet.avatar}</div>
@@ -3050,9 +3117,11 @@ function PetsView({
                 {pet.allergies ? ` · Alergi: ${pet.allergies}` : ""}
               </p>
             </div>
-            <button type="button" onClick={() => setModal("notes")}>
-              <Icon name="edit" size={16} />
-            </button>
+            {can("profile") && (
+              <button type="button" onClick={() => setModal("notes")}>
+                <Icon name="edit" size={16} />
+              </button>
+            )}
           </div>
         </section>
       </section>
@@ -3076,39 +3145,45 @@ function PetsView({
         <section className="panel compact-panel">
           <div className="panel-heading">
             <h3>Akses keluarga</h3>
-            <button
-              className="round-button"
-              type="button"
-              onClick={() => setModal("family")}
-            >
-              <Icon name="plus" size={16} />
-            </button>
+            {can("family") && (
+              <button
+                className="round-button"
+                type="button"
+                onClick={() => setModal("family")}
+              >
+                <Icon name="plus" size={16} />
+              </button>
+            )}
           </div>
           <p className="muted-copy">
             Undang co-parent, caregiver, dokter, atau viewer dengan izin
             terperinci.
           </p>
-          <button
-            className="full-soft-button"
-            type="button"
-            onClick={() => setModal("family")}
-          >
-            Kelola akses keluarga
-          </button>
-        </section>
-        <section className="lost-mode-card">
-          <span>📍</span>
-          <div>
-            <b>Lost Pet Mode</b>
-            <p>
-              Aktifkan peringatan dan bagikan profil {pet.name} ke komunitas
-              sekitar.
-            </p>
-            <button type="button" onClick={() => setModal("lost")}>
-              Kelola Lost Pet Mode
+          {can("family") && (
+            <button
+              className="full-soft-button"
+              type="button"
+              onClick={() => setModal("family")}
+            >
+              Kelola akses keluarga
             </button>
-          </div>
+          )}
         </section>
+        {can("lost_mode") && (
+          <section className="lost-mode-card">
+            <span>📍</span>
+            <div>
+              <b>Lost Pet Mode</b>
+              <p>
+                Aktifkan peringatan dan bagikan profil {pet.name} ke komunitas
+                sekitar.
+              </p>
+              <button type="button" onClick={() => setModal("lost")}>
+                Kelola Lost Pet Mode
+              </button>
+            </div>
+          </section>
+        )}
       </aside>
       {modal === "id" && <PetIDModal pet={pet} close={() => setModal(null)} />}{" "}
       {modal === "edit" && (
@@ -4946,6 +5021,107 @@ function ReminderModal({
     </div>
   );
 }
+function SupportTicketThread({
+  ticketId,
+  closed,
+  notify,
+}: {
+  ticketId: string;
+  closed: boolean;
+  notify: Notify;
+}) {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState<SupportMessage[]>([]);
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const load = useCallback(async () => {
+    try {
+      setMessages((await getPetOwnerSupportTicketMessages(ticketId)).data);
+      setError("");
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Percakapan belum dapat dimuat.",
+      );
+    }
+  }, [ticketId]);
+  useEffect(() => {
+    if (!open) return;
+    const first = window.setTimeout(() => void load(), 0);
+    const timer = window.setInterval(() => void load(), 15_000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(timer);
+    };
+  }, [open, load]);
+  async function send(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const text = body.trim();
+    if (!text || busy) return;
+    setBusy(true);
+    try {
+      const message = await sendPetOwnerSupportTicketMessage(ticketId, text);
+      setMessages((current) => [...current, message]);
+      setBody("");
+    } catch (cause) {
+      notify(
+        cause instanceof Error ? cause.message : "Pesan belum dapat dikirim.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="support-thread">
+      <button type="button" onClick={() => setOpen((value) => !value)}>
+        {open ? "Sembunyikan percakapan" : "Percakapan & balas"}
+      </button>
+      {open && (
+        <>
+          {error && <div className="form-message">{error}</div>}
+          <ul>
+            {messages.map((message) => (
+              <li
+                key={message.id}
+                className={message.sender_role === "support" ? "support" : "owner"}
+              >
+                <b>
+                  {message.sender_role === "support"
+                    ? "Tim Slivadoc"
+                    : "Kamu"}
+                </b>
+                <p>{message.body}</p>
+                <time>
+                  {new Date(message.created_at).toLocaleString("id-ID")}
+                </time>
+              </li>
+            ))}
+            {messages.length === 0 && !error && (
+              <li className="empty">Belum ada balasan.</li>
+            )}
+          </ul>
+          {!closed && (
+            <form onSubmit={send}>
+              <input
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+                maxLength={2000}
+                placeholder="Tulis balasan…"
+                aria-label="Balasan ticket"
+              />
+              <button className="primary-button" disabled={busy || !body.trim()}>
+                Kirim
+              </button>
+            </form>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function SupportCenter({
   activities,
   notify,
@@ -5174,6 +5350,13 @@ function SupportCenter({
                       </span>
                     )}
                   </footer>
+                  <SupportTicketThread
+                    ticketId={ticket.id}
+                    closed={
+                      ticket.status === "resolved" || ticket.status === "closed"
+                    }
+                    notify={notify}
+                  />
                 </article>
               ))}
             </div>
@@ -6099,6 +6282,12 @@ function activityDetailRows(
         ["Alamat", place],
         ["Pet", item.pet_name],
         ["Catatan", item.notes],
+        [
+          "Pembatalan",
+          item.cancellable_until
+            ? `Bisa dibatalkan hingga ${date(item.cancellable_until)}`
+            : "",
+        ],
       ];
     case "order": {
       const discount = (item.discount_amount ?? 0) + (item.points_discount ?? 0);
@@ -6121,6 +6310,18 @@ function activityDetailRows(
         ["Ongkir", money(item.shipping_fee)],
         ["Diskon", discount ? `-${formatRupiah(discount)}` : ""],
         ["Total", money(item.total_amount ?? item.amount)],
+        [
+          "Pengiriman",
+          item.shipments?.length ? (
+            <div className="activity-shipments">
+              {item.shipments.map((shipment) => (
+                <ActivityShipmentCard key={shipment.id} shipment={shipment} />
+              ))}
+            </div>
+          ) : (
+            ""
+          ),
+        ],
       ];
     }
     case "consultation":
@@ -6300,7 +6501,53 @@ function activityDetailRows(
         ],
         ["Pet", item.pet_name],
       ];
+    case "home_service":
+      return [
+        ["Kode", item.job_code],
+        ["Layanan", item.service_type],
+        ["Jadwal", date(item.scheduled_at)],
+        ["Jemput di", item.pickup_address],
+        ["Tujuan", item.destination_address],
+        ["Driver", item.driver_name],
+        ["Pet", item.pet_name],
+      ];
   }
+}
+
+function ActivityShipmentCard({ shipment }: { shipment: ActivityShipment }) {
+  const presentation = shipmentPresentation(shipment.status);
+  return (
+    <article className="activity-shipment">
+      <b>{shipment.shipping_number}</b>
+      <small>
+        {[shipment.provider || "Lion Parcel", shipment.service_code]
+          .filter(Boolean)
+          .join(" · ")}{" "}
+        · {presentation.label}
+      </small>
+      <div className="activity-progress">
+        <span style={{ width: `${(presentation.stage / 3) * 100}%` }} />
+      </div>
+      <small>
+        STT / AWB: {shipment.stt_no || "Menunggu scan Lion Parcel"} · Estimasi:{" "}
+        {shipment.estimated_sla || "Mengikuti rute"}
+      </small>
+      {shipment.events.length > 0 && (
+        <ul>
+          {shipment.events.map((event) => (
+            <li key={`${event.status_code}-${event.occurred_at}`}>
+              <b>{event.description || event.status}</b>
+              <small>
+                {[event.location, formatActivityDate(event.occurred_at)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </small>
+            </li>
+          ))}
+        </ul>
+      )}
+    </article>
+  );
 }
 
 function ActivityDetail({
@@ -6349,6 +6596,79 @@ function ActivityDetail({
     autoPayStarted.current = true;
     queueMicrotask(() => void pay());
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [now] = useState(() => Date.now());
+  const canCancel =
+    item.type === "booking" &&
+    item.source !== "clinic" &&
+    !!item.cancellable_until &&
+    now <= Date.parse(item.cancellable_until);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [actionMessage, setActionMessage] = useState("");
+  const [revisionDocs, setRevisionDocs] = useState<UploadedDocument[]>([]);
+  const [revisionBusy, setRevisionBusy] = useState(false);
+  async function cancelBooking() {
+    setCancelBusy(true);
+    setActionMessage("");
+    try {
+      const result = await cancelPetOwnerBooking(item.reference_id);
+      setCancelOpen(false);
+      setActionMessage(
+        result.refund_queued
+          ? "Booking dibatalkan. Dana akan dikembalikan setelah diverifikasi tim finance."
+          : "Booking dibatalkan.",
+      );
+      await onPaid();
+    } catch (cause) {
+      setActionMessage(
+        cause instanceof Error ? cause.message : "Booking belum dapat dibatalkan",
+      );
+    } finally {
+      setCancelBusy(false);
+    }
+  }
+  async function resubmitDocuments() {
+    setRevisionBusy(true);
+    setActionMessage("");
+    try {
+      // The backend replaces the whole list, so keep what was already uploaded.
+      const current = await getMyDocumentRequests();
+      const existing = (
+        current.data.find((request) => request.id === item.reference_id)
+          ?.submitted_documents ?? []
+      ).flatMap((doc) =>
+        typeof doc.requirement === "string" &&
+        typeof doc.url === "string" &&
+        !revisionDocs.some((next) => next.requirement === doc.requirement)
+          ? [
+              {
+                requirement: doc.requirement,
+                url: doc.url,
+                file_name:
+                  typeof doc.file_name === "string" ? doc.file_name : "",
+                mime_type:
+                  typeof doc.mime_type === "string" ? doc.mime_type : "",
+              },
+            ]
+          : [],
+      );
+      await resubmitPetDocuments(item.reference_id, [
+        ...existing,
+        ...revisionDocs,
+      ]);
+      setRevisionDocs([]);
+      setActionMessage("Dokumen terkirim dan sedang diverifikasi ulang.");
+      await onPaid();
+    } catch (cause) {
+      setActionMessage(
+        cause instanceof Error
+          ? cause.message
+          : "Dokumen belum dapat dikirim",
+      );
+    } finally {
+      setRevisionBusy(false);
+    }
+  }
   const [invoiceHTML, setInvoiceHTML] = useState("");
   const [invoiceBusy, setInvoiceBusy] = useState(false);
   const [invoiceError, setInvoiceError] = useState("");
@@ -6452,6 +6772,83 @@ function ActivityDetail({
             )}
           </div>
         )}
+        {item.type === "booking" &&
+          item.source !== "clinic" &&
+          item.cancellable_until &&
+          (item.status === "requested" || item.status === "confirmed") && (
+            <div className="activity-detail-copy">
+              <span className="activity-detail-label">Pembatalan</span>
+              {canCancel ? (
+                <>
+                  <p>
+                    Bisa dibatalkan hingga{" "}
+                    {item.cancellation_cutoff_hours ?? 24} jam sebelum jadwal.
+                  </p>
+                  <button
+                    className="secondary-button full"
+                    type="button"
+                    disabled={cancelBusy}
+                    onClick={() => setCancelOpen(true)}
+                  >
+                    Batalkan booking
+                  </button>
+                </>
+              ) : (
+                <p>
+                  Batas pembatalan sudah lewat. Hubungi klinik untuk perubahan.
+                </p>
+              )}
+              {cancelOpen && (
+                <div className="form-message" role="alertdialog">
+                  <p>
+                    {item.cancellation_policy ||
+                      "Booking yang dibatalkan tidak dapat dipulihkan."}
+                  </p>
+                  <button
+                    className="primary-button"
+                    type="button"
+                    disabled={cancelBusy}
+                    onClick={() => void cancelBooking()}
+                  >
+                    {cancelBusy ? "Membatalkan…" : "Ya, batalkan"}
+                  </button>{" "}
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    disabled={cancelBusy}
+                    onClick={() => setCancelOpen(false)}
+                  >
+                    Tidak jadi
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        {item.type === "document" && item.status === "need_revision" && (
+          <div className="activity-detail-copy">
+            <span className="activity-detail-label">Lengkapi dokumen</span>
+            <RequirementUploads
+              requirements={item.missing_requirements ?? []}
+              value={revisionDocs}
+              onChange={setRevisionDocs}
+              disabled={revisionBusy}
+            />
+            <button
+              className="primary-button full"
+              type="button"
+              disabled={
+                revisionBusy ||
+                !(item.missing_requirements ?? []).every((requirement) =>
+                  revisionDocs.some((doc) => doc.requirement === requirement),
+                )
+              }
+              onClick={() => void resubmitDocuments()}
+            >
+              {revisionBusy ? "Mengirim…" : "Kirim dokumen"}
+            </button>
+          </div>
+        )}
+        {actionMessage && <p className="form-message">{actionMessage}</p>}
         <footer>
           {item.latitude != null && item.longitude != null && (
             <a
@@ -6663,15 +7060,23 @@ function FavoritesView({
 function NotificationCenter({
   items,
   setItems,
+  unread,
+  loadAll,
   notify,
   onOpen,
 }: {
   items: NotificationItem[];
   setItems: React.Dispatch<React.SetStateAction<NotificationItem[]>>;
+  unread: number;
+  loadAll: () => Promise<void>;
   notify: Notify;
   onOpen: (item: NotificationItem) => void;
 }) {
   const [category, setCategory] = useState("");
+  // The bootstrap slice holds only the latest few; the center shows up to 100.
+  useEffect(() => {
+    void loadAll().catch(() => undefined);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const categories = [...new Set(items.map((item) => item.category))];
   const visible = category
     ? items.filter((item) => item.category === category)
@@ -6701,11 +7106,11 @@ function NotificationCenter({
     <div>
       <div className="notification-center-head">
         <div>
-          <b>{items.filter((item) => !item.read_at).length}</b>
+          <b>{unread}</b>
           <span>belum dibaca</span>
         </div>
         <button
-          disabled={!items.some((item) => !item.read_at)}
+          disabled={unread === 0}
           onClick={async () => {
             await readAllNotifications(category);
             setItems((current) =>
@@ -7477,6 +7882,12 @@ function BookingModal({
               />
             )}{" "}
             {notes && <p className="booking-note">Catatan: {notes}</p>}
+            {service.cancellationCutoffHours !== undefined && (
+              <p className="booking-note">
+                Bisa dibatalkan hingga {service.cancellationCutoffHours} jam
+                sebelum jadwal
+              </p>
+            )}
             <label className="consent">
               <input
                 type="checkbox"

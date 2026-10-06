@@ -85,6 +85,9 @@ export type PetOwnerPet = {
   medical_record_count: number;
   last_medical_record_at?: string;
   health_score: number;
+  // "owner" for the caller's own pet, otherwise the family access role.
+  access_role?: string;
+  permissions?: string[];
 };
 
 export type PetSpecies = {
@@ -504,6 +507,7 @@ export type DiscoveryService = {
   cancellation_policy: string;
   business_license_status:
     "not_submitted" | "pending" | "verified" | "rejected";
+  cancellation_cutoff_hours?: number;
 };
 
 export type DiscoveryServiceDetail = DiscoveryService & {
@@ -1552,8 +1556,83 @@ export const applyAdoption = (
     { method: "POST", body: JSON.stringify(input) },
   );
 
+export type MyAdoptionListing = {
+  id: string;
+  pet_id: string;
+  name: string;
+  species: string;
+  breed: string;
+  city: string;
+  description: string;
+  status: string;
+  applicant_count: number;
+  created_at: string;
+};
+
+export type AdoptionApplicationStatus =
+  | "submitted"
+  | "screening"
+  | "home_visit"
+  | "approved"
+  | "rejected"
+  | "withdrawn"
+  | "completed";
+
+export type AdoptionApplicationRecord = {
+  id: string;
+  listing_id: string;
+  applicant_name: string;
+  phone: string;
+  address: string;
+  housing_type: string;
+  has_other_pets: boolean;
+  experience: string;
+  reason: string;
+  status: AdoptionApplicationStatus;
+  status_note: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MyAdoptionApplication = {
+  id: string;
+  listing_id: string;
+  listing_name: string;
+  listing_status: string;
+  status: AdoptionApplicationStatus;
+  status_note: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export const getMyAdoptionListings = () =>
-  request<PlatformList<Record<string, unknown>>>("/api/v1/petowner/adoptions");
+  request<PlatformList<MyAdoptionListing>>("/api/v1/petowner/adoptions");
+
+export const getAdoptionListingApplications = (listingId: string) =>
+  request<PlatformList<AdoptionApplicationRecord>>(
+    `/api/v1/petowner/adoptions/${listingId}/applications`,
+  );
+
+export const reviewAdoptionApplication = (
+  applicationId: string,
+  status: "screening" | "home_visit" | "approved" | "rejected" | "completed",
+  note: string,
+) =>
+  request<{ id: string; status: AdoptionApplicationStatus }>(
+    `/api/v1/petowner/adoption-applications/${applicationId}/status`,
+    { method: "PATCH", body: JSON.stringify({ status, note }) },
+  );
+
+export const getMyAdoptionApplications = () =>
+  request<PlatformList<MyAdoptionApplication>>(
+    "/api/v1/petowner/adoption-applications",
+  );
+
+export const withdrawAdoptionApplication = (applicationId: string) =>
+  request<{ id: string; status: AdoptionApplicationStatus }>(
+    `/api/v1/petowner/adoption-applications/${applicationId}/withdraw`,
+    { method: "POST" },
+  );
 
 export const createAdoptionListing = (input: Record<string, unknown>) =>
   request<{ id: string; status: string; message: string }>(
@@ -1644,6 +1723,29 @@ export const createDocumentRequest = (input: Record<string, unknown>) =>
     method: "POST",
     body: JSON.stringify(input),
   });
+
+export const resubmitPetDocuments = (
+  id: string,
+  docs: Array<{
+    requirement: string;
+    url: string;
+    file_name: string;
+    mime_type: string;
+  }>,
+) =>
+  request<{ id: string; status: string }>(
+    `/api/v1/pet-document-requests/${id}/documents`,
+    { method: "PATCH", body: JSON.stringify({ submitted_documents: docs }) },
+  );
+
+export const getMyDocumentRequests = () =>
+  request<
+    PlatformList<{
+      id: string;
+      status: string;
+      submitted_documents: Array<Record<string, unknown>>;
+    }>
+  >("/api/v1/pet-document-requests", { cache: "no-store" });
 
 export const getPetHubComments = (postId: string) =>
   request<PlatformList<PetHubComment>>(
@@ -2114,6 +2216,37 @@ export const createPetOwnerBooking = (input: Record<string, unknown>) =>
     body: JSON.stringify(input),
   });
 
+export const cancelPetOwnerBooking = (id: string, reason?: string) =>
+  request<{ id: string; status: string; refund_queued: boolean }>(
+    `/api/v1/petowner/bookings/${id}/cancel`,
+    { method: "POST", body: JSON.stringify(reason ? { reason } : {}) },
+  );
+
+export type SupportMessage = {
+  id: string;
+  ticket_id: string;
+  sender_id: string;
+  sender_name: string;
+  sender_role: "owner" | "support";
+  body: string;
+  created_at: string;
+};
+
+export const getPetOwnerSupportTicketMessages = (ticketId: string) =>
+  request<PlatformList<SupportMessage>>(
+    `/api/v1/petowner/support-tickets/${ticketId}/messages`,
+    { cache: "no-store" },
+  );
+
+export const sendPetOwnerSupportTicketMessage = (
+  ticketId: string,
+  body: string,
+) =>
+  request<SupportMessage>(
+    `/api/v1/petowner/support-tickets/${ticketId}/messages`,
+    { method: "POST", body: JSON.stringify({ body }) },
+  );
+
 export const getPaymentMethods = () =>
   request<PlatformList<PaymentMethod> & { provider: string; currency: string }>(
     "/api/v1/payment-methods",
@@ -2224,6 +2357,37 @@ export const createCommunityGroupMessage = (groupId: string, body: string) =>
     `/api/v1/community/groups/${groupId}/messages`,
     { method: "POST", body: JSON.stringify({ body }) },
   );
+
+export type CommunityGroupMember = {
+  user_id: string;
+  full_name: string;
+  role: "owner" | "moderator" | "member";
+  status: "pending" | "active" | "blocked";
+  joined_at: string;
+};
+
+export const getCommunityGroupMembers = (
+  groupId: string,
+  status: "pending" | "active",
+) =>
+  request<PlatformList<CommunityGroupMember>>(
+    `/api/v1/community/groups/${groupId}/members?status=${status}`,
+  );
+
+export const updateCommunityGroupMember = (
+  groupId: string,
+  userId: string,
+  status: "active" | "blocked",
+) =>
+  request<{
+    group_id: string;
+    user_id: string;
+    status: "active" | "blocked";
+    member_count: number;
+  }>(`/api/v1/community/groups/${groupId}/members/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 
 export const getCareReminders = () =>
   request<PlatformList<CareReminder>>("/api/v1/petowner/reminders");

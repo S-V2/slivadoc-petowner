@@ -1308,6 +1308,22 @@
   padding-bottom: max(24px, env(safe-area-inset-bottom));
 }
 
+.world-modal {
+  height: 92dvh;
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden !important;
+  padding-bottom: 0;
+}
+
+.world-modal > .modal-world-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: max(28px, env(safe-area-inset-bottom));
+}
+
 @media (max-width: 580px) {
   .topbar {
     gap: 8px;

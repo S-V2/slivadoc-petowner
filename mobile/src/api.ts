@@ -1492,6 +1492,9 @@ export type WorldItem = {
   category?: string;
   academy_name?: string;
   trainer_name?: string;
+  trainers?: MobileAcademyTrainer[];
+  schedules?: MobileAcademySchedule[];
+  supported_species?: string[];
   full_name?: string;
   doctor_name?: string;
   specialties?: string[];
@@ -1590,6 +1593,65 @@ export type WorldItem = {
   created_at?: string;
 };
 
+export type MobileAcademyTrainer = {
+  id: string;
+  academy_id: string;
+  academy_name: string;
+  full_name: string;
+  bio: string;
+  specialties: string[];
+  pet_types: string[];
+  certification: string;
+  experience_years: number;
+  rating: number;
+  photo_url: string;
+  status: string;
+  program_count?: number;
+  programs?: Array<{
+    id: string;
+    title: string;
+    level: string;
+    price: number;
+    session_count: number;
+  }>;
+};
+
+export type MobileAcademySchedule = {
+  id: string;
+  trainer_id?: string;
+  trainer_name: string;
+  starts_at: string;
+  ends_at: string;
+  location: string;
+  online_url: string;
+  remaining_capacity: number;
+};
+
+export type MobilePawDatingInterest = {
+  id: string;
+  status: string;
+  interest_type: string;
+  introduction_message: string;
+  created_at: string;
+  source_profile_id: string;
+  source_name: string;
+  target_profile_id: string;
+  target_name: string;
+  direction: "incoming" | "outgoing";
+  match_id?: string;
+};
+
+export type MobilePawDatingMessage = {
+  id: string;
+  sender_user_id: string;
+  sender_name: string;
+  message_type: string;
+  body: string;
+  attachment_url: string;
+  read_at?: string;
+  created_at: string;
+};
+
 const getUniqueWorldItems = (path: string) =>
   platformRequest<{ data: WorldItem[] }>(path).then((result) => ({
     ...result,
@@ -1598,6 +1660,16 @@ const getUniqueWorldItems = (path: string) =>
 
 export const getMobileAcademy = () =>
   getUniqueWorldItems("/api/v1/public/academy/programs");
+export const getMobileAcademyProgram = (programId: string) =>
+  platformRequest<WorldItem>(`/api/v1/public/academy/programs/${programId}`);
+export const getMobileAcademyTrainers = (species?: string) =>
+  platformRequest<{ data: MobileAcademyTrainer[] }>(
+    `/api/v1/public/academy/trainers${species ? `?species=${encodeURIComponent(species)}` : ""}`,
+  );
+export const getMobileAcademyTrainer = (trainerId: string) =>
+  platformRequest<MobileAcademyTrainer>(
+    `/api/v1/public/academy/trainers/${trainerId}`,
+  );
 export const trackMobileAcademyProgramClick = (programId: string) =>
   platformRequest<void>(`/api/v1/public/academy/programs/${programId}/click`, {
     method: "POST",
@@ -1743,6 +1815,30 @@ export const getMobilePawDatingProfile = (
 };
 export const getMobileMyPawDatingProfiles = () =>
   getUniqueWorldItems("/api/v1/pawdating/profiles");
+export const getMobilePawDatingInterests = () =>
+  platformRequest<{ data: MobilePawDatingInterest[] }>(
+    "/api/v1/pawdating/interests",
+  );
+export const respondMobilePawDatingInterest = (
+  interestId: string,
+  action: "accept" | "decline",
+) =>
+  platformRequest<{ id: string; status: string; match_id?: string; message?: string }>(
+    `/api/v1/pawdating/interests/${interestId}`,
+    { method: "PATCH", body: JSON.stringify({ action }) },
+  );
+export const getMobilePawDatingMessages = (matchId: string) =>
+  platformRequest<{ data: MobilePawDatingMessage[] }>(
+    `/api/v1/pawdating/matches/${matchId}/messages`,
+  );
+export const createMobilePawDatingMessage = (matchId: string, body: string) =>
+  platformRequest<{ id: string; created_at: string }>(
+    `/api/v1/pawdating/matches/${matchId}/messages`,
+    {
+      method: "POST",
+      body: JSON.stringify({ message_type: "text", body }),
+    },
+  );
 export const createMobilePawDatingProfile = (input: Record<string, unknown>) =>
   platformRequest<{ id: string; status: string; message: string }>(
     "/api/v1/pawdating/profiles",
@@ -1965,6 +2061,8 @@ export const enrollMobileAcademy = (
   programId: string,
   participantName: string,
   petName: string,
+  petId?: string,
+  scheduleId?: string,
 ) =>
   platformRequest<{ id: string; amount: number; message: string }>(
     "/api/v1/academy/enrollments",
@@ -1974,6 +2072,8 @@ export const enrollMobileAcademy = (
         program_id: programId,
         participant_name: participantName,
         pet_name: petName,
+        pet_id: petId,
+        schedule_id: scheduleId,
       }),
     },
   );

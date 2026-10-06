@@ -16,7 +16,10 @@ import {
   createPetHubStory,
   createPaymentIntent,
   enrollAcademy,
+  getAcademyProgram,
   getAcademyPrograms,
+  getAcademyTrainer,
+  getAcademyTrainers,
   trackAcademyProgramClick,
   getPetEvents,
   getPetHubFeed,
@@ -32,6 +35,8 @@ import {
   isPetOwnerAuthenticated,
   registerEvent,
   type AcademyProgram,
+  type AcademyProgramDetail,
+  type AcademyTrainer,
   type PetEvent,
   type PetHubPost,
   type PetHubComment,
@@ -232,6 +237,12 @@ export default function PlatformDiscovery({
   navigate,
 }: Props) {
   const [programs, setPrograms] = useState<AcademyProgram[]>([]);
+  const [academyTrainers, setAcademyTrainers] = useState<AcademyTrainer[]>([]);
+  const [selectedTrainer, setSelectedTrainer] =
+    useState<AcademyTrainer | null>(null);
+  const [trainerSpecies, setTrainerSpecies] = useState(
+    pets[0]?.species?.toLowerCase() || "all",
+  );
   const [events, setEvents] = useState<PetEvent[]>([]);
   const [spots, setSpots] = useState<PetSpot[]>([]);
   const [streams, setStreams] = useState<PetHubStream[]>([]);
@@ -264,8 +275,16 @@ export default function PlatformDiscovery({
       );
     };
     if (mode === "academy") {
-      void getAcademyPrograms()
-        .then((value) => setPrograms(value.data))
+      void Promise.all([
+        getAcademyPrograms(),
+        getAcademyTrainers(
+          trainerSpecies === "all" ? undefined : { species: trainerSpecies },
+        ),
+      ])
+        .then(([programValue, trainerValue]) => {
+          setPrograms(programValue.data);
+          setAcademyTrainers(trainerValue.data);
+        })
         .catch(failed("Program academy"))
         .finally(() => setLoading(false));
       return;
@@ -291,7 +310,20 @@ export default function PlatformDiscovery({
       })
       .catch(failed("PetHub"))
       .finally(() => setLoading(false));
-  }, [mode, notify]);
+  }, [mode, notify, trainerSpecies]);
+
+  async function openTrainer(trainer: AcademyTrainer) {
+    setSelectedTrainer(trainer);
+    try {
+      setSelectedTrainer(await getAcademyTrainer(trainer.id));
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Detail pet trainer belum dapat dimuat",
+      );
+    }
+  }
   useEffect(() => {
     if (selectedProgram)
       void trackAcademyProgramClick(selectedProgram.id).catch(() => undefined);
@@ -455,6 +487,73 @@ export default function PlatformDiscovery({
             <small>rating academy partner</small>
           </div>
         </section>
+        <section className="academy-trainer-section">
+          <div className="academy-trainer-heading">
+            <div>
+              <small>PET TRAINER TERVERIFIKASI</small>
+              <h2>Trainer sesuai jenis pet</h2>
+              <p>Pilih spesialis yang paling cocok sebelum menentukan kelas.</p>
+            </div>
+            <div className="academy-species-filter" aria-label="Filter jenis pet">
+              <button
+                type="button"
+                className={trainerSpecies === "all" ? "active" : ""}
+                onClick={() => setTrainerSpecies("all")}
+              >
+                Semua
+              </button>
+              {[...new Set(pets.map((item) => item.species.toLowerCase()))].map(
+                (speciesName) => (
+                  <button
+                    type="button"
+                    key={speciesName}
+                    className={trainerSpecies === speciesName ? "active" : ""}
+                    onClick={() => setTrainerSpecies(speciesName)}
+                  >
+                    {speciesName === "dog"
+                      ? "🐕 Anjing"
+                      : speciesName === "cat"
+                        ? "🐈 Kucing"
+                        : `🐾 ${speciesName}`}
+                  </button>
+                ),
+              )}
+            </div>
+          </div>
+          <div className="academy-trainer-list">
+            {academyTrainers.map((trainer) => (
+              <button
+                type="button"
+                className="academy-trainer-card"
+                key={trainer.id}
+                onClick={() => void openTrainer(trainer)}
+              >
+                <span className="academy-trainer-avatar">
+                  {trainer.photo_url ? (
+                    <NextImage
+                      src={trainer.photo_url}
+                      alt=""
+                      width={72}
+                      height={72}
+                      unoptimized
+                    />
+                  ) : (
+                    trainer.full_name.slice(0, 1)
+                  )}
+                </span>
+                <span>
+                  <small>{trainer.academy_name}</small>
+                  <b>{trainer.full_name}</b>
+                  <em>
+                    ★ {trainer.rating.toFixed(1)} · {trainer.experience_years} tahun
+                  </em>
+                  <i>{trainer.specialties.slice(0, 3).join(" · ")}</i>
+                </span>
+                <strong>Detail →</strong>
+              </button>
+            ))}
+          </div>
+        </section>
         <div className="world-toolbar">
           <div>
             <button
@@ -536,9 +635,17 @@ export default function PlatformDiscovery({
           <ProgramModal
             item={selectedProgram}
             petName={petName}
+            pets={pets}
             ownerName={ownerName}
             close={() => setSelectedProgram(null)}
             notify={notify}
+            openTrainer={(trainer) => void openTrainer(trainer)}
+          />
+        )}
+        {selectedTrainer && (
+          <AcademyTrainerModal
+            trainer={selectedTrainer}
+            close={() => setSelectedTrainer(null)}
           />
         )}
       </>
@@ -1102,22 +1209,78 @@ function UniverseNav({
 function ProgramModal({
   item,
   petName,
+  pets,
   ownerName,
   close,
   notify,
+  openTrainer,
 }: {
   item: AcademyProgram;
   petName: string;
+  pets: Array<{
+    id: string;
+    name: string;
+    species: string;
+    breed: string;
+    avatar: string;
+  }>;
   ownerName: string;
   close: () => void;
   notify: (message: string) => void;
+  openTrainer: (trainer: AcademyTrainer) => void;
 }) {
+  const [detail, setDetail] = useState<AcademyProgramDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(true);
   const [enroll, setEnroll] = useState(false);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [enrollmentId, setEnrollmentId] = useState("");
+  const program = detail ?? item;
+  const eligiblePets = pets.filter(
+    (candidate) =>
+      !detail?.supported_species?.length ||
+      detail.supported_species.includes(candidate.species.toLowerCase()),
+  );
+  const [selectedPetID, setSelectedPetID] = useState(pets[0]?.id ?? "");
+  const [selectedScheduleID, setSelectedScheduleID] = useState("");
+  const selectedPet = eligiblePets.find((candidate) => candidate.id === selectedPetID);
+  useEffect(() => {
+    let current = true;
+    void getAcademyProgram(item.id)
+      .then((value) => {
+        if (!current) return;
+        setDetail(value);
+        setSelectedScheduleID(value.schedules.find((schedule) => schedule.remaining_capacity > 0)?.id ?? "");
+      })
+      .catch((error) =>
+        notify(
+          error instanceof Error
+            ? error.message
+            : "Detail kelas belum dapat dimuat",
+        ),
+      )
+      .finally(() => current && setDetailLoading(false));
+    return () => {
+      current = false;
+    };
+  }, [item.id, notify]);
+  function startEnrollment() {
+    if (!isPetOwnerAuthenticated()) {
+      notify("Login diperlukan untuk mendaftar academy");
+      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
+      return;
+    }
+    const firstEligible = eligiblePets[0];
+    if (!firstEligible) {
+      notify("Belum ada pet yang sesuai dengan jenis pet kelas ini");
+      return;
+    }
+    if (!eligiblePets.some((candidate) => candidate.id === selectedPetID))
+      setSelectedPetID(firstEligible.id);
+    setEnroll(true);
+  }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isPetOwnerAuthenticated()) {
@@ -1126,12 +1289,18 @@ function ProgramModal({
       return;
     }
     const values = Object.fromEntries(new FormData(event.currentTarget));
+    if (!selectedPet || !selectedScheduleID) {
+      notify("Pilih pet dan jadwal mulai kelas terlebih dahulu");
+      return;
+    }
     setBusy(true);
     try {
       const enrollment = await enrollAcademy({
         program_id: item.id,
         participant_name: String(values.participant_name),
-        pet_name: String(values.pet_name),
+        pet_name: selectedPet.name,
+        pet_id: selectedPet.id,
+        schedule_id: selectedScheduleID,
       });
       setEnrollmentId(enrollment.id);
       if (enrollment.amount > 0)
@@ -1161,17 +1330,17 @@ function ProgramModal({
   return (
     <Modal close={close} className="world-modal">
       <WorldImageGallery
-        images={[item.cover_url, ...(item.image_urls ?? [])]}
-        alt={item.title}
+        images={[program.cover_url, ...(program.image_urls ?? [])]}
+        alt={program.title}
         fallback="🎓"
-        tag={item.academy_name}
+        tag={program.academy_name}
         className="academy-modal-cover"
       />
       <div className="modal-world-body">
         {done ? (
           <Success
             title="Pendaftaran berhasil!"
-            note={`${petName} terdaftar di ${item.title}. Detail tersedia di Aktivitas.`}
+            note={`${selectedPet?.name || petName} terdaftar di ${program.title}. Detail tersedia di Aktivitas.`}
             close={close}
             activity={{ type: "academy", id: enrollmentId }}
           />
@@ -1180,42 +1349,67 @@ function ProgramModal({
         ) : !enroll ? (
           <>
             <small className="world-kicker">
-              {item.category} · {item.level}
+              {program.category} · {program.level}
             </small>
-            <h2>{item.title}</h2>
-            <p>{item.description}</p>
+            <h2>{program.title}</h2>
+            <p>{program.description}</p>
             <div className="world-detail-grid">
               <span>
-                <small>Trainer</small>
-                <b>{item.trainer_name}</b>
+                <small>Pet trainer</small>
+                <b>{detail?.trainers?.map((trainer) => trainer.full_name).join(", ") || item.trainer_name}</b>
               </span>
               <span>
                 <small>Mulai</small>
-                <b>{when(item.next_schedule)}</b>
+                <b>{when(detail?.schedules?.[0]?.starts_at || item.next_schedule)}</b>
               </span>
               <span>
                 <small>Durasi</small>
                 <b>
-                  {item.duration_weeks} minggu · {item.session_count} sesi
+                  {program.duration_weeks} minggu · {program.session_count} sesi
                 </b>
               </span>
               <span>
                 <small>Investasi</small>
-                <b>{money.format(item.price)}</b>
+                <b>{money.format(program.price)}</b>
               </span>
             </div>
+            {detailLoading ? (
+              <div className="academy-detail-loading">Memuat trainer dan jadwal kelas…</div>
+            ) : (
+              <>
+                <div className="academy-detail-block">
+                  <div className="academy-detail-title">
+                    <b>Trainer kelas</b>
+                    <small>Klik untuk melihat profil lengkap</small>
+                  </div>
+                  <div className="academy-program-trainers">
+                    {detail?.trainers.map((trainer) => (
+                      <button type="button" key={trainer.id} onClick={() => openTrainer(trainer)}>
+                        <span>{trainer.full_name.slice(0, 1)}</span>
+                        <b>{trainer.full_name}</b>
+                        <small>★ {trainer.rating.toFixed(1)} · {trainer.certification}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="academy-species-note">
+                  <b>Jenis pet:</b>{" "}
+                  {(detail?.supported_species ?? []).map((speciesName) =>
+                    speciesName === "dog" ? "🐕 Anjing" : speciesName === "cat" ? "🐈 Kucing" : speciesName,
+                  ).join(" · ") || "Semua pet"}
+                </div>
+              </>
+            )}
             <button
               className="primary-button full"
-              onClick={() =>
-                isPetOwnerAuthenticated()
-                  ? setEnroll(true)
-                  : (notify("Login diperlukan untuk mendaftar academy"),
-                    window.dispatchEvent(
-                      new CustomEvent("slivadoc:login-required"),
-                    ))
-              }
+              disabled={detailLoading || !detail?.schedules?.some((schedule) => schedule.remaining_capacity > 0) || eligiblePets.length === 0}
+              onClick={startEnrollment}
             >
-              Daftarkan {petName}
+              {eligiblePets.length === 0
+                ? "Tidak ada pet yang sesuai"
+                : !detailLoading && !detail?.schedules?.some((schedule) => schedule.remaining_capacity > 0)
+                  ? "Jadwal belum tersedia"
+                  : `Pilih pet & jadwal`}
             </button>
           </>
         ) : (
@@ -1230,14 +1424,30 @@ function ProgramModal({
               />
             </label>
             <label>
-              <span>Nama pet</span>
-              <input name="pet_name" defaultValue={petName} required />
+              <span>Pet yang akan mengikuti kelas</span>
+              <select value={selectedPetID} onChange={(event) => setSelectedPetID(event.target.value)} required>
+                {eligiblePets.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.name} · {candidate.breed}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Mulai ikut kelas</span>
+              <select value={selectedScheduleID} onChange={(event) => setSelectedScheduleID(event.target.value)} required>
+                {(detail?.schedules ?? []).map((schedule) => (
+                  <option key={schedule.id} value={schedule.id} disabled={schedule.remaining_capacity < 1}>
+                    {when(schedule.starts_at)} · {schedule.trainer_name} · {schedule.remaining_capacity} kursi
+                  </option>
+                ))}
+              </select>
             </label>
             <div className="checkout-line">
               <span>Total program</span>
-              <b>{money.format(item.price)}</b>
+              <b>{money.format(program.price)}</b>
             </div>
-            {item.price > 0 && (
+            {program.price > 0 && (
               <PaymentMethodPicker
                 value={paymentMethod}
                 onChange={setPaymentMethod}
@@ -1247,7 +1457,7 @@ function ProgramModal({
             <button className="primary-button full" disabled={busy}>
               {busy
                 ? "Membuat pembayaran…"
-                : item.price > 0
+                : program.price > 0
                   ? "Lanjut ke pembayaran"
                   : "Konfirmasi pendaftaran"}
             </button>
@@ -1257,6 +1467,59 @@ function ProgramModal({
     </Modal>
   );
 }
+
+function AcademyTrainerModal({
+  trainer,
+  close,
+}: {
+  trainer: AcademyTrainer;
+  close: () => void;
+}) {
+  return (
+    <Modal close={close} className="academy-trainer-modal">
+      <div className="academy-trainer-profile">
+        <span className="academy-trainer-profile-photo">
+          {trainer.photo_url ? (
+            <NextImage
+              src={trainer.photo_url}
+              alt={trainer.full_name}
+              width={112}
+              height={112}
+              unoptimized
+            />
+          ) : (
+            trainer.full_name.slice(0, 1)
+          )}
+        </span>
+        <div>
+          <small>PET TRAINER · {trainer.academy_name}</small>
+          <h2>{trainer.full_name}</h2>
+          <p>★ {trainer.rating.toFixed(1)} · {trainer.experience_years} tahun pengalaman</p>
+        </div>
+      </div>
+      <div className="academy-trainer-profile-body">
+        <p>{trainer.bio || "Profil trainer terverifikasi Slivadoc."}</p>
+        <div className="academy-trainer-metrics">
+          <span><small>Sertifikasi</small><b>{trainer.certification || "Slivadoc verified"}</b></span>
+          <span><small>Jenis pet</small><b>{trainer.pet_types?.join(" · ") || "dog · cat"}</b></span>
+          <span><small>Spesialisasi</small><b>{trainer.specialties?.join(" · ") || "behavior"}</b></span>
+        </div>
+        {trainer.programs?.length ? (
+          <div className="academy-trainer-programs">
+            <h3>Kelas bersama {trainer.full_name.split(" ")[0]}</h3>
+            {trainer.programs.map((program) => (
+              <div key={program.id}>
+                <span><b>{program.title}</b><small>{program.level} · {program.session_count} sesi</small></span>
+                <strong>{money.format(program.price)}</strong>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </Modal>
+  );
+}
+
 function EventModal({
   item,
   ownerName,

@@ -23,6 +23,7 @@ import {
   applyMobileAdoption,
   createMobilePetSpotReservation,
   createMobilePawDatingHealthReport,
+  createMobilePawDatingMessage,
   createMobilePawDatingProfile,
   createMobileConsultation,
   createMobileTrainerConsultation,
@@ -30,6 +31,9 @@ import {
   createMobilePaymentIntent,
   enrollMobileAcademy,
   getMobileAcademy,
+  getMobileAcademyProgram,
+  getMobileAcademyTrainer,
+  getMobileAcademyTrainers,
   getMobileAdoptions,
   getMobileConsultationPlans,
   getMobileDocumentProducts,
@@ -37,18 +41,24 @@ import {
   getMobileMyPawDatingProfiles,
   getMobilePawDatingProfile,
   getMobilePawDatingProfiles,
+  getMobilePawDatingInterests,
+  getMobilePawDatingMessages,
   getMobilePetSpots,
   getMobilePetSpotAvailability,
   getMobileTrainerAvailability,
   getMobileTrainerConsultationPlans,
   passMobilePawDatingProfile,
   registerMobileEvent,
+  respondMobilePawDatingInterest,
   sendMobilePawDatingInterest,
   submitMobilePawDatingProfile,
   trackMobileAcademyProgramClick,
   type MobileActivityType,
+  type MobileAcademyTrainer,
   type MobileOwner,
   type MobilePaymentIntent,
+  type MobilePawDatingInterest,
+  type MobilePawDatingMessage,
   type MobilePetSpotResource,
   type MobileTrainerAvailabilitySlot,
   type WorldItem,
@@ -490,6 +500,27 @@ export function WorldScreen({
   }>();
   const [pawDatingCreateOpen, setPawDatingCreateOpen] = useState(false);
   const [pawDatingLoadError, setPawDatingLoadError] = useState("");
+  const [pawDatingInterests, setPawDatingInterests] = useState<
+    MobilePawDatingInterest[]
+  >([]);
+  const [pawDatingChat, setPawDatingChat] =
+    useState<MobilePawDatingInterest>();
+  const [pawDatingMessages, setPawDatingMessages] = useState<
+    MobilePawDatingMessage[]
+  >([]);
+  const [pawDatingChatBody, setPawDatingChatBody] = useState("");
+  const [pawDatingChatBusy, setPawDatingChatBusy] = useState(false);
+  const [academyTrainers, setAcademyTrainers] = useState<
+    MobileAcademyTrainer[]
+  >([]);
+  const [academyTrainer, setAcademyTrainer] =
+    useState<MobileAcademyTrainer>();
+  const [academySpecies, setAcademySpecies] = useState(
+    pet?.species?.toLowerCase() || "all",
+  );
+  const [selectedAcademyPetID, setSelectedAcademyPetID] = useState("");
+  const [selectedAcademyScheduleID, setSelectedAcademyScheduleID] =
+    useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("qris");
@@ -693,6 +724,118 @@ export function WorldScreen({
     // dependency, so granting permission does not immediately duplicate all calls.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshVersion]);
+  const loadPawDatingPrivate = useCallback(async () => {
+    if (!owner) {
+      setPawDatingInterests([]);
+      return;
+    }
+    try {
+      const result = await getMobilePawDatingInterests();
+      setPawDatingInterests(result.data);
+    } catch (cause) {
+      onAction(
+        cause instanceof Error
+          ? cause.message
+          : "Match PAW Dating belum dapat dimuat",
+      );
+    }
+  }, [onAction, owner]);
+  useEffect(() => {
+    if (mode === "pawdating") queueMicrotask(() => void loadPawDatingPrivate());
+  }, [loadPawDatingPrivate, mode, refreshVersion]);
+  useEffect(() => {
+    if (mode !== "academy") return;
+    let current = true;
+    void getMobileAcademyTrainers(
+      academySpecies === "all" ? undefined : academySpecies,
+    )
+      .then((result) => {
+        if (current) setAcademyTrainers(result.data);
+      })
+      .catch((cause) =>
+        onAction(
+          cause instanceof Error
+            ? cause.message
+            : "Daftar pet trainer belum dapat dimuat",
+        ),
+      );
+    return () => {
+      current = false;
+    };
+  }, [academySpecies, mode, onAction, refreshVersion]);
+  const openPawDatingChat = async (interest: MobilePawDatingInterest) => {
+    if (!interest.match_id) return;
+    setPawDatingChat(interest);
+    setPawDatingMessages([]);
+    setPawDatingChatBusy(true);
+    try {
+      const result = await getMobilePawDatingMessages(interest.match_id);
+      setPawDatingMessages(result.data);
+    } catch (cause) {
+      onAction(
+        cause instanceof Error
+          ? cause.message
+          : "Percakapan match belum dapat dimuat",
+      );
+    } finally {
+      setPawDatingChatBusy(false);
+    }
+  };
+  const respondPawDating = async (
+    interest: MobilePawDatingInterest,
+    action: "accept" | "decline",
+  ) => {
+    setBusy(true);
+    try {
+      const result = await respondMobilePawDatingInterest(interest.id, action);
+      await loadPawDatingPrivate();
+      if (action === "accept" && result.match_id) {
+        onAction("It’s a match! Ruang chat privat sudah dibuka");
+        await openPawDatingChat({
+          ...interest,
+          status: "matched",
+          match_id: result.match_id,
+        });
+      } else {
+        onAction("Permintaan PAW Dating diperbarui");
+      }
+    } catch (cause) {
+      onAction(
+        cause instanceof Error ? cause.message : "Permintaan belum dapat diperbarui",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  const sendPawDatingChat = async () => {
+    if (!pawDatingChat?.match_id || !pawDatingChatBody.trim()) return;
+    setPawDatingChatBusy(true);
+    try {
+      await createMobilePawDatingMessage(
+        pawDatingChat.match_id,
+        pawDatingChatBody.trim(),
+      );
+      setPawDatingChatBody("");
+      const result = await getMobilePawDatingMessages(pawDatingChat.match_id);
+      setPawDatingMessages(result.data);
+    } catch (cause) {
+      onAction(cause instanceof Error ? cause.message : "Pesan belum dapat dikirim");
+    } finally {
+      setPawDatingChatBusy(false);
+    }
+  };
+  const openAcademyTrainer = async (trainer: MobileAcademyTrainer) => {
+    setAcademyTrainer(trainer);
+    try {
+      setAcademyTrainer(await getMobileAcademyTrainer(trainer.id));
+    } catch (cause) {
+      onAction(
+        cause instanceof Error
+          ? cause.message
+          : "Detail pet trainer belum dapat dimuat",
+      );
+    }
+  };
   useEffect(() => {
     if (!intent || loading || handledIntent.current === intent.token) return;
     queueMicrotask(() => {
@@ -815,6 +958,10 @@ export function WorldScreen({
       setSelectedPetSpotResource(undefined);
       void loadPetSpotAvailability(item, form);
     }
+    if (mode === "academy") {
+      setSelectedAcademyPetID("");
+      setSelectedAcademyScheduleID("");
+    }
     setSelected(item);
     if (mode === "pawdating") {
       try {
@@ -824,6 +971,30 @@ export function WorldScreen({
           cause instanceof Error
             ? cause.message
             : "Detail profil belum dapat dimuat",
+        );
+      }
+    }
+    if (mode === "academy") {
+      try {
+        const detail = await getMobileAcademyProgram(item.id);
+        const eligible = pets.filter(
+          (candidate) =>
+            !detail.supported_species?.length ||
+            detail.supported_species.includes(
+              (candidate.species ?? "other").toLowerCase(),
+            ),
+        );
+        setSelectedAcademyPetID(eligible[0]?.id ?? "");
+        setSelectedAcademyScheduleID(
+          detail.schedules?.find((schedule) => schedule.remaining_capacity > 0)
+            ?.id ?? "",
+        );
+        setSelected(detail);
+      } catch (cause) {
+        onAction(
+          cause instanceof Error
+            ? cause.message
+            : "Detail kelas belum dapat dimuat",
         );
       }
     }
@@ -940,6 +1111,16 @@ export function WorldScreen({
       onAction("Lengkapi nomor telepon di profil sebelum membuat reservasi");
       return;
     }
+    const academyPet = pets.find(
+      (candidate) => candidate.id === selectedAcademyPetID,
+    );
+    if (
+      mode === "academy" &&
+      (!academyPet || !selectedAcademyScheduleID)
+    ) {
+      onAction("Pilih pet dan jadwal mulai kelas terlebih dahulu");
+      return;
+    }
     setBusy(true);
     let completed = false;
     try {
@@ -958,7 +1139,9 @@ export function WorldScreen({
         const source = await enrollMobileAcademy(
           selected.id,
           owner!.full_name,
-          petName || "Pet",
+          academyPet!.name,
+          academyPet!.id,
+          selectedAcademyScheduleID,
         );
         if (source.amount > 0)
           setPayment(
@@ -1391,6 +1574,118 @@ export function WorldScreen({
             </Pressable>
           ) : null}
         </View>
+        {mode === "pawdating" && pawDatingInterests.length ? (
+          <View style={styles.pawMatchSection}>
+            <View style={styles.pawMatchHeading}>
+              <View>
+                <Text style={styles.pawMatchKicker}>MATCH & PERMINTAAN</Text>
+                <Text style={styles.pawMatchTitle}>Langkah berikutnya</Text>
+              </View>
+              <Ionicons name="chatbubbles-outline" size={22} color={colors.sky600} />
+            </View>
+            {pawDatingInterests.map((interest) => (
+              <View key={interest.id} style={styles.pawMatchCard}>
+                <View style={styles.pawMatchIcon}>
+                  <Ionicons
+                    name={interest.status === "matched" ? "heart" : "paw-outline"}
+                    size={20}
+                    color={interest.status === "matched" ? "#EA5B81" : colors.sky600}
+                  />
+                </View>
+                <View style={styles.pawMatchCopy}>
+                  <Text style={styles.pawMatchNames} numberOfLines={1}>
+                    {interest.source_name} × {interest.target_name}
+                  </Text>
+                  <Text style={styles.pawMatchStatus}>
+                    {interest.status === "matched"
+                      ? "Match! Lanjutkan kenalan di ruang chat privat."
+                      : interest.direction === "incoming"
+                        ? "Permintaan masuk menunggu keputusanmu."
+                        : "Ketertarikan sudah dikirim."}
+                  </Text>
+                </View>
+                {interest.status === "matched" && interest.match_id ? (
+                  <Pressable
+                    style={styles.pawMatchPrimary}
+                    onPress={() => void openPawDatingChat(interest)}
+                  >
+                    <Ionicons name="chatbubble-ellipses" size={17} color={colors.white} />
+                    <Text style={styles.pawMatchPrimaryText}>Chat</Text>
+                  </Pressable>
+                ) : interest.direction === "incoming" && interest.status === "pending" ? (
+                  <View style={styles.pawMatchActions}>
+                    <Pressable
+                      style={styles.pawMatchAccept}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Terima permintaan antara ${interest.source_name} dan ${interest.target_name}`}
+                      onPress={() => void respondPawDating(interest, "accept")}
+                    >
+                      <Ionicons name="checkmark" size={17} color={colors.white} />
+                    </Pressable>
+                    <Pressable
+                      style={styles.pawMatchDecline}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Tolak permintaan antara ${interest.source_name} dan ${interest.target_name}`}
+                      onPress={() => void respondPawDating(interest, "decline")}
+                    >
+                      <Ionicons name="close" size={17} color={colors.muted} />
+                    </Pressable>
+                  </View>
+                ) : null}
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {mode === "academy" ? (
+          <View style={styles.academyTrainerSection}>
+            <View style={styles.academyTrainerHead}>
+              <View>
+                <Text style={styles.academyTrainerKicker}>TRAINER TERVERIFIKASI</Text>
+                <Text style={styles.academyTrainerTitle}>Pilih berdasarkan jenis pet</Text>
+              </View>
+              <Ionicons name="shield-checkmark" size={22} color="#128464" />
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
+              {["all", ...new Set(pets.map((candidate) => (candidate.species ?? "other").toLowerCase()))].map((speciesName) => (
+                <Pressable
+                  key={speciesName}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: academySpecies === speciesName }}
+                  onPress={() => setAcademySpecies(speciesName)}
+                  style={[styles.choice, academySpecies === speciesName && styles.choiceActive]}
+                >
+                  <Ionicons
+                    name={speciesName === "dog" ? "paw" : speciesName === "cat" ? "paw-outline" : "apps-outline"}
+                    size={14}
+                    color={academySpecies === speciesName ? colors.white : colors.sky600}
+                  />
+                  <Text style={[styles.choiceText, academySpecies === speciesName && styles.choiceTextActive]}>
+                    {speciesName === "all" ? "Semua" : speciesName === "dog" ? "Anjing" : speciesName === "cat" ? "Kucing" : speciesName}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.academyTrainerRow}>
+              {academyTrainers.map((trainer) => (
+                <Pressable
+                  key={trainer.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Lihat profil trainer ${trainer.full_name}`}
+                  style={styles.academyTrainerCard}
+                  onPress={() => void openAcademyTrainer(trainer)}
+                >
+                  <View style={styles.academyTrainerAvatar}>
+                    {trainer.photo_url ? <Image alt="" source={{ uri: trainer.photo_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Text style={styles.academyTrainerInitial}>{trainer.full_name.slice(0, 1)}</Text>}
+                  </View>
+                  <Text style={styles.academyTrainerName} numberOfLines={1}>{trainer.full_name}</Text>
+                  <Text style={styles.academyTrainerMeta}>★ {trainer.rating.toFixed(1)} · {trainer.experience_years} th</Text>
+                  <Text style={styles.academyTrainerSpecialty} numberOfLines={1}>{trainer.specialties.join(" · ")}</Text>
+                  <Text style={styles.academyTrainerDetail}>Lihat detail →</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
         {mode === "petspot" ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
           {[
             ["all", "Semua"], ["cafe", "Cafe"], ["restaurant", "Restoran"],
@@ -1617,6 +1912,101 @@ export function WorldScreen({
                       </View>
                     ) : null}
                   </View>
+                  {mode === "academy" ? (
+                    <View style={styles.academyBookingSection}>
+                      <Text style={styles.formTitle}>Pet trainer kelas</Text>
+                      <Text style={styles.formNote}>
+                        Profil trainer, spesialisasi, dan jadwal berasal dari academy.
+                      </Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.academyDetailTrainerRow}>
+                        {(selected?.trainers ?? []).map((trainer) => (
+                          <Pressable key={trainer.id} style={styles.academyDetailTrainer} onPress={() => void openAcademyTrainer(trainer)}>
+                            <View style={styles.academyDetailTrainerAvatar}>
+                              {trainer.photo_url ? <Image alt="" source={{ uri: trainer.photo_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Text style={styles.academyTrainerInitial}>{trainer.full_name.slice(0, 1)}</Text>}
+                            </View>
+                            <Text style={styles.academyTrainerName} numberOfLines={1}>{trainer.full_name}</Text>
+                            <Text style={styles.academyTrainerMeta}>★ {trainer.rating.toFixed(1)}</Text>
+                            <Text style={styles.academyTrainerDetail}>Profil lengkap →</Text>
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                      <Text style={styles.formLabel}>PET YANG AKAN SEKOLAH</Text>
+                      <View style={styles.eventPetGrid}>
+                        {pets
+                          .filter(
+                            (candidate) =>
+                              !selected?.supported_species?.length ||
+                              selected.supported_species.includes(
+                                (candidate.species ?? "other").toLowerCase(),
+                              ),
+                          )
+                          .map((candidate) => (
+                            <Pressable
+                              key={candidate.id}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Pilih ${candidate.name} untuk kelas`}
+                              accessibilityState={{ selected: selectedAcademyPetID === candidate.id }}
+                              onPress={() => setSelectedAcademyPetID(candidate.id)}
+                              style={[
+                                styles.eventPetCard,
+                                selectedAcademyPetID === candidate.id &&
+                                  styles.eventPetCardActive,
+                              ]}
+                            >
+                              <View style={styles.eventPetIcon}>
+                                <Ionicons name="paw" size={18} color={colors.sky600} />
+                              </View>
+                              <Text style={styles.eventPetName}>{candidate.name}</Text>
+                              <Text style={styles.formNote} numberOfLines={1}>{candidate.breed}</Text>
+                              <Ionicons
+                                name={selectedAcademyPetID === candidate.id ? "checkmark-circle" : "ellipse-outline"}
+                                size={20}
+                                color={selectedAcademyPetID === candidate.id ? "#128464" : colors.muted}
+                                style={styles.eventPetCheck}
+                              />
+                            </Pressable>
+                          ))}
+                      </View>
+                      <Text style={styles.formLabel}>MULAI IKUT KELAS</Text>
+                      <View style={styles.academyScheduleList}>
+                        {(selected?.schedules ?? []).map((schedule) => (
+                          <Pressable
+                            key={schedule.id}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Pilih jadwal ${when(schedule.starts_at)} bersama ${schedule.trainer_name}`}
+                            accessibilityState={{
+                              disabled: schedule.remaining_capacity < 1,
+                              selected: selectedAcademyScheduleID === schedule.id,
+                            }}
+                            disabled={schedule.remaining_capacity < 1}
+                            onPress={() => setSelectedAcademyScheduleID(schedule.id)}
+                            style={[
+                              styles.academySchedule,
+                              selectedAcademyScheduleID === schedule.id && styles.academyScheduleActive,
+                              schedule.remaining_capacity < 1 && styles.academyScheduleDisabled,
+                            ]}
+                          >
+                            <View style={styles.academyScheduleDate}>
+                              <Ionicons name="calendar" size={18} color={colors.sky600} />
+                            </View>
+                            <View style={styles.academyScheduleCopy}>
+                              <Text style={styles.academyScheduleTitle}>{when(schedule.starts_at)}</Text>
+                              <Text style={styles.academyScheduleMeta}>{schedule.trainer_name} · {schedule.location || "Online"}</Text>
+                              <Text style={styles.academyScheduleSeats}>{schedule.remaining_capacity} kursi tersisa</Text>
+                            </View>
+                            <Ionicons
+                              name={selectedAcademyScheduleID === schedule.id ? "checkmark-circle" : "ellipse-outline"}
+                              size={21}
+                              color={selectedAcademyScheduleID === schedule.id ? "#128464" : colors.muted}
+                            />
+                          </Pressable>
+                        ))}
+                      </View>
+                      {!(selected?.schedules ?? []).length ? (
+                        <Text style={styles.academyEmptySchedule}>Jadwal kelas belum dibuka oleh academy.</Text>
+                      ) : null}
+                    </View>
+                  ) : null}
                   {mode === "events" && selected?.ticket_unit === "owner_pet" ? (
                     <View style={styles.eventSection}>
                       {selected.pet_spot_name ? (
@@ -2387,7 +2777,7 @@ export function WorldScreen({
                       mode === "pawdating"
                         ? "♡ Kirim ketertarikan"
                         : mode === "academy"
-                          ? `Daftarkan ${petName || "pet"}`
+                          ? "Daftar kelas & bayar"
                           : mode === "events"
                             ? "Ambil tiket"
                             : mode === "consult"
@@ -2410,6 +2800,9 @@ export function WorldScreen({
                       (mode === "events" &&
                         selected?.ticket_unit === "owner_pet" &&
                         !selectedEventPetID) ||
+                      (mode === "academy" &&
+                        (!selectedAcademyPetID ||
+                          !selectedAcademyScheduleID)) ||
                       (mode === "consult" &&
                         selected?.provider_type === "trainer" &&
                         (trainerAvailabilityLoading ||
@@ -2420,6 +2813,126 @@ export function WorldScreen({
               </Pressable>
             </SafeAreaView>
           </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
+      <Modal
+        visible={!!pawDatingChat}
+        transparent
+        animationType="slide"
+        statusBarTranslucent={false}
+        onRequestClose={() => setPawDatingChat(undefined)}
+      >
+        <View style={styles.pawChatBackdrop}>
+          <SafeAreaView style={styles.pawChatSheet}>
+            <View style={styles.pawChatHeader}>
+              <View style={styles.pawChatHeart}>
+                <Ionicons name="heart" size={20} color="#EA5B81" />
+              </View>
+              <View style={styles.pawChatHeaderCopy}>
+                <Text style={styles.pawChatKicker}>MATCHED · PRIVATE ROOM</Text>
+                <Text style={styles.pawChatTitle} numberOfLines={1}>
+                  {pawDatingChat?.source_name} × {pawDatingChat?.target_name}
+                </Text>
+              </View>
+              <Pressable accessibilityRole="button" accessibilityLabel="Tutup chat match" style={styles.pawChatClose} onPress={() => setPawDatingChat(undefined)}>
+                <Ionicons name="close" size={21} color={colors.text} />
+              </Pressable>
+            </View>
+            <View style={styles.pawChatSafety}>
+              <Ionicons name="shield-checkmark-outline" size={17} color="#128464" />
+              <Text style={styles.pawChatSafetyText}>Diskusikan kecocokan dan kesehatan pet. Kontak pribadi tetap dilindungi.</Text>
+            </View>
+            <ScrollView
+              style={styles.pawChatMessages}
+              contentContainerStyle={styles.pawChatMessagesContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {pawDatingChatBusy && !pawDatingMessages.length ? (
+                <Text style={styles.pawChatEmpty}>Memuat percakapan…</Text>
+              ) : pawDatingMessages.length ? (
+                pawDatingMessages.map((message) => {
+                  const mine = message.sender_user_id === owner?.id;
+                  return (
+                    <View key={message.id} style={[styles.pawChatBubble, mine && styles.pawChatBubbleMine]}>
+                      <Text style={[styles.pawChatSender, mine && styles.pawChatSenderMine]}>{mine ? "Kamu" : message.sender_name}</Text>
+                      <Text style={[styles.pawChatBody, mine && styles.pawChatBodyMine]}>{message.body}</Text>
+                      <Text style={[styles.pawChatTime, mine && styles.pawChatTimeMine]}>{formatDate(message.created_at, { hour: "2-digit", minute: "2-digit" })}</Text>
+                    </View>
+                  );
+                })
+              ) : (
+                <Text style={styles.pawChatEmpty}>Belum ada pesan. Mulai kenalan dengan aman di sini.</Text>
+              )}
+            </ScrollView>
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+              <View style={styles.pawChatComposer}>
+                <TextInput
+                  value={pawDatingChatBody}
+                  onChangeText={setPawDatingChatBody}
+                  placeholder="Tulis pesan…"
+                  multiline
+                  maxLength={1000}
+                  style={styles.pawChatInput}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Kirim pesan"
+                  disabled={!pawDatingChatBody.trim() || pawDatingChatBusy}
+                  onPress={() => void sendPawDatingChat()}
+                  style={[styles.pawChatSend, (!pawDatingChatBody.trim() || pawDatingChatBusy) && styles.pawChatSendDisabled]}
+                >
+                  <Ionicons name="send" size={19} color={colors.white} />
+                </Pressable>
+              </View>
+            </KeyboardAvoidingView>
+          </SafeAreaView>
+        </View>
+      </Modal>
+      <Modal
+        visible={!!academyTrainer}
+        transparent
+        animationType="slide"
+        statusBarTranslucent={false}
+        onRequestClose={() => setAcademyTrainer(undefined)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setAcademyTrainer(undefined)}>
+          <SafeAreaView style={styles.trainerSheetWrap}>
+            <Pressable style={styles.trainerSheet} onPress={(event) => event.stopPropagation()}>
+              <View style={styles.handle} />
+              <Pressable accessibilityRole="button" accessibilityLabel="Tutup profil trainer" style={styles.sheetClose} onPress={() => setAcademyTrainer(undefined)}>
+                <Ionicons name="close" size={21} color={colors.text} />
+              </Pressable>
+              <ScrollView contentContainerStyle={styles.trainerSheetContent} showsVerticalScrollIndicator={false}>
+                <View style={styles.trainerProfileTop}>
+                  <View style={styles.trainerProfilePhoto}>
+                    {academyTrainer?.photo_url ? <Image alt="" source={{ uri: academyTrainer.photo_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Text style={styles.trainerProfileInitial}>{academyTrainer?.full_name.slice(0, 1)}</Text>}
+                  </View>
+                  <Text style={styles.academyTrainerKicker}>PET TRAINER TERVERIFIKASI</Text>
+                  <Text style={styles.trainerProfileName}>{academyTrainer?.full_name}</Text>
+                  <Text style={styles.trainerProfileAcademy}>{academyTrainer?.academy_name}</Text>
+                  <Text style={styles.trainerProfileRating}>★ {academyTrainer?.rating.toFixed(1)} · {academyTrainer?.experience_years} tahun pengalaman</Text>
+                </View>
+                <Text style={styles.trainerProfileBio}>{academyTrainer?.bio}</Text>
+                <View style={styles.trainerProfileFacts}>
+                  <View><Text style={styles.detailLabel}>SERTIFIKASI</Text><Text style={styles.detailValue}>{academyTrainer?.certification || "Slivadoc verified"}</Text></View>
+                  <View><Text style={styles.detailLabel}>JENIS PET</Text><Text style={styles.detailValue}>{academyTrainer?.pet_types?.join(" · ")}</Text></View>
+                  <View><Text style={styles.detailLabel}>SPESIALISASI</Text><Text style={styles.detailValue}>{academyTrainer?.specialties?.join(" · ")}</Text></View>
+                </View>
+                {academyTrainer?.programs?.length ? (
+                  <View style={styles.trainerPrograms}>
+                    <Text style={styles.formTitle}>Kelas yang tersedia</Text>
+                    {academyTrainer.programs.map((program) => (
+                      <View key={program.id} style={styles.trainerProgramRow}>
+                        <View><Text style={styles.trainerProgramName}>{program.title}</Text><Text style={styles.formNote}>{program.level} · {program.session_count} sesi</Text></View>
+                        <Text style={styles.trainerProgramPrice}>{money(program.price)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </ScrollView>
+            </Pressable>
+          </SafeAreaView>
         </Pressable>
       </Modal>
       <Modal visible={imageViewerIndex !== undefined} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setImageViewerIndex(undefined)}>
@@ -2992,15 +3505,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(14,32,55,.42)",
   },
   sheetKeyboard: { flex: 1, justifyContent: "flex-end" },
-  sheetWrap: { width: "100%", maxHeight: "88%" },
+  sheetWrap: { width: "100%", height: "88%", maxHeight: "88%" },
   sheet: {
-    flexShrink: 1,
-    maxHeight: "100%",
+    flex: 1,
+    minHeight: 0,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     backgroundColor: colors.white,
   },
-  sheetScroll: { flexShrink: 1 },
+  sheetScroll: { flex: 1, minHeight: 0 },
   handle: {
     alignSelf: "center",
     width: 42,
@@ -3661,4 +4174,92 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     backgroundColor: colors.white,
   },
+  pawMatchSection: {
+    marginBottom: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#D8EAF3",
+    borderRadius: 18,
+    backgroundColor: "#F7FCFF",
+    gap: 10,
+  },
+  pawMatchHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  pawMatchKicker: { color: colors.sky600, fontSize: 10, fontWeight: "700", letterSpacing: 1 },
+  pawMatchTitle: { color: colors.text, fontSize: 18, fontWeight: "700", marginTop: 3 },
+  pawMatchCard: { flexDirection: "row", alignItems: "center", gap: 10, padding: 11, borderRadius: 14, backgroundColor: colors.white },
+  pawMatchIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: "#EAF7FC" },
+  pawMatchCopy: { flex: 1, minWidth: 0 },
+  pawMatchNames: { color: colors.text, fontSize: 13, fontWeight: "700" },
+  pawMatchStatus: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 2 },
+  pawMatchPrimary: { flexDirection: "row", alignItems: "center", gap: 5, minHeight: 38, paddingHorizontal: 11, borderRadius: 12, backgroundColor: colors.sky600 },
+  pawMatchPrimaryText: { color: colors.white, fontSize: 10, fontWeight: "700" },
+  pawMatchActions: { flexDirection: "row", gap: 6 },
+  pawMatchAccept: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "#128464" },
+  pawMatchDecline: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "#EEF3F6" },
+  academyTrainerSection: { marginBottom: 18, padding: 14, borderWidth: 1, borderColor: "#D8EAF3", borderRadius: 18, backgroundColor: "#F8FDFF", gap: 11 },
+  academyTrainerHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  academyTrainerKicker: { color: colors.sky600, fontSize: 10, fontWeight: "700", letterSpacing: 1 },
+  academyTrainerTitle: { color: colors.text, fontSize: 18, fontWeight: "700", marginTop: 3 },
+  academyTrainerRow: { gap: 10, paddingRight: 4 },
+  academyTrainerCard: { width: 164, padding: 12, borderWidth: 1, borderColor: "#DCEAF1", borderRadius: 15, backgroundColor: colors.white },
+  academyTrainerAvatar: { width: 48, height: 48, overflow: "hidden", alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: colors.sky600, marginBottom: 9 },
+  academyTrainerInitial: { color: colors.white, fontSize: 20, fontWeight: "700" },
+  academyTrainerName: { color: colors.text, fontSize: 12, fontWeight: "700" },
+  academyTrainerMeta: { color: "#A66A00", fontSize: 9, marginTop: 3 },
+  academyTrainerSpecialty: { color: colors.muted, fontSize: 9, marginTop: 4 },
+  academyTrainerDetail: { color: colors.sky600, fontSize: 9, fontWeight: "700", marginTop: 8 },
+  academyBookingSection: { gap: 10, marginTop: 4, padding: 13, borderRadius: 16, backgroundColor: "#F7FCFF" },
+  academyDetailTrainerRow: { gap: 8, paddingVertical: 2 },
+  academyDetailTrainer: { width: 140, padding: 10, borderWidth: 1, borderColor: "#D8EAF3", borderRadius: 14, backgroundColor: colors.white },
+  academyDetailTrainerAvatar: { width: 42, height: 42, alignItems: "center", justifyContent: "center", overflow: "hidden", borderRadius: 13, backgroundColor: colors.sky600, marginBottom: 7 },
+  academyScheduleList: { gap: 8 },
+  academySchedule: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderWidth: 1, borderColor: "#D7E7EF", borderRadius: 14, backgroundColor: colors.white },
+  academyScheduleActive: { borderColor: colors.sky600, backgroundColor: "#EDF9FE" },
+  academyScheduleDisabled: { opacity: 0.48 },
+  academyScheduleDate: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "#E6F6FC" },
+  academyScheduleCopy: { flex: 1, minWidth: 0 },
+  academyScheduleTitle: { color: colors.text, fontSize: 11, fontWeight: "700" },
+  academyScheduleMeta: { color: colors.muted, fontSize: 9, marginTop: 2 },
+  academyScheduleSeats: { color: "#128464", fontSize: 9, fontWeight: "700", marginTop: 3 },
+  academyEmptySchedule: { color: "#A15D20", fontSize: 10, padding: 11, borderRadius: 11, backgroundColor: "#FFF5E7" },
+  pawChatBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(14,32,55,.45)" },
+  pawChatSheet: { height: "88%", borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: colors.white, overflow: "hidden" },
+  pawChatHeader: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.sky100 },
+  pawChatHeart: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: "#FFF0F4" },
+  pawChatHeaderCopy: { flex: 1, minWidth: 0 },
+  pawChatKicker: { color: "#C8476C", fontSize: 9, fontWeight: "700", letterSpacing: 1 },
+  pawChatTitle: { color: colors.text, fontSize: 15, fontWeight: "700", marginTop: 3 },
+  pawChatClose: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "#EEF5F8" },
+  pawChatSafety: { flexDirection: "row", gap: 8, alignItems: "center", margin: 12, padding: 10, borderRadius: 12, backgroundColor: "#ECFAF5" },
+  pawChatSafetyText: { flex: 1, color: "#28705D", fontSize: 9, lineHeight: 14 },
+  pawChatMessages: { flex: 1 },
+  pawChatMessagesContent: { flexGrow: 1, justifyContent: "flex-end", gap: 9, padding: 14 },
+  pawChatEmpty: { alignSelf: "center", color: colors.muted, fontSize: 11, textAlign: "center", marginVertical: 30 },
+  pawChatBubble: { alignSelf: "flex-start", maxWidth: "82%", padding: 11, borderRadius: 15, borderBottomLeftRadius: 5, backgroundColor: "#EEF5F8" },
+  pawChatBubbleMine: { alignSelf: "flex-end", borderBottomLeftRadius: 15, borderBottomRightRadius: 5, backgroundColor: colors.sky600 },
+  pawChatSender: { color: colors.sky600, fontSize: 8, fontWeight: "700", marginBottom: 3 },
+  pawChatSenderMine: { color: "#D9F4FF" },
+  pawChatBody: { color: colors.text, fontSize: 12, lineHeight: 18 },
+  pawChatBodyMine: { color: colors.white },
+  pawChatTime: { color: colors.muted, fontSize: 7, marginTop: 4, textAlign: "right" },
+  pawChatTimeMine: { color: "#D9F4FF" },
+  pawChatComposer: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: colors.sky100, backgroundColor: colors.white },
+  pawChatInput: { flex: 1, maxHeight: 96, minHeight: 44, paddingHorizontal: 13, paddingVertical: 10, borderWidth: 1, borderColor: "#D5E5ED", borderRadius: 15, color: colors.text, fontSize: 12, backgroundColor: "#F9FCFD" },
+  pawChatSend: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.sky600 },
+  pawChatSendDisabled: { opacity: 0.42 },
+  trainerSheetWrap: { width: "100%", height: "78%" },
+  trainerSheet: { flex: 1, minHeight: 0, borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: colors.white },
+  trainerSheetContent: { padding: 18, paddingBottom: 34 },
+  trainerProfileTop: { alignItems: "center", paddingTop: 10 },
+  trainerProfilePhoto: { width: 92, height: 92, alignItems: "center", justifyContent: "center", overflow: "hidden", borderRadius: 28, backgroundColor: colors.sky600, marginBottom: 12 },
+  trainerProfileInitial: { color: colors.white, fontSize: 38, fontWeight: "700" },
+  trainerProfileName: { color: colors.text, fontSize: 23, fontWeight: "700", marginTop: 5 },
+  trainerProfileAcademy: { color: colors.muted, fontSize: 11, marginTop: 3 },
+  trainerProfileRating: { color: "#A66A00", fontSize: 10, marginTop: 6 },
+  trainerProfileBio: { color: colors.muted, fontSize: 11, lineHeight: 18, marginVertical: 16 },
+  trainerProfileFacts: { gap: 8 },
+  trainerPrograms: { gap: 8, marginTop: 18 },
+  trainerProgramRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, padding: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: 13 },
+  trainerProgramName: { color: colors.text, fontSize: 11, fontWeight: "700" },
+  trainerProgramPrice: { color: colors.sky600, fontSize: 11, fontWeight: "700" },
 });

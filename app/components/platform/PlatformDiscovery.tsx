@@ -655,8 +655,8 @@ export default function PlatformDiscovery({
                     <p>{item.description}</p>
                     <div className="academy-cohort-progress">
                       <div>
-                        <span>Peserta cohort</span>
-                        <b>{participantCount}/{item.capacity} pet</b>
+                        <span>Alumni & peserta</span>
+                        <b>{participantCount} pet</b>
                       </div>
                       <i><span style={{ width: `${occupancy}%` }} /></i>
                     </div>

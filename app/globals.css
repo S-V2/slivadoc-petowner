@@ -11648,3 +11648,8 @@ textarea {
 .petspot-review-stars button{border:0;background:none;font-size:34px;line-height:1;color:#c9d8e3;cursor:pointer}
 .petspot-review-stars button.active{color:#f5b301}
 .requirement-upload-hint{display:block;color:#617789;margin-bottom:6px}
+
+/* Shared promotion language for services. */
+.service-discount-badge{position:absolute;left:10px;bottom:10px;z-index:3;padding:6px 9px;border-radius:9px;color:#fff;background:linear-gradient(135deg,#ff6d59,#f04e72);box-shadow:0 8px 20px rgba(225,75,76,.24);font-size:9px;font-weight:900}
+.service-promo-price{display:grid;justify-items:start;gap:2px}.service-promo-price s{color:#8ca0ad;font-size:10px}.service-promo-price b{color:var(--sky-600)}
+.service-detail-old-price{display:block;margin-bottom:3px;color:#8da0ac;font-size:10px;font-weight:600}.service-checkout-price{display:grid;justify-items:end;gap:3px}.service-checkout-price s{color:#8da0ac;font-size:10px}.service-checkout-price em{padding:3px 6px;border-radius:6px;color:#d84f42;background:#fff0ed;font-size:8px;font-style:normal;font-weight:900}

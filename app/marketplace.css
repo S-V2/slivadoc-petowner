@@ -521,6 +521,20 @@
   background: rgba(27, 52, 70, 0.84);
 }
 
+.market-discount-badge {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  padding: 7px 9px;
+  border-radius: 9px;
+  color: #fff;
+  background: linear-gradient(135deg, #ff6d59, #f04e72);
+  box-shadow: 0 8px 20px rgba(225, 75, 76, .28);
+  font-size: 9px;
+  font-weight: 900;
+}
+
 .market-favorite {
   position: absolute;
   right: 10px;
@@ -609,6 +623,17 @@
   font-size: 17px;
   letter-spacing: -0.02em;
 }
+
+.market-card-price-wrap {
+  display: grid;
+  gap: 3px;
+  margin-top: 12px;
+}
+
+.market-card-price-wrap .market-card-price { margin-top: 0; }
+.market-card-price-wrap > span { display: flex; align-items: center; gap: 7px; }
+.market-card-price-wrap s { color: #91a2ad; font-size: 9px; }
+.market-card-price-wrap em { padding: 3px 6px; border-radius: 6px; color: #d94f42; background: #fff0ed; font-size: 7px; font-style: normal; font-weight: 850; }
 
 .market-card-social-proof,
 .market-card-fulfillment {
@@ -1002,6 +1027,13 @@
   font-size: clamp(27px, 3.2vw, 38px);
   letter-spacing: -0.035em;
 }
+
+.market-detail-price-block { display: grid; justify-items: start; gap: 4px; margin-top: 18px; }
+.market-detail-price-block .market-detail-price { margin-top: 0; }
+.market-detail-price-block > span { display: flex; align-items: center; gap: 8px; }
+.market-detail-price-block > span em { padding: 5px 8px; border-radius: 8px; color: #fff; background: #f05d4d; font-size: 10px; font-style: normal; font-weight: 900; }
+.market-detail-price-block > span s { color: #859aa7; font-size: 12px; }
+.market-detail-price-block > small { color: #16806d; font-size: 10px; font-weight: 750; }
 
 .market-detail-points {
   min-height: 34px;

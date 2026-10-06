@@ -550,6 +550,11 @@ export default function PetOwnerApp() {
         barcode: item.barcode || "",
         description: item.description || "",
         price: Math.max(0, finiteNumber(item.price) ?? 0),
+        originalPrice:
+          (finiteNumber(item.original_price) ?? 0) >
+          (finiteNumber(item.price) ?? 0)
+            ? finiteNumber(item.original_price) ?? undefined
+            : undefined,
         rating: Math.min(5, Math.max(0, finiteNumber(item.rating) ?? 0)),
         reviewCount: Math.max(0, finiteNumber(item.review_count) ?? 0),
         soldCount: Math.max(0, finiteNumber(item.sold_count) ?? 0),
@@ -805,6 +810,11 @@ export default function PetOwnerApp() {
               branchName: item.branch_name,
               city: item.city,
               priceValue: item.price,
+              originalPrice:
+                item.original_price && item.original_price > item.price
+                  ? item.original_price
+                  : undefined,
+              discountPercent: item.discount_percent ?? 0,
               name: item.name,
               type,
               distance:
@@ -4153,6 +4163,9 @@ function DiscoverView({
                 <span>{service.emoji}</span>
               )}
               <em>{service.type}</em>
+              {service.discountPercent && service.discountPercent > 0 ? (
+                <span className="service-discount-badge">-{service.discountPercent}%</span>
+              ) : null}
               <button
                 type="button"
                 aria-label="Favorit"
@@ -4195,7 +4208,14 @@ function DiscoverView({
               <div className="service-result-footer">
                 <div>
                   <small>Estimasi harga</small>
-                  <b>{service.price}</b>
+                  {service.originalPrice ? (
+                    <span className="service-promo-price">
+                      <s>{formatRupiah(service.originalPrice)}</s>
+                      <b>{service.price}</b>
+                    </span>
+                  ) : (
+                    <b>{service.price}</b>
+                  )}
                 </div>
                 <button
                   className="secondary-button small"
@@ -6317,8 +6337,9 @@ function ServiceDetail({
             <div>
               <span className="detail-highlight-icon mint">Rp</span>
               <p>
+                {service.originalPrice ? <s className="service-detail-old-price">{formatRupiah(service.originalPrice)}</s> : null}
                 <b>{service.price}</b>
-                <small>Estimasi biaya layanan</small>
+                <small>{service.discountPercent ? `Promo hemat ${service.discountPercent}%` : "Estimasi biaya layanan"}</small>
               </p>
             </div>
             <div>
@@ -8069,7 +8090,11 @@ function BookingModal({
               </span>
               <span className="total">
                 <small>Total pembayaran</small>
-                <b>{formatRupiah(service.priceValue || 0)}</b>
+                <span className="service-checkout-price">
+                  {service.originalPrice ? <s>{formatRupiah(service.originalPrice)}</s> : null}
+                  <b>{formatRupiah(service.priceValue || 0)}</b>
+                  {service.discountPercent ? <em>Hemat {service.discountPercent}%</em> : null}
+                </span>
               </span>
             </div>
             {service.priceValue > 0 && (

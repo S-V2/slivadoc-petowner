@@ -10,6 +10,8 @@ export type Service = {
   rating: string;
   distance: string;
   price: string;
+  originalPrice?: number;
+  discountPercent?: number;
   status: string;
   imageUrl?: string;
   imageUrls?: string[];

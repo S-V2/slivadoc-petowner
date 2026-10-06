@@ -50,6 +50,7 @@ import {
   passMobilePawDatingProfile,
   registerMobileEvent,
   respondMobilePawDatingInterest,
+  saveMobileAcademyProgramReview,
   sendMobilePawDatingInterest,
   submitMobilePawDatingProfile,
   trackMobileAcademyProgramClick,
@@ -521,6 +522,9 @@ export function WorldScreen({
   const [selectedAcademyPetID, setSelectedAcademyPetID] = useState("");
   const [selectedAcademyScheduleID, setSelectedAcademyScheduleID] =
     useState("");
+  const [academyReviewRating, setAcademyReviewRating] = useState(5);
+  const [academyReviewComment, setAcademyReviewComment] = useState("");
+  const [academyReviewBusy, setAcademyReviewBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("qris");
@@ -836,6 +840,49 @@ export function WorldScreen({
       );
     }
   };
+  const submitAcademyReview = async () => {
+    if (!selected || mode !== "academy") return;
+    if (!owner) {
+      onLogin();
+      return;
+    }
+    if (academyReviewComment.trim().length < 10) {
+      onAction("Tulis komentar minimal 10 karakter");
+      return;
+    }
+    setAcademyReviewBusy(true);
+    try {
+      await saveMobileAcademyProgramReview(selected.id, {
+        rating: academyReviewRating,
+        comment: academyReviewComment.trim(),
+      });
+      const detail = await getMobileAcademyProgram(selected.id);
+      setSelected(detail);
+      setItems((current) => ({
+        ...current,
+        academy: current.academy.map((item) =>
+          item.id === detail.id
+            ? {
+                ...item,
+                rating: detail.rating,
+                review_count: detail.review_count,
+                participant_count: detail.participant_count,
+              }
+            : item,
+        ),
+      }));
+      setAcademyReviewComment("");
+      onAction("Ulasan terverifikasi berhasil dipublikasikan");
+    } catch (cause) {
+      onAction(
+        cause instanceof Error
+          ? cause.message
+          : "Ulasan Academy belum dapat disimpan",
+      );
+    } finally {
+      setAcademyReviewBusy(false);
+    }
+  };
   useEffect(() => {
     if (!intent || loading || handledIntent.current === intent.token) return;
     queueMicrotask(() => {
@@ -961,6 +1008,8 @@ export function WorldScreen({
     if (mode === "academy") {
       setSelectedAcademyPetID("");
       setSelectedAcademyScheduleID("");
+      setAcademyReviewRating(5);
+      setAcademyReviewComment("");
     }
     setSelected(item);
     if (mode === "pawdating") {
@@ -1730,21 +1779,56 @@ export function WorldScreen({
               <Pressable
                 key={item.id}
                 onPress={() => openItem(item)}
-                style={styles.card}
+                style={[
+                  styles.card,
+                  mode === "academy" && styles.academyProgramCard,
+                ]}
               >
                 <View
                   style={[
                     styles.visual,
+                    mode === "academy" && styles.academyProgramVisual,
                     index % 3 === 1 && styles.visualPeach,
                     index % 3 === 2 && styles.visualViolet,
                   ]}
                 >
-                  {mode === "petspot" && item.cover_url ? <Image alt="" source={{ uri: item.cover_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
-                  <Ionicons
-                    name={worldIcon(mode, item)}
-                    size={38}
-                    color={colors.sky600}
-                  />
+                  {(["academy", "petspot"].includes(mode) &&
+                    (item.cover_url || item.image_urls?.[0])) ? (
+                    <Image
+                      alt=""
+                      source={{ uri: item.cover_url || item.image_urls?.[0] }}
+                      style={StyleSheet.absoluteFill}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Ionicons
+                      name={worldIcon(mode, item)}
+                      size={38}
+                      color={colors.sky600}
+                    />
+                  )}
+                  {mode === "academy" && item.featured ? (
+                    <View style={styles.academyFeaturedBadge}>
+                      <Ionicons name="sparkles" size={10} color={colors.white} />
+                      <Text style={styles.academyFeaturedText}>PILIHAN</Text>
+                    </View>
+                  ) : null}
+                  {mode === "academy" && item.discount_percent ? (
+                    <View style={styles.academyDiscountBadge}>
+                      <Text style={styles.academyDiscountText}>-{Math.round(item.discount_percent)}%</Text>
+                    </View>
+                  ) : null}
+                  {mode === "consult" && item.discount_percent ? (
+                    <View style={styles.academyDiscountBadge}>
+                      <Text style={styles.academyDiscountText}>-{Math.round(item.discount_percent)}%</Text>
+                    </View>
+                  ) : null}
+                  {mode === "academy" && (item.image_urls?.length ?? 0) > 1 ? (
+                    <View style={styles.academyGalleryBadge}>
+                      <Ionicons name="images-outline" size={11} color={colors.white} />
+                      <Text style={styles.academyGalleryText}>{item.image_urls?.length}</Text>
+                    </View>
+                  ) : null}
                   {mode === "pawdating" ? (
                     <View style={styles.verified}>
                       <Text style={styles.verifiedText}>
@@ -1785,8 +1869,39 @@ export function WorldScreen({
                         ? `${item.trainer_name || item.doctor_name || "Provider"} · ${(item.specialties ?? []).join(" · ") || "Spesialisasi umum"}`
                         : item.description}
                   </Text>
+                  {mode === "academy" ? (
+                    <View style={styles.academyProgramStats}>
+                      <View style={styles.academyProgramStat}>
+                        <Ionicons name="people-outline" size={12} color={colors.sky600} />
+                        <Text style={styles.academyProgramStatText}>
+                          {formatNumber(item.participant_count ?? 0)} peserta
+                        </Text>
+                      </View>
+                      <View style={styles.academyProgramStat}>
+                        <Ionicons name="star" size={12} color="#E6A51C" />
+                        <Text style={styles.academyProgramStatText}>
+                          {(item.review_count ?? 0) > 0
+                            ? `${(item.rating ?? 0).toFixed(1)} · ${formatNumber(item.review_count ?? 0)} ulasan`
+                            : "Belum dinilai"}
+                        </Text>
+                      </View>
+                      <View style={styles.academyProgramStat}>
+                        <Ionicons name="time-outline" size={12} color="#128464" />
+                        <Text style={styles.academyProgramStatText}>
+                          Sejak {item.running_since ? formatDate(item.running_since, { month: "short", year: "numeric" }) : "baru"}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
                   <View style={styles.cardFooter}>
-                    <Text style={styles.cardPrice}>
+                    <View style={styles.cardPriceBlock}>
+                      {item.original_price &&
+                      item.original_price > Number(item.price ?? item.total_fee ?? 0) ? (
+                        <Text style={styles.cardOriginalPrice}>
+                          {money(item.original_price)}
+                        </Text>
+                      ) : null}
+                      <Text style={styles.cardPrice}>
                       {mode === "pawdating"
                         ? `✓ ${item.eligibility_status === "eligible" ? "Verified eligible" : "Conditional"}`
                         : mode === "academy"
@@ -1803,8 +1918,9 @@ export function WorldScreen({
                                   ? `${item.breed || "Pet"} · ${item.vaccinated ? "Vaksin lengkap" : "Vaksin diproses"}`
                                   : mode === "documents"
                                     ? money(item.total_fee ?? item.price)
-                                    : item.channel_name}
-                    </Text>
+                                  : item.channel_name}
+                      </Text>
+                    </View>
                     <View style={styles.arrow}>
                       <Ionicons
                         name="arrow-forward"
@@ -1881,6 +1997,66 @@ export function WorldScreen({
                     {selected?.title || selected?.name}
                   </Text>
                   <Text style={styles.sheetNote}>{selected?.description}</Text>
+                  {(["academy", "consult"].includes(mode) &&
+                    Number(selected?.price ?? selected?.total_fee ?? 0) > 0) ? (
+                    <View style={styles.worldPromoPrice}>
+                      <View style={styles.worldPromoPriceCopy}>
+                        <Text style={styles.worldPromoLabel}>
+                          {selected?.discount_percent
+                            ? `PROMO ${Math.round(selected.discount_percent)}%`
+                            : "BIAYA PROGRAM"}
+                        </Text>
+                        {selected?.original_price &&
+                        selected.original_price >
+                          Number(selected.price ?? selected.total_fee ?? 0) ? (
+                          <Text style={styles.worldPromoOriginal}>
+                            {money(selected.original_price)}
+                          </Text>
+                        ) : null}
+                        <Text style={styles.worldPromoFinal}>
+                          {money(selected?.price ?? selected?.total_fee)}
+                        </Text>
+                      </View>
+                      {selected?.discount_percent ? (
+                        <View style={styles.worldPromoSaving}>
+                          <Ionicons name="pricetag" size={15} color="#128464" />
+                          <Text style={styles.worldPromoSavingText}>
+                            Harga spesial Slivadoc
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
+                  {mode === "academy" ? (
+                    <View style={styles.academySocialSummary}>
+                      <View style={styles.academySocialItem}>
+                        <Text style={styles.academySocialValue}>
+                          {formatNumber(selected?.participant_count ?? 0)}
+                        </Text>
+                        <Text style={styles.academySocialLabel}>Peserta</Text>
+                      </View>
+                      <View style={styles.academySocialDivider} />
+                      <View style={styles.academySocialItem}>
+                        <Text style={styles.academySocialValue}>
+                          {(selected?.review_count ?? 0) > 0
+                            ? `★ ${(selected?.rating ?? 0).toFixed(1)}`
+                            : "Baru"}
+                        </Text>
+                        <Text style={styles.academySocialLabel}>
+                          {formatNumber(selected?.review_count ?? 0)} ulasan
+                        </Text>
+                      </View>
+                      <View style={styles.academySocialDivider} />
+                      <View style={styles.academySocialItem}>
+                        <Text style={styles.academySocialValue}>
+                          {selected?.running_since
+                            ? formatDate(selected.running_since, { month: "short", year: "numeric" })
+                            : "Baru"}
+                        </Text>
+                        <Text style={styles.academySocialLabel}>Berjalan sejak</Text>
+                      </View>
+                    </View>
+                  ) : null}
                   <View style={styles.details}>
                     <View style={styles.detail}>
                       <Text style={styles.detailLabel}>
@@ -2027,6 +2203,111 @@ export function WorldScreen({
                       {!(selected?.schedules ?? []).length ? (
                         <Text style={styles.academyEmptySchedule}>Jadwal kelas belum dibuka oleh academy.</Text>
                       ) : null}
+                      <View style={styles.academyReviewSection}>
+                        <View style={styles.academyReviewHead}>
+                          <View>
+                            <Text style={styles.formTitle}>Review & komentar</Text>
+                            <Text style={styles.formNote}>
+                              Cerita asli dari peserta terverifikasi.
+                            </Text>
+                          </View>
+                          <View style={styles.academyReviewCount}>
+                            <Text style={styles.academyReviewCountText}>
+                              {formatNumber(selected?.review_count ?? selected?.reviews?.length ?? 0)}
+                            </Text>
+                          </View>
+                        </View>
+                        {(selected?.reviews ?? []).length ? (
+                          <View style={styles.academyReviewList}>
+                            {(selected?.reviews ?? []).map((review) => (
+                              <View key={review.id} style={styles.academyReviewCard}>
+                                <View style={styles.academyReviewerAvatar}>
+                                  <Text style={styles.academyReviewerInitial}>
+                                    {review.reviewer_name.slice(0, 1).toUpperCase()}
+                                  </Text>
+                                </View>
+                                <View style={styles.academyReviewCopy}>
+                                  <View style={styles.academyReviewerRow}>
+                                    <Text style={styles.academyReviewerName}>
+                                      {review.reviewer_name}
+                                    </Text>
+                                    {review.verified_enrollment ? (
+                                      <View style={styles.academyVerifiedReview}>
+                                        <Ionicons name="checkmark-circle" size={11} color="#128464" />
+                                        <Text style={styles.academyVerifiedReviewText}>Peserta</Text>
+                                      </View>
+                                    ) : null}
+                                  </View>
+                                  <Text style={styles.academyReviewStars}>
+                                    {"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}
+                                  </Text>
+                                  <Text style={styles.academyReviewComment}>
+                                    {review.comment}
+                                  </Text>
+                                  <Text style={styles.academyReviewMeta}>
+                                    {review.pet_name ? `${review.pet_name} · ` : ""}
+                                    {formatDate(review.created_at, { dateStyle: "medium" })}
+                                  </Text>
+                                </View>
+                              </View>
+                            ))}
+                          </View>
+                        ) : (
+                          <View style={styles.academyEmptyReview}>
+                            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.sky600} />
+                            <Text style={styles.academyEmptyReviewText}>
+                              Belum ada review. Peserta kelas bisa menjadi yang pertama.
+                            </Text>
+                          </View>
+                        )}
+                        <View style={styles.academyReviewComposer}>
+                          <Text style={styles.formLabel}>BAGIKAN PENGALAMAN KELAS</Text>
+                          <View style={styles.academyRatingRow}>
+                            {[1, 2, 3, 4, 5].map((rating) => (
+                              <Pressable
+                                key={rating}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Beri rating ${rating}`}
+                                onPress={() => setAcademyReviewRating(rating)}
+                                style={styles.academyRatingButton}
+                              >
+                                <Ionicons
+                                  name={rating <= academyReviewRating ? "star" : "star-outline"}
+                                  size={23}
+                                  color="#E6A51C"
+                                />
+                              </Pressable>
+                            ))}
+                          </View>
+                          <TextInput
+                            value={academyReviewComment}
+                            onChangeText={setAcademyReviewComment}
+                            placeholder="Ceritakan progres pet, trainer, dan pengalaman kelasmu…"
+                            placeholderTextColor={colors.muted}
+                            multiline
+                            maxLength={600}
+                            style={styles.academyReviewInput}
+                          />
+                          <Pressable
+                            accessibilityRole="button"
+                            disabled={academyReviewBusy || academyReviewComment.trim().length < 10}
+                            onPress={() => void submitAcademyReview()}
+                            style={[
+                              styles.academyReviewSubmit,
+                              (academyReviewBusy || academyReviewComment.trim().length < 10) &&
+                                styles.academyReviewSubmitDisabled,
+                            ]}
+                          >
+                            <Ionicons name="send" size={15} color={colors.white} />
+                            <Text style={styles.academyReviewSubmitText}>
+                              {academyReviewBusy ? "Mengirim…" : "Kirim review terverifikasi"}
+                            </Text>
+                          </Pressable>
+                          <Text style={styles.academyReviewRule}>
+                            Review hanya dapat dikirim oleh pet owner yang sudah terdaftar di kelas ini.
+                          </Text>
+                        </View>
+                      </View>
                     </View>
                   ) : null}
                   {mode === "events" && selected?.ticket_unit === "owner_pet" ? (
@@ -3421,6 +3702,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     ...shadow,
   },
+  academyProgramCard: { minHeight: 0, flexDirection: "column", borderRadius: 20 },
   visual: {
     position: "relative",
     width: 96,
@@ -3428,6 +3710,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.mint50,
   },
+  academyProgramVisual: { width: "100%", height: 186 },
+  academyFeaturedBadge: { position: "absolute", left: 10, top: 10, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 9, backgroundColor: "rgba(8,99,145,.92)" },
+  academyFeaturedText: { color: colors.white, fontSize: 8, fontWeight: "700", letterSpacing: 0.7 },
+  academyDiscountBadge: { position: "absolute", right: 10, top: 10, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 9, backgroundColor: "#F16F5A" },
+  academyDiscountText: { color: colors.white, fontSize: 9, fontWeight: "700" },
+  academyGalleryBadge: { position: "absolute", right: 10, bottom: 10, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 99, backgroundColor: "rgba(7,35,57,.72)" },
+  academyGalleryText: { color: colors.white, fontSize: 9, fontWeight: "700" },
   visualPeach: { backgroundColor: "#FFF0E5" },
   visualViolet: { backgroundColor: colors.violet50 },
   visualEmoji: { fontSize: 41 },
@@ -3461,6 +3750,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   cardNote: { marginTop: 4, color: colors.muted, fontSize: 10, lineHeight: 15 },
+  academyProgramStats: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 10 },
+  academyProgramStat: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 5, borderRadius: 8, backgroundColor: "#F0F8FB" },
+  academyProgramStatText: { color: colors.text, fontSize: 8, fontWeight: "600" },
   cardFooter: {
     flexDirection: "row",
     alignItems: "center",
@@ -3475,6 +3767,8 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
+  cardPriceBlock: { minWidth: 0, flex: 1 },
+  cardOriginalPrice: { marginBottom: 2, color: colors.muted, fontSize: 8, textDecorationLine: "line-through" },
   arrow: {
     width: 31,
     height: 31,
@@ -3596,6 +3890,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
+  worldPromoPrice: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 13, padding: 13, borderWidth: 1, borderColor: "#CFEAF5", borderRadius: 15, backgroundColor: "#F0FAFE" },
+  worldPromoPriceCopy: { minWidth: 0, flex: 1 },
+  worldPromoLabel: { color: "#D55443", fontSize: 8, fontWeight: "700", letterSpacing: 0.7 },
+  worldPromoOriginal: { marginTop: 4, color: colors.muted, fontSize: 9, textDecorationLine: "line-through" },
+  worldPromoFinal: { marginTop: 1, color: colors.sky600, fontSize: 19, fontWeight: "700" },
+  worldPromoSaving: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 7, borderRadius: 9, backgroundColor: "#E8F8F2" },
+  worldPromoSavingText: { color: "#128464", fontSize: 8, fontWeight: "700" },
+  academySocialSummary: { flexDirection: "row", alignItems: "stretch", marginTop: 10, paddingVertical: 11, borderWidth: 1, borderColor: colors.sky100, borderRadius: 15, backgroundColor: colors.white },
+  academySocialItem: { minWidth: 0, flex: 1, alignItems: "center", paddingHorizontal: 4 },
+  academySocialValue: { color: colors.navy, fontSize: 11, fontWeight: "700", textAlign: "center" },
+  academySocialLabel: { marginTop: 3, color: colors.muted, fontSize: 7, textAlign: "center" },
+  academySocialDivider: { width: 1, backgroundColor: colors.line },
   details: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -4246,6 +4552,32 @@ const styles = StyleSheet.create({
   academyScheduleMeta: { color: colors.muted, fontSize: 9, marginTop: 2 },
   academyScheduleSeats: { color: "#128464", fontSize: 9, fontWeight: "700", marginTop: 3 },
   academyEmptySchedule: { color: "#A15D20", fontSize: 10, padding: 11, borderRadius: 11, backgroundColor: "#FFF5E7" },
+  academyReviewSection: { gap: 11, marginTop: 8, paddingTop: 15, borderTopWidth: 1, borderTopColor: "#DCEAF1" },
+  academyReviewHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  academyReviewCount: { minWidth: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "#E7F7FD" },
+  academyReviewCountText: { color: colors.sky600, fontSize: 11, fontWeight: "700" },
+  academyReviewList: { gap: 8 },
+  academyReviewCard: { flexDirection: "row", alignItems: "flex-start", gap: 9, padding: 11, borderWidth: 1, borderColor: "#DFEBF1", borderRadius: 14, backgroundColor: colors.white },
+  academyReviewerAvatar: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "#DBF2FB" },
+  academyReviewerInitial: { color: colors.sky600, fontSize: 14, fontWeight: "700" },
+  academyReviewCopy: { minWidth: 0, flex: 1 },
+  academyReviewerRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 },
+  academyReviewerName: { color: colors.navy, fontSize: 10, fontWeight: "700" },
+  academyVerifiedReview: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 5, paddingVertical: 3, borderRadius: 6, backgroundColor: "#E8F8F2" },
+  academyVerifiedReviewText: { color: "#128464", fontSize: 7, fontWeight: "700" },
+  academyReviewStars: { marginTop: 3, color: "#E6A51C", fontSize: 10, letterSpacing: 0.5 },
+  academyReviewComment: { marginTop: 5, color: colors.text, fontSize: 10, lineHeight: 16 },
+  academyReviewMeta: { marginTop: 5, color: colors.muted, fontSize: 8 },
+  academyEmptyReview: { flexDirection: "row", alignItems: "center", gap: 9, padding: 11, borderRadius: 13, backgroundColor: "#EEF9FD" },
+  academyEmptyReviewText: { minWidth: 0, flex: 1, color: colors.muted, fontSize: 9, lineHeight: 14 },
+  academyReviewComposer: { gap: 8, padding: 11, borderWidth: 1, borderColor: "#D7EAF3", borderRadius: 15, backgroundColor: colors.white },
+  academyRatingRow: { flexDirection: "row", gap: 3 },
+  academyRatingButton: { width: 33, height: 33, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: "#FFF9E9" },
+  academyReviewInput: { minHeight: 92, maxHeight: 150, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: "#D7E5EC", borderRadius: 13, color: colors.text, fontSize: 11, lineHeight: 17, textAlignVertical: "top", backgroundColor: "#FAFCFD" },
+  academyReviewSubmit: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 12, backgroundColor: colors.sky600 },
+  academyReviewSubmitDisabled: { opacity: 0.42 },
+  academyReviewSubmitText: { color: colors.white, fontSize: 10, fontWeight: "700" },
+  academyReviewRule: { color: colors.muted, fontSize: 8, lineHeight: 12, textAlign: "center" },
   pawChatBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(14,32,55,.45)" },
   pawChatSheet: { height: "88%", borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: colors.white, overflow: "hidden" },
   pawChatHeader: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.sky100 },

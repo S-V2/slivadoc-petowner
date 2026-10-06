@@ -219,6 +219,10 @@ function ProductCard({
   onStore: () => void;
   onFavorite: () => void;
 }) {
+  const discountPercent =
+    product.originalPrice && product.originalPrice > product.price
+      ? Math.round((1 - product.price / product.originalPrice) * 100)
+      : 0;
   const badge = !product.available
     ? "Stok habis"
     : product.soldCount >= 25
@@ -249,6 +253,9 @@ function ProductCard({
         >
           {badge}
         </span>
+        {discountPercent > 0 ? (
+          <span className="market-discount-badge">-{discountPercent}%</span>
+        ) : null}
         <button
           className={`market-favorite ${favorite ? "is-favorite" : ""}`}
           type="button"
@@ -291,9 +298,12 @@ function ProductCard({
             <small>{storePresenceLabel(Boolean(product.storeIsOnline), product.storeLastSeenAt)}</small>
           </span>
         </button>
-        <strong className="market-card-price">
-          {formatRupiah(product.price)}
-        </strong>
+        <div className="market-card-price-wrap">
+          {discountPercent > 0 ? (
+            <span><s>{formatRupiah(product.originalPrice!)}</s><em>Hemat {discountPercent}%</em></span>
+          ) : null}
+          <strong className="market-card-price">{formatRupiah(product.price)}</strong>
+        </div>
         <div className="market-card-social-proof">
           <span>
             <Icon name="star" size={12} />
@@ -616,6 +626,10 @@ function ProductDetail({
 }) {
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
+  const discountPercent =
+    product.originalPrice && product.originalPrice > product.price
+      ? Math.round((1 - product.price / product.originalPrice) * 100)
+      : 0;
   async function addProduct() {
     if (adding || !product.available) return;
     setAdding(true);
@@ -714,9 +728,13 @@ function ProductDetail({
             <i />
             <span>{compactNumber(product.soldCount)} terjual</span>
           </div>
-          <strong className="market-detail-price">
-            {formatRupiah(product.price)}
-          </strong>
+          <div className="market-detail-price-block">
+            {discountPercent > 0 ? (
+              <span><em>-{discountPercent}%</em><s>{formatRupiah(product.originalPrice!)}</s></span>
+            ) : null}
+            <strong className="market-detail-price">{formatRupiah(product.price)}</strong>
+            {discountPercent > 0 ? <small>Kamu hemat {formatRupiah(product.originalPrice! - product.price)}</small> : null}
+          </div>
           <p className="market-detail-points">
             <Icon name="sparkle" size={15} />
             Transaksi ini menghasilkan{" "}

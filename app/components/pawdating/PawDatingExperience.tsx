@@ -378,6 +378,13 @@ export default function PawDatingExperience({
           ? "Match dibuat. Ruang diskusi sudah aman dibuka."
           : "Permintaan ditolak dengan aman.",
       );
+      if (action === "accept" && result.match_id) {
+        setChatInterest({
+          ...interest,
+          status: "matched",
+          match_id: result.match_id,
+        });
+      }
     } catch (error) {
       notify(
         error instanceof Error ? error.message : "Respons belum dapat disimpan",

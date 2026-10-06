@@ -783,6 +783,50 @@ export type AcademyProgram = {
   trainer_name: string;
   trainer_rating: number;
   next_schedule: string;
+  supported_species?: string[];
+};
+
+export type AcademyTrainer = {
+  id: string;
+  academy_id: string;
+  academy_name: string;
+  full_name: string;
+  bio: string;
+  specialties: string[];
+  pet_types: string[];
+  certification: string;
+  experience_years: number;
+  rating: number;
+  photo_url: string;
+  status: string;
+  program_count?: number;
+  programs?: Array<{
+    id: string;
+    title: string;
+    category: string;
+    level: string;
+    price: number;
+    duration_weeks: number;
+    session_count: number;
+    supported_species: string[];
+  }>;
+};
+
+export type AcademySchedule = {
+  id: string;
+  trainer_id?: string;
+  trainer_name: string;
+  starts_at: string;
+  ends_at: string;
+  location: string;
+  online_url: string;
+  remaining_capacity: number;
+};
+
+export type AcademyProgramDetail = AcademyProgram & {
+  supported_species: string[];
+  trainers: AcademyTrainer[];
+  schedules: AcademySchedule[];
 };
 
 export type PetEvent = {
@@ -1304,6 +1348,29 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const getAcademyPrograms = () =>
   request<PlatformList<AcademyProgram>>("/api/v1/public/academy/programs");
 
+export const getAcademyProgram = (programId: string) =>
+  request<AcademyProgramDetail>(
+    `/api/v1/public/academy/programs/${programId}`,
+  );
+
+export const getAcademyTrainers = (input?: {
+  academy_id?: string;
+  species?: string;
+  q?: string;
+}) => {
+  const params = new URLSearchParams();
+  if (input?.academy_id) params.set("academy_id", input.academy_id);
+  if (input?.species) params.set("species", input.species);
+  if (input?.q) params.set("q", input.q);
+  const query = params.toString();
+  return request<PlatformList<AcademyTrainer>>(
+    `/api/v1/public/academy/trainers${query ? `?${query}` : ""}`,
+  );
+};
+
+export const getAcademyTrainer = (trainerId: string) =>
+  request<AcademyTrainer>(`/api/v1/public/academy/trainers/${trainerId}`);
+
 export const trackAcademyProgramClick = (programId: string) =>
   request<void>(`/api/v1/public/academy/programs/${programId}/click`, {
     method: "POST",
@@ -1313,6 +1380,8 @@ export const enrollAcademy = (input: {
   program_id: string;
   participant_name: string;
   pet_name: string;
+  pet_id?: string;
+  schedule_id?: string;
 }) =>
   request<{ id: string; status: string; amount: number; message: string }>(
     "/api/v1/academy/enrollments",

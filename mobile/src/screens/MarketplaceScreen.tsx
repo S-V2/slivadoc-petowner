@@ -523,7 +523,7 @@ export function MarketplaceScreen({
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [payment, setPayment] = useState<MobilePaymentIntent>();
   const [voucher, setVoucher] = useState("");
   const [points, setPoints] = useState("");
@@ -1237,6 +1237,10 @@ export function MarketplaceScreen({
     if (!cartItems.length) return;
     if (!checkoutReady) {
       onAction("Lengkapi tujuan dan tunggu ongkir selesai dihitung");
+      return;
+    }
+    if (!paymentMethod) {
+      onAction("Tunggu hingga pembayaran QRIS tersedia.");
       return;
     }
     setCheckoutBusy(true);
@@ -3300,7 +3304,7 @@ function CartSheet({
             </View>
           </View>
           <PrimaryButton
-            disabled={checkoutBusy || !checkoutReady}
+            disabled={checkoutBusy || !checkoutReady || !paymentMethod}
             label={
               checkoutBusy
                 ? "Menyiapkan pembayaran…"

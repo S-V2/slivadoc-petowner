@@ -7735,7 +7735,7 @@ function BookingModal({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [consent, setConsent] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const selectedDay = availability?.data.find((item) => item.date === date);
   const selectedSlot = selectedDay?.slots.find(
@@ -7817,6 +7817,10 @@ function BookingModal({
       setMessage(
         "Persetujuan kebijakan pembatalan dan penggunaan data wajib diberikan.",
       );
+      return;
+    }
+    if (service.priceValue > 0 && !paymentMethod) {
+      setMessage("Tunggu hingga pembayaran QRIS tersedia.");
       return;
     }
     setBusy(true);
@@ -8143,7 +8147,8 @@ function BookingModal({
             disabled={
               busy ||
               (step === 1 && !pet?.id) ||
-              (step === 2 && (!startsAt || availabilityLoading))
+              (step === 2 && (!startsAt || availabilityLoading)) ||
+              (step === 3 && service.priceValue > 0 && !paymentMethod)
             }
             onClick={() => (step < 3 ? setStep(step + 1) : void confirm())}
           >
@@ -8252,7 +8257,7 @@ function CartDrawer({
   const [voucherInput, setVoucherInput] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState("");
   const [voucherBusy, setVoucherBusy] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const pendingOrder = useRef<{ id: string; key: string } | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<"cart" | "shipping">("cart");
@@ -8703,6 +8708,10 @@ function CartDrawer({
     }
     if (!quote) {
       notify(quoteError || "Tunggu ringkasan keranjang selesai dihitung");
+      return;
+    }
+    if (!paymentMethod) {
+      notify("Tunggu hingga pembayaran QRIS tersedia.");
       return;
     }
     setBusy(true);
@@ -9165,7 +9174,7 @@ function CartDrawer({
                 <button
                   className="primary-button full"
                   type="button"
-                  disabled={busy}
+                  disabled={busy || !paymentMethod}
                   onClick={() => void checkout()}
                 >
                   {busy ? "Membuat pembayaran…" : "Lanjut ke pembayaran"}{" "}

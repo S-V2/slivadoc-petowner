@@ -58,6 +58,73 @@ const pendingPayment = paymentIntent({
   amount: pricing.total_amount,
 });
 
+test("QRIS waits for the API, hides configuration errors, and recovers on retry", async ({ page }) => {
+  await page.addInitScript((productID) => {
+    localStorage.setItem("slivadoc.access_token", "payment-test-token");
+    localStorage.setItem("slivadoc.refresh_token", "payment-test-refresh");
+    localStorage.setItem("slivadoc.access_expires_at", String(Date.now() + 3_600_000));
+    localStorage.setItem("slivadoc.cart", JSON.stringify({ [productID]: 1 }));
+  }, product.id);
+
+  let methodRequests = 0;
+  let createdOrders = 0;
+  let releaseFirstRequest: () => void = () => undefined;
+  const firstRequest = new Promise<void>((resolve) => { releaseFirstRequest = resolve; });
+  await page.route("**/api/v1/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+    if (path === "/api/v1/auth/me") return json({ ...petOwner, role: "pet_owner" });
+    if (path === "/api/v1/petowner/bootstrap") return json(petOwnerBootstrap());
+    if (path === "/api/v1/public/discovery/products") return json({ data: [product], count: 1 });
+    if (path === "/api/v1/public/discovery/services" || path === "/api/v1/public/campaigns") return json({ data: [], count: 0 });
+    if (path === "/api/v1/petowner/shipping-addresses") return json({ addresses: [address] });
+    if (path === "/api/v1/petowner/orders/quote") return json(quote);
+    if (path === "/api/v1/petowner/orders") { createdOrders += 1; return json({ ...pricing, id: orderID, order_number: "SHOP-QRIS-RETRY", status: "pending_payment", payment_status: "pending", reference_type: "shop_order" }, 201); }
+    if (path === "/api/v1/payment-methods") {
+      expect(request.headers().authorization).toBe("Bearer payment-test-token");
+      methodRequests += 1;
+      if (methodRequests === 1) {
+        await firstRequest;
+        return json({ code: "yokke_not_configured", message: "konfigurasi Yokke belum lengkap: YOKKE_CLIENT_SECRET, YOKKE_PRIVATE_KEY_BASE64" }, 503);
+      }
+      if (methodRequests === 2) return json({ ...paymentMethods(), data: [] });
+      const methods = paymentMethods();
+      return json({ ...methods, data: [...methods.data, { code: "bank_transfer", method: "bank_transfer", label: "Transfer bank", description: "Other method" }, ...methods.data] });
+    }
+    return route.fulfill({ status: 404, body: "Unmocked API route" });
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?view=shop", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("link", { name: "Lihat detail Test Food" })).toBeVisible();
+  await page.getByRole("button", { name: "Keranjang", exact: true }).last().click();
+  await page.getByRole("button", { name: "Atur pengiriman" }).click();
+  const picker = page.locator(".qris-methods");
+  const checkout = page.getByRole("button", { name: "Lanjut ke pembayaran" });
+  await expect(picker.getByRole("status")).toHaveText("Memuat metode pembayaran…");
+  await expect(checkout).toBeDisabled();
+  releaseFirstRequest();
+  await expect(picker.getByRole("alert")).toContainText("Pembayaran QRIS sementara belum tersedia. Coba lagi.");
+  await expect(picker).not.toContainText("YOKKE_");
+  await expect(picker).not.toContainText("konfigurasi");
+  await expect(checkout).toBeDisabled();
+  expect(createdOrders).toBe(0);
+
+  await picker.getByRole("button", { name: "Coba lagi" }).click();
+  await expect(picker.getByRole("alert")).toBeVisible();
+  await expect(checkout).toBeDisabled();
+  await picker.getByRole("button", { name: "Coba lagi" }).click();
+  const qris = picker.getByRole("button", { name: /QRIS/ });
+  await expect(qris).toHaveCount(1);
+  await expect(qris).toHaveAttribute("aria-pressed", "true");
+  await expect(checkout).toBeEnabled();
+  await expect(picker).not.toContainText("Transfer bank");
+  await qris.click();
+  expect(methodRequests).toBe(3);
+  expect(createdOrders).toBe(0);
+});
+
 test("mobile checkout keeps address readable and confirms paid orders", async ({ page }) => {
   await page.addInitScript((productID) => {
     localStorage.setItem("slivadoc.access_token", "payment-test-token");

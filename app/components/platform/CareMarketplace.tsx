@@ -1168,7 +1168,7 @@ function ConsultBooking({
   const [timezone, setTimezone] = useState("Asia/Jakarta");
   const [selectedSlot, setSelectedSlot] = useState("");
   const [availabilityLoading, setAvailabilityLoading] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [paymentMethod, setPaymentMethod] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -1197,6 +1197,7 @@ function ConsultBooking({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!requireLogin(notify)) return;
+    if (planCharge(plan) > 0 && !paymentMethod) return;
     if (plan.mode !== "chat" && !selectedSlot) {
       notify("Pilih slot jadwal yang tersedia untuk telepon atau video call.");
       return;
@@ -1311,7 +1312,7 @@ function ConsultBooking({
       <button
         className="primary-button full"
         disabled={
-          busy || availabilityLoading || (plan.mode !== "chat" && !slots.length)
+          busy || availabilityLoading || (planCharge(plan) > 0 && !paymentMethod) || (plan.mode !== "chat" && !slots.length)
         }
       >
         {busy
@@ -1342,7 +1343,7 @@ function TrainerConsultBooking({
   const [timezone, setTimezone] = useState("Asia/Jakarta");
   const [selectedSlot, setSelectedSlot] = useState("");
   const [availabilityLoading, setAvailabilityLoading] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [paymentMethod, setPaymentMethod] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -1371,6 +1372,7 @@ function TrainerConsultBooking({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!requireLogin(notify)) return;
+    if (planCharge(plan) > 0 && !paymentMethod) return;
     if (plan.mode !== "chat" && !selectedSlot) {
       notify("Pilih slot jadwal yang tersedia untuk telepon atau video call.");
       return;
@@ -1493,7 +1495,7 @@ function TrainerConsultBooking({
       <button
         className="primary-button full"
         disabled={
-          busy || availabilityLoading || (plan.mode !== "chat" && !slots.length)
+          busy || availabilityLoading || (planCharge(plan) > 0 && !paymentMethod) || (plan.mode !== "chat" && !slots.length)
         }
       >
         {busy
@@ -2142,7 +2144,7 @@ function DocumentModal({
 }) {
   const [done, setDone] = useState("");
   const [busy, setBusy] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [requestNumber, setRequestNumber] = useState("");
   const [requestId, setRequestId] = useState("");
@@ -2153,6 +2155,7 @@ function DocumentModal({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!requireLogin(notify)) return;
+    if (item.total_fee > 0 && !paymentMethod) return;
     setBusy(true);
     const v = Object.fromEntries(new FormData(event.currentTarget));
     try {
@@ -2295,7 +2298,7 @@ function DocumentModal({
               )}
               <button
                 className="primary-button full"
-                disabled={busy || !allUploaded}
+                disabled={busy || !allUploaded || (item.total_fee > 0 && !paymentMethod)}
               >
                 {busy
                   ? "Membuat pembayaran…"

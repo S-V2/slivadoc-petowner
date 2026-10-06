@@ -13,6 +13,12 @@ import {
 export type PetOwnerLanguage = "id" | "en";
 
 const english: Record<string, string> = {
+  "Metode pembayaran": "Payment method",
+  "Memuat metode pembayaran…": "Loading payment methods…",
+  "Pembayaran QRIS sementara belum tersedia. Coba lagi.": "QRIS payment is temporarily unavailable. Please try again.",
+  "Sesi Anda berakhir. Silakan login kembali.": "Your session has expired. Please sign in again.",
+  "Pindai kode QR dengan aplikasi pembayaran pilihan Anda.": "Scan the QR code with your preferred payment app.",
+  "Coba lagi": "Try again",
   "Beranda": "Home",
   "Hewan Saya": "My Pets",
   "Jelajahi": "Explore",

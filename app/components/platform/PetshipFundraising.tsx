@@ -413,10 +413,11 @@ function DonationModal({
 }) {
   const [amount, setAmount] = useState("100000");
   const [busy, setBusy] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!paymentMethod) return;
     setBusy(true);
     const values = Object.fromEntries(new FormData(event.currentTarget));
     try {
@@ -503,7 +504,7 @@ function DonationModal({
               />
               <button
                 className="primary-button full"
-                disabled={busy || Number(amount) < 10000}
+                disabled={busy || !paymentMethod || Number(amount) < 10000}
               >
                 {busy
                   ? "Membuat pembayaran…"

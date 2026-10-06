@@ -33,6 +33,7 @@ import {
   saveMobileProductReview,
   sendMobileMarketplaceChatMessage,
   type MobileMarketplaceChatMessage,
+  type MobileMarketplaceChatThread,
   type MobileMarketplaceStoreResponse,
   type MobileOrderQuote,
   type MobileOrderInput,
@@ -157,6 +158,7 @@ type MarketplaceScreenProps = {
     token: number;
     productId?: string;
     businessId?: string;
+    chatThread?: MobileMarketplaceChatThread;
     items?: Array<{ product_id: string; quantity: number }>;
   };
 };
@@ -457,7 +459,7 @@ export function MarketplaceScreen({
   onIntentHandled,
   intent,
 }: MarketplaceScreenProps) {
-  const { unreadNotifications } = useAppSurface();
+  const { unreadNotifications, openChatInbox } = useAppSurface();
   const [products, setProducts] = useState<MobileProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -951,6 +953,19 @@ export function MarketplaceScreen({
     queueMicrotask(() => {
       handledIntent.current = intent.token;
       onIntentHandled(intent.token);
+      if (intent.chatThread) {
+        const thread = intent.chatThread;
+        setChat({
+          threadId: thread.id,
+          businessId: thread.business_id,
+          storeName: thread.business_name,
+          storeLogo: thread.store_logo_url,
+          storeOnline: thread.store_is_online,
+          storeLastSeen: thread.store_last_seen_at,
+          product: productsById.get(thread.product_id),
+        });
+        return;
+      }
       if (intent.productId) {
         const product = productsById.get(intent.productId);
         if (!product) {
@@ -1299,6 +1314,14 @@ export function MarketplaceScreen({
             <Text style={styles.kicker}>SLIVA MARKET</Text>
             <Text style={styles.headerTitle}>Belanja kebutuhan pet</Text>
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Buka daftar chat"
+            onPress={() => openChatInbox()}
+            style={styles.headerButton}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Buka notifikasi"

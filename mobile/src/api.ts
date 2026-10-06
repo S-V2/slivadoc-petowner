@@ -718,6 +718,20 @@ export type MobileMarketplaceChatMessage = {
   created_at: string;
 };
 
+export type MobileMarketplaceChatThread = {
+  id: string;
+  business_id: string;
+  business_name: string;
+  store_logo_url: string;
+  product_id: string;
+  product_name: string;
+  last_message: string;
+  last_message_created_at: string;
+  store_is_online: boolean;
+  store_last_seen_at: string;
+  unread_count: number;
+};
+
 export type MobileProductReview = {
   id: string;
   product_id: string;
@@ -1012,6 +1026,12 @@ export const createMobileMarketplaceChat = (input: {
     method: "POST",
     body: JSON.stringify(input),
   });
+
+export const getMobileMarketplaceChats = () =>
+  platformRequest<{ data: MobileMarketplaceChatThread[]; count: number }>(
+    "/api/v1/petowner/marketplace/chats",
+    { cache: "no-store" },
+  );
 
 export const getMobileMarketplaceChatMessages = (threadId: string) =>
   platformRequest<{

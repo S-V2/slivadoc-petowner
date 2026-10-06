@@ -17,6 +17,7 @@ export type AppView =
   | "petship"
   | "fundraising"
   | "favorites"
+  | "messages"
   | "notifications"
   | "support"
   | "profile";

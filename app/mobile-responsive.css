@@ -174,11 +174,17 @@
 
   .top-actions {
     display: flex;
-    flex: 0 0 44px;
-    gap: 0;
+    flex: 0 0 96px;
+    gap: 8px;
   }
 
   .top-actions .icon-button + .icon-button {
+    width: 44px;
+  }
+
+  .top-actions .icon-button + .icon-button,
+  .top-actions .chat-header-button,
+  .top-actions .notification-header-button {
     width: 44px;
     height: 44px;
     display: grid !important;
@@ -190,12 +196,23 @@
     box-shadow: var(--shadow);
   }
 
+  .top-actions .cart-header-button { display: none !important; }
+
   .top-actions .icon-button + .icon-button .notif-dot {
     top: 7px;
     right: 7px;
     border-color: var(--white);
     background: var(--red);
   }
+
+  .chat-inbox { border-radius: 20px; }
+  .chat-inbox-toolbar { grid-template-columns: 1fr; gap: 10px; padding: 12px; }
+  .chat-inbox-tabs { grid-template-columns: 1fr 1.25fr; }
+  .chat-inbox-tabs button { min-height: 44px; font-size: 12px; }
+  .chat-inbox-search { min-height: 48px; }
+  .chat-inbox-search input { height: 46px; font-size: 16px; }
+  .chat-inbox-row { min-height: 80px; gap: 10px; padding: 11px 12px; }
+  .chat-inbox-avatar { width: 48px; height: 48px; border-radius: 16px; }
 
   .owner-search-results {
     position: fixed;

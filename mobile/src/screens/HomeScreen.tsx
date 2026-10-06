@@ -302,7 +302,7 @@ export function HomeScreen({
   activities,
 }: Props) {
   const { formatDate } = useI18n();
-  const { unreadNotifications } = useAppSurface();
+  const { unreadNotifications, openChatInbox } = useAppSurface();
   const [searchOpen, setSearchOpen] = useState(false);
   const [petPickerOpen, setPetPickerOpen] = useState(false);
   const [veterinarians, setVeterinarians] = useState<WorldItem[]>([]);
@@ -384,6 +384,9 @@ export function HomeScreen({
           <Pressable accessibilityRole="search" accessibilityLabel="Cari di seluruh Slivadoc" onPress={() => setSearchOpen(true)} style={({ pressed }) => [styles.searchLauncher, pressed && styles.pressed]}>
             <Ionicons name="search" size={18} color={colors.sky600} />
             <TextInput editable={false} pointerEvents="none" placeholder="Cari dokter, layanan, produk…" placeholderTextColor={colors.muted} style={styles.searchLauncherInput} />
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Buka daftar chat" onPress={() => openChatInbox()} style={styles.notificationButton}>
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={() => onOpenNotifications()} style={styles.notificationButton}>
             <Ionicons name="notifications-outline" size={20} color={colors.text} />

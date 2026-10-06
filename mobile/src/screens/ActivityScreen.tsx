@@ -1412,7 +1412,7 @@ export function ActivityScreen({
   onOpenProduct,
 }: ActivityScreenProps) {
   const { formatDate } = useI18n();
-  const { unreadNotifications } = useAppSurface();
+  const { unreadNotifications, openChatInbox } = useAppSurface();
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [stateFilter, setStateFilter] = useState<MobileActivityState>("all");
   const [selected, setSelected] = useState<SelectedActivity>();
@@ -1491,6 +1491,14 @@ export function ActivityScreen({
           </View>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Buka daftar chat"
+            onPress={() => openChatInbox()}
+            style={styles.headerButton}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Buka notifikasi"
             onPress={() => onOpenNotifications()}
             style={styles.headerButton}
@@ -1526,6 +1534,14 @@ export function ActivityScreen({
               Pantau transaksi dan ulangi aktivitas dalam sekali tap.
             </Text>
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Buka daftar chat"
+            onPress={() => openChatInbox()}
+            style={styles.headerButton}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Buka notifikasi"

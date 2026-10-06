@@ -44,6 +44,7 @@ import {
   getDiscoveryServices,
   getVeterinarians,
   getMedicalRecords,
+  getMarketplaceChats,
   globalSearch,
   getPetFamily,
   getLostPetMode,
@@ -86,6 +87,7 @@ import {
   type DiscoveryServiceDetail,
   type FamilyAccess,
   type MedicalRecord,
+  type MarketplaceChatThread,
   type NotificationItem,
   type GlobalSearchResult,
   type PetOwnerBootstrap,
@@ -204,6 +206,7 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
   { id: "pawdating", label: "PAW Dating", icon: "heart" },
   { id: "petship", label: "Petship", icon: "map" },
   { id: "fundraising", label: "Animal Fund", icon: "heart" },
+  { id: "messages", label: "Chat", icon: "chat" },
   { id: "support", label: "Pusat Bantuan", icon: "chat" },
   { id: "profile", label: "Akun", icon: "user" },
 ];
@@ -235,6 +238,7 @@ const navGroups: { label: string; items: AppView[] }[] = [
       "pawdating",
       "petship",
       "fundraising",
+      "messages",
       "support",
       "profile",
     ],
@@ -321,6 +325,10 @@ const titles: Record<AppView, { title: string; subtitle: string }> = {
     title: "Notifikasi",
     subtitle: "Update kesehatan, booking, pesanan, komunitas, dan keamanan.",
   },
+  messages: {
+    title: "Chat",
+    subtitle: "Semua percakapan dengan toko dan dokter hewan dalam satu tempat.",
+  },
   support: {
     title: "Pusat Bantuan",
     subtitle:
@@ -348,6 +356,7 @@ const protectedViews: AppView[] = [
   "documents",
   "pawdating",
   "favorites",
+  "messages",
   "notifications",
   "support",
   "profile",
@@ -460,6 +469,10 @@ export default function PetOwnerApp() {
   const [chatMode, setChatMode] = useState<"assistant" | "care-team">(
     "assistant",
   );
+  const [marketplaceChatIntent, setMarketplaceChatIntent] = useState<{
+    token: number;
+    thread: MarketplaceChatThread;
+  }>();
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [addPetOpen, setAddPetOpen] = useState(false);
@@ -1153,6 +1166,7 @@ export default function PetOwnerApp() {
           }
           onOpenLocation={() => setLocationOpen(true)}
           cartCount={cartCount}
+          onOpenMessages={() => navigate("messages")}
           onOpenNotifications={() => openNotifications()}
           onOpenCart={() => setCartOpen(true)}
           account={account}
@@ -1239,6 +1253,12 @@ export default function PetOwnerApp() {
               authenticated={authenticated}
               onRequireLogin={() => setLoginOpen(true)}
               toggleFavorite={(id) => void toggleFavorite("product", id)}
+              chatIntent={marketplaceChatIntent}
+              onChatIntentHandled={(token) =>
+                setMarketplaceChatIntent((current) =>
+                  current?.token === token ? undefined : current,
+                )
+              }
             />
           )}
           {activeView === "community" && (
@@ -1321,6 +1341,17 @@ export default function PetOwnerApp() {
               loadAll={loadAllNotifications}
               notify={notify}
               onOpen={openNotificationTarget}
+            />
+          )}
+          {activeView === "messages" && (
+            <ChatInboxView
+              activities={activities}
+              notify={notify}
+              onOpenStore={(thread) => {
+                setMarketplaceChatIntent({ token: Date.now(), thread });
+                navigate("shop");
+              }}
+              onOpenDoctor={(item) => openActivity(item.type, item.id)}
             />
           )}
           {activeView === "support" && (
@@ -2068,6 +2099,7 @@ function Topbar({
   locationLabel,
   onOpenLocation,
   cartCount,
+  onOpenMessages,
   onOpenNotifications,
   unread,
   onOpenCart,
@@ -2085,6 +2117,7 @@ function Topbar({
   locationLabel: string;
   onOpenLocation: () => void;
   cartCount: number;
+  onOpenMessages: () => void;
   onOpenNotifications: () => void;
   unread: number;
   onOpenCart: () => void;
@@ -2253,7 +2286,15 @@ function Topbar({
           </label>
         )}
         <button
-          className="icon-button"
+          className="icon-button chat-header-button"
+          type="button"
+          onClick={authenticated ? onOpenMessages : onLogin}
+          aria-label="Buka daftar chat"
+        >
+          <Icon name="chat" />
+        </button>
+        <button
+          className="icon-button cart-header-button"
           type="button"
           onClick={onOpenCart}
           aria-label="Keranjang"
@@ -2262,7 +2303,7 @@ function Topbar({
           {cartCount > 0 && <span className="counter">{cartCount}</span>}
         </button>
         <button
-          className="icon-button"
+          className="icon-button notification-header-button"
           type="button"
           onClick={authenticated ? onOpenNotifications : onLogin}
           aria-label="Notifikasi"
@@ -2341,6 +2382,114 @@ function PageHeading({
         </button>
       )}
     </div>
+  );
+}
+
+function ChatInboxView({
+  activities,
+  onOpenStore,
+  onOpenDoctor,
+  notify,
+}: {
+  activities: PetOwnerActivityCenterItem[];
+  onOpenStore: (thread: MarketplaceChatThread) => void;
+  onOpenDoctor: (item: PetOwnerActivityCenterItem) => void;
+  notify: Notify;
+}) {
+  const [category, setCategory] = useState<"store" | "veterinarian">("store");
+  const [query, setQuery] = useState("");
+  const [threads, setThreads] = useState<MarketplaceChatThread[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadThreads = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const result = await getMarketplaceChats();
+      setThreads(result.data);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Daftar chat belum dapat dimuat.";
+      setError(message);
+      notify(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [notify]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadThreads(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadThreads]);
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const storeThreads = threads.filter((thread) =>
+    thread.business_name.toLowerCase().includes(normalizedQuery),
+  );
+  const doctorThreads = activities
+    .filter(
+      (item) =>
+        item.type === "consultation" &&
+        item.provider_type !== "trainer" &&
+        (item.provider_name || item.doctor_name || item.title)
+          .toLowerCase()
+          .includes(normalizedQuery),
+    )
+    .filter(
+      (item, index, all) =>
+        all.findIndex(
+          (candidate) =>
+            (candidate.provider_id || candidate.veterinarian_id || candidate.id) ===
+            (item.provider_id || item.veterinarian_id || item.id),
+        ) === index,
+    );
+
+  return (
+    <section className="chat-inbox" aria-busy={loading}>
+      <div className="chat-inbox-toolbar">
+        <div className="chat-inbox-tabs" role="tablist" aria-label="Kategori chat">
+          <button type="button" role="tab" aria-selected={category === "store"} className={category === "store" ? "active" : ""} onClick={() => { setCategory("store"); setQuery(""); }}>
+            <Icon name="bag" size={17} /> Toko
+            {threads.reduce((total, thread) => total + thread.unread_count, 0) > 0 ? <span>{threads.reduce((total, thread) => total + thread.unread_count, 0)}</span> : null}
+          </button>
+          <button type="button" role="tab" aria-selected={category === "veterinarian"} className={category === "veterinarian" ? "active" : ""} onClick={() => { setCategory("veterinarian"); setQuery(""); }}>
+            <Icon name="heart" size={17} /> Dokter Hewan
+          </button>
+        </div>
+        <label className="chat-inbox-search">
+          <Icon name="search" size={18} />
+          <input type="search" aria-label={category === "store" ? "Cari nama toko" : "Cari nama dokter"} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={category === "store" ? "Cari nama toko…" : "Cari nama dokter…"} />
+        </label>
+      </div>
+
+      {loading && category === "store" ? (
+        <div className="chat-inbox-loading" role="status"><span className="loading-spinner" /><div><b>Memuat percakapan…</b><small>Menyinkronkan pesan dan status toko terbaru.</small></div></div>
+      ) : error && category === "store" ? (
+        <div className="chat-inbox-empty"><Icon name="chat" size={27} /><b>Chat belum dapat dimuat</b><p>{error}</p><button type="button" onClick={() => void loadThreads()}>Coba lagi</button></div>
+      ) : category === "store" && storeThreads.length ? (
+        <div className="chat-inbox-list">
+          {storeThreads.map((thread) => (
+            <button type="button" key={thread.id} className="chat-inbox-row" onClick={() => onOpenStore(thread)}>
+              <span className="chat-inbox-avatar">{thread.business_name.slice(0, 1).toUpperCase()}<i data-online={thread.store_is_online} /></span>
+              <span className="chat-inbox-copy"><span><b>{thread.business_name}</b><time>{thread.last_message_created_at ? new Date(thread.last_message_created_at).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Baru"}</time></span><small>{thread.last_message || `Mulai chat tentang ${thread.product_name || "produk toko"}`}</small></span>
+              {thread.unread_count > 0 ? <em>{thread.unread_count}</em> : <Icon name="chevron" size={17} />}
+            </button>
+          ))}
+        </div>
+      ) : category === "veterinarian" && doctorThreads.length ? (
+        <div className="chat-inbox-list">
+          {doctorThreads.map((item) => (
+            <button type="button" key={item.id} className="chat-inbox-row" onClick={() => onOpenDoctor(item)}>
+              <span className="chat-inbox-avatar is-doctor"><Icon name="heart" size={20} /></span>
+              <span className="chat-inbox-copy"><span><b>{item.provider_name || item.doctor_name || item.title}</b><time>{item.status}</time></span><small>{item.plan_name || item.subtitle} · {item.pet_name || "Pet-mu"}</small></span>
+              <Icon name="chevron" size={17} />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="chat-inbox-empty"><Icon name="chat" size={27} /><b>{query ? "Percakapan tidak ditemukan" : "Belum ada percakapan"}</b><p>{category === "store" ? "Chat dengan toko akan tersimpan di sini." : "Chat dokter muncul setelah kamu membuat konsultasi."}</p></div>
+      )}
+    </section>
   );
 }
 

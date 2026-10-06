@@ -19,6 +19,7 @@ import {
   saveProductReview,
   sendMarketplaceChatMessage,
   type MarketplaceChatMessage,
+  type MarketplaceChatThread,
   type MarketplaceStoreProfile,
   type MarketplaceStoreResponse,
   type ProductReview,
@@ -64,6 +65,8 @@ type ShopMarketplaceProps = {
   onRequireLogin: () => void;
   toggleFavorite: (id: string) => void;
   onOpenService: (service: Service) => void;
+  chatIntent?: { token: number; thread: MarketplaceChatThread };
+  onChatIntentHandled: (token: number) => void;
 };
 
 const categoryIcons: Record<string, IconName> = {
@@ -1372,6 +1375,8 @@ export default function ShopMarketplace({
   onRequireLogin,
   toggleFavorite,
   onOpenService,
+  chatIntent,
+  onChatIntentHandled,
 }: ShopMarketplaceProps) {
   const [category, setCategory] = useState("Semua");
   const [store, setStore] = useState("");
@@ -1390,6 +1395,7 @@ export default function ShopMarketplace({
     product?: Product;
   }>();
   const [chatOpening, setChatOpening] = useState(false);
+  const handledChatIntent = useRef(0);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewError, setReviewError] = useState("");
@@ -1603,6 +1609,27 @@ export default function ShopMarketplace({
       setChatOpening(false);
     }
   }
+
+  useEffect(() => {
+    if (!chatIntent || handledChatIntent.current === chatIntent.token) return;
+    handledChatIntent.current = chatIntent.token;
+    const { thread } = chatIntent;
+    const product = productCatalog.find((item) => item.id === thread.product_id);
+    queueMicrotask(() => {
+      setChat({
+        threadId: thread.id,
+        businessId: thread.business_id,
+        product,
+        store: {
+          name: thread.business_name,
+          logo_url: thread.store_logo_url,
+          is_online: thread.store_is_online,
+          last_seen_at: thread.store_last_seen_at,
+        },
+      });
+      onChatIntentHandled(chatIntent.token);
+    });
+  }, [chatIntent, onChatIntentHandled, productCatalog]);
 
   function openChatShortcut(shortcut: MarketplaceChatShortcut) {
     const businessId = chat?.businessId || selectedStoreId;

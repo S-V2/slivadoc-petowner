@@ -31,6 +31,7 @@ import { HealthScreen } from "./src/screens/HealthScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { CommunityScreen } from "./src/screens/CommunityScreen";
 import { WorldScreen, type WorldMode } from "./src/screens/WorldScreen";
+import { ChatInboxScreen } from "./src/screens/ChatInboxScreen";
 import { type PetView, type Service } from "./src/data";
 import { colors, shadow, typography } from "./src/theme";
 import {
@@ -70,6 +71,7 @@ import {
   type MobileService,
   type MobileServiceAvailability,
   type MobileGlobalSearchResult,
+  type MobileMarketplaceChatThread,
 } from "./src/api";
 import { SlivaCareModal } from "./src/components/SlivaCareModal";
 import {
@@ -87,6 +89,7 @@ type Tab =
   | "activity"
   | "health"
   | "community"
+  | "messages"
   | "profile";
 
 type TabItem = {
@@ -119,6 +122,12 @@ const bottomTabs: TabItem[] = [
 ];
 
 const moreTabs: TabItem[] = [
+  {
+    id: "messages",
+    label: "Chat",
+    icon: "chatbubbles-outline",
+    activeIcon: "chatbubbles",
+  },
   {
     id: "discover",
     label: "Layanan",
@@ -335,6 +344,7 @@ function MobileApp() {
     token: number;
     productId?: string;
     businessId?: string;
+    chatThread?: MobileMarketplaceChatThread;
     items?: Array<{ product_id: string; quantity: number }>;
   }>();
   const [worldIntent, setWorldIntent] = useState<{
@@ -558,7 +568,7 @@ function MobileApp() {
     return () => clearInterval(timer);
   }, [loadActivityCenter, signedIn]);
   useEffect(() => {
-    if (tab === "activity" && signedIn)
+    if ((tab === "activity" || tab === "messages") && signedIn)
       queueMicrotask(() => void loadActivityCenter(true));
   }, [loadActivityCenter, signedIn, tab]);
   const needsActionCount =
@@ -802,6 +812,10 @@ function MobileApp() {
     setMarketplaceIntent({ token: nextIntentToken(), businessId });
     navigateTo("marketplace");
   };
+  const openStoreChat = (chatThread: MobileMarketplaceChatThread) => {
+    setMarketplaceIntent({ token: nextIntentToken(), chatThread });
+    navigateTo("marketplace");
+  };
   const reorderProducts = (items: MobileActivityOrderItem[]) => {
     setMarketplaceIntent({
       token: nextIntentToken(),
@@ -990,6 +1004,9 @@ function MobileApp() {
           refreshing={refreshing}
           onRefresh={() => void reloadData(true)}
           unreadNotifications={bootstrap?.unread_notifications ?? 0}
+          openChatInbox={() => {
+            if (requireLogin()) navigateTo("messages");
+          }}
         >
           <View style={styles.app}>
             {tab !== "home" ? (
@@ -1105,6 +1122,16 @@ function MobileApp() {
                   onOpenService={(service) => openServiceCatalog(service.category, service.id)}
                   onExploreServices={(category) => openServiceCatalog(category)}
                   onOpenOrders={openOrderActivity}
+                />
+              ) : null}
+              {tab === "messages" ? (
+                <ChatInboxScreen
+                  activities={activityCenter?.data ?? []}
+                  refreshVersion={refreshVersion}
+                  onOpenNotifications={openNotifications}
+                  onOpenStore={openStoreChat}
+                  onOpenDoctor={(item) => openActivity(item.type, item.id)}
+                  onAction={notify}
                 />
               ) : null}
               {tab === "world" ? (

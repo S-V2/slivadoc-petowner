@@ -73,7 +73,7 @@ export function TopHeader({ title, subtitle, onNotification }: { title: string; 
         <Text style={styles.topKicker}>{subtitle}</Text>
         <Text style={styles.topTitle} numberOfLines={1}>{title}</Text>
       </View>
-      <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" style={styles.iconButton} onPress={onNotification}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" style={styles.iconButton} onPress={() => onNotification()}>
         <Ionicons name="notifications-outline" size={20} color={colors.text} />
         {unreadNotifications > 0 ? <View style={styles.notificationDot} /> : null}
       </Pressable>

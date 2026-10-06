@@ -385,7 +385,7 @@ export function HomeScreen({
             <Ionicons name="search" size={18} color={colors.sky600} />
             <TextInput editable={false} pointerEvents="none" placeholder="Cari dokter, layanan, produk…" placeholderTextColor={colors.muted} style={styles.searchLauncherInput} />
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={onOpenNotifications} style={styles.notificationButton}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={() => onOpenNotifications()} style={styles.notificationButton}>
             <Ionicons name="notifications-outline" size={20} color={colors.text} />
             {unreadNotifications > 0 ? <View style={styles.notificationDot} /> : null}
           </Pressable>

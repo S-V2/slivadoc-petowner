@@ -6,6 +6,13 @@ const app = readFileSync(new URL("../mobile/App.tsx", import.meta.url), "utf8");
 const api = readFileSync(new URL("../mobile/src/api.ts", import.meta.url), "utf8");
 const profile = readFileSync(new URL("../mobile/src/screens/ProfileScreen.tsx", import.meta.url), "utf8");
 const chat = readFileSync(new URL("../mobile/src/components/SlivaCareModal.tsx", import.meta.url), "utf8");
+const mobileNotificationSurfaces = [
+  "../mobile/src/components/ui.tsx",
+  "../mobile/src/screens/HomeScreen.tsx",
+  "../mobile/src/screens/ActivityScreen.tsx",
+  "../mobile/src/screens/MarketplaceScreen.tsx",
+  "../mobile/src/screens/ProfileScreen.tsx",
+].map((path) => readFileSync(new URL(path, import.meta.url), "utf8"));
 
 test("mobile account settings expose working detail flows", () => {
   assert.match(profile, /title="Keluarga & akses"/);
@@ -19,6 +26,14 @@ test("mobile account settings expose working detail flows", () => {
   assert.match(api, /petowner\/profile/);
   assert.match(profile, /onOpenNotifications\("security"\)/);
   assert.match(app, /initialCategory=\{notificationCategory\}/);
+});
+
+test("notification buttons never persist a native press event as a category", () => {
+  assert.match(app, /typeof category === "string" \? category : ""/);
+  for (const source of mobileNotificationSurfaces) {
+    assert.doesNotMatch(source, /onPress=\{onOpenNotifications\}/);
+    assert.doesNotMatch(source, /onPress=\{onNotification\}/);
+  }
 });
 
 test("family access uses platform endpoints for list, invite, and revoke", () => {

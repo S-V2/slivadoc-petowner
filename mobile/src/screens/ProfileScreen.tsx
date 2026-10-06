@@ -126,7 +126,7 @@ export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, ow
       <SectionTitle eyebrow="PREFERENSI" title="Pengaturan akun"/>
       <Card style={styles.settings}>
         <Setting icon="language-outline" title="Bahasa aplikasi" note={currentLanguage.nativeLabel} onPress={() => setLanguageOpen(true)}/>
-        <Setting icon="notifications-outline" title="Notifikasi" note="Buka daftar, status baca, dan detail update" onPress={onOpenNotifications}/>
+        <Setting icon="notifications-outline" title="Notifikasi" note="Buka daftar, status baca, dan detail update" onPress={() => onOpenNotifications()}/>
         <Setting icon="people-outline" title="Keluarga & akses" note="Undang anggota dan atur izin setiap pet" onPress={() => setPage("family")}/>
         <Setting icon="shield-checkmark-outline" title="Privasi & keamanan" note="Verifikasi, privasi data, dan sesi perangkat" onPress={() => setPage("security")}/>
         <Setting icon="mail-outline" title="Email login" note={owner.email} onPress={() => setPage("security")} right={<VerificationBadge verified={emailVerified} compact/>}/>
@@ -292,7 +292,7 @@ function SecurityScreen({ owner, onBack, onAction, onOpenNotifications, onReques
 
 function AccountPageHeader({ eyebrow, title, onBack, onNotification }: { eyebrow: string; title: string; onBack: () => void; onNotification: () => void }) {
   const { unreadNotifications } = useAppSurface();
-  return <View style={styles.detailHeader}><Pressable accessibilityRole="button" accessibilityLabel="Kembali" onPress={onBack} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}><Ionicons name="arrow-back" size={20} color={colors.navy}/></Pressable><View style={styles.detailHeaderCopy}><Text style={styles.detailEyebrow}>{eyebrow}</Text><Text style={styles.detailTitle} numberOfLines={1}>{title}</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={onNotification} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}><Ionicons name="notifications-outline" size={19} color={colors.navy}/>{unreadNotifications > 0 ? <View style={styles.headerNotificationDot}/> : null}</Pressable></View>;
+  return <View style={styles.detailHeader}><Pressable accessibilityRole="button" accessibilityLabel="Kembali" onPress={onBack} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}><Ionicons name="arrow-back" size={20} color={colors.navy}/></Pressable><View style={styles.detailHeaderCopy}><Text style={styles.detailEyebrow}>{eyebrow}</Text><Text style={styles.detailTitle} numberOfLines={1}>{title}</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={() => onNotification()} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}><Ionicons name="notifications-outline" size={19} color={colors.navy}/>{unreadNotifications > 0 ? <View style={styles.headerNotificationDot}/> : null}</Pressable></View>;
 }
 function Stat({ value, label, last }: { value: string; label: string; last?: boolean }) { return <View style={[styles.stat, last && styles.statLast]}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>; }
 function Benefit({ text }: { text: string }) { return <View style={styles.benefit}><View style={styles.benefitCheck}><Ionicons name="checkmark" size={10} color={colors.sky600}/></View><Text style={styles.benefitText}>{text}</Text></View>; }

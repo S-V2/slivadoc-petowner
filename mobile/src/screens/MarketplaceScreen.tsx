@@ -1302,7 +1302,7 @@ export function MarketplaceScreen({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Buka notifikasi"
-            onPress={onOpenNotifications}
+            onPress={() => onOpenNotifications()}
             style={styles.headerButton}
           >
             <Ionicons

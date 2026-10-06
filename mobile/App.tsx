@@ -440,8 +440,8 @@ function MobileApp() {
   }, []);
 
   const notify = useCallback((message: string) => setToast(message), []);
-  const openNotifications = useCallback((category = "") => {
-    setNotificationCategory(category);
+  const openNotifications = useCallback((category?: string) => {
+    setNotificationCategory(typeof category === "string" ? category : "");
     setNotificationsOpen(true);
     // The bootstrap only carries a slice; load the full list and merge it in.
     void getMobileNotifications(100)

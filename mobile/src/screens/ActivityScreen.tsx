@@ -1492,7 +1492,7 @@ export function ActivityScreen({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Buka notifikasi"
-            onPress={onOpenNotifications}
+            onPress={() => onOpenNotifications()}
             style={styles.headerButton}
           >
             <Ionicons
@@ -1529,7 +1529,7 @@ export function ActivityScreen({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Buka notifikasi"
-            onPress={onOpenNotifications}
+            onPress={() => onOpenNotifications()}
             style={styles.headerButton}
           >
             <Ionicons

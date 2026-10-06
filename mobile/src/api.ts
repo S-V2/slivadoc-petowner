@@ -1459,7 +1459,7 @@ export type WorldItem = {
   experience_years?: number;
   starting_price?: number;
   availability_status?: string;
-  distance_km?: number;
+  distance_km?: number | null;
   pet_facilities?: string[];
   status?: string;
   viewer_count?: number;

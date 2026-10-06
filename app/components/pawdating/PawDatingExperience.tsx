@@ -896,7 +896,8 @@ function ProfileCard({
           <span>◷ {ageText(profile.age_months)}</span>
           <span>
             ⌖{" "}
-            {profile.distance_km !== undefined
+            {typeof profile.distance_km === "number" &&
+            Number.isFinite(profile.distance_km)
               ? `${profile.distance_km.toFixed(1)} km`
               : profile.city}
           </span>
@@ -1172,7 +1173,8 @@ function ProfileDetail({
           <div className="paw-owner-distance">
             <span>JARAK DARI ANDA</span>
             <strong>
-              {profile.distance_km !== undefined
+              {typeof profile.distance_km === "number" &&
+              Number.isFinite(profile.distance_km)
                 ? `${profile.distance_km.toFixed(1)} km`
                 : profile.city}
             </strong>

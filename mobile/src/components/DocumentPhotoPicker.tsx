@@ -13,10 +13,13 @@ export type DocumentPhotos = Record<string, MobileSubmittedDocument>;
 export const completeDocuments = (
   requirements: string[],
   photos: DocumentPhotos,
-) =>
-  requirements.every((requirement) => photos[requirement])
-    ? requirements.map((requirement) => photos[requirement])
-    : null;
+) => {
+  const documents = requirements.flatMap((requirement) => {
+    const photo = photos[requirement];
+    return photo ? [photo] : [];
+  });
+  return documents.length === requirements.length ? documents : null;
+};
 
 export function DocumentPhotoPicker({
   requirements,

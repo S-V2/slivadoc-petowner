@@ -27,6 +27,7 @@ export const activityTypePresentation: Record<
   document: { label: "Dokumen", icon: "document-text-outline", ...mint },
   donation: { label: "Donasi", icon: "heart-outline", ...mint },
   hotel: { label: "Pet hotel", icon: "bed-outline", ...sky },
+  home_service: { label: "Layanan jemput", icon: "navigate-outline", ...sky },
 };
 
 const fallbackActivityTypePresentation: ActivityTypePresentation = {
@@ -55,6 +56,7 @@ export const emptyActivitySummary: Record<MobileActivityType, number> = {
   document: 0,
   donation: 0,
   hotel: 0,
+  home_service: 0,
 };
 
 const statusLabels: Record<string, string> = {
@@ -85,12 +87,20 @@ const statusLabels: Record<string, string> = {
   failed: "Gagal",
   expired: "Kedaluwarsa",
   refunded: "Dana dikembalikan",
+  refund_pending: "Menunggu pengembalian dana",
+  assigned: "Driver ditugaskan",
+  on_the_way: "Driver menuju lokasi",
+  picked_up: "Pet dijemput",
+  in_service: "Sedang dilayani",
+  returning: "Dalam perjalanan pulang",
 };
 
 export function activityStatusLabel(
   item: Pick<MobileActivityCenterItem, "payable" | "status" | "payment_status">,
 ) {
   if (item.payable) return "Menunggu pembayaran";
+  if (item.payment_status === "refund_pending" || item.payment_status === "refunded")
+    return statusLabels[item.payment_status] ?? item.payment_status;
   if (
     item.status === "cancelled" &&
     (item.payment_status === "expired" || item.payment_status === "failed")
@@ -131,6 +141,11 @@ export function activityStatusTone(
       "shipped",
       "checked_in",
       "verification",
+      "assigned",
+      "on_the_way",
+      "picked_up",
+      "in_service",
+      "returning",
     ].includes(item.status)
   )
     return "blue";

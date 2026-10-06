@@ -33,7 +33,6 @@ import {
   saveMobileProductReview,
   sendMobileMarketplaceChatMessage,
   type MobileMarketplaceChatMessage,
-  type MobileMarketplaceChatThread,
   type MobileMarketplaceStoreResponse,
   type MobileOrderQuote,
   type MobileOrderInput,
@@ -84,7 +83,7 @@ type SortMode =
   | "price"
   | "price_desc";
 type StoreSection = "products" | "services" | "categories" | "reviews" | "about";
-type MarketplaceChatShortcut = "products" | "services" | "pet_hotel" | "orders";
+export type MarketplaceChatShortcut = "products" | "services" | "pet_hotel" | "orders";
 
 const MARKETPLACE_CHAT_SHORTCUTS: ReadonlyArray<{
   id: MarketplaceChatShortcut;
@@ -158,7 +157,7 @@ type MarketplaceScreenProps = {
     token: number;
     productId?: string;
     businessId?: string;
-    chatThread?: MobileMarketplaceChatThread;
+    storeSection?: "products" | "services";
     items?: Array<{ product_id: string; quantity: number }>;
   };
 };
@@ -953,19 +952,6 @@ export function MarketplaceScreen({
     queueMicrotask(() => {
       handledIntent.current = intent.token;
       onIntentHandled(intent.token);
-      if (intent.chatThread) {
-        const thread = intent.chatThread;
-        setChat({
-          threadId: thread.id,
-          businessId: thread.business_id,
-          storeName: thread.business_name,
-          storeLogo: thread.store_logo_url,
-          storeOnline: thread.store_is_online,
-          storeLastSeen: thread.store_last_seen_at,
-          product: productsById.get(thread.product_id),
-        });
-        return;
-      }
       if (intent.productId) {
         const product = productsById.get(intent.productId);
         if (!product) {
@@ -979,7 +965,7 @@ export function MarketplaceScreen({
         return;
       }
       if (intent.businessId) {
-        void openStore(intent.businessId, "services");
+        void openStore(intent.businessId, intent.storeSection ?? "services");
         return;
       }
       if (intent.items?.length) {
@@ -2543,7 +2529,7 @@ function StorefrontSheet({
   );
 }
 
-function MarketplaceChatSheet({
+export function MarketplaceChatSheet({
   threadId,
   storeName,
   storeLogo,

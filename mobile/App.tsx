@@ -25,7 +25,11 @@ import { Ionicons } from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { DiscoverScreen } from "./src/screens/DiscoverScreen";
-import { MarketplaceScreen } from "./src/screens/MarketplaceScreen";
+import {
+  MarketplaceChatSheet,
+  MarketplaceScreen,
+  type MarketplaceChatShortcut,
+} from "./src/screens/MarketplaceScreen";
 import { ActivityScreen } from "./src/screens/ActivityScreen";
 import { HealthScreen } from "./src/screens/HealthScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
@@ -344,9 +348,11 @@ function MobileApp() {
     token: number;
     productId?: string;
     businessId?: string;
-    chatThread?: MobileMarketplaceChatThread;
+    storeSection?: "products" | "services";
     items?: Array<{ product_id: string; quantity: number }>;
   }>();
+  const [inboxChatThread, setInboxChatThread] =
+    useState<MobileMarketplaceChatThread>();
   const [worldIntent, setWorldIntent] = useState<{
     token: number;
     mode: WorldMode;
@@ -813,7 +819,25 @@ function MobileApp() {
     navigateTo("marketplace");
   };
   const openStoreChat = (chatThread: MobileMarketplaceChatThread) => {
-    setMarketplaceIntent({ token: nextIntentToken(), chatThread });
+    setInboxChatThread(chatThread);
+  };
+  const openInboxChatShortcut = (shortcut: MarketplaceChatShortcut) => {
+    const thread = inboxChatThread;
+    if (!thread) return;
+    setInboxChatThread(undefined);
+    if (shortcut === "pet_hotel") {
+      openServiceCatalog("Pet Hotel");
+      return;
+    }
+    if (shortcut === "orders") {
+      openOrderActivity();
+      return;
+    }
+    setMarketplaceIntent({
+      token: nextIntentToken(),
+      businessId: thread.business_id,
+      storeSection: shortcut,
+    });
     navigateTo("marketplace");
   };
   const reorderProducts = (items: MobileActivityOrderItem[]) => {
@@ -1413,6 +1437,19 @@ function MobileApp() {
         onLogin={() => setLoginOpen(true)}
         context={chatContext}
       />
+      {inboxChatThread ? (
+        <MarketplaceChatSheet
+          threadId={inboxChatThread.id}
+          businessId={inboxChatThread.business_id}
+          storeName={inboxChatThread.business_name}
+          storeLogo={inboxChatThread.store_logo_url}
+          storeOnline={inboxChatThread.store_is_online}
+          storeLastSeen={inboxChatThread.store_last_seen_at}
+          onShortcut={openInboxChatShortcut}
+          onAction={notify}
+          onClose={() => setInboxChatThread(undefined)}
+        />
+      ) : null}
       {selectedService && bookingOpen ? (
         <BookingModal
           visible={bookingOpen}

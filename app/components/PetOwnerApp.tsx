@@ -15,6 +15,10 @@ import {
 import { Icon, type IconName } from "./Icon";
 import { BrandLogo as Logo } from "./BrandLogo";
 import { OpeningExperience } from "./OpeningExperience";
+import {
+  MarketplaceChatPanel,
+  type MarketplaceChatShortcut,
+} from "./marketplace/ShopMarketplace";
 import { usePetOwnerI18n } from "./PetOwnerI18n";
 import AddPetExperience from "./integrations/AddPetExperience";
 import CommunityExperience from "./integrations/CommunityExperience";
@@ -469,10 +473,8 @@ export default function PetOwnerApp() {
   const [chatMode, setChatMode] = useState<"assistant" | "care-team">(
     "assistant",
   );
-  const [marketplaceChatIntent, setMarketplaceChatIntent] = useState<{
-    token: number;
-    thread: MarketplaceChatThread;
-  }>();
+  const [inboxChatThread, setInboxChatThread] =
+    useState<MarketplaceChatThread>();
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [addPetOpen, setAddPetOpen] = useState(false);
@@ -922,6 +924,42 @@ export default function PetOwnerApp() {
     );
   };
 
+  const openInboxChatShortcut = (shortcut: MarketplaceChatShortcut) => {
+    const thread = inboxChatThread;
+    if (!thread) return;
+    setInboxChatThread(undefined);
+    if (shortcut === "pet_hotel") {
+      openServiceCatalog("Pet Hotel");
+      return;
+    }
+    if (shortcut === "orders") {
+      navigate("bookings");
+      const url = new URL(window.location.href);
+      url.searchParams.set("activity_type", "order");
+      window.history.replaceState(
+        { view: "bookings", activityType: "order" },
+        "",
+        `${url.pathname}${url.search}${url.hash}`,
+      );
+      return;
+    }
+    setActiveView("shop");
+    window.localStorage.setItem("slivadoc.active_view", "shop");
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", "shop");
+    url.searchParams.set("store", thread.business_id);
+    url.searchParams.set(
+      "store_section",
+      shortcut === "services" ? "services" : "products",
+    );
+    url.searchParams.delete("product");
+    window.history.pushState(
+      { view: "shop", store: thread.business_id, section: shortcut },
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  };
+
   const openConsultation = (veterinarianId?: string) => {
     setActiveView("consult");
     window.localStorage.setItem("slivadoc.active_view", "consult");
@@ -1253,12 +1291,6 @@ export default function PetOwnerApp() {
               authenticated={authenticated}
               onRequireLogin={() => setLoginOpen(true)}
               toggleFavorite={(id) => void toggleFavorite("product", id)}
-              chatIntent={marketplaceChatIntent}
-              onChatIntentHandled={(token) =>
-                setMarketplaceChatIntent((current) =>
-                  current?.token === token ? undefined : current,
-                )
-              }
             />
           )}
           {activeView === "community" && (
@@ -1344,15 +1376,32 @@ export default function PetOwnerApp() {
             />
           )}
           {activeView === "messages" && (
-            <ChatInboxView
-              activities={activities}
-              notify={notify}
-              onOpenStore={(thread) => {
-                setMarketplaceChatIntent({ token: Date.now(), thread });
-                navigate("shop");
-              }}
-              onOpenDoctor={(item) => openActivity(item.type, item.id)}
-            />
+            <>
+              <ChatInboxView
+                activities={activities}
+                notify={notify}
+                onOpenStore={setInboxChatThread}
+                onOpenDoctor={(item) => openActivity(item.type, item.id)}
+              />
+              {inboxChatThread && (
+                <MarketplaceChatPanel
+                  threadId={inboxChatThread.id}
+                  businessId={inboxChatThread.business_id}
+                  product={productCatalog.find(
+                    (item) => item.id === inboxChatThread.product_id,
+                  )}
+                  store={{
+                    name: inboxChatThread.business_name,
+                    logo_url: inboxChatThread.store_logo_url,
+                    is_online: inboxChatThread.store_is_online,
+                    last_seen_at: inboxChatThread.store_last_seen_at,
+                  }}
+                  onClose={() => setInboxChatThread(undefined)}
+                  onShortcut={openInboxChatShortcut}
+                  notify={notify}
+                />
+              )}
+            </>
           )}
           {activeView === "support" && (
             <SupportCenter activities={activities} notify={notify} />

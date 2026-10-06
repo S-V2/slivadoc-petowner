@@ -27,3 +27,13 @@ test("native chat header and inbox mirror the web flow", () => {
   assert.match(mobileInbox, /ActivityIndicator/);
   assert.match(mobileApi, /getMobileMarketplaceChats/);
 });
+
+test("opening a store conversation keeps the chat inbox as its background", () => {
+  assert.match(web, /onOpenStore=\{setInboxChatThread\}/);
+  assert.doesNotMatch(web, /setMarketplaceChatIntent/);
+  const nativeOpenStoreChat = mobile.match(
+    /const openStoreChat = \(chatThread: MobileMarketplaceChatThread\) => \{([\s\S]*?)\n  \};/,
+  )?.[1] ?? "";
+  assert.match(nativeOpenStoreChat, /setInboxChatThread\(chatThread\)/);
+  assert.doesNotMatch(nativeOpenStoreChat, /navigateTo\("marketplace"\)/);
+});

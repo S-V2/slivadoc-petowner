@@ -52,6 +52,7 @@ import {
   getMobilePawDatingInterests,
   getMobilePawDatingMessages,
   getMobilePetSpots,
+  getMobilePetSpot,
   getMobilePetSpotAvailability,
   getMobileTrainerAvailability,
   getMobileTrainerConsultationPlans,
@@ -95,6 +96,10 @@ import {
   type DocumentPhotos,
 } from "../components/DocumentPhotoPicker";
 import { PetHubExperience } from "./PetHubExperience";
+import {
+  PetSpotCard,
+  PetSpotVenueInformation,
+} from "../components/PetSpotExperience";
 import { AdoptionManager } from "./AdoptionManager";
 
 export type WorldMode =
@@ -108,7 +113,13 @@ export type WorldMode =
   | "documents";
 type Mode = WorldMode;
 type ConsultProviderFilter = "all" | "veterinarian" | "trainer";
-type WorldPet = { id: string; name: string; species?: string; breed: string; icon?: string };
+type WorldPet = {
+  id: string;
+  name: string;
+  species?: string;
+  breed: string;
+  icon?: string;
+};
 type AdoptionForm = {
   applicantName: string;
   phone: string;
@@ -168,8 +179,16 @@ const emptyPetSpotReservationForm = (
   return {
     date: target.toISOString().slice(0, 10),
     time: stayKind ? "14:00" : "18:00",
-    durationMinutes: stayKind === "boarding_house" ? 43200 : stayKind === "apartment" ? 1440 : slotMinutes,
-    checkoutDate: stayKind ? new Date(target.getTime() + (stayKind === "boarding_house" ? 30 : 1) * 86400000).toISOString().slice(0, 10) : "",
+    durationMinutes:
+      stayKind === "boarding_house" ? 43200 : stayKind ? 1440 : slotMinutes,
+    checkoutDate: stayKind
+      ? new Date(
+          target.getTime() +
+            (stayKind === "boarding_house" ? 30 : 1) * 86400000,
+        )
+          .toISOString()
+          .slice(0, 10)
+      : "",
     stayKind,
     guestCount: 2,
     petCount: 1,
@@ -177,28 +196,66 @@ const emptyPetSpotReservationForm = (
   };
 };
 const petSpotWindow = (form: PetSpotReservationForm) => {
-  const starts = new Date(`${form.date}T${form.time}:00`);
+  const starts = new Date(`${form.date}T${form.time}:00+07:00`);
   const ends = form.stayKind
-    ? new Date(form.checkoutDate + "T" + form.time + ":00")
+    ? new Date(form.checkoutDate + "T" + form.time + ":00+07:00")
     : new Date(starts.getTime() + form.durationMinutes * 60_000);
   if (Number.isNaN(starts.getTime()) || Number.isNaN(ends.getTime()))
     throw new Error("Tanggal atau jam reservasi belum valid");
   const nights = (ends.getTime() - starts.getTime()) / 86400000;
-  if (form.stayKind && (nights < (form.stayKind === "boarding_house" ? 30 : 1) || nights > 366))
-    throw new Error(form.stayKind === "boarding_house" ? "Kosan minimal 30 dan maksimal 366 malam" : "Apartemen minimal 1 dan maksimal 366 malam");
+  if (
+    form.stayKind &&
+    (nights < (form.stayKind === "boarding_house" ? 30 : 1) || nights > 366)
+  )
+    throw new Error(
+      form.stayKind === "boarding_house"
+        ? "Kosan minimal 30 dan maksimal 366 malam"
+        : "Apartemen minimal 1 dan maksimal 366 malam",
+    );
   return { startsAt: starts.toISOString(), endsAt: ends.toISOString() };
 };
-const housingQuote = (spot: WorldItem, unit: MobilePetSpotResource, form: PetSpotReservationForm) => {
+const housingQuote = (
+  spot: WorldItem,
+  unit: MobilePetSpotResource,
+  form: PetSpotReservationForm,
+) => {
   try {
     const window = petSpotWindow(form);
-    const nights = Math.ceil((new Date(window.endsAt).getTime() - new Date(window.startsAt).getTime()) / 86400000);
-    const periods = unit.booking_rules?.rate_period === "month" ? Math.ceil(nights / 30) : nights;
-    const subtotal = unit.base_price * periods;
-    const depositType = unit.minimum_deposit_type === "inherit" ? spot.deposit_type : unit.minimum_deposit_type;
-    const depositValue = unit.minimum_deposit_type === "inherit" ? spot.deposit_value : unit.minimum_deposit_value;
-    const deposit = Math.ceil(depositType === "fixed" ? Number(depositValue ?? 0) : subtotal * Number(depositValue ?? 0) / 100);
-    return { subtotal, deposit, balance: Math.max(0, subtotal - deposit), periods, nights };
-  } catch { return null; }
+    const nights = Math.ceil(
+      (new Date(window.endsAt).getTime() -
+        new Date(window.startsAt).getTime()) /
+        86400000,
+    );
+    const periods = !form.stayKind
+      ? 1
+      : unit.booking_rules?.rate_period === "month"
+        ? Math.ceil(nights / 30)
+        : nights;
+    const baseSubtotal = unit.base_price * periods;
+    const depositType =
+      unit.minimum_deposit_type === "inherit"
+        ? spot.deposit_type
+        : unit.minimum_deposit_type;
+    const depositValue =
+      unit.minimum_deposit_type === "inherit"
+        ? spot.deposit_value
+        : unit.minimum_deposit_value;
+    const deposit = Math.ceil(
+      depositType === "fixed"
+        ? Number(depositValue ?? 0)
+        : (baseSubtotal * Number(depositValue ?? 0)) / 100,
+    );
+    const subtotal = Math.max(baseSubtotal, deposit);
+    return {
+      subtotal,
+      deposit,
+      balance: Math.max(0, subtotal - deposit),
+      periods,
+      nights,
+    };
+  } catch {
+    return null;
+  }
 };
 const modes: Array<{
   id: Mode;
@@ -232,13 +289,15 @@ const worldIcon = (
   if (mode === "academy") return "school-outline";
   if (mode === "events") return "ticket-outline";
   if (mode === "petspot")
-    return item?.category === "boarding_house" ? "home-outline"
-      : item?.category === "apartment" ? "business-outline"
-      : item?.category === "cafe"
-      ? "cafe-outline"
-      : item?.category === "mall"
+    return item?.category === "boarding_house"
+      ? "home-outline"
+      : item?.category === "apartment"
         ? "business-outline"
-        : "leaf-outline";
+        : item?.category === "cafe"
+          ? "cafe-outline"
+          : item?.category === "mall"
+            ? "business-outline"
+            : "leaf-outline";
   if (mode === "consult") return "medical-outline";
   if (mode === "adoption") return "home-outline";
   if (mode === "documents") return "document-text-outline";
@@ -497,22 +556,33 @@ export function WorldScreen({
   const [imageViewerIndex, setImageViewerIndex] = useState<number>();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const detailGalleryRef = useRef<ScrollView>(null);
-  const selectedImages = useMemo(() => Array.from(new Set([
-    ...(selected?.image_urls ?? []),
-    selected?.cover_url,
-    selected?.banner_url,
-    selected?.photo_url,
-    ...(selected?.photo_urls ?? []),
-    selected?.media_url,
-    selected?.thumbnail_url,
-  ].filter((value): value is string => Boolean(value)))), [selected]);
+  const selectedImages = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [
+            ...(selected?.image_urls ?? []),
+            selected?.cover_url,
+            selected?.banner_url,
+            selected?.photo_url,
+            ...(selected?.photo_urls ?? []),
+            selected?.media_url,
+            selected?.thumbnail_url,
+          ].filter((value): value is string => Boolean(value)),
+        ),
+      ),
+    [selected],
+  );
   useEffect(() => {
     if (!selected || selectedImages.length < 2) return;
     const galleryWidth = Math.max(260, viewportWidth - 32);
     const timer = setInterval(() => {
       setSelectedImageIndex((current) => {
         const next = (current + 1) % selectedImages.length;
-        detailGalleryRef.current?.scrollTo({ x: next * galleryWidth, animated: true });
+        detailGalleryRef.current?.scrollTo({
+          x: next * galleryWidth,
+          animated: true,
+        });
         return next;
       });
     }, 1_000);
@@ -527,8 +597,7 @@ export function WorldScreen({
   const [pawDatingInterests, setPawDatingInterests] = useState<
     MobilePawDatingInterest[]
   >([]);
-  const [pawDatingChat, setPawDatingChat] =
-    useState<MobilePawDatingInterest>();
+  const [pawDatingChat, setPawDatingChat] = useState<MobilePawDatingInterest>();
   const [pawDatingMessages, setPawDatingMessages] = useState<
     MobilePawDatingMessage[]
   >([]);
@@ -537,8 +606,7 @@ export function WorldScreen({
   const [academyTrainers, setAcademyTrainers] = useState<
     MobileAcademyTrainer[]
   >([]);
-  const [academyTrainer, setAcademyTrainer] =
-    useState<MobileAcademyTrainer>();
+  const [academyTrainer, setAcademyTrainer] = useState<MobileAcademyTrainer>();
   const [academySpecies, setAcademySpecies] = useState(
     pet?.species?.toLowerCase() || "all",
   );
@@ -581,6 +649,9 @@ export function WorldScreen({
   >([]);
   const [selectedPetSpotResource, setSelectedPetSpotResource] =
     useState<MobilePetSpotResource>();
+  const spotAvailabilityRequest = useRef(0);
+  const spotDetailRequest = useRef(0);
+  const [spotDetailLoading, setSpotDetailLoading] = useState(false);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [trainerAvailabilityLoading, setTrainerAvailabilityLoading] =
     useState(false);
@@ -634,9 +705,20 @@ export function WorldScreen({
                 )),
           )
         : mode === "petspot"
-          ? items.petspot.filter((item) => spotCategoryFilter === "all" || item.category === spotCategoryFilter)
+          ? items.petspot.filter(
+              (item) =>
+                spotCategoryFilter === "all" ||
+                item.category === spotCategoryFilter,
+            )
           : items[mode],
-    [consultProvider, consultSpecialty, focusedVeterinarianId, items, mode, spotCategoryFilter],
+    [
+      consultProvider,
+      consultSpecialty,
+      focusedVeterinarianId,
+      items,
+      mode,
+      spotCategoryFilter,
+    ],
   );
   const chooseConsultProvider = (provider: ConsultProviderFilter) => {
     setFocusedVeterinarianId("");
@@ -844,7 +926,9 @@ export function WorldScreen({
       }
     } catch (cause) {
       onAction(
-        cause instanceof Error ? cause.message : "Permintaan belum dapat diperbarui",
+        cause instanceof Error
+          ? cause.message
+          : "Permintaan belum dapat diperbarui",
       );
     } finally {
       setBusy(false);
@@ -862,7 +946,9 @@ export function WorldScreen({
       const result = await getMobilePawDatingMessages(pawDatingChat.match_id);
       setPawDatingMessages(result.data);
     } catch (cause) {
-      onAction(cause instanceof Error ? cause.message : "Pesan belum dapat dikirim");
+      onAction(
+        cause instanceof Error ? cause.message : "Pesan belum dapat dikirim",
+      );
     } finally {
       setPawDatingChatBusy(false);
     }
@@ -958,7 +1044,9 @@ export function WorldScreen({
         setSelected(null);
         return;
       }
-      const item = items[intent.mode].find((candidate) => candidate.id === intent.itemId);
+      const item = items[intent.mode].find(
+        (candidate) => candidate.id === intent.itemId,
+      );
       if (!item) {
         setSelected(null);
         onAction("Detail pilihan tersebut belum tersedia");
@@ -977,6 +1065,7 @@ export function WorldScreen({
   ) => {
     if (!spot.reservable) return;
     setAvailabilityLoading(true);
+    const request = ++spotAvailabilityRequest.current;
     setSelectedPetSpotResource(undefined);
     try {
       const window = petSpotWindow(form);
@@ -986,14 +1075,20 @@ export function WorldScreen({
         window.endsAt,
         form.guestCount,
       );
-      const isHousing = ["boarding_house", "apartment"].includes(spot.category ?? "");
-      const resources = result.data.filter((resource) =>
-        (!isHousing || ["room", "unit"].includes(resource.resource_type)) &&
-        form.petCount <= Number(resource.pet_policy?.pet_limit ?? 99));
+      if (request !== spotAvailabilityRequest.current) return;
+      const isHousing = ["boarding_house", "apartment", "hotel"].includes(
+        spot.category ?? "",
+      );
+      const resources = result.data.filter(
+        (resource) =>
+          (!isHousing || ["room", "unit"].includes(resource.resource_type)) &&
+          form.petCount <= Number(resource.pet_policy?.pet_limit ?? resource.pet_policy?.max_pets ?? 99),
+      );
       setPetSpotResources(resources);
-      setSelectedPetSpotResource(isHousing ? undefined :
-        resources.find((resource) => resource.available));
+      // The owner must explicitly choose the table/unit, never auto-select one.
+      setSelectedPetSpotResource(undefined);
     } catch (cause) {
+      if (request !== spotAvailabilityRequest.current) return;
       setPetSpotResources([]);
       onAction(
         cause instanceof Error
@@ -1001,7 +1096,8 @@ export function WorldScreen({
           : "Ketersediaan meja atau unit belum dapat dimuat",
       );
     } finally {
-      setAvailabilityLoading(false);
+      if (request === spotAvailabilityRequest.current)
+        setAvailabilityLoading(false);
     }
   };
   // Opening an item starts its form fresh. This runs in the open handler rather than an
@@ -1037,7 +1133,9 @@ export function WorldScreen({
     if (mode === "petspot" && item.reservable) {
       const form = emptyPetSpotReservationForm(
         item.reservation_policy?.slot_minutes ?? 90,
-        ["boarding_house", "apartment"].includes(item.category ?? "") ? item.category : "",
+        ["boarding_house", "apartment", "hotel"].includes(item.category ?? "")
+          ? item.category
+          : "",
       );
       setPetSpotForm(form);
       setPetSpotResources([]);
@@ -1051,6 +1149,26 @@ export function WorldScreen({
       setAcademyReviewComment("");
     }
     setSelected(item);
+    if (mode === "petspot") {
+      const request = ++spotDetailRequest.current;
+      setSpotDetailLoading(true);
+      try {
+        const detail = await getMobilePetSpot(item.id);
+        if (request === spotDetailRequest.current)
+          setSelected((current) =>
+            current?.id === item.id ? { ...current, ...detail } : current,
+          );
+      } catch (cause) {
+        if (request === spotDetailRequest.current)
+          onAction(
+            cause instanceof Error
+              ? cause.message
+              : "Detail tempat belum dapat dimuat",
+          );
+      } finally {
+        if (request === spotDetailRequest.current) setSpotDetailLoading(false);
+      }
+    }
     if (mode === "pawdating") {
       try {
         setSelected(await getMobilePawDatingProfile(item.id, userLocation));
@@ -1206,10 +1324,7 @@ export function WorldScreen({
     const academyPet = pets.find(
       (candidate) => candidate.id === selectedAcademyPetID,
     );
-    if (
-      mode === "academy" &&
-      (!academyPet || !selectedAcademyScheduleID)
-    ) {
+    if (mode === "academy" && (!academyPet || !selectedAcademyScheduleID)) {
       onAction("Pilih pet dan jadwal mulai kelas terlebih dahulu");
       return;
     }
@@ -1253,9 +1368,7 @@ export function WorldScreen({
           selected.id,
           owner!.full_name,
           owner!.email,
-          selected.ticket_unit === "owner_pet"
-            ? selectedEventPetID
-            : undefined,
+          selected.ticket_unit === "owner_pet" ? selectedEventPetID : undefined,
         );
         if (source.amount > 0 && source.payment_status !== "paid")
           setPayment(
@@ -1542,15 +1655,26 @@ export function WorldScreen({
             {focusedVeterinarianId ? (
               <View style={styles.consultDoctorFocus}>
                 <View style={styles.consultDoctorFocusIcon}>
-                  <Ionicons name="medkit-outline" size={18} color={colors.sky600} />
+                  <Ionicons
+                    name="medkit-outline"
+                    size={18}
+                    color={colors.sky600}
+                  />
                 </View>
                 <View style={styles.consultDoctorFocusCopy}>
-                  <Text style={styles.consultDoctorFocusLabel}>PAKET DOKTER PILIHAN</Text>
+                  <Text style={styles.consultDoctorFocusLabel}>
+                    PAKET DOKTER PILIHAN
+                  </Text>
                   <Text numberOfLines={1} style={styles.consultDoctorFocusName}>
-                    {items.consult.find((item) => item.veterinarian_id === focusedVeterinarianId)?.doctor_name || "Dokter hewan pilihanmu"}
+                    {items.consult.find(
+                      (item) => item.veterinarian_id === focusedVeterinarianId,
+                    )?.doctor_name || "Dokter hewan pilihanmu"}
                   </Text>
                 </View>
-                <Pressable onPress={() => setFocusedVeterinarianId("")} hitSlop={8}>
+                <Pressable
+                  onPress={() => setFocusedVeterinarianId("")}
+                  hitSlop={8}
+                >
                   <Text style={styles.consultDoctorFocusAll}>Lihat semua</Text>
                 </Pressable>
               </View>
@@ -1638,7 +1762,7 @@ export function WorldScreen({
               : mode === "pawdating"
                 ? pawDatingLoadError ||
                   "Belum ada profil terverifikasi untuk ditampilkan."
-              : "Belum ada data pada kategori ini."}
+                : "Belum ada data pada kategori ini."}
           </Text>
         ) : null}
         <View style={styles.sectionHead}>
@@ -1673,15 +1797,23 @@ export function WorldScreen({
                 <Text style={styles.pawMatchKicker}>MATCH & PERMINTAAN</Text>
                 <Text style={styles.pawMatchTitle}>Langkah berikutnya</Text>
               </View>
-              <Ionicons name="chatbubbles-outline" size={22} color={colors.sky600} />
+              <Ionicons
+                name="chatbubbles-outline"
+                size={22}
+                color={colors.sky600}
+              />
             </View>
             {pawDatingInterests.map((interest) => (
               <View key={interest.id} style={styles.pawMatchCard}>
                 <View style={styles.pawMatchIcon}>
                   <Ionicons
-                    name={interest.status === "matched" ? "heart" : "paw-outline"}
+                    name={
+                      interest.status === "matched" ? "heart" : "paw-outline"
+                    }
                     size={20}
-                    color={interest.status === "matched" ? "#EA5B81" : colors.sky600}
+                    color={
+                      interest.status === "matched" ? "#EA5B81" : colors.sky600
+                    }
                   />
                 </View>
                 <View style={styles.pawMatchCopy}>
@@ -1701,10 +1833,15 @@ export function WorldScreen({
                     style={styles.pawMatchPrimary}
                     onPress={() => void openPawDatingChat(interest)}
                   >
-                    <Ionicons name="chatbubble-ellipses" size={17} color={colors.white} />
+                    <Ionicons
+                      name="chatbubble-ellipses"
+                      size={17}
+                      color={colors.white}
+                    />
                     <Text style={styles.pawMatchPrimaryText}>Chat</Text>
                   </Pressable>
-                ) : interest.direction === "incoming" && interest.status === "pending" ? (
+                ) : interest.direction === "incoming" &&
+                  interest.status === "pending" ? (
                   <View style={styles.pawMatchActions}>
                     <Pressable
                       style={styles.pawMatchAccept}
@@ -1712,7 +1849,11 @@ export function WorldScreen({
                       accessibilityLabel={`Terima permintaan antara ${interest.source_name} dan ${interest.target_name}`}
                       onPress={() => void respondPawDating(interest, "accept")}
                     >
-                      <Ionicons name="checkmark" size={17} color={colors.white} />
+                      <Ionicons
+                        name="checkmark"
+                        size={17}
+                        color={colors.white}
+                      />
                     </Pressable>
                     <Pressable
                       style={styles.pawMatchDecline}
@@ -1732,8 +1873,12 @@ export function WorldScreen({
           <View style={styles.academyTrainerSection}>
             <View style={styles.academyTrainerHead}>
               <View>
-                <Text style={styles.academyTrainerKicker}>TRAINER TERVERIFIKASI</Text>
-                <Text style={styles.academyTrainerTitle}>Pilih berdasarkan jenis pet</Text>
+                <Text style={styles.academyTrainerKicker}>
+                  TRAINER TERVERIFIKASI
+                </Text>
+                <Text style={styles.academyTrainerTitle}>
+                  Pilih berdasarkan jenis pet
+                </Text>
               </View>
               <Ionicons name="shield-checkmark" size={22} color="#128464" />
             </View>
@@ -1744,14 +1889,17 @@ export function WorldScreen({
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.academySpeciesRow}
                 onMomentumScrollEnd={(event) => {
-                  academySpeciesOffset.current = event.nativeEvent.contentOffset.x;
+                  academySpeciesOffset.current =
+                    event.nativeEvent.contentOffset.x;
                 }}
               >
                 {academySpeciesOptions.map((species) => (
                   <Pressable
                     key={species.id}
                     accessibilityRole="button"
-                    accessibilityState={{ selected: academySpecies === species.id }}
+                    accessibilityState={{
+                      selected: academySpecies === species.id,
+                    }}
                     onPress={() => setAcademySpecies(species.id)}
                     style={[
                       styles.choice,
@@ -1763,11 +1911,19 @@ export function WorldScreen({
                     <Ionicons
                       name={species.icon}
                       size={15}
-                      color={academySpecies === species.id ? colors.white : colors.sky600}
+                      color={
+                        academySpecies === species.id
+                          ? colors.white
+                          : colors.sky600
+                      }
                     />
                     <Text
                       numberOfLines={1}
-                      style={[styles.choiceText, academySpecies === species.id && styles.choiceTextActive]}
+                      style={[
+                        styles.choiceText,
+                        academySpecies === species.id &&
+                          styles.choiceTextActive,
+                      ]}
                     >
                       {species.label}
                     </Text>
@@ -1778,9 +1934,18 @@ export function WorldScreen({
                 accessibilityRole="button"
                 accessibilityLabel="Lihat jenis pet berikutnya"
                 style={styles.academyRailNext}
-                onPress={() => advanceAcademyRail(academySpeciesRailRef, academySpeciesOffset)}
+                onPress={() =>
+                  advanceAcademyRail(
+                    academySpeciesRailRef,
+                    academySpeciesOffset,
+                  )
+                }
               >
-                <Ionicons name="chevron-forward" size={19} color={colors.sky600} />
+                <Ionicons
+                  name="chevron-forward"
+                  size={19}
+                  color={colors.sky600}
+                />
               </Pressable>
             </View>
             <View style={styles.academyRailWrap}>
@@ -1790,7 +1955,8 @@ export function WorldScreen({
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.academyTrainerRow}
                 onMomentumScrollEnd={(event) => {
-                  academyTrainerOffset.current = event.nativeEvent.contentOffset.x;
+                  academyTrainerOffset.current =
+                    event.nativeEvent.contentOffset.x;
                 }}
               >
                 {academyTrainers.map((trainer) => (
@@ -1798,16 +1964,42 @@ export function WorldScreen({
                     key={trainer.id}
                     accessibilityRole="button"
                     accessibilityLabel={`Lihat profil trainer ${trainer.full_name}`}
-                    style={[styles.academyTrainerCard, { width: Math.min(230, viewportWidth * 0.62) }]}
+                    style={[
+                      styles.academyTrainerCard,
+                      { width: Math.min(230, viewportWidth * 0.62) },
+                    ]}
                     onPress={() => void openAcademyTrainer(trainer)}
                   >
                     <View style={styles.academyTrainerAvatar}>
-                      {trainer.photo_url ? <Image alt="" source={{ uri: trainer.photo_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Text style={styles.academyTrainerInitial}>{trainer.full_name.slice(0, 1)}</Text>}
+                      {trainer.photo_url ? (
+                        <Image
+                          alt=""
+                          source={{ uri: trainer.photo_url }}
+                          style={StyleSheet.absoluteFill}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <Text style={styles.academyTrainerInitial}>
+                          {trainer.full_name.slice(0, 1)}
+                        </Text>
+                      )}
                     </View>
-                    <Text style={styles.academyTrainerName} numberOfLines={1}>{trainer.full_name}</Text>
-                    <Text style={styles.academyTrainerMeta}>★ {trainer.rating.toFixed(1)} · {trainer.experience_years} th</Text>
-                    <Text style={styles.academyTrainerSpecialty} numberOfLines={1}>{trainer.specialties.join(" · ")}</Text>
-                    <Text style={styles.academyTrainerDetail}>Lihat profil lengkap</Text>
+                    <Text style={styles.academyTrainerName} numberOfLines={1}>
+                      {trainer.full_name}
+                    </Text>
+                    <Text style={styles.academyTrainerMeta}>
+                      ★ {trainer.rating.toFixed(1)} · {trainer.experience_years}{" "}
+                      th
+                    </Text>
+                    <Text
+                      style={styles.academyTrainerSpecialty}
+                      numberOfLines={1}
+                    >
+                      {trainer.specialties.join(" · ")}
+                    </Text>
+                    <Text style={styles.academyTrainerDetail}>
+                      Lihat profil lengkap
+                    </Text>
                   </Pressable>
                 ))}
               </ScrollView>
@@ -1816,23 +2008,60 @@ export function WorldScreen({
                   accessibilityRole="button"
                   accessibilityLabel="Lihat pet trainer berikutnya"
                   style={styles.academyRailNext}
-                  onPress={() => advanceAcademyRail(academyTrainerRailRef, academyTrainerOffset)}
+                  onPress={() =>
+                    advanceAcademyRail(
+                      academyTrainerRailRef,
+                      academyTrainerOffset,
+                    )
+                  }
                 >
-                  <Ionicons name="chevron-forward" size={19} color={colors.sky600} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={19}
+                    color={colors.sky600}
+                  />
                 </Pressable>
               ) : null}
             </View>
           </View>
         ) : null}
-        {mode === "petspot" ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
-          {[
-            ["all", "Semua"], ["cafe", "Cafe"], ["restaurant", "Restoran"],
-            ["boarding_house", "Kosan / Coliving"], ["apartment", "Apartemen"], ["mall", "Mall"],
-          ].map(([id, label]) => <Pressable key={id} onPress={() => setSpotCategoryFilter(id ?? "all")}
-            style={[styles.choice, spotCategoryFilter === id && styles.choiceActive]}>
-            <Text style={[styles.choiceText, spotCategoryFilter === id && styles.choiceTextActive]}>{label}</Text>
-          </Pressable>)}
-        </ScrollView> : null}
+        {mode === "petspot" ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.choiceRow}
+          >
+            {[
+              ["all", "Semua"],
+              ["cafe", "Cafe"],
+              ["restaurant", "Restoran"],
+              ["boarding_house", "Kosan / Coliving"],
+              ["apartment", "Apartemen"],
+              ["hotel", "Hotel"],
+              ["mall", "Mall"],
+              ["park", "Taman"],
+              ["other", "Lainnya"],
+            ].map(([id, label]) => (
+              <Pressable
+                key={id}
+                onPress={() => setSpotCategoryFilter(id ?? "all")}
+                style={[
+                  styles.choice,
+                  spotCategoryFilter === id && styles.choiceActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.choiceText,
+                    spotCategoryFilter === id && styles.choiceTextActive,
+                  ]}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
         {mode === "pawdating" && items.pawdating.length > 0 ? (
           <MobilePawDatingDeck
             profiles={items.pawdating}
@@ -1840,18 +2069,28 @@ export function WorldScreen({
             onDetail={(item) => void openItem(item)}
             onSwipe={(item, decision) => void swipePawDating(item, decision)}
           />
+        ) : mode === "petspot" ? (
+          <View style={styles.petSpotGrid}>
+            {visibleItems.map((item) => (
+              <PetSpotCard
+                key={item.id}
+                item={item}
+                onOpen={() => void openItem(item)}
+              />
+            ))}
+          </View>
         ) : (
           <View style={styles.list}>
             {visibleItems.map((item, index) => (
               <Pressable
                 key={item.id}
                 onPress={() => openItem(item)}
-                  style={[
-                    styles.card,
-                    mode === "academy" && styles.academyProgramCard,
-                    mode === "events" && styles.eventExperienceCard,
-                  ]}
-                >
+                style={[
+                  styles.card,
+                  mode === "academy" && styles.academyProgramCard,
+                  mode === "events" && styles.eventExperienceCard,
+                ]}
+              >
                 <View
                   style={[
                     styles.visual,
@@ -1861,11 +2100,18 @@ export function WorldScreen({
                     index % 3 === 2 && styles.visualViolet,
                   ]}
                 >
-                  {(["academy", "events", "petspot"].includes(mode) &&
-                    (item.cover_url || item.banner_url || item.image_urls?.[0])) ? (
+                  {["academy", "events", "petspot"].includes(mode) &&
+                  (item.cover_url ||
+                    item.banner_url ||
+                    item.image_urls?.[0]) ? (
                     <Image
                       alt=""
-                      source={{ uri: item.cover_url || item.banner_url || item.image_urls?.[0] }}
+                      source={{
+                        uri:
+                          item.cover_url ||
+                          item.banner_url ||
+                          item.image_urls?.[0],
+                      }}
                       style={StyleSheet.absoluteFill}
                       resizeMode="cover"
                     />
@@ -1878,24 +2124,38 @@ export function WorldScreen({
                   )}
                   {mode === "academy" && item.featured ? (
                     <View style={styles.academyFeaturedBadge}>
-                      <Ionicons name="sparkles" size={10} color={colors.white} />
+                      <Ionicons
+                        name="sparkles"
+                        size={10}
+                        color={colors.white}
+                      />
                       <Text style={styles.academyFeaturedText}>PILIHAN</Text>
                     </View>
                   ) : null}
                   {mode === "academy" && item.discount_percent ? (
                     <View style={styles.academyDiscountBadge}>
-                      <Text style={styles.academyDiscountText}>-{Math.round(item.discount_percent)}%</Text>
+                      <Text style={styles.academyDiscountText}>
+                        -{Math.round(item.discount_percent)}%
+                      </Text>
                     </View>
                   ) : null}
                   {mode === "consult" && item.discount_percent ? (
                     <View style={styles.academyDiscountBadge}>
-                      <Text style={styles.academyDiscountText}>-{Math.round(item.discount_percent)}%</Text>
+                      <Text style={styles.academyDiscountText}>
+                        -{Math.round(item.discount_percent)}%
+                      </Text>
                     </View>
                   ) : null}
                   {mode === "academy" && (item.image_urls?.length ?? 0) > 1 ? (
                     <View style={styles.academyGalleryBadge}>
-                      <Ionicons name="images-outline" size={11} color={colors.white} />
-                      <Text style={styles.academyGalleryText}>{item.image_urls?.length}</Text>
+                      <Ionicons
+                        name="images-outline"
+                        size={11}
+                        color={colors.white}
+                      />
+                      <Text style={styles.academyGalleryText}>
+                        {item.image_urls?.length}
+                      </Text>
                     </View>
                   ) : null}
                   {mode === "events" ? (
@@ -1910,13 +2170,21 @@ export function WorldScreen({
                       </View>
                       <View style={styles.eventCategoryBadge}>
                         <Text style={styles.eventCategoryText}>
-                          {item.featured ? "✦ PILIHAN" : item.category || "PET EVENT"}
+                          {item.featured
+                            ? "✦ PILIHAN"
+                            : item.category || "PET EVENT"}
                         </Text>
                       </View>
                       {(item.image_urls?.length ?? 0) > 1 ? (
                         <View style={styles.academyGalleryBadge}>
-                          <Ionicons name="images-outline" size={11} color={colors.white} />
-                          <Text style={styles.academyGalleryText}>{item.image_urls?.length}</Text>
+                          <Ionicons
+                            name="images-outline"
+                            size={11}
+                            color={colors.white}
+                          />
+                          <Text style={styles.academyGalleryText}>
+                            {item.image_urls?.length}
+                          </Text>
                         </View>
                       ) : null}
                     </>
@@ -1941,15 +2209,13 @@ export function WorldScreen({
                         ? item.academy_name
                         : mode === "events"
                           ? when(item.starts_at)
-                          : mode === "petspot"
-                            ? `★ ${item.rating} · ${item.distance_km ?? "—"} km`
-                            : mode === "consult"
-                              ? `${item.duration_minutes ?? "—"} menit · ${item.provider_type === "trainer" ? "pet trainer" : "dokter"} terverifikasi`
-                              : mode === "adoption"
-                                ? `${item.city || "Lokasi belum tersedia"} · ${item.health_status || "Health check"}`
-                                : mode === "documents"
-                                  ? `${item.processing_days ?? "—"} hari kerja`
-                                  : `${formatNumber(item.viewer_count ?? 0)} menonton`}
+                          : mode === "consult"
+                            ? `${item.duration_minutes ?? "—"} menit · ${item.provider_type === "trainer" ? "pet trainer" : "dokter"} terverifikasi`
+                            : mode === "adoption"
+                              ? `${item.city || "Lokasi belum tersedia"} · ${item.health_status || "Health check"}`
+                              : mode === "documents"
+                                ? `${item.processing_days ?? "—"} hari kerja`
+                                : `${formatNumber(item.viewer_count ?? 0)} menonton`}
                   </Text>
                   <Text style={styles.cardTitle}>
                     {item.title || item.name}
@@ -1964,7 +2230,11 @@ export function WorldScreen({
                   {mode === "academy" ? (
                     <View style={styles.academyProgramStats}>
                       <View style={styles.academyProgramStat}>
-                        <Ionicons name="people-outline" size={12} color={colors.sky600} />
+                        <Ionicons
+                          name="people-outline"
+                          size={12}
+                          color={colors.sky600}
+                        />
                         <Text style={styles.academyProgramStatText}>
                           {formatNumber(item.participant_count ?? 0)} peserta
                         </Text>
@@ -1978,9 +2248,19 @@ export function WorldScreen({
                         </Text>
                       </View>
                       <View style={styles.academyProgramStat}>
-                        <Ionicons name="time-outline" size={12} color="#128464" />
+                        <Ionicons
+                          name="time-outline"
+                          size={12}
+                          color="#128464"
+                        />
                         <Text style={styles.academyProgramStatText}>
-                          Sejak {item.running_since ? formatDate(item.running_since, { month: "short", year: "numeric" }) : "baru"}
+                          Sejak{" "}
+                          {item.running_since
+                            ? formatDate(item.running_since, {
+                                month: "short",
+                                year: "numeric",
+                              })
+                            : "baru"}
                         </Text>
                       </View>
                     </View>
@@ -1988,49 +2268,75 @@ export function WorldScreen({
                   {mode === "events" ? (
                     <View style={styles.eventCardStats}>
                       <View style={styles.eventCardStat}>
-                        <Ionicons name="people-outline" size={12} color={colors.sky600} />
+                        <Ionicons
+                          name="people-outline"
+                          size={12}
+                          color={colors.sky600}
+                        />
                         <Text style={styles.eventCardStatText}>
                           {formatNumber(item.registered_count ?? 0)} terdaftar
                         </Text>
                       </View>
                       <View style={styles.eventCardStat}>
-                        <Ionicons name="ticket-outline" size={12} color="#7658C9" />
+                        <Ionicons
+                          name="ticket-outline"
+                          size={12}
+                          color="#7658C9"
+                        />
                         <Text style={styles.eventCardStatText}>
-                          {Math.max(0, Number(item.capacity ?? 0) - Number(item.registered_count ?? 0))} slot
+                          {Math.max(
+                            0,
+                            Number(item.capacity ?? 0) -
+                              Number(item.registered_count ?? 0),
+                          )}{" "}
+                          slot
                         </Text>
                       </View>
                       <View style={styles.eventCardStat}>
-                        <Ionicons name="location-outline" size={12} color="#128464" />
-                        <Text numberOfLines={1} style={styles.eventCardStatText}>{item.city}</Text>
+                        <Ionicons
+                          name="location-outline"
+                          size={12}
+                          color="#128464"
+                        />
+                        <Text
+                          numberOfLines={1}
+                          style={styles.eventCardStatText}
+                        >
+                          {item.city}
+                        </Text>
                       </View>
                     </View>
                   ) : null}
-                  <View style={styles.cardFooter}>
+                  <View
+                    style={[
+                      styles.cardFooter,
+                      mode === "events" && styles.eventPriceFooter,
+                    ]}
+                  >
                     <View style={styles.cardPriceBlock}>
                       {item.original_price &&
-                      item.original_price > Number(item.price ?? item.total_fee ?? 0) ? (
+                      item.original_price >
+                        Number(item.price ?? item.total_fee ?? 0) ? (
                         <Text style={styles.cardOriginalPrice}>
                           {money(item.original_price)}
                         </Text>
                       ) : null}
                       <Text style={styles.cardPrice}>
-                      {mode === "pawdating"
-                        ? `✓ ${item.eligibility_status === "eligible" ? "Verified eligible" : "Conditional"}`
-                        : mode === "academy"
-                          ? money(item.price)
-                          : mode === "events"
-                            ? item.price
-                              ? money(item.price)
-                              : "Gratis"
-                            : mode === "petspot"
-                              ? item.city
+                        {mode === "pawdating"
+                          ? `✓ ${item.eligibility_status === "eligible" ? "Verified eligible" : "Conditional"}`
+                          : mode === "academy"
+                            ? money(item.price)
+                            : mode === "events"
+                              ? item.price
+                                ? money(item.price)
+                                : "Gratis"
                               : mode === "consult"
                                 ? money(item.total_fee ?? item.price)
                                 : mode === "adoption"
                                   ? `${item.breed || "Pet"} · ${item.vaccinated ? "Vaksin lengkap" : "Vaksin diproses"}`
                                   : mode === "documents"
                                     ? money(item.total_fee ?? item.price)
-                                  : item.channel_name}
+                                    : item.channel_name}
                       </Text>
                     </View>
                     <View style={styles.arrow}>
@@ -2095,17 +2401,62 @@ export function WorldScreen({
                 >
                   {selectedImages.length ? (
                     <View>
-                      <ScrollView ref={detailGalleryRef} horizontal pagingEnabled nestedScrollEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={(event) => setSelectedImageIndex(Math.round(event.nativeEvent.contentOffset.x / Math.max(260, viewportWidth - 32)))}>
+                      <ScrollView
+                        ref={detailGalleryRef}
+                        horizontal
+                        pagingEnabled
+                        nestedScrollEnabled
+                        showsHorizontalScrollIndicator={false}
+                        onMomentumScrollEnd={(event) =>
+                          setSelectedImageIndex(
+                            Math.round(
+                              event.nativeEvent.contentOffset.x /
+                                Math.max(260, viewportWidth - 32),
+                            ),
+                          )
+                        }
+                      >
                         {selectedImages.map((uri, index) => (
-                          <Pressable key={uri} onPress={() => setImageViewerIndex(index)} style={[styles.sheetHero, { width: Math.max(260, viewportWidth - 32) }]} accessibilityLabel={`Perbesar gambar ${index + 1}`}>
-                            <Image alt="" source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                          <Pressable
+                            key={uri}
+                            onPress={() => setImageViewerIndex(index)}
+                            style={[
+                              styles.sheetHero,
+                              { width: Math.max(260, viewportWidth - 32) },
+                            ]}
+                            accessibilityLabel={`Perbesar gambar ${index + 1}`}
+                          >
+                            <Image
+                              alt=""
+                              source={{ uri }}
+                              style={StyleSheet.absoluteFill}
+                              resizeMode="cover"
+                            />
                           </Pressable>
                         ))}
                       </ScrollView>
-                      {selectedImages.length > 1 ? <View style={styles.sheetGalleryBadge}><Ionicons name="images-outline" size={12} color={colors.white} /><Text style={styles.sheetGalleryBadgeText}>{selectedImageIndex + 1}/{selectedImages.length} · otomatis</Text></View> : null}
+                      {selectedImages.length > 1 ? (
+                        <View style={styles.sheetGalleryBadge}>
+                          <Ionicons
+                            name="images-outline"
+                            size={12}
+                            color={colors.white}
+                          />
+                          <Text style={styles.sheetGalleryBadgeText}>
+                            {selectedImageIndex + 1}/{selectedImages.length} ·
+                            otomatis
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                   ) : (
-                    <View style={styles.sheetHero}><Ionicons name={worldIcon(mode, selected)} size={48} color={colors.sky600} /></View>
+                    <View style={styles.sheetHero}>
+                      <Ionicons
+                        name={worldIcon(mode, selected)}
+                        size={48}
+                        color={colors.sky600}
+                      />
+                    </View>
                   )}
                   <Text style={styles.sheetKicker}>
                     {mode === "pawdating"
@@ -2118,6 +2469,16 @@ export function WorldScreen({
                     {selected?.title || selected?.name}
                   </Text>
                   <Text style={styles.sheetNote}>{selected?.description}</Text>
+                  {mode === "petspot" && selected ? (
+                    <>
+                      {spotDetailLoading ? (
+                        <Text accessibilityRole="text" style={styles.formNote}>
+                          Memuat fasilitas, pilihan tempat, dan ulasan…
+                        </Text>
+                      ) : null}
+                      <PetSpotVenueInformation item={selected} />
+                    </>
+                  ) : null}
                   {mode === "events" ? (
                     <View style={styles.eventSocialSummary}>
                       <View style={styles.eventSocialItem}>
@@ -2128,20 +2489,29 @@ export function WorldScreen({
                       </View>
                       <View style={styles.eventSocialItem}>
                         <Text style={styles.eventSocialValue}>
-                          {Math.max(0, Number(selected?.capacity ?? 0) - Number(selected?.registered_count ?? 0))}
+                          {Math.max(
+                            0,
+                            Number(selected?.capacity ?? 0) -
+                              Number(selected?.registered_count ?? 0),
+                          )}
                         </Text>
-                        <Text style={styles.eventSocialLabel}>Slot tersedia</Text>
+                        <Text style={styles.eventSocialLabel}>
+                          Slot tersedia
+                        </Text>
                       </View>
                       <View style={styles.eventSocialItem}>
                         <Text style={styles.eventSocialValue}>
-                          {eventDatePart(selected?.starts_at, "day")} {eventDatePart(selected?.starts_at, "month")}
+                          {eventDatePart(selected?.starts_at, "day")}{" "}
+                          {eventDatePart(selected?.starts_at, "month")}
                         </Text>
-                        <Text style={styles.eventSocialLabel}>Tanggal event</Text>
+                        <Text style={styles.eventSocialLabel}>
+                          Tanggal event
+                        </Text>
                       </View>
                     </View>
                   ) : null}
-                  {(["academy", "consult"].includes(mode) &&
-                    Number(selected?.price ?? selected?.total_fee ?? 0) > 0) ? (
+                  {["academy", "consult"].includes(mode) &&
+                  Number(selected?.price ?? selected?.total_fee ?? 0) > 0 ? (
                     <View style={styles.worldPromoPrice}>
                       <View style={styles.worldPromoPriceCopy}>
                         <Text style={styles.worldPromoLabel}>
@@ -2193,14 +2563,24 @@ export function WorldScreen({
                       <View style={styles.academySocialItem}>
                         <Text style={styles.academySocialValue}>
                           {selected?.running_since
-                            ? formatDate(selected.running_since, { month: "short", year: "numeric" })
+                            ? formatDate(selected.running_since, {
+                                month: "short",
+                                year: "numeric",
+                              })
                             : "Baru"}
                         </Text>
-                        <Text style={styles.academySocialLabel}>Berjalan sejak</Text>
+                        <Text style={styles.academySocialLabel}>
+                          Berjalan sejak
+                        </Text>
                       </View>
                     </View>
                   ) : null}
-                  <View style={styles.details}>
+                  <View
+                    style={[
+                      styles.details,
+                      mode === "petspot" && styles.hidden,
+                    ]}
+                  >
                     <View style={styles.detail}>
                       <Text style={styles.detailLabel}>
                         {mode === "pawdating"
@@ -2257,21 +2637,52 @@ export function WorldScreen({
                     <View style={styles.academyBookingSection}>
                       <Text style={styles.formTitle}>Pet trainer kelas</Text>
                       <Text style={styles.formNote}>
-                        Profil trainer, spesialisasi, dan jadwal berasal dari academy.
+                        Profil trainer, spesialisasi, dan jadwal berasal dari
+                        academy.
                       </Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.academyDetailTrainerRow}>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.academyDetailTrainerRow}
+                      >
                         {(selected?.trainers ?? []).map((trainer) => (
-                          <Pressable key={trainer.id} style={styles.academyDetailTrainer} onPress={() => void openAcademyTrainer(trainer)}>
+                          <Pressable
+                            key={trainer.id}
+                            style={styles.academyDetailTrainer}
+                            onPress={() => void openAcademyTrainer(trainer)}
+                          >
                             <View style={styles.academyDetailTrainerAvatar}>
-                              {trainer.photo_url ? <Image alt="" source={{ uri: trainer.photo_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Text style={styles.academyTrainerInitial}>{trainer.full_name.slice(0, 1)}</Text>}
+                              {trainer.photo_url ? (
+                                <Image
+                                  alt=""
+                                  source={{ uri: trainer.photo_url }}
+                                  style={StyleSheet.absoluteFill}
+                                  resizeMode="cover"
+                                />
+                              ) : (
+                                <Text style={styles.academyTrainerInitial}>
+                                  {trainer.full_name.slice(0, 1)}
+                                </Text>
+                              )}
                             </View>
-                            <Text style={styles.academyTrainerName} numberOfLines={1}>{trainer.full_name}</Text>
-                            <Text style={styles.academyTrainerMeta}>★ {trainer.rating.toFixed(1)}</Text>
-                            <Text style={styles.academyTrainerDetail}>Profil lengkap →</Text>
+                            <Text
+                              style={styles.academyTrainerName}
+                              numberOfLines={1}
+                            >
+                              {trainer.full_name}
+                            </Text>
+                            <Text style={styles.academyTrainerMeta}>
+                              ★ {trainer.rating.toFixed(1)}
+                            </Text>
+                            <Text style={styles.academyTrainerDetail}>
+                              Profil lengkap →
+                            </Text>
                           </Pressable>
                         ))}
                       </ScrollView>
-                      <Text style={styles.formLabel}>PET YANG AKAN SEKOLAH</Text>
+                      <Text style={styles.formLabel}>
+                        PET YANG AKAN SEKOLAH
+                      </Text>
                       <View style={styles.eventPetGrid}>
                         {pets
                           .filter(
@@ -2286,8 +2697,12 @@ export function WorldScreen({
                               key={candidate.id}
                               accessibilityRole="button"
                               accessibilityLabel={`Pilih ${candidate.name} untuk kelas`}
-                              accessibilityState={{ selected: selectedAcademyPetID === candidate.id }}
-                              onPress={() => setSelectedAcademyPetID(candidate.id)}
+                              accessibilityState={{
+                                selected: selectedAcademyPetID === candidate.id,
+                              }}
+                              onPress={() =>
+                                setSelectedAcademyPetID(candidate.id)
+                              }
                               style={[
                                 styles.eventPetCard,
                                 selectedAcademyPetID === candidate.id &&
@@ -2295,14 +2710,30 @@ export function WorldScreen({
                               ]}
                             >
                               <View style={styles.eventPetIcon}>
-                                <Ionicons name="paw" size={18} color={colors.sky600} />
+                                <Ionicons
+                                  name="paw"
+                                  size={18}
+                                  color={colors.sky600}
+                                />
                               </View>
-                              <Text style={styles.eventPetName}>{candidate.name}</Text>
-                              <Text style={styles.formNote} numberOfLines={1}>{candidate.breed}</Text>
+                              <Text style={styles.eventPetName}>
+                                {candidate.name}
+                              </Text>
+                              <Text style={styles.formNote} numberOfLines={1}>
+                                {candidate.breed}
+                              </Text>
                               <Ionicons
-                                name={selectedAcademyPetID === candidate.id ? "checkmark-circle" : "ellipse-outline"}
+                                name={
+                                  selectedAcademyPetID === candidate.id
+                                    ? "checkmark-circle"
+                                    : "ellipse-outline"
+                                }
                                 size={20}
-                                color={selectedAcademyPetID === candidate.id ? "#128464" : colors.muted}
+                                color={
+                                  selectedAcademyPetID === candidate.id
+                                    ? "#128464"
+                                    : colors.muted
+                                }
                                 style={styles.eventPetCheck}
                               />
                             </Pressable>
@@ -2317,56 +2748,93 @@ export function WorldScreen({
                             accessibilityLabel={`Pilih jadwal ${when(schedule.starts_at)} bersama ${schedule.trainer_name}`}
                             accessibilityState={{
                               disabled: schedule.remaining_capacity < 1,
-                              selected: selectedAcademyScheduleID === schedule.id,
+                              selected:
+                                selectedAcademyScheduleID === schedule.id,
                             }}
                             disabled={schedule.remaining_capacity < 1}
-                            onPress={() => setSelectedAcademyScheduleID(schedule.id)}
+                            onPress={() =>
+                              setSelectedAcademyScheduleID(schedule.id)
+                            }
                             style={[
                               styles.academySchedule,
-                              selectedAcademyScheduleID === schedule.id && styles.academyScheduleActive,
-                              schedule.remaining_capacity < 1 && styles.academyScheduleDisabled,
+                              selectedAcademyScheduleID === schedule.id &&
+                                styles.academyScheduleActive,
+                              schedule.remaining_capacity < 1 &&
+                                styles.academyScheduleDisabled,
                             ]}
                           >
                             <View style={styles.academyScheduleDate}>
-                              <Ionicons name="calendar" size={18} color={colors.sky600} />
+                              <Ionicons
+                                name="calendar"
+                                size={18}
+                                color={colors.sky600}
+                              />
                             </View>
                             <View style={styles.academyScheduleCopy}>
-                              <Text style={styles.academyScheduleTitle}>{when(schedule.starts_at)}</Text>
-                              <Text style={styles.academyScheduleMeta}>{schedule.trainer_name} · {schedule.location || "Online"}</Text>
-                              <Text style={styles.academyScheduleSeats}>{schedule.remaining_capacity} kursi tersisa</Text>
+                              <Text style={styles.academyScheduleTitle}>
+                                {when(schedule.starts_at)}
+                              </Text>
+                              <Text style={styles.academyScheduleMeta}>
+                                {schedule.trainer_name} ·{" "}
+                                {schedule.location || "Online"}
+                              </Text>
+                              <Text style={styles.academyScheduleSeats}>
+                                {schedule.remaining_capacity} kursi tersisa
+                              </Text>
                             </View>
                             <Ionicons
-                              name={selectedAcademyScheduleID === schedule.id ? "checkmark-circle" : "ellipse-outline"}
+                              name={
+                                selectedAcademyScheduleID === schedule.id
+                                  ? "checkmark-circle"
+                                  : "ellipse-outline"
+                              }
                               size={21}
-                              color={selectedAcademyScheduleID === schedule.id ? "#128464" : colors.muted}
+                              color={
+                                selectedAcademyScheduleID === schedule.id
+                                  ? "#128464"
+                                  : colors.muted
+                              }
                             />
                           </Pressable>
                         ))}
                       </View>
                       {!(selected?.schedules ?? []).length ? (
-                        <Text style={styles.academyEmptySchedule}>Jadwal kelas belum dibuka oleh academy.</Text>
+                        <Text style={styles.academyEmptySchedule}>
+                          Jadwal kelas belum dibuka oleh academy.
+                        </Text>
                       ) : null}
                       <View style={styles.academyReviewSection}>
                         <View style={styles.academyReviewHead}>
                           <View>
-                            <Text style={styles.formTitle}>Review & komentar</Text>
+                            <Text style={styles.formTitle}>
+                              Review & komentar
+                            </Text>
                             <Text style={styles.formNote}>
                               Cerita asli dari peserta terverifikasi.
                             </Text>
                           </View>
                           <View style={styles.academyReviewCount}>
                             <Text style={styles.academyReviewCountText}>
-                              {formatNumber(selected?.review_count ?? selected?.reviews?.length ?? 0)}
+                              {formatNumber(
+                                selected?.review_count ??
+                                  selected?.reviews?.length ??
+                                  0,
+                              )}
                             </Text>
                           </View>
                         </View>
                         {(selected?.reviews ?? []).length ? (
                           <View style={styles.academyReviewList}>
                             {(selected?.reviews ?? []).map((review) => (
-                              <View key={review.id} style={styles.academyReviewCard}>
+                              <View
+                                key={review.id}
+                                style={styles.academyReviewCard}
+                              >
                                 <View style={styles.academyReviewerAvatar}>
                                   <Text style={styles.academyReviewerInitial}>
-                                    {review.reviewer_name.slice(0, 1).toUpperCase()}
+                                    {review.reviewer_name
+                                      .slice(0, 1)
+                                      .toUpperCase()}
                                   </Text>
                                 </View>
                                 <View style={styles.academyReviewCopy}>
@@ -2375,21 +2843,38 @@ export function WorldScreen({
                                       {review.reviewer_name}
                                     </Text>
                                     {review.verified_enrollment ? (
-                                      <View style={styles.academyVerifiedReview}>
-                                        <Ionicons name="checkmark-circle" size={11} color="#128464" />
-                                        <Text style={styles.academyVerifiedReviewText}>Peserta</Text>
+                                      <View
+                                        style={styles.academyVerifiedReview}
+                                      >
+                                        <Ionicons
+                                          name="checkmark-circle"
+                                          size={11}
+                                          color="#128464"
+                                        />
+                                        <Text
+                                          style={
+                                            styles.academyVerifiedReviewText
+                                          }
+                                        >
+                                          Peserta
+                                        </Text>
                                       </View>
                                     ) : null}
                                   </View>
                                   <Text style={styles.academyReviewStars}>
-                                    {"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}
+                                    {"★".repeat(review.rating)}
+                                    {"☆".repeat(5 - review.rating)}
                                   </Text>
                                   <Text style={styles.academyReviewComment}>
                                     {review.comment}
                                   </Text>
                                   <Text style={styles.academyReviewMeta}>
-                                    {review.pet_name ? `${review.pet_name} · ` : ""}
-                                    {formatDate(review.created_at, { dateStyle: "medium" })}
+                                    {review.pet_name
+                                      ? `${review.pet_name} · `
+                                      : ""}
+                                    {formatDate(review.created_at, {
+                                      dateStyle: "medium",
+                                    })}
                                   </Text>
                                 </View>
                               </View>
@@ -2397,14 +2882,21 @@ export function WorldScreen({
                           </View>
                         ) : (
                           <View style={styles.academyEmptyReview}>
-                            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.sky600} />
+                            <Ionicons
+                              name="chatbubble-ellipses-outline"
+                              size={20}
+                              color={colors.sky600}
+                            />
                             <Text style={styles.academyEmptyReviewText}>
-                              Belum ada review. Peserta kelas bisa menjadi yang pertama.
+                              Belum ada review. Peserta kelas bisa menjadi yang
+                              pertama.
                             </Text>
                           </View>
                         )}
                         <View style={styles.academyReviewComposer}>
-                          <Text style={styles.formLabel}>BAGIKAN PENGALAMAN KELAS</Text>
+                          <Text style={styles.formLabel}>
+                            BAGIKAN PENGALAMAN KELAS
+                          </Text>
                           <View style={styles.academyRatingRow}>
                             {[1, 2, 3, 4, 5].map((rating) => (
                               <Pressable
@@ -2415,7 +2907,11 @@ export function WorldScreen({
                                 style={styles.academyRatingButton}
                               >
                                 <Ionicons
-                                  name={rating <= academyReviewRating ? "star" : "star-outline"}
+                                  name={
+                                    rating <= academyReviewRating
+                                      ? "star"
+                                      : "star-outline"
+                                  }
                                   size={23}
                                   color="#E6A51C"
                                 />
@@ -2433,27 +2929,39 @@ export function WorldScreen({
                           />
                           <Pressable
                             accessibilityRole="button"
-                            disabled={academyReviewBusy || academyReviewComment.trim().length < 10}
+                            disabled={
+                              academyReviewBusy ||
+                              academyReviewComment.trim().length < 10
+                            }
                             onPress={() => void submitAcademyReview()}
                             style={[
                               styles.academyReviewSubmit,
-                              (academyReviewBusy || academyReviewComment.trim().length < 10) &&
+                              (academyReviewBusy ||
+                                academyReviewComment.trim().length < 10) &&
                                 styles.academyReviewSubmitDisabled,
                             ]}
                           >
-                            <Ionicons name="send" size={15} color={colors.white} />
+                            <Ionicons
+                              name="send"
+                              size={15}
+                              color={colors.white}
+                            />
                             <Text style={styles.academyReviewSubmitText}>
-                              {academyReviewBusy ? "Mengirim…" : "Kirim review terverifikasi"}
+                              {academyReviewBusy
+                                ? "Mengirim…"
+                                : "Kirim review terverifikasi"}
                             </Text>
                           </Pressable>
                           <Text style={styles.academyReviewRule}>
-                            Review hanya dapat dikirim oleh pet owner yang sudah terdaftar di kelas ini.
+                            Review hanya dapat dikirim oleh pet owner yang sudah
+                            terdaftar di kelas ini.
                           </Text>
                         </View>
                       </View>
                     </View>
                   ) : null}
-                  {mode === "events" && selected?.ticket_unit === "owner_pet" ? (
+                  {mode === "events" &&
+                  selected?.ticket_unit === "owner_pet" ? (
                     <View style={styles.eventSection}>
                       {selected.pet_spot_name ? (
                         <View style={styles.eventHost}>
@@ -2652,10 +3160,14 @@ export function WorldScreen({
                       <View style={styles.petSpotReservationHead}>
                         <View>
                           <Text style={styles.formTitle}>
-                            {petSpotForm.stayKind ? "Booking unit hunian" : "Reservasi PetSpot"}
+                            {petSpotForm.stayKind
+                              ? "Booking unit hunian"
+                              : "Reservasi PetSpot"}
                           </Text>
                           <Text style={styles.formNote}>
-                            {petSpotForm.stayKind ? "Pilih check-in dan check-out, lalu cek unit serta harga sewa." : "Pilih jadwal lalu lihat meja yang tersedia."}
+                            {petSpotForm.stayKind
+                              ? "Pilih check-in dan check-out, lalu cek unit serta harga sewa."
+                              : "Pilih jadwal lalu lihat meja yang tersedia."}
                           </Text>
                         </View>
                         <View style={styles.depositBadge}>
@@ -2670,12 +3182,17 @@ export function WorldScreen({
                       <View style={styles.dateRow}>
                         <View style={styles.dateField}>
                           <FormTextField
-                            label={petSpotForm.stayKind ? "Check-in" : "Tanggal"}
+                            label={
+                              petSpotForm.stayKind ? "Check-in" : "Tanggal"
+                            }
                             value={petSpotForm.date}
                             onChangeText={(date) => {
                               setSelectedPetSpotResource(undefined);
                               setPetSpotResources([]);
-                              setPetSpotForm((current) => ({ ...current, date }));
+                              setPetSpotForm((current) => ({
+                                ...current,
+                                date,
+                              }));
                             }}
                             placeholder="YYYY-MM-DD"
                           />
@@ -2683,51 +3200,68 @@ export function WorldScreen({
                         <View style={styles.dateField}>
                           <FormTextField
                             label={petSpotForm.stayKind ? "Check-out" : "Jam"}
-                            value={petSpotForm.stayKind ? petSpotForm.checkoutDate : petSpotForm.time}
+                            value={
+                              petSpotForm.stayKind
+                                ? petSpotForm.checkoutDate
+                                : petSpotForm.time
+                            }
                             onChangeText={(value) => {
                               setSelectedPetSpotResource(undefined);
                               setPetSpotResources([]);
-                              setPetSpotForm((current) => petSpotForm.stayKind
-                                ? { ...current, checkoutDate: value }
-                                : { ...current, time: value });
+                              setPetSpotForm((current) =>
+                                petSpotForm.stayKind
+                                  ? { ...current, checkoutDate: value }
+                                  : { ...current, time: value },
+                              );
                             }}
-                            placeholder={petSpotForm.stayKind ? "YYYY-MM-DD" : "18:00"}
+                            placeholder={
+                              petSpotForm.stayKind ? "YYYY-MM-DD" : "18:00"
+                            }
                           />
                         </View>
                       </View>
-                      {!petSpotForm.stayKind ? <>
-                      <Text style={styles.formLabel}>Durasi</Text>
-                      <View style={styles.choiceRow}>
-                        {[60, 90, 120, 1440].map((durationMinutes) => (
-                          <Pressable
-                            key={durationMinutes}
-                            onPress={() =>
-                              setPetSpotForm((current) => ({
-                                ...current,
-                                durationMinutes,
-                              }))
-                            }
-                            style={[
-                              styles.choice,
-                              petSpotForm.durationMinutes === durationMinutes &&
-                                styles.choiceActive,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.choiceText,
-                                petSpotForm.durationMinutes ===
-                                  durationMinutes && styles.choiceTextActive,
-                              ]}
-                            >
-                              {durationMinutes === 1440
-                                ? "1 hari"
-                                : `${durationMinutes} menit`}
-                            </Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                      </> : <Text style={styles.formNote}>{petSpotForm.stayKind === "boarding_house" ? "Minimal 30 malam · tarif dapat berlaku per 30 malam" : "Minimal 1 malam · tarif per malam"}</Text>}
+                      {!petSpotForm.stayKind ? (
+                        <>
+                          <Text style={styles.formLabel}>Durasi</Text>
+                          <View style={styles.choiceRow}>
+                            {[60, 90, 120, 1440].map((durationMinutes) => (
+                              <Pressable
+                                key={durationMinutes}
+                                onPress={() =>
+                                  setPetSpotForm((current) => ({
+                                    ...current,
+                                    durationMinutes,
+                                  }))
+                                }
+                                style={[
+                                  styles.choice,
+                                  petSpotForm.durationMinutes ===
+                                    durationMinutes && styles.choiceActive,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.choiceText,
+                                    petSpotForm.durationMinutes ===
+                                      durationMinutes &&
+                                      styles.choiceTextActive,
+                                  ]}
+                                >
+                                  {durationMinutes === 1440
+                                    ? "1 hari"
+                                    : `${durationMinutes} menit`}
+                                </Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                        </>
+                      ) : (
+                        <Text style={styles.formNote}>
+                          {petSpotForm.stayKind === "boarding_house"
+                            ? "Minimal 30 malam · tarif dapat berlaku per 30 malam"
+                            : "Minimal 1 malam · tarif per malam"}
+                        </Text>
+                      )}
                       <View style={styles.counterRow}>
                         {[
                           {
@@ -2802,102 +3336,157 @@ export function WorldScreen({
                         <Text style={styles.checkAvailabilityText}>
                           {availabilityLoading
                             ? "Memeriksa ketersediaan…"
-                            : petSpotForm.stayKind ? "Cek unit tersedia" : "Perbarui denah ketersediaan"}
+                            : petSpotForm.stayKind
+                              ? "Cek unit tersedia"
+                              : "Perbarui denah ketersediaan"}
                         </Text>
                       </Pressable>
                       {petSpotForm.stayKind ? (
                         <View style={styles.housingList}>
                           {petSpotResources.map((resource) => {
-                            const active = selectedPetSpotResource?.id === resource.id;
-                            return <Pressable key={resource.id}
-                              disabled={!resource.available}
-                              onPress={() => setSelectedPetSpotResource(resource)}
-                              style={[styles.housingCard, active && styles.housingCardSelected, !resource.available && styles.housingCardBusy]}>
-                              {resource.image_urls?.[0] ? <Image alt={resource.name} source={{ uri: resource.image_urls[0] }} style={styles.housingPhoto} /> : null}
-                              <View style={styles.housingCardBody}>
-                                <Text style={styles.formTitle}>{resource.name}</Text>
-                                <Text style={styles.formNote}>{resource.code} · {resource.floor_name || "Unit"} · {resource.capacity} penghuni · {Number(resource.pet_policy?.pet_limit ?? 0)} pet</Text>
-                                {resource.description ? <Text style={styles.formNote}>{resource.description}</Text> : null}
-                                <Text style={styles.housingAmenities}>{(resource.amenities ?? []).slice(0, 5).join(" · ")}</Text>
-                                <Text style={styles.housingPrice}>{money(resource.base_price)} / {resource.booking_rules?.rate_period === "month" ? "30 malam" : "malam"}</Text>
-                                <Text style={styles.formNote}>{resource.available ? active ? "✓ Pilihanmu" : "Pilih unit" : "Terisi di tanggal ini"}</Text>
-                              </View>
-                            </Pressable>;
+                            const active =
+                              selectedPetSpotResource?.id === resource.id;
+                            return (
+                              <Pressable
+                                key={resource.id}
+                                disabled={!resource.available}
+                                onPress={() =>
+                                  setSelectedPetSpotResource(resource)
+                                }
+                                style={[
+                                  styles.housingCard,
+                                  active && styles.housingCardSelected,
+                                  !resource.available && styles.housingCardBusy,
+                                ]}
+                              >
+                                {resource.image_urls?.[0] ? (
+                                  <Image
+                                    alt={resource.name}
+                                    source={{ uri: resource.image_urls[0] }}
+                                    style={styles.housingPhoto}
+                                  />
+                                ) : null}
+                                <View style={styles.housingCardBody}>
+                                  <Text style={styles.formTitle}>
+                                    {resource.name}
+                                  </Text>
+                                  <Text style={styles.formNote}>
+                                    {resource.code} ·{" "}
+                                    {resource.floor_name || "Unit"} ·{" "}
+                                    {resource.capacity} penghuni ·{" "}
+                                    {Number(
+                                      resource.pet_policy?.pet_limit ?? resource.pet_policy?.max_pets ?? 0,
+                                    )}{" "}
+                                    pet
+                                  </Text>
+                                  {resource.description ? (
+                                    <Text style={styles.formNote}>
+                                      {resource.description}
+                                    </Text>
+                                  ) : null}
+                                  <Text style={styles.housingAmenities}>
+                                    {(resource.amenities ?? [])
+                                      .slice(0, 5)
+                                      .join(" · ")}
+                                  </Text>
+                                  <Text style={styles.housingPrice}>
+                                    {money(resource.base_price)} /{" "}
+                                    {resource.booking_rules?.rate_period ===
+                                    "month"
+                                      ? "30 malam"
+                                      : "malam"}
+                                  </Text>
+                                  <Text style={styles.formNote}>
+                                    {resource.available
+                                      ? active
+                                        ? "✓ Pilihanmu"
+                                        : "Pilih unit"
+                                      : "Terisi di tanggal ini"}
+                                  </Text>
+                                </View>
+                              </Pressable>
+                            );
                           })}
-                          {!availabilityLoading && !petSpotResources.length ? <Text style={styles.availabilityEmpty}>Belum ada unit untuk tanggal atau jumlah pet yang dipilih.</Text> : null}
+                          {!availabilityLoading && !petSpotResources.length ? (
+                            <Text style={styles.availabilityEmpty}>
+                              Belum ada unit untuk tanggal atau jumlah pet yang
+                              dipilih.
+                            </Text>
+                          ) : null}
                         </View>
                       ) : (
                         <>
-                      <View style={styles.layoutLegend}>
-                        <Text style={styles.layoutLegendAvailable}>
-                          ● Tersedia
-                        </Text>
-                        <Text style={styles.layoutLegendReserved}>
-                          ● Sudah direservasi
-                        </Text>
-                        <Text style={styles.layoutLegendSelected}>
-                          ● Pilihanmu
-                        </Text>
-                      </View>
-                      <View style={styles.petSpotLayout}>
-                        <View style={styles.layoutDoor}>
-                          <Text style={styles.layoutDoorText}>PINTU</Text>
-                        </View>
-                        {petSpotResources.map((resource) => {
-                          const active =
-                            selectedPetSpotResource?.id === resource.id;
-                          return (
-                            <Pressable
-                              key={resource.id}
-                              disabled={!resource.available}
-                              onPress={() =>
-                                setSelectedPetSpotResource(resource)
-                              }
-                              style={[
-                                styles.layoutResource,
-                                {
-                                  left: `${Math.min(82, Math.max(3, resource.x_percent))}%`,
-                                  top: `${Math.min(74, Math.max(5, resource.y_percent))}%`,
-                                },
-                                resource.shape === "round" &&
-                                  styles.layoutResourceRound,
-                                !resource.available &&
-                                  styles.layoutResourceReserved,
-                                active && styles.layoutResourceSelected,
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.layoutResourceCode,
-                                  active && styles.layoutResourceCodeActive,
-                                ]}
-                              >
-                                {resource.code}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.layoutResourceCapacity,
-                                  active && styles.layoutResourceCodeActive,
-                                ]}
-                              >
-                                {resource.capacity} org
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                        {!availabilityLoading && !petSpotResources.length ? (
-                          <View style={styles.layoutEmpty}>
-                            <Ionicons
-                              name="calendar-outline"
-                              size={24}
-                              color={colors.muted}
-                            />
-                            <Text style={styles.formNote}>
-                              Belum ada resource untuk jadwal ini
+                          <View style={styles.layoutLegend}>
+                            <Text style={styles.layoutLegendAvailable}>
+                              ● Tersedia
+                            </Text>
+                            <Text style={styles.layoutLegendReserved}>
+                              ● Sudah direservasi
+                            </Text>
+                            <Text style={styles.layoutLegendSelected}>
+                              ● Pilihanmu
                             </Text>
                           </View>
-                        ) : null}
-                      </View>
+                          <View style={styles.petSpotLayout}>
+                            <View style={styles.layoutDoor}>
+                              <Text style={styles.layoutDoorText}>PINTU</Text>
+                            </View>
+                            {petSpotResources.map((resource) => {
+                              const active =
+                                selectedPetSpotResource?.id === resource.id;
+                              return (
+                                <Pressable
+                                  key={resource.id}
+                                  disabled={!resource.available}
+                                  onPress={() =>
+                                    setSelectedPetSpotResource(resource)
+                                  }
+                                  style={[
+                                    styles.layoutResource,
+                                    {
+                                      left: `${Math.min(82, Math.max(3, resource.x_percent))}%`,
+                                      top: `${Math.min(74, Math.max(5, resource.y_percent))}%`,
+                                    },
+                                    resource.shape === "round" &&
+                                      styles.layoutResourceRound,
+                                    !resource.available &&
+                                      styles.layoutResourceReserved,
+                                    active && styles.layoutResourceSelected,
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.layoutResourceCode,
+                                      active && styles.layoutResourceCodeActive,
+                                    ]}
+                                  >
+                                    {resource.code}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.layoutResourceCapacity,
+                                      active && styles.layoutResourceCodeActive,
+                                    ]}
+                                  >
+                                    {resource.capacity} org
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                            {!availabilityLoading &&
+                            !petSpotResources.length ? (
+                              <View style={styles.layoutEmpty}>
+                                <Ionicons
+                                  name="calendar-outline"
+                                  size={24}
+                                  color={colors.muted}
+                                />
+                                <Text style={styles.formNote}>
+                                  Belum ada resource untuk jadwal ini
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
                         </>
                       )}
                       {selectedPetSpotResource ? (
@@ -2909,7 +3498,13 @@ export function WorldScreen({
                             <Text style={styles.formNote}>
                               {selectedPetSpotResource.floor_name} · kapasitas{" "}
                               {selectedPetSpotResource.capacity} ·{" "}
-                              {money(selectedPetSpotResource.base_price)} / {selectedPetSpotResource.booking_rules?.rate_period === "month" ? "30 malam" : "malam"}
+                              {money(selectedPetSpotResource.base_price)} /{" "}
+                              {petSpotForm.stayKind
+                                ? selectedPetSpotResource.booking_rules
+                                    ?.rate_period === "month"
+                                  ? "30 malam"
+                                  : "malam"
+                                : "reservasi"}
                             </Text>
                           </View>
                           <Ionicons
@@ -2919,12 +3514,48 @@ export function WorldScreen({
                           />
                         </View>
                       ) : null}
-                      {petSpotForm.stayKind && selectedPetSpotResource && housingQuote(selected, selectedPetSpotResource, petSpotForm) ? (
+                      {selectedPetSpotResource &&
+                      housingQuote(
+                        selected,
+                        selectedPetSpotResource,
+                        petSpotForm,
+                      ) ? (
                         <View style={styles.housingQuote}>
                           <Text style={styles.formTitle}>Rincian biaya</Text>
-                          <Text style={styles.formNote}>Sewa {housingQuote(selected, selectedPetSpotResource, petSpotForm)?.periods} × {selectedPetSpotResource.booking_rules?.rate_period === "month" ? "30 malam" : "malam"}: {money(housingQuote(selected, selectedPetSpotResource, petSpotForm)?.subtotal ?? 0)}</Text>
-                          <Text style={styles.formNote}>DP sekarang: {money(housingQuote(selected, selectedPetSpotResource, petSpotForm)?.deposit ?? 0)}</Text>
-                          <Text style={styles.formNote}>Sisa sesuai ketentuan pemilik: {money(housingQuote(selected, selectedPetSpotResource, petSpotForm)?.balance ?? 0)}</Text>
+                          <Text style={styles.formNote}>
+                            Total{" "}
+                            {petSpotForm.stayKind
+                              ? `sewa ${housingQuote(selected, selectedPetSpotResource, petSpotForm)?.periods} periode`
+                              : "reservasi"}
+                            :{" "}
+                            {money(
+                              housingQuote(
+                                selected,
+                                selectedPetSpotResource,
+                                petSpotForm,
+                              )?.subtotal ?? 0,
+                            )}
+                          </Text>
+                          <Text style={styles.formNote}>
+                            DP sekarang:{" "}
+                            {money(
+                              housingQuote(
+                                selected,
+                                selectedPetSpotResource,
+                                petSpotForm,
+                              )?.deposit ?? 0,
+                            )}
+                          </Text>
+                          <Text style={styles.formNote}>
+                            Sisa sesuai ketentuan pemilik:{" "}
+                            {money(
+                              housingQuote(
+                                selected,
+                                selectedPetSpotResource,
+                                petSpotForm,
+                              )?.balance ?? 0,
+                            )}
+                          </Text>
                         </View>
                       ) : null}
                       <FormTextField
@@ -3277,13 +3908,25 @@ export function WorldScreen({
                   {pawDatingChat?.source_name} × {pawDatingChat?.target_name}
                 </Text>
               </View>
-              <Pressable accessibilityRole="button" accessibilityLabel="Tutup chat match" style={styles.pawChatClose} onPress={() => setPawDatingChat(undefined)}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Tutup chat match"
+                style={styles.pawChatClose}
+                onPress={() => setPawDatingChat(undefined)}
+              >
                 <Ionicons name="close" size={21} color={colors.text} />
               </Pressable>
             </View>
             <View style={styles.pawChatSafety}>
-              <Ionicons name="shield-checkmark-outline" size={17} color="#128464" />
-              <Text style={styles.pawChatSafetyText}>Diskusikan kecocokan dan kesehatan pet. Kontak pribadi tetap dilindungi.</Text>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={17}
+                color="#128464"
+              />
+              <Text style={styles.pawChatSafetyText}>
+                Diskusikan kecocokan dan kesehatan pet. Kontak pribadi tetap
+                dilindungi.
+              </Text>
             </View>
             <ScrollView
               style={styles.pawChatMessages}
@@ -3297,18 +3940,52 @@ export function WorldScreen({
                 pawDatingMessages.map((message) => {
                   const mine = message.sender_user_id === owner?.id;
                   return (
-                    <View key={message.id} style={[styles.pawChatBubble, mine && styles.pawChatBubbleMine]}>
-                      <Text style={[styles.pawChatSender, mine && styles.pawChatSenderMine]}>{mine ? "Kamu" : message.sender_name}</Text>
-                      <Text style={[styles.pawChatBody, mine && styles.pawChatBodyMine]}>{message.body}</Text>
-                      <Text style={[styles.pawChatTime, mine && styles.pawChatTimeMine]}>{formatDate(message.created_at, { hour: "2-digit", minute: "2-digit" })}</Text>
+                    <View
+                      key={message.id}
+                      style={[
+                        styles.pawChatBubble,
+                        mine && styles.pawChatBubbleMine,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.pawChatSender,
+                          mine && styles.pawChatSenderMine,
+                        ]}
+                      >
+                        {mine ? "Kamu" : message.sender_name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.pawChatBody,
+                          mine && styles.pawChatBodyMine,
+                        ]}
+                      >
+                        {message.body}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.pawChatTime,
+                          mine && styles.pawChatTimeMine,
+                        ]}
+                      >
+                        {formatDate(message.created_at, {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </Text>
                     </View>
                   );
                 })
               ) : (
-                <Text style={styles.pawChatEmpty}>Belum ada pesan. Mulai kenalan dengan aman di sini.</Text>
+                <Text style={styles.pawChatEmpty}>
+                  Belum ada pesan. Mulai kenalan dengan aman di sini.
+                </Text>
               )}
             </ScrollView>
-            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+            >
               <View style={styles.pawChatComposer}>
                 <TextInput
                   value={pawDatingChatBody}
@@ -3323,7 +4000,11 @@ export function WorldScreen({
                   accessibilityLabel="Kirim pesan"
                   disabled={!pawDatingChatBody.trim() || pawDatingChatBusy}
                   onPress={() => void sendPawDatingChat()}
-                  style={[styles.pawChatSend, (!pawDatingChatBody.trim() || pawDatingChatBusy) && styles.pawChatSendDisabled]}
+                  style={[
+                    styles.pawChatSend,
+                    (!pawDatingChatBody.trim() || pawDatingChatBusy) &&
+                      styles.pawChatSendDisabled,
+                  ]}
                 >
                   <Ionicons name="send" size={19} color={colors.white} />
                 </Pressable>
@@ -3349,7 +4030,12 @@ export function WorldScreen({
           <SafeAreaView style={styles.trainerSheetWrap}>
             <View style={styles.trainerSheet}>
               <View style={styles.handle} />
-              <Pressable accessibilityRole="button" accessibilityLabel="Tutup profil trainer" style={styles.sheetClose} onPress={() => setAcademyTrainer(undefined)}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Tutup profil trainer"
+                style={styles.sheetClose}
+                onPress={() => setAcademyTrainer(undefined)}
+              >
                 <Ionicons name="close" size={21} color={colors.text} />
               </Pressable>
               <ScrollView
@@ -3364,26 +4050,72 @@ export function WorldScreen({
               >
                 <View style={styles.trainerProfileTop}>
                   <View style={styles.trainerProfilePhoto}>
-                    {academyTrainer?.photo_url ? <Image alt="" source={{ uri: academyTrainer.photo_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Text style={styles.trainerProfileInitial}>{academyTrainer?.full_name.slice(0, 1)}</Text>}
+                    {academyTrainer?.photo_url ? (
+                      <Image
+                        alt=""
+                        source={{ uri: academyTrainer.photo_url }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Text style={styles.trainerProfileInitial}>
+                        {academyTrainer?.full_name.slice(0, 1)}
+                      </Text>
+                    )}
                   </View>
-                  <Text style={styles.academyTrainerKicker}>PET TRAINER TERVERIFIKASI</Text>
-                  <Text style={styles.trainerProfileName}>{academyTrainer?.full_name}</Text>
-                  <Text style={styles.trainerProfileAcademy}>{academyTrainer?.academy_name}</Text>
-                  <Text style={styles.trainerProfileRating}>★ {academyTrainer?.rating.toFixed(1)} · {academyTrainer?.experience_years} tahun pengalaman</Text>
+                  <Text style={styles.academyTrainerKicker}>
+                    PET TRAINER TERVERIFIKASI
+                  </Text>
+                  <Text style={styles.trainerProfileName}>
+                    {academyTrainer?.full_name}
+                  </Text>
+                  <Text style={styles.trainerProfileAcademy}>
+                    {academyTrainer?.academy_name}
+                  </Text>
+                  <Text style={styles.trainerProfileRating}>
+                    ★ {academyTrainer?.rating.toFixed(1)} ·{" "}
+                    {academyTrainer?.experience_years} tahun pengalaman
+                  </Text>
                 </View>
-                <Text style={styles.trainerProfileBio}>{academyTrainer?.bio}</Text>
+                <Text style={styles.trainerProfileBio}>
+                  {academyTrainer?.bio}
+                </Text>
                 <View style={styles.trainerProfileFacts}>
-                  <View><Text style={styles.detailLabel}>SERTIFIKASI</Text><Text style={styles.detailValue}>{academyTrainer?.certification || "Slivadoc verified"}</Text></View>
-                  <View><Text style={styles.detailLabel}>JENIS PET</Text><Text style={styles.detailValue}>{academyTrainer?.pet_types?.join(" · ")}</Text></View>
-                  <View><Text style={styles.detailLabel}>SPESIALISASI</Text><Text style={styles.detailValue}>{academyTrainer?.specialties?.join(" · ")}</Text></View>
+                  <View>
+                    <Text style={styles.detailLabel}>SERTIFIKASI</Text>
+                    <Text style={styles.detailValue}>
+                      {academyTrainer?.certification || "Slivadoc verified"}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text style={styles.detailLabel}>JENIS PET</Text>
+                    <Text style={styles.detailValue}>
+                      {academyTrainer?.pet_types?.join(" · ")}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text style={styles.detailLabel}>SPESIALISASI</Text>
+                    <Text style={styles.detailValue}>
+                      {academyTrainer?.specialties?.join(" · ")}
+                    </Text>
+                  </View>
                 </View>
                 {academyTrainer?.programs?.length ? (
                   <View style={styles.trainerPrograms}>
                     <Text style={styles.formTitle}>Kelas yang tersedia</Text>
                     {academyTrainer.programs.map((program) => (
                       <View key={program.id} style={styles.trainerProgramRow}>
-                        <View><Text style={styles.trainerProgramName}>{program.title}</Text><Text style={styles.formNote}>{program.level} · {program.session_count} sesi</Text></View>
-                        <Text style={styles.trainerProgramPrice}>{money(program.price)}</Text>
+                        <View>
+                          <Text style={styles.trainerProgramName}>
+                            {program.title}
+                          </Text>
+                          <Text style={styles.formNote}>
+                            {program.level} · {program.session_count} sesi
+                          </Text>
+                        </View>
+                        <Text style={styles.trainerProgramPrice}>
+                          {money(program.price)}
+                        </Text>
                       </View>
                     ))}
                   </View>
@@ -3393,11 +4125,62 @@ export function WorldScreen({
           </SafeAreaView>
         </View>
       </Modal>
-      <Modal visible={imageViewerIndex !== undefined} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setImageViewerIndex(undefined)}>
+      <Modal
+        visible={imageViewerIndex !== undefined}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setImageViewerIndex(undefined)}
+      >
         <SafeAreaView style={styles.worldImageViewer}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Tutup galeri" hitSlop={10} onPress={() => setImageViewerIndex(undefined)} style={styles.worldImageViewerClose}><Ionicons name="close" size={24} color={colors.white} /></Pressable>
-          {selectedImages[imageViewerIndex ?? 0] ? <Image alt="" source={{ uri: selectedImages[imageViewerIndex ?? 0] }} resizeMode="contain" style={styles.worldImageViewerImage} /> : null}
-          {selectedImages.length > 1 ? <View style={styles.worldImageViewerControls}><Pressable onPress={() => setImageViewerIndex((current) => ((current ?? 0) - 1 + selectedImages.length) % selectedImages.length)}><Ionicons name="chevron-back" size={25} color={colors.white} /></Pressable><Text style={styles.worldImageViewerCount}>{(imageViewerIndex ?? 0) + 1} / {selectedImages.length}</Text><Pressable onPress={() => setImageViewerIndex((current) => ((current ?? 0) + 1) % selectedImages.length)}><Ionicons name="chevron-forward" size={25} color={colors.white} /></Pressable></View> : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tutup galeri"
+            hitSlop={10}
+            onPress={() => setImageViewerIndex(undefined)}
+            style={styles.worldImageViewerClose}
+          >
+            <Ionicons name="close" size={24} color={colors.white} />
+          </Pressable>
+          {selectedImages[imageViewerIndex ?? 0] ? (
+            <Image
+              alt=""
+              source={{ uri: selectedImages[imageViewerIndex ?? 0] }}
+              resizeMode="contain"
+              style={styles.worldImageViewerImage}
+            />
+          ) : null}
+          {selectedImages.length > 1 ? (
+            <View style={styles.worldImageViewerControls}>
+              <Pressable
+                onPress={() =>
+                  setImageViewerIndex(
+                    (current) =>
+                      ((current ?? 0) - 1 + selectedImages.length) %
+                      selectedImages.length,
+                  )
+                }
+              >
+                <Ionicons name="chevron-back" size={25} color={colors.white} />
+              </Pressable>
+              <Text style={styles.worldImageViewerCount}>
+                {(imageViewerIndex ?? 0) + 1} / {selectedImages.length}
+              </Text>
+              <Pressable
+                onPress={() =>
+                  setImageViewerIndex(
+                    (current) => ((current ?? 0) + 1) % selectedImages.length,
+                  )
+                }
+              >
+                <Ionicons
+                  name="chevron-forward"
+                  size={25}
+                  color={colors.white}
+                />
+              </Pressable>
+            </View>
+          ) : null}
         </SafeAreaView>
       </Modal>
       <MobileQrisModal
@@ -3787,7 +4570,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
-  consultDoctorFocusAll: { color: colors.sky600, fontSize: 9, fontWeight: "700" },
+  consultDoctorFocusAll: {
+    color: colors.sky600,
+    fontSize: 9,
+    fontWeight: "700",
+  },
   consultFilterLabel: {
     color: colors.muted,
     fontSize: 9,
@@ -3845,6 +4632,14 @@ const styles = StyleSheet.create({
   },
   createText: { color: colors.white, fontSize: 11, fontWeight: "600" },
   list: { gap: 12 },
+  petSpotGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: 14,
+    marginTop: 14,
+  },
+  hidden: { display: "none" },
   card: {
     overflow: "hidden",
     flexDirection: "row",
@@ -3855,8 +4650,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     ...shadow,
   },
-  academyProgramCard: { minHeight: 0, flexDirection: "column", borderRadius: 20 },
-  eventExperienceCard: { minHeight: 0, flexDirection: "column", borderRadius: 20 },
+  academyProgramCard: {
+    minHeight: 0,
+    flexDirection: "column",
+    borderRadius: 20,
+  },
+  eventExperienceCard: {
+    minHeight: 0,
+    flexDirection: "column",
+    borderRadius: 20,
+  },
   visual: {
     position: "relative",
     width: 96,
@@ -3865,18 +4668,91 @@ const styles = StyleSheet.create({
     backgroundColor: colors.mint50,
   },
   academyProgramVisual: { width: "100%", height: 186 },
-  eventExperienceVisual: { width: "100%", height: 190, backgroundColor: "#EFE9FA" },
-  academyFeaturedBadge: { position: "absolute", left: 10, top: 10, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 9, backgroundColor: "rgba(8,99,145,.92)" },
-  academyFeaturedText: { color: colors.white, fontSize: 8, fontWeight: "700", letterSpacing: 0.7 },
-  academyDiscountBadge: { position: "absolute", right: 10, top: 10, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 9, backgroundColor: "#F16F5A" },
+  eventExperienceVisual: {
+    width: "100%",
+    height: 190,
+    backgroundColor: "#EFE9FA",
+  },
+  academyFeaturedBadge: {
+    position: "absolute",
+    left: 10,
+    top: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 9,
+    backgroundColor: "rgba(8,99,145,.92)",
+  },
+  academyFeaturedText: {
+    color: colors.white,
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.7,
+  },
+  academyDiscountBadge: {
+    position: "absolute",
+    right: 10,
+    top: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 9,
+    backgroundColor: "#F16F5A",
+  },
   academyDiscountText: { color: colors.white, fontSize: 9, fontWeight: "700" },
-  academyGalleryBadge: { position: "absolute", right: 10, bottom: 10, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 99, backgroundColor: "rgba(7,35,57,.72)" },
+  academyGalleryBadge: {
+    position: "absolute",
+    right: 10,
+    bottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 99,
+    backgroundColor: "rgba(7,35,57,.72)",
+  },
   academyGalleryText: { color: colors.white, fontSize: 9, fontWeight: "700" },
-  eventDateBadge: { position: "absolute", left: 10, bottom: 10, width: 48, height: 51, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: "rgba(255,255,255,.95)" },
-  eventDateDay: { color: "#62458F", fontSize: 20, lineHeight: 21, fontWeight: "700" },
-  eventDateMonth: { color: "#7D6B94", fontSize: 8, fontWeight: "700", textTransform: "uppercase" },
-  eventCategoryBadge: { position: "absolute", left: 10, top: 10, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 9, backgroundColor: "rgba(47,32,72,.75)" },
-  eventCategoryText: { color: colors.white, fontSize: 8, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
+  eventDateBadge: {
+    position: "absolute",
+    left: 10,
+    bottom: 10,
+    width: 48,
+    height: 51,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,.95)",
+  },
+  eventDateDay: {
+    color: "#62458F",
+    fontSize: 20,
+    lineHeight: 21,
+    fontWeight: "700",
+  },
+  eventDateMonth: {
+    color: "#7D6B94",
+    fontSize: 8,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  eventCategoryBadge: {
+    position: "absolute",
+    left: 10,
+    top: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 9,
+    backgroundColor: "rgba(47,32,72,.75)",
+  },
+  eventCategoryText: {
+    color: colors.white,
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
   visualPeach: { backgroundColor: "#FFF0E5" },
   visualViolet: { backgroundColor: colors.violet50 },
   visualEmoji: { fontSize: 41 },
@@ -3910,18 +4786,63 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   cardNote: { marginTop: 4, color: colors.muted, fontSize: 10, lineHeight: 15 },
-  academyProgramStats: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 10 },
-  academyProgramStat: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 5, borderRadius: 8, backgroundColor: "#F0F8FB" },
-  academyProgramStatText: { color: colors.text, fontSize: 8, fontWeight: "600" },
-  eventCardStats: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 10 },
-  eventCardStat: { minWidth: "29%", flex: 1, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 6, borderRadius: 9, backgroundColor: "#F8F4FE" },
-  eventCardStatText: { minWidth: 0, flex: 1, color: colors.text, fontSize: 8, fontWeight: "600" },
+  academyProgramStats: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+    marginTop: 10,
+  },
+  academyProgramStat: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: "#F0F8FB",
+  },
+  academyProgramStatText: {
+    color: colors.text,
+    fontSize: 8,
+    fontWeight: "600",
+  },
+  eventCardStats: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+    marginTop: 10,
+  },
+  eventCardStat: {
+    minWidth: "29%",
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 6,
+    borderRadius: 9,
+    backgroundColor: "#F8F4FE",
+  },
+  eventCardStatText: {
+    minWidth: 0,
+    flex: 1,
+    color: colors.text,
+    fontSize: 8,
+    fontWeight: "600",
+  },
   cardFooter: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
     marginTop: "auto",
+  },
+  eventPriceFooter: {
+    marginTop: 16,
+    paddingTop: 12,
+    gap: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
   },
   cardPrice: {
     minWidth: 0,
@@ -3930,8 +4851,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
-  cardPriceBlock: { minWidth: 0, minHeight: 34, flex: 1, justifyContent: "center" },
-  cardOriginalPrice: { marginBottom: 2, color: colors.muted, fontSize: 8, textDecorationLine: "line-through" },
+  cardPriceBlock: {
+    minWidth: 0,
+    minHeight: 34,
+    flex: 1,
+    justifyContent: "center",
+  },
+  cardOriginalPrice: {
+    marginBottom: 2,
+    color: colors.muted,
+    fontSize: 8,
+    textDecorationLine: "line-through",
+  },
   arrow: {
     width: 31,
     height: 31,
@@ -4025,13 +4956,62 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: colors.sky50,
   },
-  sheetGalleryBadge: { position: "absolute", right: 9, bottom: 9, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(8,33,49,.68)" },
-  sheetGalleryBadgeText: { color: colors.white, fontSize: 8, fontWeight: "700" },
-  worldImageViewer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(3,17,26,.96)" },
+  sheetGalleryBadge: {
+    position: "absolute",
+    right: 9,
+    bottom: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: "rgba(8,33,49,.68)",
+  },
+  sheetGalleryBadgeText: {
+    color: colors.white,
+    fontSize: 8,
+    fontWeight: "700",
+  },
+  worldImageViewer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(3,17,26,.96)",
+  },
   worldImageViewerImage: { width: "100%", height: "78%" },
-  worldImageViewerClose: { position: "absolute", zIndex: 2, top: 24, right: 24, width: 48, height: 48, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,.24)", borderRadius: 17, backgroundColor: "rgba(7,35,57,.72)" },
-  worldImageViewerControls: { position: "absolute", bottom: 24, flexDirection: "row", alignItems: "center", gap: 20, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, backgroundColor: "rgba(255,255,255,.12)" },
-  worldImageViewerCount: { minWidth: 46, color: colors.white, fontSize: 12, fontWeight: "700", textAlign: "center" },
+  worldImageViewerClose: {
+    position: "absolute",
+    zIndex: 2,
+    top: 24,
+    right: 24,
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,.24)",
+    borderRadius: 17,
+    backgroundColor: "rgba(7,35,57,.72)",
+  },
+  worldImageViewerControls: {
+    position: "absolute",
+    bottom: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,.12)",
+  },
+  worldImageViewerCount: {
+    minWidth: 46,
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   sheetHeroText: { fontSize: 54 },
   sheetKicker: {
     marginTop: 13,
@@ -4054,22 +5034,100 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
-  worldPromoPrice: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 13, padding: 13, borderWidth: 1, borderColor: "#CFEAF5", borderRadius: 15, backgroundColor: "#F0FAFE" },
+  worldPromoPrice: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginTop: 13,
+    padding: 13,
+    borderWidth: 1,
+    borderColor: "#CFEAF5",
+    borderRadius: 15,
+    backgroundColor: "#F0FAFE",
+  },
   worldPromoPriceCopy: { minWidth: 0, flex: 1 },
-  worldPromoLabel: { color: "#D55443", fontSize: 8, fontWeight: "700", letterSpacing: 0.7 },
-  worldPromoOriginal: { marginTop: 4, color: colors.muted, fontSize: 9, textDecorationLine: "line-through" },
-  worldPromoFinal: { marginTop: 1, color: colors.sky600, fontSize: 19, fontWeight: "700" },
-  worldPromoSaving: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 7, borderRadius: 9, backgroundColor: "#E8F8F2" },
+  worldPromoLabel: {
+    color: "#D55443",
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.7,
+  },
+  worldPromoOriginal: {
+    marginTop: 4,
+    color: colors.muted,
+    fontSize: 9,
+    textDecorationLine: "line-through",
+  },
+  worldPromoFinal: {
+    marginTop: 1,
+    color: colors.sky600,
+    fontSize: 19,
+    fontWeight: "700",
+  },
+  worldPromoSaving: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    borderRadius: 9,
+    backgroundColor: "#E8F8F2",
+  },
   worldPromoSavingText: { color: "#128464", fontSize: 8, fontWeight: "700" },
-  academySocialSummary: { flexDirection: "row", alignItems: "stretch", marginTop: 10, paddingVertical: 11, borderWidth: 1, borderColor: colors.sky100, borderRadius: 15, backgroundColor: colors.white },
-  academySocialItem: { minWidth: 0, flex: 1, alignItems: "center", paddingHorizontal: 4 },
-  academySocialValue: { color: colors.navy, fontSize: 11, fontWeight: "700", textAlign: "center" },
-  academySocialLabel: { marginTop: 3, color: colors.muted, fontSize: 7, textAlign: "center" },
+  academySocialSummary: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    marginTop: 10,
+    paddingVertical: 11,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 15,
+    backgroundColor: colors.white,
+  },
+  academySocialItem: {
+    minWidth: 0,
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  academySocialValue: {
+    color: colors.navy,
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  academySocialLabel: {
+    marginTop: 3,
+    color: colors.muted,
+    fontSize: 7,
+    textAlign: "center",
+  },
   academySocialDivider: { width: 1, backgroundColor: colors.line },
   eventSocialSummary: { flexDirection: "row", gap: 8, marginTop: 12 },
-  eventSocialItem: { minWidth: 0, flex: 1, alignItems: "center", paddingHorizontal: 6, paddingVertical: 11, borderWidth: 1, borderColor: "#E4DCF3", borderRadius: 13, backgroundColor: "#FBF9FF" },
-  eventSocialValue: { color: "#513477", fontSize: 12, fontWeight: "700", textAlign: "center" },
-  eventSocialLabel: { marginTop: 3, color: colors.muted, fontSize: 7, textAlign: "center" },
+  eventSocialItem: {
+    minWidth: 0,
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 11,
+    borderWidth: 1,
+    borderColor: "#E4DCF3",
+    borderRadius: 13,
+    backgroundColor: "#FBF9FF",
+  },
+  eventSocialValue: {
+    color: "#513477",
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  eventSocialLabel: {
+    marginTop: 3,
+    color: colors.muted,
+    fontSize: 7,
+    textAlign: "center",
+  },
   details: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -4092,14 +5150,29 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   housingList: { gap: 10 },
-  housingCard: { flexDirection: "row", gap: 12, padding: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 14, backgroundColor: colors.white },
+  housingCard: {
+    flexDirection: "row",
+    gap: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    backgroundColor: colors.white,
+  },
   housingCardSelected: { borderColor: colors.sky600, borderWidth: 2 },
   housingCardBusy: { opacity: 0.48 },
   housingPhoto: { width: 90, height: 100, borderRadius: 10 },
   housingCardBody: { flex: 1, gap: 5 },
   housingAmenities: { color: colors.sky600, fontSize: 11 },
   housingPrice: { color: colors.navy, fontSize: 15, fontWeight: "700" },
-  housingQuote: { gap: 7, padding: 13, borderRadius: 12, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white },
+  housingQuote: {
+    gap: 7,
+    padding: 13,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    backgroundColor: colors.white,
+  },
   petSpotReservation: {
     gap: 11,
     marginBottom: 14,
@@ -4681,114 +5754,565 @@ const styles = StyleSheet.create({
     backgroundColor: "#F7FCFF",
     gap: 10,
   },
-  pawMatchHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  pawMatchKicker: { color: colors.sky600, fontSize: 10, fontWeight: "700", letterSpacing: 1 },
-  pawMatchTitle: { color: colors.text, fontSize: 18, fontWeight: "700", marginTop: 3 },
-  pawMatchCard: { flexDirection: "row", alignItems: "center", gap: 10, padding: 11, borderRadius: 14, backgroundColor: colors.white },
-  pawMatchIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: "#EAF7FC" },
+  pawMatchHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  pawMatchKicker: {
+    color: colors.sky600,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  pawMatchTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "700",
+    marginTop: 3,
+  },
+  pawMatchCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 11,
+    borderRadius: 14,
+    backgroundColor: colors.white,
+  },
+  pawMatchIcon: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 13,
+    backgroundColor: "#EAF7FC",
+  },
   pawMatchCopy: { flex: 1, minWidth: 0 },
   pawMatchNames: { color: colors.text, fontSize: 13, fontWeight: "700" },
-  pawMatchStatus: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 2 },
-  pawMatchPrimary: { flexDirection: "row", alignItems: "center", gap: 5, minHeight: 38, paddingHorizontal: 11, borderRadius: 12, backgroundColor: colors.sky600 },
+  pawMatchStatus: {
+    color: colors.muted,
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 2,
+  },
+  pawMatchPrimary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    minHeight: 38,
+    paddingHorizontal: 11,
+    borderRadius: 12,
+    backgroundColor: colors.sky600,
+  },
   pawMatchPrimaryText: { color: colors.white, fontSize: 10, fontWeight: "700" },
   pawMatchActions: { flexDirection: "row", gap: 6 },
-  pawMatchAccept: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "#128464" },
-  pawMatchDecline: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "#EEF3F6" },
-  academyTrainerSection: { marginBottom: 18, padding: 14, borderWidth: 1, borderColor: "#D8EAF3", borderRadius: 18, backgroundColor: "#F8FDFF", gap: 11 },
-  academyTrainerHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  academyTrainerKicker: { color: colors.sky600, fontSize: 10, fontWeight: "700", letterSpacing: 1 },
-  academyTrainerTitle: { color: colors.text, fontSize: 18, fontWeight: "700", marginTop: 3 },
+  pawMatchAccept: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "#128464",
+  },
+  pawMatchDecline: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "#EEF3F6",
+  },
+  academyTrainerSection: {
+    marginBottom: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#D8EAF3",
+    borderRadius: 18,
+    backgroundColor: "#F8FDFF",
+    gap: 11,
+  },
+  academyTrainerHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  academyTrainerKicker: {
+    color: colors.sky600,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  academyTrainerTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "700",
+    marginTop: 3,
+  },
   academyRailWrap: { position: "relative", minWidth: 0 },
   academySpeciesRow: { gap: 7, paddingRight: 50 },
-  academySpeciesChoice: { minHeight: 48, justifyContent: "center", paddingHorizontal: 9 },
-  academyRailNext: { position: "absolute", zIndex: 3, right: 2, top: "50%", width: 40, height: 40, alignItems: "center", justifyContent: "center", marginTop: -20, borderWidth: 1, borderColor: "#CAE5F1", borderRadius: 14, backgroundColor: colors.white, ...shadow },
+  academySpeciesChoice: {
+    minHeight: 48,
+    justifyContent: "center",
+    paddingHorizontal: 9,
+  },
+  academyRailNext: {
+    position: "absolute",
+    zIndex: 3,
+    right: 2,
+    top: "50%",
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: -20,
+    borderWidth: 1,
+    borderColor: "#CAE5F1",
+    borderRadius: 14,
+    backgroundColor: colors.white,
+    ...shadow,
+  },
   academyTrainerRow: { gap: 10, paddingRight: 50 },
-  academyTrainerCard: { padding: 12, borderWidth: 1, borderColor: "#DCEAF1", borderRadius: 15, backgroundColor: colors.white },
-  academyTrainerAvatar: { width: 48, height: 48, overflow: "hidden", alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: colors.sky600, marginBottom: 9 },
-  academyTrainerInitial: { color: colors.white, fontSize: 20, fontWeight: "700" },
+  academyTrainerCard: {
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#DCEAF1",
+    borderRadius: 15,
+    backgroundColor: colors.white,
+  },
+  academyTrainerAvatar: {
+    width: 48,
+    height: 48,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 15,
+    backgroundColor: colors.sky600,
+    marginBottom: 9,
+  },
+  academyTrainerInitial: {
+    color: colors.white,
+    fontSize: 20,
+    fontWeight: "700",
+  },
   academyTrainerName: { color: colors.text, fontSize: 12, fontWeight: "700" },
   academyTrainerMeta: { color: "#A66A00", fontSize: 9, marginTop: 3 },
   academyTrainerSpecialty: { color: colors.muted, fontSize: 9, marginTop: 4 },
-  academyTrainerDetail: { color: colors.sky600, fontSize: 9, fontWeight: "700", marginTop: 8 },
-  academyBookingSection: { gap: 10, marginTop: 4, padding: 13, borderRadius: 16, backgroundColor: "#F7FCFF" },
+  academyTrainerDetail: {
+    color: colors.sky600,
+    fontSize: 9,
+    fontWeight: "700",
+    marginTop: 8,
+  },
+  academyBookingSection: {
+    gap: 10,
+    marginTop: 4,
+    padding: 13,
+    borderRadius: 16,
+    backgroundColor: "#F7FCFF",
+  },
   academyDetailTrainerRow: { gap: 8, paddingVertical: 2 },
-  academyDetailTrainer: { width: 140, padding: 10, borderWidth: 1, borderColor: "#D8EAF3", borderRadius: 14, backgroundColor: colors.white },
-  academyDetailTrainerAvatar: { width: 42, height: 42, alignItems: "center", justifyContent: "center", overflow: "hidden", borderRadius: 13, backgroundColor: colors.sky600, marginBottom: 7 },
+  academyDetailTrainer: {
+    width: 140,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#D8EAF3",
+    borderRadius: 14,
+    backgroundColor: colors.white,
+  },
+  academyDetailTrainerAvatar: {
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    borderRadius: 13,
+    backgroundColor: colors.sky600,
+    marginBottom: 7,
+  },
   academyScheduleList: { gap: 8 },
-  academySchedule: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderWidth: 1, borderColor: "#D7E7EF", borderRadius: 14, backgroundColor: colors.white },
-  academyScheduleActive: { borderColor: colors.sky600, backgroundColor: "#EDF9FE" },
+  academySchedule: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#D7E7EF",
+    borderRadius: 14,
+    backgroundColor: colors.white,
+  },
+  academyScheduleActive: {
+    borderColor: colors.sky600,
+    backgroundColor: "#EDF9FE",
+  },
   academyScheduleDisabled: { opacity: 0.48 },
-  academyScheduleDate: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "#E6F6FC" },
+  academyScheduleDate: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "#E6F6FC",
+  },
   academyScheduleCopy: { flex: 1, minWidth: 0 },
   academyScheduleTitle: { color: colors.text, fontSize: 11, fontWeight: "700" },
   academyScheduleMeta: { color: colors.muted, fontSize: 9, marginTop: 2 },
-  academyScheduleSeats: { color: "#128464", fontSize: 9, fontWeight: "700", marginTop: 3 },
-  academyEmptySchedule: { color: "#A15D20", fontSize: 10, padding: 11, borderRadius: 11, backgroundColor: "#FFF5E7" },
-  academyReviewSection: { gap: 11, marginTop: 8, paddingTop: 15, borderTopWidth: 1, borderTopColor: "#DCEAF1" },
-  academyReviewHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  academyReviewCount: { minWidth: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "#E7F7FD" },
-  academyReviewCountText: { color: colors.sky600, fontSize: 11, fontWeight: "700" },
+  academyScheduleSeats: {
+    color: "#128464",
+    fontSize: 9,
+    fontWeight: "700",
+    marginTop: 3,
+  },
+  academyEmptySchedule: {
+    color: "#A15D20",
+    fontSize: 10,
+    padding: 11,
+    borderRadius: 11,
+    backgroundColor: "#FFF5E7",
+  },
+  academyReviewSection: {
+    gap: 11,
+    marginTop: 8,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: "#DCEAF1",
+  },
+  academyReviewHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  academyReviewCount: {
+    minWidth: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 11,
+    backgroundColor: "#E7F7FD",
+  },
+  academyReviewCountText: {
+    color: colors.sky600,
+    fontSize: 11,
+    fontWeight: "700",
+  },
   academyReviewList: { gap: 8 },
-  academyReviewCard: { flexDirection: "row", alignItems: "flex-start", gap: 9, padding: 11, borderWidth: 1, borderColor: "#DFEBF1", borderRadius: 14, backgroundColor: colors.white },
-  academyReviewerAvatar: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "#DBF2FB" },
-  academyReviewerInitial: { color: colors.sky600, fontSize: 14, fontWeight: "700" },
+  academyReviewCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 9,
+    padding: 11,
+    borderWidth: 1,
+    borderColor: "#DFEBF1",
+    borderRadius: 14,
+    backgroundColor: colors.white,
+  },
+  academyReviewerAvatar: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "#DBF2FB",
+  },
+  academyReviewerInitial: {
+    color: colors.sky600,
+    fontSize: 14,
+    fontWeight: "700",
+  },
   academyReviewCopy: { minWidth: 0, flex: 1 },
-  academyReviewerRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 },
+  academyReviewerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 6,
+  },
   academyReviewerName: { color: colors.navy, fontSize: 10, fontWeight: "700" },
-  academyVerifiedReview: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 5, paddingVertical: 3, borderRadius: 6, backgroundColor: "#E8F8F2" },
-  academyVerifiedReviewText: { color: "#128464", fontSize: 7, fontWeight: "700" },
-  academyReviewStars: { marginTop: 3, color: "#E6A51C", fontSize: 10, letterSpacing: 0.5 },
-  academyReviewComment: { marginTop: 5, color: colors.text, fontSize: 10, lineHeight: 16 },
+  academyVerifiedReview: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 5,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: "#E8F8F2",
+  },
+  academyVerifiedReviewText: {
+    color: "#128464",
+    fontSize: 7,
+    fontWeight: "700",
+  },
+  academyReviewStars: {
+    marginTop: 3,
+    color: "#E6A51C",
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  academyReviewComment: {
+    marginTop: 5,
+    color: colors.text,
+    fontSize: 10,
+    lineHeight: 16,
+  },
   academyReviewMeta: { marginTop: 5, color: colors.muted, fontSize: 8 },
-  academyEmptyReview: { flexDirection: "row", alignItems: "center", gap: 9, padding: 11, borderRadius: 13, backgroundColor: "#EEF9FD" },
-  academyEmptyReviewText: { minWidth: 0, flex: 1, color: colors.muted, fontSize: 9, lineHeight: 14 },
-  academyReviewComposer: { gap: 8, padding: 11, borderWidth: 1, borderColor: "#D7EAF3", borderRadius: 15, backgroundColor: colors.white },
+  academyEmptyReview: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    padding: 11,
+    borderRadius: 13,
+    backgroundColor: "#EEF9FD",
+  },
+  academyEmptyReviewText: {
+    minWidth: 0,
+    flex: 1,
+    color: colors.muted,
+    fontSize: 9,
+    lineHeight: 14,
+  },
+  academyReviewComposer: {
+    gap: 8,
+    padding: 11,
+    borderWidth: 1,
+    borderColor: "#D7EAF3",
+    borderRadius: 15,
+    backgroundColor: colors.white,
+  },
   academyRatingRow: { flexDirection: "row", gap: 3 },
-  academyRatingButton: { width: 33, height: 33, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: "#FFF9E9" },
-  academyReviewInput: { minHeight: 92, maxHeight: 150, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: "#D7E5EC", borderRadius: 13, color: colors.text, fontSize: 11, lineHeight: 17, textAlignVertical: "top", backgroundColor: "#FAFCFD" },
-  academyReviewSubmit: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 12, backgroundColor: colors.sky600 },
+  academyRatingButton: {
+    width: 33,
+    height: 33,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: "#FFF9E9",
+  },
+  academyReviewInput: {
+    minHeight: 92,
+    maxHeight: 150,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#D7E5EC",
+    borderRadius: 13,
+    color: colors.text,
+    fontSize: 11,
+    lineHeight: 17,
+    textAlignVertical: "top",
+    backgroundColor: "#FAFCFD",
+  },
+  academyReviewSubmit: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    borderRadius: 12,
+    backgroundColor: colors.sky600,
+  },
   academyReviewSubmitDisabled: { opacity: 0.42 },
-  academyReviewSubmitText: { color: colors.white, fontSize: 10, fontWeight: "700" },
-  academyReviewRule: { color: colors.muted, fontSize: 8, lineHeight: 12, textAlign: "center" },
-  pawChatBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(14,32,55,.45)" },
-  pawChatSheet: { height: "88%", borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: colors.white, overflow: "hidden" },
-  pawChatHeader: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.sky100 },
-  pawChatHeart: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: "#FFF0F4" },
+  academyReviewSubmitText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  academyReviewRule: {
+    color: colors.muted,
+    fontSize: 8,
+    lineHeight: 12,
+    textAlign: "center",
+  },
+  pawChatBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(14,32,55,.45)",
+  },
+  pawChatSheet: {
+    height: "88%",
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    backgroundColor: colors.white,
+    overflow: "hidden",
+  },
+  pawChatHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.sky100,
+  },
+  pawChatHeart: {
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+    backgroundColor: "#FFF0F4",
+  },
   pawChatHeaderCopy: { flex: 1, minWidth: 0 },
-  pawChatKicker: { color: "#C8476C", fontSize: 9, fontWeight: "700", letterSpacing: 1 },
-  pawChatTitle: { color: colors.text, fontSize: 15, fontWeight: "700", marginTop: 3 },
-  pawChatClose: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "#EEF5F8" },
-  pawChatSafety: { flexDirection: "row", gap: 8, alignItems: "center", margin: 12, padding: 10, borderRadius: 12, backgroundColor: "#ECFAF5" },
+  pawChatKicker: {
+    color: "#C8476C",
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  pawChatTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "700",
+    marginTop: 3,
+  },
+  pawChatClose: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "#EEF5F8",
+  },
+  pawChatSafety: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+    margin: 12,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: "#ECFAF5",
+  },
   pawChatSafetyText: { flex: 1, color: "#28705D", fontSize: 9, lineHeight: 14 },
   pawChatMessages: { flex: 1 },
-  pawChatMessagesContent: { flexGrow: 1, justifyContent: "flex-end", gap: 9, padding: 14 },
-  pawChatEmpty: { alignSelf: "center", color: colors.muted, fontSize: 11, textAlign: "center", marginVertical: 30 },
-  pawChatBubble: { alignSelf: "flex-start", maxWidth: "82%", padding: 11, borderRadius: 15, borderBottomLeftRadius: 5, backgroundColor: "#EEF5F8" },
-  pawChatBubbleMine: { alignSelf: "flex-end", borderBottomLeftRadius: 15, borderBottomRightRadius: 5, backgroundColor: colors.sky600 },
-  pawChatSender: { color: colors.sky600, fontSize: 8, fontWeight: "700", marginBottom: 3 },
+  pawChatMessagesContent: {
+    flexGrow: 1,
+    justifyContent: "flex-end",
+    gap: 9,
+    padding: 14,
+  },
+  pawChatEmpty: {
+    alignSelf: "center",
+    color: colors.muted,
+    fontSize: 11,
+    textAlign: "center",
+    marginVertical: 30,
+  },
+  pawChatBubble: {
+    alignSelf: "flex-start",
+    maxWidth: "82%",
+    padding: 11,
+    borderRadius: 15,
+    borderBottomLeftRadius: 5,
+    backgroundColor: "#EEF5F8",
+  },
+  pawChatBubbleMine: {
+    alignSelf: "flex-end",
+    borderBottomLeftRadius: 15,
+    borderBottomRightRadius: 5,
+    backgroundColor: colors.sky600,
+  },
+  pawChatSender: {
+    color: colors.sky600,
+    fontSize: 8,
+    fontWeight: "700",
+    marginBottom: 3,
+  },
   pawChatSenderMine: { color: "#D9F4FF" },
   pawChatBody: { color: colors.text, fontSize: 12, lineHeight: 18 },
   pawChatBodyMine: { color: colors.white },
-  pawChatTime: { color: colors.muted, fontSize: 7, marginTop: 4, textAlign: "right" },
+  pawChatTime: {
+    color: colors.muted,
+    fontSize: 7,
+    marginTop: 4,
+    textAlign: "right",
+  },
   pawChatTimeMine: { color: "#D9F4FF" },
-  pawChatComposer: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: colors.sky100, backgroundColor: colors.white },
-  pawChatInput: { flex: 1, maxHeight: 96, minHeight: 44, paddingHorizontal: 13, paddingVertical: 10, borderWidth: 1, borderColor: "#D5E5ED", borderRadius: 15, color: colors.text, fontSize: 12, backgroundColor: "#F9FCFD" },
-  pawChatSend: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.sky600 },
+  pawChatComposer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.sky100,
+    backgroundColor: colors.white,
+  },
+  pawChatInput: {
+    flex: 1,
+    maxHeight: 96,
+    minHeight: 44,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#D5E5ED",
+    borderRadius: 15,
+    color: colors.text,
+    fontSize: 12,
+    backgroundColor: "#F9FCFD",
+  },
+  pawChatSend: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+    backgroundColor: colors.sky600,
+  },
   pawChatSendDisabled: { opacity: 0.42 },
   trainerSheetWrap: { width: "100%", height: "86%", maxHeight: "86%" },
-  trainerSheet: { flex: 1, minHeight: 0, overflow: "hidden", borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: colors.white },
+  trainerSheet: {
+    flex: 1,
+    minHeight: 0,
+    overflow: "hidden",
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    backgroundColor: colors.white,
+  },
   trainerSheetScroll: { flex: 1, minHeight: 0 },
   trainerSheetContent: { flexGrow: 1, padding: 18, paddingBottom: 48 },
   trainerProfileTop: { alignItems: "center", paddingTop: 10 },
-  trainerProfilePhoto: { width: 92, height: 92, alignItems: "center", justifyContent: "center", overflow: "hidden", borderRadius: 28, backgroundColor: colors.sky600, marginBottom: 12 },
-  trainerProfileInitial: { color: colors.white, fontSize: 38, fontWeight: "700" },
-  trainerProfileName: { color: colors.text, fontSize: 23, fontWeight: "700", marginTop: 5 },
+  trainerProfilePhoto: {
+    width: 92,
+    height: 92,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    borderRadius: 28,
+    backgroundColor: colors.sky600,
+    marginBottom: 12,
+  },
+  trainerProfileInitial: {
+    color: colors.white,
+    fontSize: 38,
+    fontWeight: "700",
+  },
+  trainerProfileName: {
+    color: colors.text,
+    fontSize: 23,
+    fontWeight: "700",
+    marginTop: 5,
+  },
   trainerProfileAcademy: { color: colors.muted, fontSize: 11, marginTop: 3 },
   trainerProfileRating: { color: "#A66A00", fontSize: 10, marginTop: 6 },
-  trainerProfileBio: { color: colors.muted, fontSize: 11, lineHeight: 18, marginVertical: 16 },
+  trainerProfileBio: {
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 18,
+    marginVertical: 16,
+  },
   trainerProfileFacts: { gap: 8 },
   trainerPrograms: { gap: 8, marginTop: 18 },
-  trainerProgramRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, padding: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: 13 },
+  trainerProgramRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 13,
+  },
   trainerProgramName: { color: colors.text, fontSize: 11, fontWeight: "700" },
-  trainerProgramPrice: { color: colors.sky600, fontSize: 11, fontWeight: "700" },
+  trainerProgramPrice: {
+    color: colors.sky600,
+    fontSize: 11,
+    fontWeight: "700",
+  },
 });

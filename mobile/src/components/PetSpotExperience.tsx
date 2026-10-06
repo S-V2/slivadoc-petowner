@@ -93,7 +93,11 @@ export function PetSpotCard({
             <Text style={styles.noPhotoText}>Foto belum tersedia</Text>
           </View>
         )}
-        {item.verified ? (
+        {item.id.startsWith("92000000-") ? (
+          <View style={styles.verified}>
+            <Text style={styles.verifiedText}>Demo · Foto ilustrasi</Text>
+          </View>
+        ) : item.verified ? (
           <View style={styles.verified}>
             <Ionicons name="checkmark-circle" size={11} color="#fff" />
             <Text style={styles.verifiedText}>Verified</Text>
@@ -315,35 +319,40 @@ export function PetSpotVenueInformation({ item }: { item: WorldItem }) {
           <Text style={styles.note}>
             Pilih jadwal di bawah untuk memeriksa ketersediaan aktual.
           </Text>
-          {item.resources.map((unit) => (
-            <View key={unit.id} style={styles.unit}>
-              <View style={styles.flex}>
-                <Text style={styles.facilityName}>{unit.name}</Text>
-                <Text style={styles.note}>
-                  {unit.floor_name || unit.resource_type} · {unit.capacity} tamu
+          <View style={styles.facilityGrid}>
+            {item.resources.map((unit) => (
+              <View key={unit.id} style={styles.unit}>
+                <View style={styles.flex}>
+                  <Text style={styles.facilityName}>{unit.name}</Text>
+                  <Text style={styles.note}>
+                    {unit.floor_name || unit.resource_type} · {unit.capacity}{" "}
+                    tamu
+                  </Text>
+                  {unit.description ? (
+                    <Text style={styles.note}>{unit.description}</Text>
+                  ) : null}
+                </View>
+                <Text style={styles.unitPrice}>
+                  {formatCurrency(unit.base_price)}
                 </Text>
-                {unit.description ? (
-                  <Text style={styles.note}>{unit.description}</Text>
-                ) : null}
               </View>
-              <Text style={styles.unitPrice}>
-                {formatCurrency(unit.base_price)}
-              </Text>
-            </View>
-          ))}
+            ))}
+          </View>
         </View>
       ) : null}
       {item.supported_events?.length ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Aktivitas di tempat</Text>
-          {item.supported_events.map((event) => (
-            <View key={event.name} style={styles.unit}>
-              <View style={styles.flex}>
-                <Text style={styles.facilityName}>{event.name}</Text>
-                <Text style={styles.note}>{event.description}</Text>
+          <View style={styles.facilityGrid}>
+            {item.supported_events.map((event) => (
+              <View key={event.name} style={styles.unit}>
+                <View style={styles.flex}>
+                  <Text style={styles.facilityName}>{event.name}</Text>
+                  <Text style={styles.note}>{event.description}</Text>
+                </View>
               </View>
-            </View>
-          ))}
+            ))}
+          </View>
         </View>
       ) : null}
       <View style={styles.section}>
@@ -478,8 +487,17 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: "700", color: colors.navy },
   body: { fontSize: 12, lineHeight: 19, color: colors.text },
   note: { fontSize: 11, lineHeight: 17, color: colors.muted },
-  facilityGrid: { gap: 9 },
-  facilityTile: { flexDirection: "row", alignItems: "flex-start", gap: 9 },
+  facilityGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  facilityTile: {
+    width: "48%",
+    flexGrow: 1,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 7,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: colors.sky50,
+  },
   facilityName: {
     fontSize: 12,
     lineHeight: 18,
@@ -508,6 +526,8 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   unit: {
+    width: "48%",
+    flexGrow: 1,
     flexDirection: "row",
     gap: 12,
     paddingVertical: 10,

@@ -219,12 +219,14 @@ export function PetSpotDetail({
             <section className="petspot-detail-section">
               <h3>Jam operasional</h3>
               {Object.entries(spot.opening_hours ?? {}).length ? (
-                Object.entries(spot.opening_hours).map(([day, hours]) => (
-                  <div className="petspot-fact-row" key={day}>
-                    <span>{day === "daily" ? "Setiap hari" : day}</span>
-                    <b>{hours}</b>
-                  </div>
-                ))
+                <div className="petspot-hours-grid">
+                  {Object.entries(spot.opening_hours).map(([day, hours]) => (
+                    <div className="petspot-fact-row" key={day}>
+                      <span>{day === "daily" ? "Setiap hari" : day}</span>
+                      <b>{hours}</b>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <p>
                   Konfirmasi jam buka langsung kepada pengelola sebelum
@@ -350,19 +352,21 @@ export function PetSpotDetail({
             {spot.supported_events?.length ? (
               <section className="petspot-detail-section">
                 <h3>Aktivitas & pengalaman</h3>
-                {spot.supported_events.map((event) => (
-                  <article key={event.name}>
-                    <h4>{event.name}</h4>
-                    <p>{event.description}</p>
-                    {event.inclusions?.length ? (
-                      <div className="petspot-highlights">
-                        {event.inclusions.map((value) => (
-                          <span key={value}>{value}</span>
-                        ))}
-                      </div>
-                    ) : null}
-                  </article>
-                ))}
+                <div className="petspot-activities-grid">
+                  {spot.supported_events.map((event) => (
+                    <article key={event.name}>
+                      <h4>{event.name}</h4>
+                      <p>{event.description}</p>
+                      {event.inclusions?.length ? (
+                        <div className="petspot-highlights">
+                          {event.inclusions.map((value) => (
+                            <span key={value}>{value}</span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
               </section>
             ) : null}
           </>
@@ -525,7 +529,10 @@ function PetSpotBooking({
         (unit) =>
           unit.id === unitID &&
           unit.available &&
-          pets <= Number(unit.pet_policy?.pet_limit ?? unit.pet_policy?.max_pets ?? 99),
+          pets <=
+            Number(
+              unit.pet_policy?.pet_limit ?? unit.pet_policy?.max_pets ?? 99,
+            ),
       )
     : undefined;
   const quote =
@@ -729,7 +736,12 @@ function PetSpotBooking({
             {units.map((unit) => {
               const eligible =
                 unit.available &&
-                pets <= Number(unit.pet_policy?.pet_limit ?? unit.pet_policy?.max_pets ?? 99);
+                pets <=
+                  Number(
+                    unit.pet_policy?.pet_limit ??
+                      unit.pet_policy?.max_pets ??
+                      99,
+                  );
               return (
                 <button
                   type="button"

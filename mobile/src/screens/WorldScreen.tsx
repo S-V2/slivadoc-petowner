@@ -1082,7 +1082,12 @@ export function WorldScreen({
       const resources = result.data.filter(
         (resource) =>
           (!isHousing || ["room", "unit"].includes(resource.resource_type)) &&
-          form.petCount <= Number(resource.pet_policy?.pet_limit ?? resource.pet_policy?.max_pets ?? 99),
+          form.petCount <=
+            Number(
+              resource.pet_policy?.pet_limit ??
+                resource.pet_policy?.max_pets ??
+                99,
+            ),
       );
       setPetSpotResources(resources);
       // The owner must explicitly choose the table/unit, never auto-select one.
@@ -1158,7 +1163,12 @@ export function WorldScreen({
           setSelected((current) =>
             current?.id === item.id ? { ...current, ...detail } : current,
           );
-          setItems((current) => ({ ...current, petspot: current.petspot.map((venue) => venue.id === detail.id ? { ...venue, ...detail } : venue) }));
+          setItems((current) => ({
+            ...current,
+            petspot: current.petspot.map((venue) =>
+              venue.id === detail.id ? { ...venue, ...detail } : venue,
+            ),
+          }));
         }
       } catch (cause) {
         if (request === spotDetailRequest.current)
@@ -3340,7 +3350,7 @@ export function WorldScreen({
                             ? "Memeriksa ketersediaan…"
                             : petSpotForm.stayKind
                               ? "Cek unit tersedia"
-                              : "Perbarui denah ketersediaan"}
+                              : "Cek pilihan tersedia"}
                         </Text>
                       </Pressable>
                       {petSpotForm.stayKind ? (
@@ -3377,7 +3387,9 @@ export function WorldScreen({
                                     {resource.floor_name || "Unit"} ·{" "}
                                     {resource.capacity} penghuni ·{" "}
                                     {Number(
-                                      resource.pet_policy?.pet_limit ?? resource.pet_policy?.max_pets ?? 0,
+                                      resource.pet_policy?.pet_limit ??
+                                        resource.pet_policy?.max_pets ??
+                                        0,
                                     )}{" "}
                                     pet
                                   </Text>
@@ -3418,75 +3430,55 @@ export function WorldScreen({
                         </View>
                       ) : (
                         <>
-                          <View style={styles.layoutLegend}>
-                            <Text style={styles.layoutLegendAvailable}>
-                              ● Tersedia
-                            </Text>
-                            <Text style={styles.layoutLegendReserved}>
-                              ● Sudah direservasi
-                            </Text>
-                            <Text style={styles.layoutLegendSelected}>
-                              ● Pilihanmu
-                            </Text>
-                          </View>
-                          <View style={styles.petSpotLayout}>
-                            <View style={styles.layoutDoor}>
-                              <Text style={styles.layoutDoorText}>PINTU</Text>
-                            </View>
+                          <View style={styles.petSpotChoiceGrid}>
                             {petSpotResources.map((resource) => {
                               const active =
                                 selectedPetSpotResource?.id === resource.id;
                               return (
                                 <Pressable
                                   key={resource.id}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={resource.name}
+                                  accessibilityState={{
+                                    selected: active,
+                                    disabled: !resource.available,
+                                  }}
                                   disabled={!resource.available}
                                   onPress={() =>
                                     setSelectedPetSpotResource(resource)
                                   }
                                   style={[
-                                    styles.layoutResource,
-                                    {
-                                      left: `${Math.min(82, Math.max(3, resource.x_percent))}%`,
-                                      top: `${Math.min(74, Math.max(5, resource.y_percent))}%`,
-                                    },
-                                    resource.shape === "round" &&
-                                      styles.layoutResourceRound,
+                                    styles.petSpotChoice,
+                                    active && styles.housingCardSelected,
                                     !resource.available &&
-                                      styles.layoutResourceReserved,
-                                    active && styles.layoutResourceSelected,
+                                      styles.housingCardBusy,
                                   ]}
                                 >
-                                  <Text
-                                    style={[
-                                      styles.layoutResourceCode,
-                                      active && styles.layoutResourceCodeActive,
-                                    ]}
-                                  >
-                                    {resource.code}
+                                  <Text style={styles.formTitle}>
+                                    {resource.name}
                                   </Text>
-                                  <Text
-                                    style={[
-                                      styles.layoutResourceCapacity,
-                                      active && styles.layoutResourceCodeActive,
-                                    ]}
-                                  >
-                                    {resource.capacity} org
+                                  <Text style={styles.formNote}>
+                                    {resource.capacity} tamu ·{" "}
+                                    {resource.floor_name}
+                                  </Text>
+                                  <Text style={styles.housingPrice}>
+                                    {money(resource.base_price)}
+                                  </Text>
+                                  <Text style={styles.formNote}>
+                                    {resource.available
+                                      ? active
+                                        ? "✓ Pilihanmu"
+                                        : "Tersedia · Pilih tempat"
+                                      : "Tidak tersedia"}
                                   </Text>
                                 </Pressable>
                               );
                             })}
                             {!availabilityLoading &&
                             !petSpotResources.length ? (
-                              <View style={styles.layoutEmpty}>
-                                <Ionicons
-                                  name="calendar-outline"
-                                  size={24}
-                                  color={colors.muted}
-                                />
-                                <Text style={styles.formNote}>
-                                  Belum ada resource untuk jadwal ini
-                                </Text>
-                              </View>
+                              <Text style={styles.availabilityEmpty}>
+                                Belum ada pilihan untuk jadwal ini.
+                              </Text>
                             ) : null}
                           </View>
                         </>
@@ -4479,6 +4471,17 @@ function PawDatingCreateModal({
 }
 
 const styles = StyleSheet.create({
+  petSpotChoiceGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  petSpotChoice: {
+    width: "48%",
+    flexGrow: 1,
+    gap: 7,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+  },
   modeRow: { gap: 6, paddingVertical: 9, paddingRight: 14 },
   mode: {
     minWidth: 78,

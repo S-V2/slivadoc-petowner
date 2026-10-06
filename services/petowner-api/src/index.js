@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { createServer } from "node:http";
 import cloudinaryPackage from "cloudinary";
+import { mediaUploadFailure } from "./media-upload-error.js";
 import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
@@ -366,6 +367,7 @@ app.post(
           {
             folder,
             resource_type: resourceType,
+            timeout: 15000,
             ...(resourceType === "image"
               ? {
                   transformation: [
@@ -406,7 +408,8 @@ app.post(
         duration: result.duration,
       });
     } catch (error) {
-      next(error);
+      const failure = mediaUploadFailure(error);
+      response.status(failure.status).json({ error: failure.error, message: failure.message });
     }
   },
 );

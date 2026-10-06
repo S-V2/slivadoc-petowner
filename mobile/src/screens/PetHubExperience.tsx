@@ -23,6 +23,8 @@ import {
   getMobilePetHubReels,
   getMobilePetHubStories,
   reactMobilePetHubPost,
+  saveMobilePetHubPost,
+  viewMobilePetHubStory,
   uploadMobileMedia,
   type MobileOwner,
   type MobilePetHubComment,
@@ -34,6 +36,7 @@ import {
   useI18n,
 } from "../i18n";
 import { BoundedBottomSheet, PrimaryButton } from "../components/ui";
+import { PetHubPhotos } from "../components/PetHubPhotos";
 import { colors, shadow } from "../theme";
 
 type ComposerMode = "story" | "feed" | "reel";
@@ -71,7 +74,8 @@ const formatAge = (value: string | undefined, language: "id" | "en") => {
     : `${Math.floor(minutes / 1440)}d`;
 };
 
-const mediaURL = (item: WorldItem) => item.media_url || item.photo_url || "";
+const mediaURL = (item: WorldItem) =>
+  item.media_url || item.media_urls?.[0] || item.photo_url || "";
 const isVideo = (item: WorldItem) =>
   item.post_type === "video" ||
   item.media_type === "video" ||
@@ -122,16 +126,21 @@ export function PetHubExperience({
   const [loading, setLoading] = useState(true);
   const [composerMode, setComposerMode] = useState<ComposerMode>();
   const [caption, setCaption] = useState("");
-  const [asset, setAsset] = useState<ImagePicker.ImagePickerAsset>();
+  const [assets, setAssets] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  const asset = assets[0];
   const [publishing, setPublishing] = useState(false);
   const [story, setStory] = useState<WorldItem>();
   const [commentPost, setCommentPost] = useState<WorldItem>();
   const [comments, setComments] = useState<MobilePetHubComment[]>([]);
   const [comment, setComment] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
-  const [liked, setLiked] = useState<string[]>([]);
+  const commentPending = useRef(false);
+  const publishPending = useRef(false);
   const likePending = useRef(new Set<string>());
-  const [saved, setSaved] = useState<string[]>([]);
+  const savePending = useRef(new Set<string>());
+  const commentSequence = useRef(0);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -173,7 +182,7 @@ export function PetHubExperience({
       onRequirePet();
       return;
     }
-    setAsset(undefined);
+    setAssets([]);
     setCaption("");
     setComposerMode(mode);
   };
@@ -187,6 +196,8 @@ export function PetHubExperience({
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: composerMode === "reel" ? ["videos"] : ["images", "videos"],
       allowsEditing: false,
+      allowsMultipleSelection: composerMode === "feed",
+      selectionLimit: 10,
       quality: 0.85,
       videoMaxDuration: 60,
     });
@@ -200,12 +211,19 @@ export function PetHubExperience({
         onAction("Durasi video maksimal 60 detik");
         return;
       }
-      setAsset(selectedAsset);
+      if (
+        result.assets.length > 1 &&
+        result.assets.some((item) => item.type === "video")
+      ) {
+        onAction("Pilih hingga 10 foto atau satu video");
+        return;
+      }
+      setAssets(result.assets);
     }
   };
 
   const publish = async () => {
-    if (!owner || !composerMode || !asset) return;
+    if (!owner || !composerMode || !asset || publishPending.current) return;
     if (!hasPet) {
       onRequirePet();
       return;
@@ -214,17 +232,25 @@ export function PetHubExperience({
       onAction("Tambahkan caption minimal 3 karakter");
       return;
     }
+    publishPending.current = true;
     setPublishing(true);
     try {
-      const mimeType =
-        asset.mimeType || (asset.type === "video" ? "video/mp4" : "image/jpeg");
-      const upload = await uploadMobileMedia(
-        asset.uri,
-        mimeType,
-        asset.fileName ||
-          (asset.type === "video" ? "pethub-video.mp4" : "pethub-photo.jpg"),
-        composerMode === "story" ? "pethub/stories" : "pethub/posts",
-      );
+      const uploads = [];
+      for (const asset of assets) {
+        const mimeType =
+          asset.mimeType ||
+          (asset.type === "video" ? "video/mp4" : "image/jpeg");
+        const upload = await uploadMobileMedia(
+          asset.uri,
+          mimeType,
+          asset.fileName ||
+            (asset.type === "video" ? "pethub-video.mp4" : "pethub-photo.jpg"),
+          composerMode === "story" ? "pethub/stories" : "pethub/posts",
+        );
+        uploads.push(upload);
+      }
+      const upload = uploads[0];
+      if (!upload) throw new Error("Media belum diunggah");
       if (composerMode === "story") {
         await createMobilePetHubStory({
           media_url: upload.url,
@@ -235,11 +261,12 @@ export function PetHubExperience({
         await createMobilePetHubMediaPost({
           content: caption.trim(),
           media_url: upload.url,
+          media_urls: uploads.map((media) => media.url),
           post_type: upload.resourceType === "video" ? "video" : "photo",
         });
       }
       setComposerMode(undefined);
-      setAsset(undefined);
+      setAssets([]);
       setCaption("");
       await load();
       onAction(
@@ -254,6 +281,7 @@ export function PetHubExperience({
           : "Media belum dapat diterbitkan",
       );
     } finally {
+      publishPending.current = false;
       setPublishing(false);
     }
   };
@@ -271,20 +299,13 @@ export function PetHubExperience({
     likePending.current.add(item.id);
     try {
       const result = await reactMobilePetHubPost(item.id);
-      setLiked((current) =>
-        result.liked
-          ? [...new Set([...current, item.id])]
-          : current.filter((id) => id !== item.id),
-      );
       const update = (current: WorldItem[]) =>
         current.map((post) =>
           post.id === item.id
             ? {
                 ...post,
-                like_count: Math.max(
-                  0,
-                  (post.like_count ?? 0) + (result.liked ? 1 : -1),
-                ),
+                liked: result.liked,
+                like_count: result.like_count,
               }
             : post,
         );
@@ -297,20 +318,7 @@ export function PetHubExperience({
     }
   };
 
-  const openComments = async (item: WorldItem) => {
-    setCommentPost(item);
-    try {
-      const result = await getMobilePetHubComments(item.id);
-      setComments(result.data);
-    } catch (cause) {
-      onAction(
-        cause instanceof Error ? cause.message : "Komentar belum dapat dimuat",
-      );
-    }
-  };
-
-  const sendComment = async () => {
-    if (!commentPost || comment.trim().length < 1) return;
+  const toggleSave = async (item: WorldItem) => {
     if (!owner) {
       onLogin();
       return;
@@ -319,23 +327,91 @@ export function PetHubExperience({
       onRequirePet();
       return;
     }
+    if (savePending.current.has(item.id)) return;
+    savePending.current.add(item.id);
+    try {
+      const result = await saveMobilePetHubPost(item.id);
+      const update = (current: WorldItem[]) =>
+        current.map((post) =>
+          post.id === item.id ? { ...post, saved: result.saved } : post,
+        );
+      setFeed(update);
+      setReels(update);
+    } catch (cause) {
+      onAction(
+        cause instanceof Error ? cause.message : "Posting belum dapat disimpan",
+      );
+    } finally {
+      savePending.current.delete(item.id);
+    }
+  };
+  const openStory = (item: WorldItem) => {
+    setStory(item);
+    if (owner)
+      void viewMobilePetHubStory(item.id)
+        .then((result) =>
+          setStory((current) =>
+            current?.id === item.id
+              ? { ...current, view_count: result.view_count }
+              : current,
+          ),
+        )
+        .catch(() => onAction("Jumlah penonton story belum dapat diperbarui"));
+  };
+  const openComments = async (item: WorldItem) => {
+    const sequence = ++commentSequence.current;
+    setCommentPost(item);
+    setComments([]);
+    setComment("");
+    setCommentsError("");
+    setCommentsLoading(true);
+    try {
+      const result = await getMobilePetHubComments(item.id);
+      if (sequence === commentSequence.current) setComments(result.data);
+    } catch (cause) {
+      if (sequence === commentSequence.current)
+        setCommentsError(
+          cause instanceof Error
+            ? cause.message
+            : "Komentar belum dapat dimuat",
+        );
+    } finally {
+      if (sequence === commentSequence.current) setCommentsLoading(false);
+    }
+  };
+
+  const sendComment = async () => {
+    if (!commentPost || comment.trim().length < 1 || commentPending.current)
+      return;
+    if (!owner) {
+      onLogin();
+      return;
+    }
+    if (!hasPet) {
+      onRequirePet();
+      return;
+    }
+    const sequence = commentSequence.current;
+    commentPending.current = true;
     setCommentBusy(true);
     try {
       await commentMobilePetHubPost(commentPost.id, comment.trim());
       const result = await getMobilePetHubComments(commentPost.id);
-      setComments(result.data);
-      setComment("");
+      if (sequence === commentSequence.current) {
+        setComments(result.data);
+        setComment("");
+      }
       setFeed((current) =>
         current.map((item) =>
           item.id === commentPost.id
-            ? { ...item, comment_count: result.data.length }
+            ? { ...item, comment_count: result.count }
             : item,
         ),
       );
       setReels((current) =>
         current.map((item) =>
           item.id === commentPost.id
-            ? { ...item, comment_count: result.data.length }
+            ? { ...item, comment_count: result.count }
             : item,
         ),
       );
@@ -344,6 +420,7 @@ export function PetHubExperience({
         cause instanceof Error ? cause.message : "Komentar belum terkirim",
       );
     } finally {
+      commentPending.current = false;
       setCommentBusy(false);
     }
   };
@@ -405,7 +482,7 @@ export function PetHubExperience({
           return (
             <Pressable
               key={item.id}
-              onPress={() => setStory(item)}
+              onPress={() => openStory(item)}
               style={styles.storyItem}
             >
               <View style={styles.storyRing}>
@@ -498,7 +575,7 @@ export function PetHubExperience({
           const url = mediaURL(item);
           const video = isVideo(item);
           const poster = video ? videoPoster(url) : url;
-          const itemLiked = liked.includes(item.id);
+          const itemLiked = Boolean(item.liked);
           return (
             <View
               key={item.id}
@@ -558,10 +635,9 @@ export function PetHubExperience({
                   {video ? (
                     <InlineVideo uri={url} style={styles.media} />
                   ) : poster ? (
-                    <Image
-                      accessibilityLabel={`Posting ${item.author_name || "pet parent"}`}
-                      source={{ uri: poster }}
-                      style={styles.media}
+                    <PetHubPhotos
+                      urls={[...new Set([...(item.media_urls ?? []), url])]}
+                      author={item.author_name || "pet parent"}
                     />
                   ) : (
                     <View style={[styles.media, styles.videoFallback]}>
@@ -700,23 +776,11 @@ export function PetHubExperience({
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Simpan posting"
-                      onPress={() =>
-                        hasPet
-                          ? setSaved((current) =>
-                              current.includes(item.id)
-                                ? current.filter((id) => id !== item.id)
-                                : [...current, item.id],
-                            )
-                          : onRequirePet()
-                      }
+                      onPress={() => void toggleSave(item)}
                       style={styles.actionButton}
                     >
                       <Ionicons
-                        name={
-                          saved.includes(item.id)
-                            ? "bookmark"
-                            : "bookmark-outline"
-                        }
+                        name={item.saved ? "bookmark" : "bookmark-outline"}
                         size={21}
                         color={colors.navy}
                       />
@@ -803,11 +867,39 @@ export function PetHubExperience({
                 </>
               )}
             </Pressable>
+            {assets.length > 1 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8, paddingVertical: 8 }}
+              >
+                {assets.map((selectedAsset, index) => (
+                  <Pressable
+                    key={selectedAsset.uri}
+                    disabled={publishing}
+                    accessibilityLabel={`Hapus foto ${index + 1}`}
+                    onPress={() =>
+                      setAssets((current) =>
+                        current.filter((_, i) => i !== index),
+                      )
+                    }
+                  >
+                    <Image
+                      source={{ uri: selectedAsset.uri }}
+                      style={{ width: 76, height: 76, borderRadius: 10 }}
+                    />
+                    <Text style={styles.counter}>{index + 1} · Hapus</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : null}
             <TextInput
               value={caption}
+              accessibilityLabel="Caption PetHub"
               onChangeText={setCaption}
               multiline
-              maxLength={2200}
+              maxLength={composerMode === "story" ? 300 : 2200}
+              editable={!publishing}
               placeholder={
                 composerMode === "story"
                   ? "Tambah caption (opsional)…"
@@ -820,7 +912,10 @@ export function PetHubExperience({
               <Text style={styles.uploadNote}>
                 {asset ? "Siap diunggah" : "Media wajib dipilih"}
               </Text>
-              <Text style={styles.counter}>{caption.length}/2200</Text>
+              <Text style={styles.counter}>
+                {caption.length}/{composerMode === "story" ? 300 : 2200} ·{" "}
+                {assets.length} media
+              </Text>
             </View>
             <PrimaryButton
               label={
@@ -880,6 +975,9 @@ export function PetHubExperience({
                 </View>
               )}
             </View>
+            <Text style={styles.authorMeta}>
+              {story.view_count ?? 0} penonton
+            </Text>
             {story.content ? (
               <Text style={styles.storyCaption}>{story.content}</Text>
             ) : null}
@@ -889,14 +987,22 @@ export function PetHubExperience({
 
       <BoundedBottomSheet
         visible={Boolean(commentPost)}
-        onClose={() => setCommentPost(undefined)}
+        onClose={() => {
+          commentSequence.current++;
+          setCommentPost(undefined);
+        }}
         maxHeight="84%"
       >
         <View style={styles.commentsSheet}>
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Komentar</Text>
             <Pressable
-              onPress={() => setCommentPost(undefined)}
+              onPress={() => {
+                commentSequence.current++;
+                setCommentPost(undefined);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Tutup komentar"
               style={styles.sheetClose}
             >
               <Ionicons name="close" size={21} color={colors.navy} />
@@ -906,7 +1012,11 @@ export function PetHubExperience({
             keyboardShouldPersistTaps="handled"
             style={styles.commentList}
           >
-            {comments.length ? (
+            {commentsLoading ? (
+              <Text style={styles.emptyText}>Memuat komentar…</Text>
+            ) : commentsError ? (
+              <Text style={styles.emptyText}>{commentsError}</Text>
+            ) : comments.length ? (
               comments.map((item) => (
                 <View key={item.id} style={styles.commentItem}>
                   <View style={styles.commentAvatar}>
@@ -932,6 +1042,7 @@ export function PetHubExperience({
           <View style={styles.commentComposer}>
             <TextInput
               value={comment}
+              accessibilityLabel="Komentar PetHub"
               onChangeText={setComment}
               editable={hasPet && !commentBusy}
               placeholder={
@@ -945,6 +1056,10 @@ export function PetHubExperience({
               style={styles.commentInput}
             />
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                hasPet ? "Kirim komentar" : "Tambah pet untuk berkomentar"
+              }
               disabled={commentBusy || (hasPet && !comment.trim())}
               onPress={() => (hasPet ? void sendComment() : onRequirePet())}
               style={styles.sendButton}
@@ -1117,7 +1232,7 @@ const styles = StyleSheet.create({
   mediaWrap: {
     position: "relative",
     width: "100%",
-    aspectRatio: 1,
+    aspectRatio: 1.3,
     backgroundColor: colors.sky50,
   },
   reelMedia: { aspectRatio: 9 / 16, backgroundColor: "#102E45" },

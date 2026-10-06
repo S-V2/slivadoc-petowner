@@ -1011,6 +1011,9 @@ export type PetHubPost = {
   author_name: string;
   content: string;
   media_url: string;
+  media_urls?: string[];
+  liked?: boolean;
+  saved?: boolean;
   post_type: string;
   like_count: number;
   comment_count: number;
@@ -1282,6 +1285,8 @@ export type PetHubStory = {
   user_id: string;
   author_name: string;
   photo_url: string;
+  media_url?: string;
+  media_type?: "image" | "video";
   caption: string;
   view_count: number;
   expires_at: string;
@@ -1548,6 +1553,7 @@ export const createPetHubPost = (input: {
   content: string;
   post_type: string;
   media_url?: string;
+  media_urls?: string[];
 }) =>
   request<{ id: string; message: string }>("/api/v1/pethub/posts", {
     method: "POST",
@@ -1555,9 +1561,11 @@ export const createPetHubPost = (input: {
   });
 
 export const reactPetHubPost = (postId: string) =>
-  request<{ liked: boolean }>(`/api/v1/pethub/posts/${postId}/reactions`, {
+  request<{ liked: boolean; like_count: number }>(`/api/v1/pethub/posts/${postId}/reactions`, {
     method: "POST",
   });
+export const savePetHubPost = (postId: string) => request<{ saved: boolean }>(`/api/v1/pethub/posts/${postId}/save`, { method: "POST" });
+export const viewPetHubStory = (storyId: string) => request<{ view_count: number }>(`/api/v1/pethub/stories/${storyId}/views`, { method: "POST" });
 
 export const togglePetHubChannel = (channelId: string) =>
   request<{ channel_id: string; following: boolean }>(
@@ -1925,10 +1933,10 @@ export const createPetHubComment = (postId: string, content: string) =>
 export const getPetHubStories = () =>
   request<PlatformList<PetHubStory>>("/api/v1/public/pethub/stories");
 
-export const createPetHubStory = (photoUrl: string, caption: string) =>
+export const createPetHubStory = (photoUrl: string, caption: string, mediaType: "image" | "video" = "image") =>
   request<{ id: string; expires_in: number }>("/api/v1/pethub/stories", {
     method: "POST",
-    body: JSON.stringify({ photo_url: photoUrl, caption }),
+    body: JSON.stringify({ photo_url: photoUrl, media_url: photoUrl, media_type: mediaType, caption }),
   });
 
 export const getPawDatingProfiles = (query = "") =>

@@ -222,23 +222,20 @@ export function BoundedBottomSheet({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.sheetRoot}
       >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Tutup panel"
-          onPress={onClose}
-          style={styles.sheetBackdrop}
-        >
+        <View style={styles.sheetBackdrop}>
           <Pressable
-            accessibilityRole="none"
-            onPress={(event) => event.stopPropagation()}
-            style={[styles.sheet, { maxHeight }]}
-          >
+            accessibilityRole="button"
+            accessibilityLabel="Tutup panel"
+            onPress={onClose}
+            style={StyleSheet.absoluteFill}
+          />
+          <View accessible={false} accessibilityViewIsModal style={[styles.sheet, { maxHeight }]}>
             <SafeAreaView edges={["bottom", "left", "right"]} style={styles.sheetSafe}>
               <View style={styles.sheetHandle} />
               {children}
             </SafeAreaView>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );

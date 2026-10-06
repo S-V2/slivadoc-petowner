@@ -1495,6 +1495,10 @@ export const updateMobileCommunityGroupMember = (
 
 export type WorldItem = {
   id: string;
+  media_urls?: string[];
+  view_count?: number;
+  liked?: boolean;
+  saved?: boolean;
   title?: string;
   name?: string;
   description?: string;
@@ -2115,7 +2119,7 @@ export type MobilePetHubComment = {
   created_at: string;
 };
 export const getMobilePetHubComments = (postId: string) =>
-  platformRequest<{ data: MobilePetHubComment[] }>(
+  platformRequest<{ data: MobilePetHubComment[]; count: number }>(
     `/api/v1/pethub/posts/${postId}/comments`,
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 export const enrollMobileAcademy = (
@@ -2174,6 +2178,7 @@ export const createMobilePetHubPost = (content: string, authorName: string) =>
 export const createMobilePetHubMediaPost = (input: {
   content: string;
   media_url: string;
+  media_urls?: string[];
   post_type: "photo" | "video";
 }) =>
   platformRequest<{ id: string; message: string }>("/api/v1/pethub/posts", {
@@ -2198,10 +2203,12 @@ export const createMobilePetHubStory = (input: {
     },
   );
 export const reactMobilePetHubPost = (postId: string) =>
-  platformRequest<{ liked: boolean }>(
+  platformRequest<{ liked: boolean; like_count: number }>(
     `/api/v1/pethub/posts/${postId}/reactions`,
     { method: "POST" },
   );
+export const saveMobilePetHubPost = (postId: string) => platformRequest<{ saved: boolean }>(`/api/v1/pethub/posts/${postId}/save`, { method: "POST" });
+export const viewMobilePetHubStory = (storyId: string) => platformRequest<{ view_count: number }>(`/api/v1/pethub/stories/${storyId}/views`, { method: "POST" });
 
 export function askSlivaCare(
   message: string,

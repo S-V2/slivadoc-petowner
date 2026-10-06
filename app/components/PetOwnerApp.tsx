@@ -38,6 +38,10 @@ import {
   clearPlatformCache,
   closeLostPetMode,
   cancelPetOwnerBooking,
+  cancelPetOwnerOrder,
+  requestPetOwnerShopReturn,
+  getPetOwnerInvoice,
+  getPetOwnerInvoices,
   createPetOwnerBooking,
   getMyDocumentRequests,
   resubmitPetDocuments,
@@ -84,6 +88,8 @@ import {
   quotePetOwnerOrder,
   snoozeCareReminder,
   type ActivityShipment,
+  type PetOwnerInvoice,
+  type PetOwnerInvoiceDetail,
   type ActivityType,
   type PetOwnerActivityCenterItem,
   type PetOwnerActivityCenterResponse,
@@ -248,6 +254,18 @@ const navGroups: { label: string; items: AppView[] }[] = [
     ],
   },
 ];
+
+// Pages arrive newest first; entries of `later` already in `first` are dropped.
+function mergeActivityPages(
+  first: PetOwnerActivityCenterItem[],
+  later: PetOwnerActivityCenterItem[],
+) {
+  const seen = new Set(first.map((item) => `${item.type}-${item.id}`));
+  return [
+    ...first,
+    ...later.filter((item) => !seen.has(`${item.type}-${item.id}`)),
+  ];
+}
 
 const titles: Record<AppView, { title: string; subtitle: string }> = {
   home: {
@@ -458,6 +476,12 @@ export default function PetOwnerApp() {
     id: string;
     token: number;
   } | null>(null);
+  const [activityCursor, setActivityCursor] = useState<string | null>(null);
+  const [activityLoadingMore, setActivityLoadingMore] = useState(false);
+  // Once a later page is loaded, a refresh updates page 1 in place instead of
+  // dropping the pages the owner scrolled to.
+  const moreActivitiesLoaded = useRef(false);
+  const [chatUnread, setChatUnread] = useState(0);
   const [bookedId, setBookedId] = useState("");
   const [points, setPoints] = useState(0);
   const [membership, setMembership] =
@@ -623,14 +647,6 @@ export default function PetOwnerApp() {
     window.localStorage.setItem("slivadoc.cart", JSON.stringify(cart));
   }, [cart]);
   useEffect(() => {
-    const listener = (event: Event) => {
-      setToast(`Detail ${(event as CustomEvent<string>).detail} dibuka`);
-      window.setTimeout(() => setToast(""), 2600);
-    };
-    window.addEventListener("slivadoc:notice", listener);
-    return () => window.removeEventListener("slivadoc:notice", listener);
-  }, []);
-  useEffect(() => {
     const listener = () => setLoginOpen(true);
     window.addEventListener("slivadoc:login-required", listener);
     return () =>
@@ -677,9 +693,47 @@ export default function PetOwnerApp() {
   }, [notify]);
   const syncActivities = useCallback(async () => {
     const center = await getPetOwnerActivityCenter();
-    setActivities(center.data);
+    const keep = moreActivitiesLoaded.current;
+    setActivities((current) =>
+      keep ? mergeActivityPages(center.data, current) : center.data,
+    );
+    if (!keep) setActivityCursor(center.next_cursor);
     setActivitySummary(center.summary);
   }, []);
+  const loadMoreActivities = useCallback(async () => {
+    if (!activityCursor || activityLoadingMore) return;
+    setActivityLoadingMore(true);
+    try {
+      const page = await getPetOwnerActivityCenter(activityCursor);
+      moreActivitiesLoaded.current = true;
+      setActivities((current) => mergeActivityPages(current, page.data));
+      setActivityCursor(page.next_cursor);
+      setActivitySummary(page.summary);
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Aktivitas berikutnya belum dapat dimuat",
+      );
+    } finally {
+      setActivityLoadingMore(false);
+    }
+  }, [activityCursor, activityLoadingMore, notify]);
+  // A failed fetch keeps the last count rather than showing a made-up one.
+  const syncChatUnread = useCallback(async () => {
+    try {
+      const chats = await getMarketplaceChats();
+      setChatUnread(
+        chats.data.reduce((total, thread) => total + thread.unread_count, 0),
+      );
+    } catch {}
+  }, []);
+  const inboxOpen = activeView === "messages";
+  useEffect(() => {
+    if (!authenticated) return;
+    const timer = window.setTimeout(() => void syncChatUnread(), 0);
+    return () => window.clearTimeout(timer);
+  }, [authenticated, inboxOpen, inboxChatThread, syncChatUnread]);
   const handleActivityFocus = useCallback(
     (token: number) =>
       setActivityFocus((current) => (current?.token === token ? null : current)),
@@ -696,6 +750,9 @@ export default function PetOwnerApp() {
       applyNotifications([], 0);
       setActivities([]);
       setActivitySummary(null);
+      setChatUnread(0);
+      setActivityCursor(null);
+      moreActivitiesLoaded.current = false;
       setFavoriteIds([]);
       setPoints(0);
       setMembership(starterMembership);
@@ -754,6 +811,7 @@ export default function PetOwnerApp() {
         })
         .catch(() => undefined);
       void syncActivities().catch(() => undefined);
+      void syncChatUnread();
     };
     const timer = window.setInterval(sync, 15_000);
     const foreground = () => {
@@ -765,7 +823,7 @@ export default function PetOwnerApp() {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", foreground);
     };
-  }, [authenticated, syncActivities]);
+  }, [authenticated, syncActivities, syncChatUnread]);
   useEffect(() => {
     queueMicrotask(() => {
       void loadBootstrap();
@@ -1114,6 +1172,16 @@ export default function PetOwnerApp() {
       window.removeEventListener("slivadoc:open-activity", listener);
   });
 
+  // A store reply notification: open that thread over the inbox; if the thread
+  // is gone the inbox alone is shown.
+  const openStoreChatThread = async (threadId: string) => {
+    navigate("messages");
+    try {
+      const chats = await getMarketplaceChats();
+      setInboxChatThread(chats.data.find((thread) => thread.id === threadId));
+    } catch {}
+  };
+
   const openNotificationTarget = (item: NotificationItem) => {
     const type = item.metadata?.activity_type;
     const id = item.metadata?.activity_id;
@@ -1132,6 +1200,12 @@ export default function PetOwnerApp() {
       if (typeof petID === "string" && petID) setSelectedPetId(petID);
       setChatMode("care-team");
       setChatOpen(true);
+    } else if (
+      route === "shop" &&
+      typeof item.metadata?.thread_id === "string" &&
+      item.metadata.thread_id
+    ) {
+      void openStoreChatThread(item.metadata.thread_id);
     } else if (route === "activity" || route === "bookings")
       navigate("bookings");
     else if (route in titles) navigate(route as AppView);
@@ -1183,7 +1257,6 @@ export default function PetOwnerApp() {
       <Sidebar
         activeView={activeView}
         setActiveView={navigate}
-        notify={notify}
         account={account}
         authenticated={authenticated}
         onLogin={() => setLoginOpen(true)}
@@ -1205,6 +1278,7 @@ export default function PetOwnerApp() {
           onOpenLocation={() => setLocationOpen(true)}
           cartCount={cartCount}
           onOpenMessages={() => navigate("messages")}
+          chatUnread={chatUnread}
           onOpenNotifications={() => openNotifications()}
           onOpenCart={() => setCartOpen(true)}
           account={account}
@@ -1271,6 +1345,9 @@ export default function PetOwnerApp() {
               onFocusHandled={handleActivityFocus}
               onRepeat={repeatActivity}
               onPaid={syncActivities}
+              hasMoreActivities={activityCursor !== null}
+              loadingMoreActivities={activityLoadingMore}
+              onLoadMore={() => void loadMoreActivities()}
             />
           )}
           {activeView === "health" && (
@@ -2023,7 +2100,6 @@ function PetOwnerLogin({
 function Sidebar({
   activeView,
   setActiveView,
-  notify,
   account,
   authenticated,
   onLogin,
@@ -2032,7 +2108,6 @@ function Sidebar({
 }: {
   activeView: AppView;
   setActiveView: (view: AppView) => void;
-  notify: Notify;
   account: PetOwnerBootstrap["user"] | null;
   authenticated: boolean;
   onLogin: () => void;
@@ -2089,20 +2164,6 @@ function Sidebar({
       </nav>
       <div className="side-spacer" />
       <button
-        className="side-premium"
-        type="button"
-        onClick={() => notify("Halaman SlivaCare+ segera dibuka")}
-      >
-        <span className="premium-icon">
-          <Icon name="sparkle" size={21} />
-        </span>
-        <span>
-          <b>SlivaCare+</b>
-          <small>Proteksi lengkap mulai Rp49rb</small>
-        </span>
-        <Icon name="chevron" size={17} />
-      </button>
-      <button
         className="side-help"
         type="button"
         onClick={() => setActiveView("support")}
@@ -2149,6 +2210,7 @@ function Topbar({
   onOpenLocation,
   cartCount,
   onOpenMessages,
+  chatUnread,
   onOpenNotifications,
   unread,
   onOpenCart,
@@ -2167,6 +2229,7 @@ function Topbar({
   onOpenLocation: () => void;
   cartCount: number;
   onOpenMessages: () => void;
+  chatUnread: number;
   onOpenNotifications: () => void;
   unread: number;
   onOpenCart: () => void;
@@ -2341,6 +2404,11 @@ function Topbar({
           aria-label="Buka daftar chat"
         >
           <Icon name="chat" />
+          {authenticated && chatUnread > 0 && (
+            <span className="counter">
+              {chatUnread > 99 ? "99+" : chatUnread}
+            </span>
+          )}
         </button>
         <button
           className="icon-button cart-header-button"
@@ -4086,15 +4154,6 @@ function DiscoverView({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Cari klinik atau layanan"
           />
-          <button
-            type="button"
-            aria-label="Cari layanan"
-            onClick={() =>
-              notify(`Menampilkan hasil untuk “${query || "semua layanan"}”`)
-            }
-          >
-            Cari
-          </button>
         </label>
       </section>
       <div className="filter-bar">
@@ -4333,6 +4392,9 @@ function BookingsView({
   onFocusHandled,
   onRepeat,
   onPaid,
+  hasMoreActivities,
+  loadingMoreActivities,
+  onLoadMore,
 }: {
   openBooking: (service?: Service) => void;
   setActiveView: (view: AppView) => void;
@@ -4345,7 +4407,11 @@ function BookingsView({
   onFocusHandled: (token: number) => void;
   onRepeat: (item: PetOwnerActivityCenterItem) => void;
   onPaid: () => Promise<void>;
+  hasMoreActivities: boolean;
+  loadingMoreActivities: boolean;
+  onLoadMore: () => void;
 }) {
+  const [invoicesOpen, setInvoicesOpen] = useState(false);
   const [tab, setTab] =
     useState<PetOwnerActivityCenterItem["state"]>("upcoming");
   // The marketplace "Pesanan" shortcut lands here with ?activity_type=order.
@@ -4513,6 +4579,13 @@ function BookingsView({
           >
             <Icon name="plus" size={15} /> Buat booking
           </button>
+          <button
+            className="secondary-button small"
+            type="button"
+            onClick={() => setInvoicesOpen(true)}
+          >
+            <Icon name="download" size={15} /> Invoice
+          </button>
         </div>
       </header>
 
@@ -4603,6 +4676,16 @@ function BookingsView({
           </div>
         )}
       </div>
+      {hasMoreActivities && (
+        <button
+          className="secondary-button full"
+          type="button"
+          disabled={loadingMoreActivities}
+          onClick={onLoadMore}
+        >
+          {loadingMoreActivities ? "Memuat…" : "Muat lebih banyak"}
+        </button>
+      )}
 
       <section className="activity-native-cta">
         <div>
@@ -4635,6 +4718,264 @@ function BookingsView({
           onRepeat={onRepeat}
         />
       )}
+      {invoicesOpen && <InvoicesPanel close={() => setInvoicesOpen(false)} />}
+    </div>
+  );
+}
+
+const invoiceStatusLabels: Record<PetOwnerInvoice["status"], string> = {
+  pending: "Menunggu pembayaran",
+  paid: "Lunas",
+  void: "Dibatalkan",
+  refunded: "Dana dikembalikan",
+  partially_refunded: "Dikembalikan sebagian",
+};
+
+function InvoicesPanel({ close }: { close: () => void }) {
+  const [invoices, setInvoices] = useState<PetOwnerInvoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setInvoices((await getPetOwnerInvoices()).data);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Invoice belum dapat dimuat",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    queueMicrotask(() => void load());
+  }, [load]);
+  if (selectedId)
+    return (
+      <InvoiceDetail
+        invoiceId={selectedId}
+        back={() => setSelectedId("")}
+        close={close}
+      />
+    );
+  return (
+    <div className="modal-overlay" onMouseDown={close}>
+      <section
+        className="modal activity-detail-modal"
+        aria-label="Invoice"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <button className="modal-close" onClick={close} aria-label="Tutup">
+          <Icon name="close" />
+        </button>
+        <header className="activity-detail-hero">
+          <span>
+            <Icon name="download" size={24} />
+          </span>
+          <div>
+            <small>INVOICE</small>
+            <h2>Invoice klinik & toko</h2>
+          </div>
+        </header>
+        {loading ? (
+          <p className="form-message" role="status">
+            Memuat invoice…
+          </p>
+        ) : error ? (
+          <div className="form-message" role="alert">
+            <p>{error}</p>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void load()}
+            >
+              Coba lagi
+            </button>
+          </div>
+        ) : invoices.length ? (
+          <div className="activity-native-list">
+            {invoices.map((invoice) => (
+              <article className="activity-native-card" key={invoice.id}>
+                <button
+                  className="activity-native-main"
+                  type="button"
+                  onClick={() => setSelectedId(invoice.id)}
+                >
+                  <span className="activity-native-copy">
+                    <span className="activity-native-meta">
+                      <small>{invoice.invoice_number}</small>
+                      <i>{invoiceStatusLabels[invoice.status]}</i>
+                    </span>
+                    <b>
+                      {[invoice.business_name, invoice.branch_name]
+                        .filter(Boolean)
+                        .join(" · ") || "Invoice"}
+                    </b>
+                    <span>{formatRupiah(invoice.total_amount)}</span>
+                    {(invoice.issued_at ?? invoice.paid_at) && (
+                      <small className="activity-native-date">
+                        <Icon name="clock" size={13} />
+                        {formatActivityDate(
+                          (invoice.issued_at ?? invoice.paid_at) as string,
+                        )}
+                      </small>
+                    )}
+                  </span>
+                  <Icon name="chevron" size={17} />
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state activity-native-empty">
+            <h3>Belum ada invoice</h3>
+            <p>
+              Belum ada invoice tertaut. Tautkan kode pet owner di klinik agar
+              invoice muncul di sini.
+            </p>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function InvoiceDetail({
+  invoiceId,
+  back,
+  close,
+}: {
+  invoiceId: string;
+  back: () => void;
+  close: () => void;
+}) {
+  const [invoice, setInvoice] = useState<PetOwnerInvoiceDetail | null>(null);
+  const [error, setError] = useState("");
+  const load = useCallback(async () => {
+    setError("");
+    try {
+      setInvoice(await getPetOwnerInvoice(invoiceId));
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Invoice belum dapat dimuat",
+      );
+    }
+  }, [invoiceId]);
+  useEffect(() => {
+    queueMicrotask(() => void load());
+  }, [load]);
+  const outstanding = invoice
+    ? invoice.status === "pending"
+      ? Math.max(0, invoice.total_amount - invoice.paid_amount)
+      : 0
+    : 0;
+  const date = (value: string | null) => (value ? formatActivityDate(value) : "");
+  return (
+    <div className="modal-overlay" onMouseDown={close}>
+      <section
+        className="modal activity-detail-modal"
+        aria-label="Detail invoice"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <button className="modal-close" onClick={close} aria-label="Tutup">
+          <Icon name="close" />
+        </button>
+        {error ? (
+          <div className="form-message" role="alert">
+            <p>{error}</p>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void load()}
+            >
+              Coba lagi
+            </button>
+          </div>
+        ) : !invoice ? (
+          <p className="form-message" role="status">
+            Memuat invoice…
+          </p>
+        ) : (
+          <>
+            <header className="activity-detail-hero">
+              <span>
+                <Icon name="download" size={24} />
+              </span>
+              <div>
+                <small>INVOICE</small>
+                <h2>{invoice.invoice_number}</h2>
+                <em>{invoiceStatusLabels[invoice.status]}</em>
+              </div>
+            </header>
+            <dl>
+              {(
+                [
+                  [
+                    "Penerbit",
+                    [invoice.business_name, invoice.branch_name]
+                      .filter(Boolean)
+                      .join(" · "),
+                  ],
+                  ["Diterbitkan", date(invoice.issued_at)],
+                  ["Dibayar", date(invoice.paid_at)],
+                  ["Subtotal", formatRupiah(invoice.subtotal)],
+                  [
+                    "Diskon",
+                    invoice.discount_amount
+                      ? `-${formatRupiah(invoice.discount_amount)}`
+                      : "",
+                  ],
+                  [
+                    "Pajak",
+                    invoice.tax_amount ? formatRupiah(invoice.tax_amount) : "",
+                  ],
+                  ["Total", formatRupiah(invoice.total_amount)],
+                  ["Sudah dibayar", formatRupiah(invoice.paid_amount)],
+                  [
+                    "Dikembalikan",
+                    invoice.refunded_amount
+                      ? formatRupiah(invoice.refunded_amount)
+                      : "",
+                  ],
+                  [
+                    "Sisa tagihan",
+                    outstanding ? formatRupiah(outstanding) : "",
+                  ],
+                ] as Array<[string, string]>
+              )
+                .filter(([, value]) => value)
+                .map(([label, value]) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+            </dl>
+            <div className="activity-detail-copy">
+              <span className="activity-detail-label">Rincian item</span>
+              {invoice.items.length ? (
+                <ul>
+                  {invoice.items.map((line, index) => (
+                    <li key={`${line.description}-${index}`}>
+                      {line.description} × {line.quantity} ·{" "}
+                      {formatRupiah(line.line_total)}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>Tidak ada rincian item.</p>
+              )}
+            </div>
+          </>
+        )}
+        <footer>
+          <button className="secondary-button" type="button" onClick={back}>
+            Kembali ke daftar
+          </button>
+        </footer>
+      </section>
     </div>
   );
 }
@@ -6825,6 +7166,78 @@ function ActivityDetail({
       setCancelBusy(false);
     }
   }
+  async function cancelOrder() {
+    setCancelBusy(true);
+    setActionMessage("");
+    try {
+      const result = await cancelPetOwnerOrder(item.reference_id);
+      setCancelOpen(false);
+      setActionMessage(
+        result.refund_queued
+          ? "Pesanan dibatalkan. Dana akan dikembalikan setelah diverifikasi tim finance."
+          : "Pesanan dibatalkan.",
+      );
+      await onPaid();
+    } catch (cause) {
+      setCancelOpen(false);
+      setActionMessage(
+        cause instanceof Error ? cause.message : "Pesanan belum dapat dibatalkan",
+      );
+      // A 409 means the order moved on; resync so the button reflects it.
+      if (cause instanceof ApiError && cause.status === 409)
+        await onPaid().catch(() => undefined);
+    } finally {
+      setCancelBusy(false);
+    }
+  }
+  const [returnFor, setReturnFor] = useState("");
+  const [returnReason, setReturnReason] = useState("");
+  const [returnBusy, setReturnBusy] = useState(false);
+  const [returnError, setReturnError] = useState("");
+  // Delivered parcels still inside the return window, plus those already requested.
+  const returnRows =
+    item.type === "order"
+      ? (item.fulfillments ?? []).filter(
+          (entry) =>
+            entry.return_requested ||
+            (entry.status === "delivered" &&
+              !!entry.return_until &&
+              now < Date.parse(entry.return_until)),
+        )
+      : [];
+  async function submitReturn(fulfillmentId: string) {
+    const reason = returnReason.trim();
+    if (reason.length < 10 || reason.length > 1000) {
+      setReturnError("Alasan retur harus 10 sampai 1000 karakter.");
+      return;
+    }
+    setReturnBusy(true);
+    setReturnError("");
+    setActionMessage("");
+    try {
+      const result = await requestPetOwnerShopReturn(
+        item.reference_id,
+        fulfillmentId,
+        reason,
+      );
+      setReturnFor("");
+      setReturnReason("");
+      setActionMessage(`Permintaan retur terkirim (${result.ticket_number})`);
+      await onPaid();
+    } catch (cause) {
+      const message =
+        cause instanceof Error
+          ? cause.message
+          : "Permintaan retur belum dapat dikirim";
+      if (cause instanceof ApiError && cause.code === "return_already_requested") {
+        setReturnFor("");
+        setActionMessage(message);
+        await onPaid().catch(() => undefined);
+      } else setReturnError(message);
+    } finally {
+      setReturnBusy(false);
+    }
+  }
   async function resubmitDocuments() {
     setRevisionBusy(true);
     setActionMessage("");
@@ -7022,6 +7435,106 @@ function ActivityDetail({
               )}
             </div>
           )}
+        {item.type === "order" && item.cancellable && (
+          <div className="activity-detail-copy">
+            <span className="activity-detail-label">Pembatalan</span>
+            <p>Pesanan dapat dibatalkan sebelum penjual memprosesnya.</p>
+            <button
+              className="secondary-button full"
+              type="button"
+              disabled={cancelBusy}
+              onClick={() => setCancelOpen(true)}
+            >
+              Batalkan pesanan
+            </button>
+            {cancelOpen && (
+              <div className="form-message" role="alertdialog">
+                <p>
+                  Batalkan pesanan ini? Pesanan yang dibatalkan tidak dapat
+                  dipulihkan.
+                </p>
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={cancelBusy}
+                  onClick={() => void cancelOrder()}
+                >
+                  {cancelBusy ? "Membatalkan…" : "Ya, batalkan"}
+                </button>{" "}
+                <button
+                  className="secondary-button"
+                  type="button"
+                  disabled={cancelBusy}
+                  onClick={() => setCancelOpen(false)}
+                >
+                  Tidak jadi
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        {returnRows.length > 0 && (
+          <div className="activity-detail-copy">
+            <span className="activity-detail-label">Retur</span>
+            {returnRows.map((entry) => (
+              <div key={entry.id}>
+                <p>
+                  <b>{entry.business_name}</b>
+                  {entry.return_until && !entry.return_requested
+                    ? ` · retur hingga ${formatActivityDate(entry.return_until)}`
+                    : ""}
+                </p>
+                {entry.return_requested ? (
+                  <p>
+                    <b>Retur diajukan</b>
+                  </p>
+                ) : returnFor === entry.id ? (
+                  <div className="form-message">
+                    <label>
+                      <span>Alasan retur</span>
+                      <textarea
+                        value={returnReason}
+                        maxLength={1000}
+                        rows={3}
+                        disabled={returnBusy}
+                        onChange={(event) => setReturnReason(event.target.value)}
+                        placeholder="Jelaskan kendala pada barang yang diterima (minimal 10 karakter)"
+                      />
+                    </label>
+                    {returnError && <p role="alert">{returnError}</p>}
+                    <button
+                      className="primary-button"
+                      type="button"
+                      disabled={returnBusy}
+                      onClick={() => void submitReturn(entry.id)}
+                    >
+                      {returnBusy ? "Mengirim…" : "Kirim permintaan retur"}
+                    </button>{" "}
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      disabled={returnBusy}
+                      onClick={() => setReturnFor("")}
+                    >
+                      Batal
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    className="secondary-button full"
+                    type="button"
+                    onClick={() => {
+                      setReturnFor(entry.id);
+                      setReturnError("");
+                    }}
+                  >
+                    Ajukan retur
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
         {item.type === "document" && item.status === "need_revision" && (
           <div className="activity-detail-copy">
             <span className="activity-detail-label">Lengkapi dokumen</span>
@@ -9191,19 +9704,13 @@ function Notification({
   note: string;
   time: string;
   unread?: boolean;
-  onClick?: () => void;
+  onClick: () => void;
 }) {
   return (
     <button
       type="button"
       className={`notification ${unread ? "unread" : ""}`}
-      onClick={
-        onClick ??
-        (() =>
-          window.dispatchEvent(
-            new CustomEvent("slivadoc:notice", { detail: title }),
-          ))
-      }
+      onClick={onClick}
     >
       <span className={tone}>{icon}</span>
       <p>

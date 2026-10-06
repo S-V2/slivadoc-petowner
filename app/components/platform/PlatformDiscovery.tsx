@@ -248,6 +248,7 @@ export default function PlatformDiscovery({
   const [composer, setComposer] = useState(false);
   const [storyComposer, setStoryComposer] = useState(false);
   const [stories, setStories] = useState<PetHubStory[]>([]);
+  const [viewStory, setViewStory] = useState<PetHubStory | null>(null);
   const [commentPost, setCommentPost] = useState<PetHubPost | null>(null);
   const [filter, setFilter] = useState("all");
   const [liked, setLiked] = useState<string[]>([]);
@@ -590,13 +591,6 @@ export default function PlatformDiscovery({
             <span>EVENT MENDATANG</span>
             <h2>Isi kalender pet-mu</h2>
           </div>
-          <button
-            onClick={() =>
-              notify("Kalender event Slivadoc ditambahkan ke perangkat")
-            }
-          >
-            ＋ Tambah ke kalender
-          </button>
         </div>
         <div className="event-grid">
           {events.map((item, index) => (
@@ -822,7 +816,7 @@ export default function PlatformDiscovery({
         {stories.map((story) => (
           <button
             key={story.id}
-            onClick={() => notify(`Story ${story.author_name} dibuka`)}
+            onClick={() => setViewStory(story)}
           >
             <span>
               {story.photo_url ? (
@@ -910,9 +904,6 @@ export default function PlatformDiscovery({
                       {relative(post.created_at)}
                     </small>
                   </p>
-                  <button onClick={() => notify("Posting disimpan ke koleksi")}>
-                    •••
-                  </button>
                 </header>
                 <p>{post.content}</p>
                 {post.media_url && (
@@ -938,13 +929,6 @@ export default function PlatformDiscovery({
                   </button>
                   <button onClick={() => setCommentPost(post)}>
                     <Icon name="chat" size={18} /> {post.comment_count}
-                  </button>
-                  <button
-                    onClick={() =>
-                      notify("Repost akan tersedia setelah moderasi")
-                    }
-                  >
-                    <Icon name="arrow" size={18} /> {post.repost_count}
                   </button>
                   <button
                     onClick={() =>
@@ -1051,6 +1035,34 @@ export default function PlatformDiscovery({
           ownerName={ownerName}
           onCreated={(story) => setStories((current) => [story, ...current])}
         />
+      )}
+      {viewStory && (
+        <div className="modal-overlay" onMouseDown={() => setViewStory(null)}>
+          <section
+            className="modal"
+            aria-label={`Story ${viewStory.author_name}`}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              className="modal-close"
+              onClick={() => setViewStory(null)}
+              aria-label="Tutup"
+            >
+              <Icon name="close" />
+            </button>
+            <h2>{viewStory.author_name}</h2>
+            {viewStory.photo_url && (
+              <NextImage
+                src={viewStory.photo_url}
+                alt={viewStory.caption || `Story ${viewStory.author_name}`}
+                width={640}
+                height={640}
+                unoptimized
+              />
+            )}
+            {viewStory.caption && <p>{viewStory.caption}</p>}
+          </section>
+        </div>
       )}
     </>
   );

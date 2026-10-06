@@ -310,12 +310,6 @@ export default function SlivaCareDrawer({
           )}
         </div>
         <div className="chat-input">
-          <button
-            type="button"
-            onClick={() => notify("Pilih foto atau dokumen pendukung")}
-          >
-            ＋
-          </button>
           <input
             value={message}
             onChange={(event) => setMessage(event.target.value)}

@@ -185,12 +185,6 @@ export default function CommunityExperience({ notify, onOpenLocation }: Props) {
                 <span className="post-tag">
                   {post.category.replaceAll("_", " ")}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => notify("Pilihan moderasi posting dibuka")}
-                >
-                  <Icon name="more" />
-                </button>
               </header>
               <p>{post.body}</p>
               {post.image_url ? (

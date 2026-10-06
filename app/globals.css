@@ -11625,3 +11625,26 @@ textarea {
   color: #8a4a2a;
   background: #fbeae1;
 }
+
+/* Promise surfaces: shipments in Aktivitas, ticket threads, shared pets, PetSpot review page. */
+.activity-shipments{display:grid;gap:10px}
+.activity-shipment{display:grid;gap:6px;padding:12px;border:1px solid #dbe7ef;border-radius:14px;background:#f8fbfd}
+.activity-shipment ul{display:grid;gap:6px;margin:4px 0 0;padding:0;list-style:none}
+.activity-shipment li{display:grid;gap:2px;padding-left:10px;border-left:2px solid #c9d8e3}
+.activity-shipment small{color:#617789}
+.support-thread{display:grid;gap:8px;margin-top:10px}
+.support-thread>button{justify-self:start;border:0;background:none;color:#0b7bb8;font-weight:600;cursor:pointer;padding:0}
+.support-thread ul{display:grid;gap:8px;margin:0;padding:0;list-style:none;max-height:260px;overflow:auto}
+.support-thread li{display:grid;gap:2px;padding:8px 10px;border-radius:12px;background:#f1f6fa}
+.support-thread li.support{background:#e6f5ef}
+.support-thread li p{margin:0}
+.support-thread li time{color:#617789;font-size:11px}
+.support-thread li.empty{background:none;color:#617789}
+.support-thread form{display:flex;gap:8px}
+.support-thread form input{flex:1;min-width:0;padding:8px 10px;border:1px solid #c9d8e3;border-radius:10px}
+.shared-pet-badge{color:#6655c7;font-weight:600}
+.petspot-review{max-width:560px;margin:0 auto}
+.petspot-review-stars{display:flex;justify-content:center;gap:6px;margin:10px 0}
+.petspot-review-stars button{border:0;background:none;font-size:34px;line-height:1;color:#c9d8e3;cursor:pointer}
+.petspot-review-stars button.active{color:#f5b301}
+.requirement-upload-hint{display:block;color:#617789;margin-bottom:6px}

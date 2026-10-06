@@ -1219,7 +1219,7 @@ export type PawDatingProfile = {
   weight_kg: number;
   color: string;
   city: string;
-  distance_km?: number;
+  distance_km?: number | null;
   profile_level: number;
   level_name: string;
   pedigree_status: string;

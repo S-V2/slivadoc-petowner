@@ -1078,12 +1078,6 @@ export function WorldScreen({
       } else if (selected.playback_url) {
         await Linking.openURL(selected.playback_url);
         onAction("Live PetHub dibuka");
-      } else {
-        onAction(
-          selected.status === "live"
-            ? "Live PetHub dibuka"
-            : "Pengingat PetHub diaktifkan",
-        );
       }
       completed = true;
     } catch (cause) {
@@ -1377,23 +1371,7 @@ export function WorldScreen({
               <Ionicons name="add" size={18} color={colors.white} />
               <Text style={styles.createText}>Daftarkan pet</Text>
             </Pressable>
-          ) : (
-            <Pressable
-              onPress={() =>
-                onAction(
-                  mode === "petspot"
-                    ? "Lokasi perangkat digunakan untuk mengurutkan PetSpot"
-                    : "Filter dibuka",
-                )
-              }
-            >
-              <Ionicons
-                name={mode === "petspot" ? "navigate" : "options"}
-                size={20}
-                color={colors.sky600}
-              />
-            </Pressable>
-          )}
+          ) : null}
         </View>
         {mode === "petspot" ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
           {[
@@ -2406,9 +2384,7 @@ export function WorldScreen({
                                     ? selected?.reservable
                                       ? "Reservasi & bayar DP"
                                       : "Buka petunjuk arah"
-                                    : selected?.status === "live"
-                                      ? "Tonton live"
-                                      : "Aktifkan pengingat"
+                                    : "Tonton live"
                     }
                     onPress={runPrimaryAction}
                     disabled={

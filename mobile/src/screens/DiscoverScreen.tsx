@@ -16,7 +16,7 @@ function serviceIcon(service: Pick<Service, "category" | "name">): keyof typeof 
   return "paw-outline";
 }
 
-export function DiscoverScreen({ onBook, onAction, onOpenNotifications,services,favorites,onToggleFavorite,intent }: { onBook: (service: Service) => void; onAction: (message: string) => void; onOpenNotifications: () => void;services:Service[];favorites:string[];onToggleFavorite:(id:string)=>void;intent?:{token:number;category?:string;serviceId?:string} }) {
+export function DiscoverScreen({ onBook, onOpenNotifications,services,favorites,onToggleFavorite,intent }: { onBook: (service: Service) => void; onOpenNotifications: () => void;services:Service[];favorites:string[];onToggleFavorite:(id:string)=>void;intent?:{token:number;category?:string;serviceId?:string} }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Semua");
   const [selected, setSelected] = useState<Service>();
@@ -43,13 +43,13 @@ export function DiscoverScreen({ onBook, onAction, onOpenNotifications,services,
       <TopHeader title="Jelajahi Layanan" subtitle="Layanan pet care terverifikasi" onNotification={onOpenNotifications} />
       <Text style={styles.title}>Mau manjain pet-mu dengan apa? ✨</Text>
       <Text style={styles.subtitle}>Temukan layanan terverifikasi di dekatmu.</Text>
-      <View style={styles.searchBox}><Ionicons name="search" size={18} color={colors.muted} /><TextInput placeholder="Cari klinik atau layanan" placeholderTextColor={colors.muted} value={query} onChangeText={setQuery} style={styles.searchInput} /><Pressable onPress={() => onAction(`Mencari “${query || "semua layanan"}”`)} style={styles.filterButton}><Ionicons name="options" size={17} color={colors.white} /></Pressable></View>
+      <View style={styles.searchBox}><Ionicons name="search" size={18} color={colors.muted} /><TextInput placeholder="Cari klinik atau layanan" placeholderTextColor={colors.muted} value={query} onChangeText={setQuery} style={styles.searchInput} /></View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories}>
         {categories.map((item) => <Pressable key={item} onPress={() => setCategory(item)} style={[styles.category, item === category && styles.activeCategory]}><Text style={[styles.categoryText, item === category && styles.activeCategoryText]}>{item}</Text></Pressable>)}
       </ScrollView>
 
-      <View style={styles.resultHeader}><Text style={styles.resultCount}><Text style={styles.resultStrong}>{results.length} layanan</Text> ditemukan</Text><Pressable onPress={() => onAction("Urutan layanan diubah")}><Text style={styles.sort}>Rekomendasi  ⌄</Text></Pressable></View>
+      <View style={styles.resultHeader}><Text style={styles.resultCount}><Text style={styles.resultStrong}>{results.length} layanan</Text> ditemukan</Text></View>
       <View style={styles.results}>
         {results.map((service) => {
           const favorite = favorites.includes(service.id);

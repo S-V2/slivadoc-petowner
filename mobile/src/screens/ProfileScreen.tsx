@@ -12,11 +12,12 @@ import {
   type MobileOwner,
   type MobilePet,
 } from "../api";
-import { BoundedBottomSheet, Card, Pill, Screen, SectionTitle, SoftButton, TopHeader, useAppSurface } from "../components/ui";
+import { BoundedBottomSheet, Card, ChatUnreadBadge, Pill, Screen, SectionTitle, SoftButton, TopHeader, useAppSurface } from "../components/ui";
+import { InvoicesScreen } from "./InvoicesScreen";
 import { languageOptions, LocalizedText as Text, LocalizedTextInput as TextInput, useI18n, type AppLanguage } from "../i18n";
 import { colors, shadow, typography } from "../theme";
 
-type ProfilePage = "main" | "family" | "security";
+type ProfilePage = "main" | "family" | "security" | "invoices";
 type ProfileProps = {
   onAction: (message: string) => void;
   onOpenNotifications: (category?: string) => void;
@@ -83,11 +84,14 @@ export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, ow
   if (!owner) {
     return <><Screen><TopHeader title="Akun" subtitle="Pet Parent Slivadoc" onNotification={onOpenNotifications}/><Card style={styles.guestCard}><View style={styles.guestRow}><View style={styles.guestAvatar}><Ionicons name="person-outline" size={25} color={colors.sky600}/></View><View style={styles.guestCopy}><Text style={styles.name}>Yuk, masuk dulu!</Text><Text style={styles.meta}>Simpan profil, kesehatan, dan aktivitas pet dalam satu akun.</Text></View></View><SoftButton label="Masuk sebagai Pet Owner" icon="log-in-outline" onPress={onLogin}/></Card><SectionTitle eyebrow="PREFERENSI" title="Pengaturan akun"/><Card style={styles.settings}><Setting icon="language-outline" title="Bahasa aplikasi" note={currentLanguage.nativeLabel} onPress={() => setLanguageOpen(true)} last/></Card></Screen><LanguageSheet visible={languageOpen} onClose={() => setLanguageOpen(false)} onAction={onAction}/></>;
   }
+  if (page === "invoices") {
+    return <InvoicesScreen onBack={() => setPage("main")} onAction={onAction} onOpenNotifications={onOpenNotifications}/>;
+  }
   if (page === "family") {
     return <FamilyAccessScreen pets={pets} onBack={() => setPage("main")} onAction={onAction} onOpenNotifications={onOpenNotifications}/>;
   }
   if (page === "security") {
-    return <><SecurityScreen owner={owner} onBack={() => setPage("main")} onAction={onAction} onOpenNotifications={onOpenNotifications} onRequestLogout={() => setLogoutConfirmOpen(true)}/><LogoutConfirm visible={logoutConfirmOpen} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={() => { setLogoutConfirmOpen(false); void onLogout(); }}/></>;
+    return <><SecurityScreen owner={owner} onBack={() => setPage("main")} onOpenNotifications={onOpenNotifications} onRequestLogout={() => setLogoutConfirmOpen(true)}/><LogoutConfirm visible={logoutConfirmOpen} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={() => { setLogoutConfirmOpen(false); void onLogout(); }}/></>;
   }
 
   const initials = owner.full_name.split(" ").map((item) => item[0]).slice(0, 2).join("").toUpperCase();
@@ -127,6 +131,7 @@ export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, ow
       <Card style={styles.settings}>
         <Setting icon="language-outline" title="Bahasa aplikasi" note={currentLanguage.nativeLabel} onPress={() => setLanguageOpen(true)}/>
         <Setting icon="notifications-outline" title="Notifikasi" note="Buka daftar, status baca, dan detail update" onPress={() => onOpenNotifications()}/>
+        <Setting icon="receipt-outline" title="Invoice" note="Tagihan klinik dan toko yang tertaut ke akunmu" onPress={() => setPage("invoices")}/>
         <Setting icon="people-outline" title="Keluarga & akses" note="Undang anggota dan atur izin setiap pet" onPress={() => setPage("family")}/>
         <Setting icon="shield-checkmark-outline" title="Privasi & keamanan" note="Verifikasi, privasi data, dan sesi perangkat" onPress={() => setPage("security")}/>
         <Setting icon="mail-outline" title="Email login" note={owner.email} onPress={() => setPage("security")} right={<VerificationBadge verified={emailVerified} compact/>}/>
@@ -264,9 +269,8 @@ function FamilyAccessScreen({ pets, onBack, onAction, onOpenNotifications }: { p
   </>;
 }
 
-function SecurityScreen({ owner, onBack, onAction, onOpenNotifications, onRequestLogout }: { owner: MobileOwner; onBack: () => void; onAction: (message: string) => void; onOpenNotifications: (category?: string) => void; onRequestLogout: () => void }) {
+function SecurityScreen({ owner, onBack, onOpenNotifications, onRequestLogout }: { owner: MobileOwner; onBack: () => void; onOpenNotifications: (category?: string) => void; onRequestLogout: () => void }) {
   const [maskSensitive, setMaskSensitive] = useState(false);
-  const [securityAlerts, setSecurityAlerts] = useState(true);
   const emailVerified = isEmailVerified(owner);
   const phoneVerified = isPhoneVerified(owner);
   const verifiedCount = Number(emailVerified) + Number(phoneVerified);
@@ -278,7 +282,7 @@ function SecurityScreen({ owner, onBack, onAction, onOpenNotifications, onReques
     <Card style={styles.verificationCard}><AccountVerificationRow icon="mail" title="Email login" value={maskSensitive ? maskEmail(owner.email) : owner.email} verified={emailVerified}/><AccountVerificationRow icon="call" title="Nomor telepon" value={owner.phone ? (maskSensitive ? maskPhone(owner.phone) : owner.phone) : "Belum diisi"} verified={phoneVerified} last/></Card>
 
     <SectionTitle eyebrow="KONTROL PRIVASI" title="Data di perangkat ini"/>
-    <Card style={styles.controlCard}><ControlRow icon="eye-off-outline" title="Samarkan data sensitif" note="Sembunyikan sebagian email dan nomor di halaman ini." value={maskSensitive} onChange={setMaskSensitive}/><ControlRow icon="warning-outline" title="Notifikasi keamanan" note="Tampilkan update aktivitas akun yang penting." value={securityAlerts} onChange={(value) => { setSecurityAlerts(value); onAction(value ? "Notifikasi keamanan diaktifkan" : "Notifikasi keamanan dinonaktifkan di perangkat ini"); }} last/></Card>
+    <Card style={styles.controlCard}><ControlRow icon="eye-off-outline" title="Samarkan data sensitif" note="Sembunyikan sebagian email dan nomor di halaman ini." value={maskSensitive} onChange={setMaskSensitive} last/></Card>
 
     <SectionTitle eyebrow="AKTIVITAS KEAMANAN" title="Pantau akun"/>
     <Pressable accessibilityRole="button" onPress={() => onOpenNotifications("security")} style={({ pressed }) => [styles.securityAction, pressed && styles.pressed]}><View style={styles.securityActionIcon}><Ionicons name="shield-checkmark-outline" size={19} color={colors.sky600}/></View><View style={styles.securityActionCopy}><Text style={styles.securityActionTitle}>Tinjau notifikasi keamanan</Text><Text style={styles.securityActionNote}>Tampilkan hanya update keamanan sistem dan akun.</Text></View><Ionicons name="arrow-forward" size={16} color={colors.sky600}/></Pressable>
@@ -292,7 +296,7 @@ function SecurityScreen({ owner, onBack, onAction, onOpenNotifications, onReques
 
 function AccountPageHeader({ eyebrow, title, onBack, onNotification }: { eyebrow: string; title: string; onBack: () => void; onNotification: () => void }) {
   const { unreadNotifications, openChatInbox } = useAppSurface();
-  return <View style={styles.detailHeader}><Pressable accessibilityRole="button" accessibilityLabel="Kembali" onPress={onBack} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}><Ionicons name="arrow-back" size={20} color={colors.navy}/></Pressable><View style={styles.detailHeaderCopy}><Text style={styles.detailEyebrow}>{eyebrow}</Text><Text style={styles.detailTitle} numberOfLines={1}>{title}</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Buka daftar chat" onPress={() => openChatInbox()} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}><Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.navy}/></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={() => onNotification()} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}><Ionicons name="notifications-outline" size={19} color={colors.navy}/>{unreadNotifications > 0 ? <View style={styles.headerNotificationDot}/> : null}</Pressable></View>;
+  return <View style={styles.detailHeader}><Pressable accessibilityRole="button" accessibilityLabel="Kembali" onPress={onBack} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}><Ionicons name="arrow-back" size={20} color={colors.navy}/></Pressable><View style={styles.detailHeaderCopy}><Text style={styles.detailEyebrow}>{eyebrow}</Text><Text style={styles.detailTitle} numberOfLines={1}>{title}</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Buka daftar chat" onPress={() => openChatInbox()} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}><Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.navy}/><ChatUnreadBadge/></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={() => onNotification()} style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}><Ionicons name="notifications-outline" size={19} color={colors.navy}/>{unreadNotifications > 0 ? <View style={styles.headerNotificationDot}/> : null}</Pressable></View>;
 }
 function Stat({ value, label, last }: { value: string; label: string; last?: boolean }) { return <View style={[styles.stat, last && styles.statLast]}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>; }
 function Benefit({ text }: { text: string }) { return <View style={styles.benefit}><View style={styles.benefitCheck}><Ionicons name="checkmark" size={10} color={colors.sky600}/></View><Text style={styles.benefitText}>{text}</Text></View>; }

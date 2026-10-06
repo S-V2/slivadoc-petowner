@@ -22,7 +22,7 @@ import {
 import type { PetView, Service } from "../data";
 import { getActivityTypePresentation } from "../activity";
 import { colors, radius, shadow, spacing, typography } from "../theme";
-import { Pill, Screen, useAppSurface } from "../components/ui";
+import { ChatUnreadBadge, Pill, Screen, useAppSurface } from "../components/ui";
 import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
 
 type Props = {
@@ -387,6 +387,7 @@ export function HomeScreen({
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Buka daftar chat" onPress={() => openChatInbox()} style={styles.notificationButton}>
             <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+            <ChatUnreadBadge />
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={() => onOpenNotifications()} style={styles.notificationButton}>
             <Ionicons name="notifications-outline" size={20} color={colors.text} />

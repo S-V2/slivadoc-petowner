@@ -33,6 +33,7 @@ type AppSurfaceContextValue = {
   refreshing: boolean;
   onRefresh: () => void;
   unreadNotifications: number;
+  chatUnread: number;
   openChatInbox: () => void;
 };
 
@@ -41,10 +42,18 @@ const AppSurfaceContext = createContext<AppSurfaceContextValue>({
   refreshing: false,
   onRefresh: () => undefined,
   unreadNotifications: 0,
+  chatUnread: 0,
   openChatInbox: () => undefined,
 });
-export function AppSurfaceProvider({ children, bottomInset, refreshing, onRefresh, unreadNotifications, openChatInbox }: PropsWithChildren<AppSurfaceContextValue>) {
-  return <AppSurfaceContext.Provider value={{ bottomInset, refreshing, onRefresh, unreadNotifications, openChatInbox }}>{children}</AppSurfaceContext.Provider>;
+export function AppSurfaceProvider({ children, bottomInset, refreshing, onRefresh, unreadNotifications, chatUnread, openChatInbox }: PropsWithChildren<AppSurfaceContextValue>) {
+  return <AppSurfaceContext.Provider value={{ bottomInset, refreshing, onRefresh, unreadNotifications, chatUnread, openChatInbox }}>{children}</AppSurfaceContext.Provider>;
+}
+
+// Store-chat unread total on the header chat button; hidden at 0.
+export function ChatUnreadBadge() {
+  const { chatUnread } = useAppSurface();
+  if (chatUnread <= 0) return null;
+  return <View style={styles.chatBadge} accessibilityLabel={`${chatUnread} chat belum dibaca`}><Text style={styles.chatBadgeText}>{chatUnread > 99 ? "99+" : chatUnread}</Text></View>;
 }
 
 export function useAppSurface() {
@@ -77,6 +86,7 @@ export function TopHeader({ title, subtitle, onNotification }: { title: string; 
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="Buka daftar chat" style={styles.iconButton} onPress={() => openChatInbox()}>
         <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+        <ChatUnreadBadge />
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" style={styles.iconButton} onPress={() => onNotification()}>
         <Ionicons name="notifications-outline" size={20} color={colors.text} />
@@ -244,6 +254,8 @@ const styles = StyleSheet.create({
   topTitle: { color: colors.inkStrong, fontSize: typography.cardTitle, lineHeight: 20, fontWeight: "700" },
   iconButton: { position: "relative", width: 44, height: 44, borderRadius: 17, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, alignItems: "center", justifyContent: "center", ...shadow },
   notificationDot: { position: "absolute", right: 8, top: 7, width: 7, height: 7, borderRadius: 4, borderWidth: 1.5, borderColor: colors.white, backgroundColor: colors.red },
+  chatBadge: { position: "absolute", right: 3, top: 3, minWidth: 17, height: 17, paddingHorizontal: 4, borderRadius: 9, borderWidth: 1.5, borderColor: colors.white, backgroundColor: colors.red, alignItems: "center", justifyContent: "center" },
+  chatBadgeText: { color: colors.white, fontSize: 9, lineHeight: 12, fontWeight: "700" },
   sectionTitle: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginTop: 26, marginBottom: 12 },
   eyebrow: { color: colors.muted, fontSize: 9, fontWeight: "600", letterSpacing: 1, marginBottom: 3 },
   sectionHeading: { color: colors.inkStrong, fontSize: typography.sectionTitle, lineHeight: 22, fontWeight: "600", letterSpacing: -0.3 },

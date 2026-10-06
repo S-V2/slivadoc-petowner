@@ -1477,6 +1477,13 @@ export type WorldItem = {
   availability_status?: string;
   distance_km?: number | null;
   pet_facilities?: string[];
+  facility_details?: Array<string | { name: string; description?: string; icon?: string; category?: string }>;
+  opening_hours?: Record<string, string>;
+  phone?: string;
+  website_url?: string;
+  supported_events?: Array<{ name: string; description?: string; inclusions?: string[] }>;
+  resources?: MobilePetSpotResource[];
+  petspot_reviews?: MobilePetSpotReview[];
   status?: string;
   viewer_count?: number;
   channel_name?: string;
@@ -1517,8 +1524,14 @@ export type WorldItem = {
     slot_minutes?: number;
     hold_minutes?: number;
     minimum_notice_minutes?: number;
+    maximum_advance_days?: number;
+    minimum_duration_minutes?: number;
+    maximum_duration_minutes?: number;
     maximum_party_size?: number;
     cancellation_hours?: number;
+    cancellation_fee_percent?: number;
+    require_vaccine?: boolean;
+    house_rules?: string[];
     pet_rules?: string[];
   };
   following?: boolean;
@@ -1629,6 +1642,20 @@ export const getMobileEvents = () =>
   getUniqueWorldItems("/api/v1/public/events");
 export const getMobilePetSpots = () =>
   getUniqueWorldItems("/api/v1/public/petspots");
+export const getMobilePetSpot = async (spotId: string): Promise<WorldItem> => {
+  const venue = await platformRequest<Omit<WorldItem, "reviews"> & { reviews?: MobilePetSpotReview[] }>(`/api/v1/public/petspots/${encodeURIComponent(spotId)}`);
+  const { reviews, ...detail } = venue;
+  return { ...detail, petspot_reviews: reviews };
+};
+export type MobilePetSpotReview = {
+  id: string;
+  reviewer_name: string;
+  rating: number;
+  comment: string;
+  pet_type: string;
+  verified_visit: boolean;
+  created_at: string;
+};
 export type MobilePetSpotResource = {
   id: string;
   code: string;

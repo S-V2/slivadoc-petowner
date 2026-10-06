@@ -903,6 +903,20 @@ export type PetSpot = {
   deposit_type?: "percentage" | "fixed";
   deposit_value?: number;
   reservation_policy?: Record<string, unknown>;
+  facility_details?: Array<string | { name: string; description?: string; icon?: string; category?: string }>;
+  supported_events?: Array<{ name: string; description?: string; inclusions?: string[] }>;
+  resources?: PetSpotUnit[];
+  reviews?: PetSpotReview[];
+};
+
+export type PetSpotReview = {
+  id: string;
+  reviewer_name: string;
+  rating: number;
+  comment: string;
+  pet_type: string;
+  verified_visit: boolean;
+  created_at: string;
 };
 
 export type PetSpotUnit = {
@@ -1553,6 +1567,9 @@ export const getTrainerConsultationPlans = (
     }),
   );
 
+export const getPetSpot = (spotId: string) =>
+  request<PetSpot>(`/api/v1/public/petspots/${encodeURIComponent(spotId)}`);
+
 export const getPetSpotAvailability = (
   spotId: string,
   startsAt: string,
@@ -1567,7 +1584,7 @@ export const getPetSpotAvailability = (
   return request<PlatformList<PetSpotUnit>>(
     `/api/v1/public/petspots/${encodeURIComponent(spotId)}/availability?${query}`,
     { cache: "no-store" },
-  );
+);
 };
 
 export const createPetSpotReservation = (input: {

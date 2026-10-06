@@ -10,7 +10,8 @@ import {
   type ReactNode,
 } from "react";
 import { Icon } from "../Icon";
-import { safeFixed } from "../../lib/safe-number";
+import { PetSpotDetail } from "./PetSpotDetail";
+import { petSpotCategory } from "../../lib/petspot-booking";
 import {
   createPetHubPost,
   createPetHubComment,
@@ -29,11 +30,8 @@ import {
   getPetHubStories,
   getPetHubStreams,
   getPetSpots,
-  getPetSpotAvailability,
-  createPetSpotReservation,
   reactPetHubPost,
   togglePetHubChannel,
-  togglePetOwnerFavorite,
   isPetOwnerAuthenticated,
   registerEvent,
   type AcademyProgram,
@@ -46,16 +44,12 @@ import {
   type PetHubStory,
   type PetHubStream,
   type PetSpot,
-  type PetSpotUnit,
-  type PetSpotReservation,
   type PaymentIntent,
   type ActivityType,
 } from "../../lib/platform-api";
-import {
-  QrisPaymentPanel,
-  PaymentMethodPicker,
-} from "../payments/QrisPayment";
+import { QrisPaymentPanel, PaymentMethodPicker } from "../payments/QrisPayment";
 import "../../event-checkout.css";
+import "../../petspot-experience.css";
 
 export type DiscoveryMode = "academy" | "events" | "petspot" | "pethub";
 type Props = {
@@ -105,12 +99,23 @@ const academySpecies = [
   { id: "small_mammal", label: "Small pet", icon: "🐹" },
 ] as const;
 
-function AcademyPrice({ program, compact = false }: { program: AcademyProgram; compact?: boolean }) {
-  const discounted = program.discount_percent > 0 && program.original_price > program.price;
+function AcademyPrice({
+  program,
+  compact = false,
+}: {
+  program: AcademyProgram;
+  compact?: boolean;
+}) {
+  const discounted =
+    program.discount_percent > 0 && program.original_price > program.price;
   return (
-    <span className={`academy-price ${compact ? "is-compact" : ""} ${discounted ? "is-discounted" : ""}`}>
+    <span
+      className={`academy-price ${compact ? "is-compact" : ""} ${discounted ? "is-discounted" : ""}`}
+    >
       {discounted ? <s>{money.format(program.original_price)}</s> : null}
-      <strong>{program.price > 0 ? money.format(program.price) : "Gratis"}</strong>
+      <strong>
+        {program.price > 0 ? money.format(program.price) : "Gratis"}
+      </strong>
       {discounted ? <em>Hemat {program.discount_percent}%</em> : null}
     </span>
   );
@@ -146,6 +151,7 @@ function WorldImageGallery({
     return (
       <div className={`modal-world-cover ${className}`}>
         <span>{fallback}</span>
+        {className.includes("petspot") ? <small className="petspot-photo-empty">Foto tempat belum diunggah</small> : null}
         <i>{tag}</i>
       </div>
     );
@@ -155,9 +161,7 @@ function WorldImageGallery({
     );
   return (
     <>
-      <div
-        className={`modal-world-cover world-image-gallery ${className}`}
-      >
+      <div className={`modal-world-cover world-image-gallery ${className}`}>
         <button
           type="button"
           className="world-image-open"
@@ -270,8 +274,9 @@ export default function PlatformDiscovery({
 }: Props) {
   const [programs, setPrograms] = useState<AcademyProgram[]>([]);
   const [academyTrainers, setAcademyTrainers] = useState<AcademyTrainer[]>([]);
-  const [selectedTrainer, setSelectedTrainer] =
-    useState<AcademyTrainer | null>(null);
+  const [selectedTrainer, setSelectedTrainer] = useState<AcademyTrainer | null>(
+    null,
+  );
   const [trainerSpecies, setTrainerSpecies] = useState(
     pets[0]?.species?.toLowerCase() || "all",
   );
@@ -298,6 +303,7 @@ export default function PlatformDiscovery({
   const [spotSearch, setSpotSearch] = useState("");
   const [maxDistance, setMaxDistance] = useState(25);
   const [hubTab, setHubTab] = useState("Untuk Kamu");
+  const pendingLikes = useRef(new Set<string>());
   const speciesRailRef = useRef<HTMLDivElement>(null);
   const trainerRailRef = useRef<HTMLDivElement>(null);
   const advanceRail = (node: HTMLDivElement | null) => {
@@ -370,7 +376,7 @@ export default function PlatformDiscovery({
   useEffect(() => {
     if (mode !== "pethub") return;
     const type =
-      hubTab === "Video" ? "video" : hubTab === "Thread" ? "thread" : "";
+      hubTab === "Reels" ? "video" : hubTab === "Thread" ? "thread" : "";
     const tab = hubTab === "Mengikuti" ? "following" : "for_you";
     void Promise.resolve().then(() => setLoading(true));
     void getPetHubFeed({ tab, type })
@@ -434,6 +440,8 @@ export default function PlatformDiscovery({
     );
   }
   async function like(post: PetHubPost) {
+    if (pendingLikes.current.has(post.id)) return;
+    pendingLikes.current.add(post.id);
     const active = liked.includes(post.id);
     setLiked((current) =>
       active ? current.filter((id) => id !== post.id) : [...current, post.id],
@@ -464,6 +472,21 @@ export default function PlatformDiscovery({
       notify(
         error instanceof Error ? error.message : "Reaksi belum dapat disimpan",
       );
+    } finally {
+      pendingLikes.current.delete(post.id);
+    }
+  }
+  async function sharePost(post: PetHubPost) {
+    try {
+      if (navigator.share)
+        await navigator.share({ title: "PetHub", text: post.content });
+      else {
+        await navigator.clipboard.writeText(post.content);
+        notify("Konten disalin");
+      }
+    } catch (cause) {
+      if (!(cause instanceof Error && cause.name === "AbortError"))
+        notify("Konten belum dapat dibagikan");
     }
   }
   async function followChannel(channelID?: string) {
@@ -587,7 +610,8 @@ export default function PlatformDiscovery({
                     <small>{trainer.academy_name}</small>
                     <b>{trainer.full_name}</b>
                     <em>
-                      ★ {trainer.rating.toFixed(1)} · {trainer.experience_years} tahun
+                      ★ {trainer.rating.toFixed(1)} · {trainer.experience_years}{" "}
+                      tahun
                     </em>
                     <i>{trainer.specialties.slice(0, 3).join(" · ")}</i>
                   </span>
@@ -639,13 +663,18 @@ export default function PlatformDiscovery({
               const reviewCount = item.review_count ?? 0;
               const occupancy = Math.min(
                 100,
-                Math.round((participantCount / Math.max(1, item.capacity)) * 100),
+                Math.round(
+                  (participantCount / Math.max(1, item.capacity)) * 100,
+                ),
               );
               const galleryCount = new Set(
                 [item.cover_url, ...(item.image_urls ?? [])].filter(Boolean),
               ).size;
               return (
-                <article className="academy-card academy-card--experience" key={item.id}>
+                <article
+                  className="academy-card academy-card--experience"
+                  key={item.id}
+                >
                   <button
                     type="button"
                     className={`academy-visual tone-${index % 3}`}
@@ -667,8 +696,14 @@ export default function PlatformDiscovery({
                     )}
                     <span className="academy-media-shade" />
                     <span className="academy-media-topline">
-                      {item.featured ? <b>✦ PILIHAN SLIVADOC</b> : <b>{item.level}</b>}
-                      {item.discount_percent > 0 ? <em>-{item.discount_percent}%</em> : null}
+                      {item.featured ? (
+                        <b>✦ PILIHAN SLIVADOC</b>
+                      ) : (
+                        <b>{item.level}</b>
+                      )}
+                      {item.discount_percent > 0 ? (
+                        <em>-{item.discount_percent}%</em>
+                      ) : null}
                     </span>
                     <span className="academy-media-bottomline">
                       <small>{item.academy_name}</small>
@@ -677,7 +712,11 @@ export default function PlatformDiscovery({
                   </button>
                   <div className="academy-card-body">
                     <div className="academy-card-proof">
-                      <span>{reviewCount > 0 ? `★ ${(item.rating ?? 0).toFixed(1)}` : "☆ Belum dinilai"}</span>
+                      <span>
+                        {reviewCount > 0
+                          ? `★ ${(item.rating ?? 0).toFixed(1)}`
+                          : "☆ Belum dinilai"}
+                      </span>
                       <span>{reviewCount} ulasan</span>
                       <span>{academySince(item.running_since)}</span>
                     </div>
@@ -688,13 +727,18 @@ export default function PlatformDiscovery({
                         <span>Alumni & peserta</span>
                         <b>{participantCount} pet</b>
                       </div>
-                      <i><span style={{ width: `${occupancy}%` }} /></i>
+                      <i>
+                        <span style={{ width: `${occupancy}%` }} />
+                      </i>
                     </div>
                     <div className="trainer-line">
                       <span>{item.trainer_name.slice(0, 1)}</span>
                       <p>
                         <b>{item.trainer_name}</b>
-                        <small>{item.duration_weeks} minggu · {item.session_count} sesi</small>
+                        <small>
+                          {item.duration_weeks} minggu · {item.session_count}{" "}
+                          sesi
+                        </small>
                       </p>
                       <em>{when(item.next_schedule)}</em>
                     </div>
@@ -738,7 +782,9 @@ export default function PlatformDiscovery({
       <>
         <UniverseNav active={mode} navigate={navigate} />
         {featured && (
-          <section className={`event-banner ${featured.banner_url ? "has-media" : ""}`}>
+          <section
+            className={`event-banner ${featured.banner_url ? "has-media" : ""}`}
+          >
             {featured.banner_url ? (
               <NextImage
                 className="event-banner-media"
@@ -771,8 +817,13 @@ export default function PlatformDiscovery({
               </div>
               <div className="event-banner-chips">
                 <span>✓ Pet friendly</span>
-                <span>{featured.price ? money.format(featured.price) : "Gratis"}</span>
-                <span>{Math.max(0, featured.capacity - featured.registered_count)} slot tersisa</span>
+                <span>
+                  {featured.price ? money.format(featured.price) : "Gratis"}
+                </span>
+                <span>
+                  {Math.max(0, featured.capacity - featured.registered_count)}{" "}
+                  slot tersisa
+                </span>
               </div>
               <button type="button" onClick={() => setSelectedEvent(featured)}>
                 Lihat detail event <Icon name="arrow" size={16} />
@@ -811,8 +862,16 @@ export default function PlatformDiscovery({
                 [item.banner_url, ...(item.image_urls ?? [])].filter(Boolean),
               ),
             ];
-            const remaining = Math.max(0, item.capacity - item.registered_count);
-            const occupancy = Math.min(100, Math.round((item.registered_count / Math.max(1, item.capacity)) * 100));
+            const remaining = Math.max(
+              0,
+              item.capacity - item.registered_count,
+            );
+            const occupancy = Math.min(
+              100,
+              Math.round(
+                (item.registered_count / Math.max(1, item.capacity)) * 100,
+              ),
+            );
             return (
               <button
                 type="button"
@@ -845,26 +904,53 @@ export default function PlatformDiscovery({
                   </span>
                   <span className="event-date-chip">
                     <b>{new Date(item.starts_at).getDate()}</b>
-                    <small>{new Intl.DateTimeFormat("id-ID", { month: "short" }).format(new Date(item.starts_at))}</small>
+                    <small>
+                      {new Intl.DateTimeFormat("id-ID", {
+                        month: "short",
+                      }).format(new Date(item.starts_at))}
+                    </small>
                   </span>
-                  {eventImages.length > 1 ? <em>▧ {eventImages.length} foto</em> : null}
+                  {eventImages.length > 1 ? (
+                    <em>▧ {eventImages.length} foto</em>
+                  ) : null}
                 </div>
                 <div>
                   <small>{when(item.starts_at)}</small>
                   <h3>{item.title}</h3>
-                  <p>⌖ {item.venue} · {item.city}</p>
+                  <p>
+                    ⌖ {item.venue} · {item.city}
+                  </p>
                   <div className="event-card-stats">
-                    <span><b>{item.registered_count}</b><small>terdaftar</small></span>
-                    <span><b>{remaining}</b><small>slot tersisa</small></span>
-                    <span><b>{item.allowed_pet_species?.length || "Semua"}</b><small>jenis pet</small></span>
+                    <span>
+                      <b>{item.registered_count}</b>
+                      <small>terdaftar</small>
+                    </span>
+                    <span>
+                      <b>{remaining}</b>
+                      <small>slot tersisa</small>
+                    </span>
+                    <span>
+                      <b>{item.allowed_pet_species?.length || "Semua"}</b>
+                      <small>jenis pet</small>
+                    </span>
                   </div>
-                  <div className="event-seat-progress" aria-label={`${occupancy}% kapasitas terisi`}>
-                    <i><span style={{ width: `${occupancy}%` }} /></i>
+                  <div
+                    className="event-seat-progress"
+                    aria-label={`${occupancy}% kapasitas terisi`}
+                  >
+                    <i>
+                      <span style={{ width: `${occupancy}%` }} />
+                    </i>
                     <small>{occupancy}% kapasitas terisi</small>
                   </div>
                   <footer>
-                    <span><small>Mulai dari</small><b>{item.price ? money.format(item.price) : "Gratis"}</b></span>
-                    <strong>Lihat event <Icon name="arrow" size={14} /></strong>
+                    <span>
+                      <small>Mulai dari</small>
+                      <b>{item.price ? money.format(item.price) : "Gratis"}</b>
+                    </span>
+                    <strong>
+                      Lihat event <Icon name="arrow" size={14} />
+                    </strong>
                   </footer>
                 </div>
               </button>
@@ -933,6 +1019,8 @@ export default function PlatformDiscovery({
             {[
               { id: "all", label: "Semua", emoji: "⌖" },
               { id: "cafe", label: "Cafe", emoji: "☕" },
+              { id: "restaurant", label: "Restoran", emoji: "🍽" },
+              { id: "hotel", label: "Hotel", emoji: "🏨" },
               { id: "boarding_house", label: "Kosan / Coliving", emoji: "🏡" },
               { id: "apartment", label: "Apartemen", emoji: "🏢" },
               { id: "mall", label: "Mall", emoji: "🏬" },
@@ -950,68 +1038,70 @@ export default function PlatformDiscovery({
           </div>
           <span>{categorySpots.length} tempat ditemukan</span>
         </div>
-        <div className="petspot-layout">
-          <div className="spot-list">
-            {categorySpots.map((item, index) => (
-              <button
-                key={item.id}
-                className={selectedSpot?.id === item.id ? "active" : ""}
-                onClick={() => setSelectedSpot(item)}
-              >
-                <span className={`spot-thumb spot-${index % 4}`}>
-                  {item.category === "cafe"
-                    ? "☕"
-                    : item.category === "mall"
-                      ? "🏬"
-                      : item.category === "park"
-                        ? "🌳"
-                        : "🎾"}
-                </span>
-                <div>
-                  <small>
-                    {item.verified
-                      ? "✓ PETSPOT TERVERIFIKASI"
-                      : "REKOMENDASI KOMUNITAS"}
+        <div className="petspot-grid" aria-label="Daftar tempat ramah pet">
+          {loading ? (
+            <div role="status" className="petspot-loading">
+              Memuat tempat dari API…
+            </div>
+          ) : (
+            categorySpots.map((item) => (
+              <article className="petspot-card" key={item.id}>
+                <WorldImageGallery
+                  images={[item.cover_url, ...(item.image_urls ?? [])]}
+                  alt={item.name}
+                  fallback="⌖"
+                  tag={
+                    item.verified
+                      ? "✓ Verified"
+                      : petSpotCategory(item.category)
+                  }
+                  className="petspot-card-gallery"
+                />
+                <button
+                  type="button"
+                  className="petspot-card-content"
+                  aria-label={`Lihat detail ${item.name}`}
+                  onClick={() => setSelectedSpot(item)}
+                >
+                  <small className="petspot-card-category">
+                    {petSpotCategory(item.category)}
                   </small>
                   <h3>{item.name}</h3>
-                  <p>
-                    ★ {item.rating} ({item.review_count}) ·{" "}
-                    {Number.isFinite(item.distance_km)
-                      ? `${Number(item.distance_km).toFixed(2)} km`
-                      : "Aktifkan lokasi"}
+                  <p className="petspot-card-rating">
+                    ★{" "}
+                    {item.review_count
+                      ? `${Number(item.rating).toFixed(1)} (${item.review_count})`
+                      : "Belum dinilai"}
                   </p>
-                  <em>{item.address}</em>
-                  <div>
-                    {item.pet_facilities.slice(0, 3).map((facility) => (
-                      <i key={facility}>{facility}</i>
+                  <p className="petspot-card-location">
+                    <Icon name="map" size={13} />
+                    {item.city}
+                    {typeof item.distance_km === "number"
+                      ? ` · ${item.distance_km.toFixed(1)} km`
+                      : ""}
+                  </p>
+                  <div className="petspot-card-facilities">
+                    {(item.pet_facilities ?? []).slice(0, 2).map((facility) => (
+                      <span key={facility}>{facility}</span>
                     ))}
                   </div>
-                </div>
-                <Icon name="chevron" />
-              </button>
-            ))}
-            {!categorySpots.length && (
-              <div className="empty-state">
-                <span>⌖</span>
-                <h3>Tempat belum ditemukan</h3>
-                <p>Ubah kata kunci, kategori, atau radius.</p>
-              </div>
-            )}
-          </div>
-          <div className="petspot-map">
-            <div className="spot-road" />
-            {categorySpots.slice(0, 8).map((item, index) => (
-              <button
-                key={item.id}
-                className={`spot-pin spot-pin-${index % 6}`}
-                onClick={() => setSelectedSpot(item)}
-              >
-                <span>{index + 1}</span>
-                <small>{item.name}</small>
-              </button>
-            ))}
-            <div className="map-credit">Slivadoc PetSpot · peta lokasi</div>
-          </div>
+                  <footer>
+                    <b>
+                      {item.reservable ? "Reservasi tersedia" : "Lihat tempat"}
+                    </b>
+                    <Icon name="arrow" size={17} />
+                  </footer>
+                </button>
+              </article>
+            ))
+          )}
+          {!loading && !categorySpots.length ? (
+            <div className="empty-state">
+              <span>⌖</span>
+              <h3>Tempat belum ditemukan</h3>
+              <p>Ubah kata kunci, kategori, atau radius.</p>
+            </div>
+          ) : null}
         </div>
         {selectedSpot && (
           <SpotModal
@@ -1058,10 +1148,7 @@ export default function PlatformDiscovery({
           <b>Story kamu</b>
         </button>
         {stories.map((story) => (
-          <button
-            key={story.id}
-            onClick={() => notify(`Story ${story.author_name} dibuka`)}
-          >
+          <button key={story.id} onClick={() => setViewStory(story)}>
             <span>
               {story.photo_url ? (
                 <NextImage
@@ -1113,7 +1200,7 @@ export default function PlatformDiscovery({
       <div className="pethub-layout">
         <section className="hub-feed">
           <div className="hub-tabs">
-            {["Untuk Kamu", "Mengikuti", "Video", "Thread"].map((item) => (
+            {["Untuk Kamu", "Mengikuti", "Reels", "Thread"].map((item) => (
               <button
                 key={item}
                 className={hubTab === item ? "active" : ""}
@@ -1133,7 +1220,10 @@ export default function PlatformDiscovery({
             <div className="empty-state compact">Memuat feed PetHub…</div>
           ) : posts.length ? (
             posts.map((post) => (
-              <article className="hub-post" key={post.id}>
+              <article
+                className={`hub-post ${hubTab === "Reels" ? "hub-post--reel" : ""}`}
+                key={post.id}
+              >
                 <header>
                   <span>
                     {post.channel_name?.slice(0, 1) ||
@@ -1152,18 +1242,31 @@ export default function PlatformDiscovery({
                     •••
                   </button>
                 </header>
-                <p>{post.content}</p>
-                {post.media_url && (
-                  <NextImage
-                    src={post.media_url}
-                    alt="Media PetHub"
-                    width={960}
-                    height={640}
-                    unoptimized
-                  />
-                )}
+                {post.media_url &&
+                  (post.post_type === "video" ||
+                  /\.(mp4|mov|webm)(\?|$)/i.test(post.media_url) ? (
+                    <video
+                      className="hub-media"
+                      src={post.media_url}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      aria-label={`Video ${post.author_name}`}
+                    />
+                  ) : (
+                    <NextImage
+                      className="hub-media"
+                      src={post.media_url}
+                      alt="Media PetHub"
+                      width={960}
+                      height={640}
+                      unoptimized
+                    />
+                  ))}
+                <p className="hub-caption">{post.content}</p>
                 <footer>
                   <button
+                    aria-label="Sukai konten"
                     className={liked.includes(post.id) ? "liked" : ""}
                     onClick={() =>
                       isPetOwnerAuthenticated()
@@ -1174,28 +1277,17 @@ export default function PlatformDiscovery({
                     <Icon name="heart" size={18} />{" "}
                     {post.like_count.toLocaleString("id-ID")}
                   </button>
-                  <button onClick={() => setCommentPost(post)}>
+                  <button
+                    aria-label="Buka komentar"
+                    onClick={() => setCommentPost(post)}
+                  >
                     <Icon name="chat" size={18} /> {post.comment_count}
                   </button>
                   <button
-                    onClick={() =>
-                      notify("Repost akan tersedia setelah moderasi")
-                    }
+                    aria-label="Bagikan konten"
+                    onClick={() => void sharePost(post)}
                   >
-                    <Icon name="arrow" size={18} /> {post.repost_count}
-                  </button>
-                  <button
-                    onClick={() =>
-                      navigator.share?.({
-                        title: "PetHub",
-                        text: post.content,
-                      }) ??
-                      navigator.clipboard
-                        .writeText(post.content)
-                        .then(() => notify("Thread disalin"))
-                    }
-                  >
-                    <Icon name="download" size={18} />
+                    <Icon name="download" size={18} /> <span>Bagikan</span>
                   </button>
                 </footer>
               </article>
@@ -1368,14 +1460,19 @@ function ProgramModal({
   );
   const [selectedPetID, setSelectedPetID] = useState(pets[0]?.id ?? "");
   const [selectedScheduleID, setSelectedScheduleID] = useState("");
-  const selectedPet = eligiblePets.find((candidate) => candidate.id === selectedPetID);
+  const selectedPet = eligiblePets.find(
+    (candidate) => candidate.id === selectedPetID,
+  );
   useEffect(() => {
     let current = true;
     void getAcademyProgram(item.id)
       .then((value) => {
         if (!current) return;
         setDetail(value);
-        setSelectedScheduleID(value.schedules.find((schedule) => schedule.remaining_capacity > 0)?.id ?? "");
+        setSelectedScheduleID(
+          value.schedules.find((schedule) => schedule.remaining_capacity > 0)
+            ?.id ?? "",
+        );
       })
       .catch((error) =>
         notify(
@@ -1515,19 +1612,43 @@ function ProgramModal({
             </div>
             <p>{program.description}</p>
             <div className="academy-social-summary">
-              <span><b>{(program.review_count ?? 0) > 0 ? `★ ${(program.rating ?? 0).toFixed(1)}` : "☆ Belum dinilai"}</b><small>{program.review_count ?? 0} ulasan peserta</small></span>
-              <span><b>{program.participant_count ?? 0} pet</b><small>sudah bergabung</small></span>
-              <span><b>{program.capacity} kursi</b><small>kapasitas per cohort</small></span>
-              <span><b>{academySince(program.running_since)}</b><small>rekam jejak program</small></span>
+              <span>
+                <b>
+                  {(program.review_count ?? 0) > 0
+                    ? `★ ${(program.rating ?? 0).toFixed(1)}`
+                    : "☆ Belum dinilai"}
+                </b>
+                <small>{program.review_count ?? 0} ulasan peserta</small>
+              </span>
+              <span>
+                <b>{program.participant_count ?? 0} pet</b>
+                <small>sudah bergabung</small>
+              </span>
+              <span>
+                <b>{program.capacity} kursi</b>
+                <small>kapasitas per cohort</small>
+              </span>
+              <span>
+                <b>{academySince(program.running_since)}</b>
+                <small>rekam jejak program</small>
+              </span>
             </div>
             <div className="world-detail-grid">
               <span>
                 <small>Pet trainer</small>
-                <b>{detail?.trainers?.map((trainer) => trainer.full_name).join(", ") || item.trainer_name}</b>
+                <b>
+                  {detail?.trainers
+                    ?.map((trainer) => trainer.full_name)
+                    .join(", ") || item.trainer_name}
+                </b>
               </span>
               <span>
                 <small>Mulai</small>
-                <b>{when(detail?.schedules?.[0]?.starts_at || item.next_schedule)}</b>
+                <b>
+                  {when(
+                    detail?.schedules?.[0]?.starts_at || item.next_schedule,
+                  )}
+                </b>
               </span>
               <span>
                 <small>Durasi</small>
@@ -1541,7 +1662,9 @@ function ProgramModal({
               </span>
             </div>
             {detailLoading ? (
-              <div className="academy-detail-loading">Memuat trainer dan jadwal kelas…</div>
+              <div className="academy-detail-loading">
+                Memuat trainer dan jadwal kelas…
+              </div>
             ) : (
               <>
                 <div className="academy-detail-block">
@@ -1551,19 +1674,32 @@ function ProgramModal({
                   </div>
                   <div className="academy-program-trainers">
                     {detail?.trainers.map((trainer) => (
-                      <button type="button" key={trainer.id} onClick={() => openTrainer(trainer)}>
+                      <button
+                        type="button"
+                        key={trainer.id}
+                        onClick={() => openTrainer(trainer)}
+                      >
                         <span>{trainer.full_name.slice(0, 1)}</span>
                         <b>{trainer.full_name}</b>
-                        <small>★ {trainer.rating.toFixed(1)} · {trainer.certification}</small>
+                        <small>
+                          ★ {trainer.rating.toFixed(1)} ·{" "}
+                          {trainer.certification}
+                        </small>
                       </button>
                     ))}
                   </div>
                 </div>
                 <div className="academy-species-note">
                   <b>Jenis pet:</b>{" "}
-                  {(detail?.supported_species ?? []).map((speciesName) =>
-                    speciesName === "dog" ? "🐕 Anjing" : speciesName === "cat" ? "🐈 Kucing" : speciesName,
-                  ).join(" · ") || "Semua pet"}
+                  {(detail?.supported_species ?? [])
+                    .map((speciesName) =>
+                      speciesName === "dog"
+                        ? "🐕 Anjing"
+                        : speciesName === "cat"
+                          ? "🐈 Kucing"
+                          : speciesName,
+                    )
+                    .join(" · ") || "Semua pet"}
                 </div>
                 <section className="academy-review-section">
                   <div className="academy-review-heading">
@@ -1571,23 +1707,42 @@ function ProgramModal({
                       <small>CERITA ALUMNI</small>
                       <h3>Review & komentar pet parent</h3>
                     </div>
-                    <b>{(program.review_count ?? 0) > 0 ? `★ ${(program.rating ?? 0).toFixed(1)}` : "Belum dinilai"}</b>
+                    <b>
+                      {(program.review_count ?? 0) > 0
+                        ? `★ ${(program.rating ?? 0).toFixed(1)}`
+                        : "Belum dinilai"}
+                    </b>
                   </div>
                   <div className="academy-review-list">
                     {(detail?.reviews ?? []).length ? (
                       detail?.reviews.map((review: AcademyReview) => (
                         <article key={review.id}>
-                          <span>{review.reviewer_name.slice(0, 1).toUpperCase()}</span>
+                          <span>
+                            {review.reviewer_name.slice(0, 1).toUpperCase()}
+                          </span>
                           <div>
-                            <header><b>{review.reviewer_name}</b><em>{"★".repeat(review.rating)}</em></header>
-                            <small>✓ Peserta terverifikasi · bersama {review.pet_name || "pet-nya"}</small>
+                            <header>
+                              <b>{review.reviewer_name}</b>
+                              <em>{"★".repeat(review.rating)}</em>
+                            </header>
+                            <small>
+                              ✓ Peserta terverifikasi · bersama{" "}
+                              {review.pet_name || "pet-nya"}
+                            </small>
                             <p>{review.comment}</p>
-                            <time>{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(review.created_at))}</time>
+                            <time>
+                              {new Intl.DateTimeFormat("id-ID", {
+                                dateStyle: "medium",
+                              }).format(new Date(review.created_at))}
+                            </time>
                           </div>
                         </article>
                       ))
                     ) : (
-                      <p className="academy-review-empty">Belum ada ulasan. Peserta terverifikasi dapat menjadi yang pertama.</p>
+                      <p className="academy-review-empty">
+                        Belum ada ulasan. Peserta terverifikasi dapat menjadi
+                        yang pertama.
+                      </p>
                     )}
                   </div>
                   <form className="academy-review-form" onSubmit={submitReview}>
@@ -1601,7 +1756,9 @@ function ProgramModal({
                             className={rating <= reviewRating ? "active" : ""}
                             onClick={() => setReviewRating(rating)}
                             aria-label={`${rating} bintang`}
-                          >★</button>
+                          >
+                            ★
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -1613,7 +1770,9 @@ function ProgramModal({
                     />
                     {reviewMessage ? <p>{reviewMessage}</p> : null}
                     <button type="submit" disabled={reviewBusy}>
-                      {reviewBusy ? "Menerbitkan…" : "Kirim review terverifikasi"}
+                      {reviewBusy
+                        ? "Menerbitkan…"
+                        : "Kirim review terverifikasi"}
                     </button>
                   </form>
                 </section>
@@ -1621,12 +1780,21 @@ function ProgramModal({
             )}
             <button
               className="primary-button full"
-              disabled={detailLoading || !detail?.schedules?.some((schedule) => schedule.remaining_capacity > 0) || eligiblePets.length === 0}
+              disabled={
+                detailLoading ||
+                !detail?.schedules?.some(
+                  (schedule) => schedule.remaining_capacity > 0,
+                ) ||
+                eligiblePets.length === 0
+              }
               onClick={startEnrollment}
             >
               {eligiblePets.length === 0
                 ? "Tidak ada pet yang sesuai"
-                : !detailLoading && !detail?.schedules?.some((schedule) => schedule.remaining_capacity > 0)
+                : !detailLoading &&
+                    !detail?.schedules?.some(
+                      (schedule) => schedule.remaining_capacity > 0,
+                    )
                   ? "Jadwal belum tersedia"
                   : `Pilih pet & jadwal`}
             </button>
@@ -1644,7 +1812,11 @@ function ProgramModal({
             </label>
             <label>
               <span>Pet yang akan mengikuti kelas</span>
-              <select value={selectedPetID} onChange={(event) => setSelectedPetID(event.target.value)} required>
+              <select
+                value={selectedPetID}
+                onChange={(event) => setSelectedPetID(event.target.value)}
+                required
+              >
                 {eligiblePets.map((candidate) => (
                   <option key={candidate.id} value={candidate.id}>
                     {candidate.name} · {candidate.breed}
@@ -1654,10 +1826,19 @@ function ProgramModal({
             </label>
             <label>
               <span>Mulai ikut kelas</span>
-              <select value={selectedScheduleID} onChange={(event) => setSelectedScheduleID(event.target.value)} required>
+              <select
+                value={selectedScheduleID}
+                onChange={(event) => setSelectedScheduleID(event.target.value)}
+                required
+              >
                 {(detail?.schedules ?? []).map((schedule) => (
-                  <option key={schedule.id} value={schedule.id} disabled={schedule.remaining_capacity < 1}>
-                    {when(schedule.starts_at)} · {schedule.trainer_name} · {schedule.remaining_capacity} kursi
+                  <option
+                    key={schedule.id}
+                    value={schedule.id}
+                    disabled={schedule.remaining_capacity < 1}
+                  >
+                    {when(schedule.starts_at)} · {schedule.trainer_name} ·{" "}
+                    {schedule.remaining_capacity} kursi
                   </option>
                 ))}
               </select>
@@ -1673,7 +1854,10 @@ function ProgramModal({
                 disabled={busy}
               />
             )}
-            <button className="primary-button full" disabled={busy || (program.price > 0 && !paymentMethod)}>
+            <button
+              className="primary-button full"
+              disabled={busy || (program.price > 0 && !paymentMethod)}
+            >
               {busy
                 ? "Membuat pembayaran…"
                 : program.price > 0
@@ -1713,7 +1897,10 @@ function AcademyTrainerModal({
         <div>
           <small>PET TRAINER · {trainer.academy_name}</small>
           <h2>{trainer.full_name}</h2>
-          <p>★ {trainer.rating.toFixed(1)} · {trainer.experience_years} tahun pengalaman</p>
+          <p>
+            ★ {trainer.rating.toFixed(1)} · {trainer.experience_years} tahun
+            pengalaman
+          </p>
         </div>
       </div>
       <div
@@ -1724,16 +1911,30 @@ function AcademyTrainerModal({
       >
         <p>{trainer.bio || "Profil trainer terverifikasi Slivadoc."}</p>
         <div className="academy-trainer-metrics">
-          <span><small>Sertifikasi</small><b>{trainer.certification || "Slivadoc verified"}</b></span>
-          <span><small>Jenis pet</small><b>{trainer.pet_types?.join(" · ") || "dog · cat"}</b></span>
-          <span><small>Spesialisasi</small><b>{trainer.specialties?.join(" · ") || "behavior"}</b></span>
+          <span>
+            <small>Sertifikasi</small>
+            <b>{trainer.certification || "Slivadoc verified"}</b>
+          </span>
+          <span>
+            <small>Jenis pet</small>
+            <b>{trainer.pet_types?.join(" · ") || "dog · cat"}</b>
+          </span>
+          <span>
+            <small>Spesialisasi</small>
+            <b>{trainer.specialties?.join(" · ") || "behavior"}</b>
+          </span>
         </div>
         {trainer.programs?.length ? (
           <div className="academy-trainer-programs">
             <h3>Kelas bersama {trainer.full_name.split(" ")[0]}</h3>
             {trainer.programs.map((program) => (
               <div key={program.id}>
-                <span><b>{program.title}</b><small>{program.level} · {program.session_count} sesi</small></span>
+                <span>
+                  <b>{program.title}</b>
+                  <small>
+                    {program.level} · {program.session_count} sesi
+                  </small>
+                </span>
                 <strong>{money.format(program.price)}</strong>
               </div>
             ))}
@@ -1755,7 +1956,13 @@ function EventModal({
   item: PetEvent;
   ownerName: string;
   ownerEmail: string;
-  pets: Array<{ id: string; name: string; species: string; breed: string; avatar: string }>;
+  pets: Array<{
+    id: string;
+    name: string;
+    species: string;
+    breed: string;
+    avatar: string;
+  }>;
   close: () => void;
   notify: (message: string) => void;
 }) {
@@ -1765,10 +1972,17 @@ function EventModal({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [registrationId, setRegistrationId] = useState("");
-  const allowedPets = item.ticket_unit === "owner_pet"
-    ? pets.filter((pet) => !item.allowed_pet_species.length || item.allowed_pet_species.includes(pet.species))
-    : pets;
-  const [selectedPetID, setSelectedPetID] = useState(() => allowedPets[0]?.id ?? "");
+  const allowedPets =
+    item.ticket_unit === "owner_pet"
+      ? pets.filter(
+          (pet) =>
+            !item.allowed_pet_species.length ||
+            item.allowed_pet_species.includes(pet.species),
+        )
+      : pets;
+  const [selectedPetID, setSelectedPetID] = useState(
+    () => allowedPets[0]?.id ?? "",
+  );
   function start() {
     if (!isPetOwnerAuthenticated()) {
       notify("Login diperlukan untuk mengambil tiket event");
@@ -1787,7 +2001,8 @@ function EventModal({
       const registration = await registerEvent(item.id, {
         participant_name: String(values.participant_name),
         participant_email: String(values.participant_email),
-        ticket_quantity: item.ticket_unit === "owner_pet" ? 1 : Number(values.ticket_quantity),
+        ticket_quantity:
+          item.ticket_unit === "owner_pet" ? 1 : Number(values.ticket_quantity),
         ...(item.ticket_unit === "owner_pet" ? { pet_id: selectedPetID } : {}),
       });
       setRegistrationId(registration.id);
@@ -1860,22 +2075,60 @@ function EventModal({
                 {allowedPets.length ? (
                   <div>
                     {allowedPets.map((pet) => (
-                      <button type="button" className={selectedPetID === pet.id ? "active" : ""} key={pet.id} onClick={() => setSelectedPetID(pet.id)}>
-                        <span>{pet.avatar}</span><b>{pet.name}</b><small>{pet.breed || speciesLabel(pet.species)}</small><i>{selectedPetID === pet.id ? "✓" : "+"}</i>
+                      <button
+                        type="button"
+                        className={selectedPetID === pet.id ? "active" : ""}
+                        key={pet.id}
+                        onClick={() => setSelectedPetID(pet.id)}
+                      >
+                        <span>{pet.avatar}</span>
+                        <b>{pet.name}</b>
+                        <small>{pet.breed || speciesLabel(pet.species)}</small>
+                        <i>{selectedPetID === pet.id ? "✓" : "+"}</i>
                       </button>
                     ))}
                   </div>
-                ) : <p>Belum ada profil pet yang sesuai dengan jenis pet untuk event ini.</p>}
+                ) : (
+                  <p>
+                    Belum ada profil pet yang sesuai dengan jenis pet untuk
+                    event ini.
+                  </p>
+                )}
               </fieldset>
             ) : (
-              <label><span>Jumlah tiket</span><select name="ticket_quantity" defaultValue="1"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+              <label>
+                <span>Jumlah tiket</span>
+                <select name="ticket_quantity" defaultValue="1">
+                  <option>1</option>
+                  <option>2</option>
+                  <option>3</option>
+                  <option>4</option>
+                </select>
+              </label>
             )}
             <div className="checkout-line">
-              <span>{item.ticket_unit === "owner_pet" ? "1 owner + 1 pet" : "Harga per tiket"}</span>
+              <span>
+                {item.ticket_unit === "owner_pet"
+                  ? "1 owner + 1 pet"
+                  : "Harga per tiket"}
+              </span>
               <b>{item.price ? money.format(item.price) : "Gratis"}</b>
             </div>
-            {item.price > 0 ? <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} disabled={busy} /> : null}
-            <button className="primary-button full" disabled={busy || (item.price > 0 && !paymentMethod) || (item.ticket_unit === "owner_pet" && !selectedPetID)}>
+            {item.price > 0 ? (
+              <PaymentMethodPicker
+                value={paymentMethod}
+                onChange={setPaymentMethod}
+                disabled={busy}
+              />
+            ) : null}
+            <button
+              className="primary-button full"
+              disabled={
+                busy ||
+                (item.price > 0 && !paymentMethod) ||
+                (item.ticket_unit === "owner_pet" && !selectedPetID)
+              }
+            >
               {busy
                 ? "Membuat pembayaran…"
                 : item.price > 0
@@ -1895,12 +2148,37 @@ function EventModal({
             </div>
             <p>{item.description}</p>
             <div className="event-social-summary">
-              <span><b>{item.registered_count.toLocaleString("id-ID")}</b><small>pet parent terdaftar</small></span>
-              <span><b>{Math.max(0, item.capacity - item.registered_count)}</b><small>slot masih tersedia</small></span>
-              <span><b>{new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short" }).format(new Date(item.starts_at))}</b><small>tanggal event</small></span>
-              <span><b>{item.allowed_pet_species?.length || "Semua"}</b><small>jenis pet diterima</small></span>
+              <span>
+                <b>{item.registered_count.toLocaleString("id-ID")}</b>
+                <small>pet parent terdaftar</small>
+              </span>
+              <span>
+                <b>{Math.max(0, item.capacity - item.registered_count)}</b>
+                <small>slot masih tersedia</small>
+              </span>
+              <span>
+                <b>
+                  {new Intl.DateTimeFormat("id-ID", {
+                    day: "numeric",
+                    month: "short",
+                  }).format(new Date(item.starts_at))}
+                </b>
+                <small>tanggal event</small>
+              </span>
+              <span>
+                <b>{item.allowed_pet_species?.length || "Semua"}</b>
+                <small>jenis pet diterima</small>
+              </span>
             </div>
-            {item.pet_spot_name ? <div className="event-host"><span>✦</span><div><small>Diselenggarakan oleh</small><b>{item.pet_spot_name}</b></div></div> : null}
+            {item.pet_spot_name ? (
+              <div className="event-host">
+                <span>✦</span>
+                <div>
+                  <small>Diselenggarakan oleh</small>
+                  <b>{item.pet_spot_name}</b>
+                </div>
+              </div>
+            ) : null}
             <div className="world-detail-grid">
               <span>
                 <small>Lokasi</small>
@@ -1910,7 +2188,11 @@ function EventModal({
               </span>
               <span>
                 <small>Tiket</small>
-                <b>{item.price ? `${money.format(item.price)} / owner + pet` : "Gratis"}</b>
+                <b>
+                  {item.price
+                    ? `${money.format(item.price)} / owner + pet`
+                    : "Gratis"}
+                </b>
               </span>
               <span>
                 <small>Kapasitas</small>
@@ -1923,10 +2205,39 @@ function EventModal({
                 <b>{item.status}</b>
               </span>
             </div>
-            {item.ticket_unit === "owner_pet" ? <><div className="event-species"><small>Pet yang dapat hadir</small><div>{item.allowed_pet_species.map((species) => <span key={species}>{speciesIcon(species)} {speciesLabel(species)}</span>)}</div></div>{item.pet_requirements.length ? <div className="event-requirements"><small>Checklist sebelum datang</small><ul>{item.pet_requirements.map((requirement) => <li key={requirement}>✓ {requirement}</li>)}</ul></div> : null}</> : null}
+            {item.ticket_unit === "owner_pet" ? (
+              <>
+                <div className="event-species">
+                  <small>Pet yang dapat hadir</small>
+                  <div>
+                    {item.allowed_pet_species.map((species) => (
+                      <span key={species}>
+                        {speciesIcon(species)} {speciesLabel(species)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {item.pet_requirements.length ? (
+                  <div className="event-requirements">
+                    <small>Checklist sebelum datang</small>
+                    <ul>
+                      {item.pet_requirements.map((requirement) => (
+                        <li key={requirement}>✓ {requirement}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
             <div className="event-experience-note">
               <span>🎟️</span>
-              <div><b>Ticket tersimpan otomatis</b><small>Sesudah registrasi, QR ticket dan detail event dapat dibuka kembali dari Aktivitas.</small></div>
+              <div>
+                <b>Ticket tersimpan otomatis</b>
+                <small>
+                  Sesudah registrasi, QR ticket dan detail event dapat dibuka
+                  kembali dari Aktivitas.
+                </small>
+              </div>
             </div>
             <button className="primary-button full" onClick={start}>
               {item.price ? "Pilih pet & ambil tiket" : "Amankan tiket gratis"}
@@ -1939,11 +2250,20 @@ function EventModal({
 }
 
 const eventSpecies = {
-  dog: ["🐕", "Anjing"], cat: ["🐈", "Kucing"], rabbit: ["🐇", "Kelinci"],
-  bird: ["🦜", "Burung"], reptile: ["🦎", "Reptil"], small_mammal: ["🐹", "Mamalia kecil"], other: ["🐾", "Lainnya"],
+  dog: ["🐕", "Anjing"],
+  cat: ["🐈", "Kucing"],
+  rabbit: ["🐇", "Kelinci"],
+  bird: ["🦜", "Burung"],
+  reptile: ["🦎", "Reptil"],
+  small_mammal: ["🐹", "Mamalia kecil"],
+  other: ["🐾", "Lainnya"],
 } as const;
-function speciesIcon(species: string) { return eventSpecies[species as keyof typeof eventSpecies]?.[0] ?? "🐾"; }
-function speciesLabel(species: string) { return eventSpecies[species as keyof typeof eventSpecies]?.[1] ?? species; }
+function speciesIcon(species: string) {
+  return eventSpecies[species as keyof typeof eventSpecies]?.[0] ?? "🐾";
+}
+function speciesLabel(species: string) {
+  return eventSpecies[species as keyof typeof eventSpecies]?.[1] ?? species;
+}
 function SpotModal({
   item,
   close,
@@ -1955,284 +2275,31 @@ function SpotModal({
   notify: (message: string) => void;
   ownerName: string;
 }) {
-  const maps = `https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`;
-  const [busy, setBusy] = useState(false);
-  async function save() {
-    if (!isPetOwnerAuthenticated()) {
-      notify("Login diperlukan untuk menyimpan PetSpot");
-      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-      return;
-    }
-    setBusy(true);
-    try {
-      const result = await togglePetOwnerFavorite("petspot", item.id);
-      notify(
-        result.favorite
-          ? `${item.name} disimpan ke favorit`
-          : `${item.name} dihapus dari favorit`,
-      );
-      close();
-    } catch (error) {
-      notify(
-        error instanceof Error ? error.message : "PetSpot belum dapat disimpan",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  if (item.category === "boarding_house" || item.category === "apartment")
-    return <HousingBookingModal item={item} close={close} notify={notify} ownerName={ownerName} />;
   return (
-    <Modal close={close} className="world-modal spot-modal">
-      <WorldImageGallery
-        images={[item.cover_url, ...(item.image_urls ?? [])]}
-        alt={item.name}
-        fallback={
-          item.category === "cafe"
-            ? "☕"
-            : item.category === "park"
-              ? "🌳"
-              : "🏬"
-        }
-        tag={item.verified ? "✓ PetSpot Verified" : "Community Spot"}
-        className="spot-modal-cover"
-      />
-      <div className="modal-world-body">
-        <small className="world-kicker">
-          ★ {item.rating} · {item.review_count} ulasan ·{" "}
-          {safeFixed(item.distance_km, 1, "—")} km
-        </small>
-        <h2>{item.name}</h2>
-        <p>{item.description}</p>
-        <div className="spot-address">
-          <Icon name="map" />
-          <span>
-            <b>{item.address}</b>
-            <small>
-              {item.city} ·{" "}
-              {item.opening_hours?.daily || "Jam buka lihat di lokasi"}
-            </small>
-          </span>
-        </div>
-        <div className="facility-grid">
-          {item.pet_facilities.map((value) => (
-            <span key={value}>✓ {value}</span>
-          ))}
-        </div>
-        <div className="world-modal-actions">
-          <a
-            className="primary-button"
-            href={maps}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Petunjuk arah
-          </a>
-          <button
-            className="secondary-button"
-            disabled={busy}
-            onClick={() => void save()}
-          >
-            {busy ? "Menyimpan…" : "♡ Simpan"}
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-function HousingBookingModal({
-  item,
-  close,
-  notify,
-  ownerName,
-}: {
-  item: PetSpot;
-  close: () => void;
-  notify: (message: string) => void;
-  ownerName: string;
-}) {
-  const isBoarding = item.category === "boarding_house";
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [guests, setGuests] = useState(1);
-  const [pets, setPets] = useState(1);
-  const [name, setName] = useState(ownerName);
-  const [phone, setPhone] = useState("");
-  const [requestNote, setRequestNote] = useState("");
-  const [units, setUnits] = useState<PetSpotUnit[]>([]);
-  const [unitID, setUnitID] = useState("");
-  const [checking, setChecking] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
-  const [payment, setPayment] = useState<PaymentIntent | null>(null);
-  const [reservation, setReservation] = useState<PetSpotReservation | null>(null);
-  const [done, setDone] = useState(false);
-  const dateWindow = useMemo(() => {
-    if (!startDate || !endDate) return null;
-    const start = new Date(startDate + "T14:00:00");
-    const end = new Date(endDate + "T14:00:00");
-    const days = Math.ceil((end.getTime() - start.getTime()) / 86400000);
-    if (!Number.isFinite(days) || days < (isBoarding ? 30 : 1) || days > 366) return null;
-    return { starts_at: start.toISOString(), ends_at: end.toISOString(), days };
-  }, [startDate, endDate, isBoarding]);
-  useEffect(() => {
-    if (!dateWindow) return;
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      void getPetSpotAvailability(item.id, dateWindow.starts_at, dateWindow.ends_at, guests)
-        .then((result) => {
-          if (!cancelled) {
-            setUnits(result.data.filter((unit) => ["room", "unit"].includes(unit.resource_type)));
-            setChecking(false);
-          }
-        })
-        .catch((cause: unknown) => {
-          if (!cancelled) {
-            setError(cause instanceof Error ? cause.message : "Ketersediaan belum dapat dimuat");
-            setChecking(false);
-          }
-        });
-    }, 250);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [item.id, dateWindow, guests]);
-  const canHost = (unit: PetSpotUnit) =>
-    unit.available && pets <= Number(unit.pet_policy?.pet_limit ?? 99);
-  const selected = units.find((unit) => unit.id === unitID && canHost(unit));
-  const periods = selected && dateWindow
-    ? selected.booking_rules?.rate_period === "month"
-      ? Math.ceil(dateWindow.days / 30)
-      : dateWindow.days
-    : 0;
-  const subtotal = selected ? selected.base_price * periods : 0;
-  const depositType = selected?.minimum_deposit_type !== "inherit"
-    ? selected?.minimum_deposit_type
-    : item.deposit_type;
-  const depositValue = selected?.minimum_deposit_type !== "inherit"
-    ? selected?.minimum_deposit_value
-    : item.deposit_value;
-  const deposit = Math.ceil(depositType === "fixed"
-    ? Number(depositValue ?? 0)
-    : subtotal * Number(depositValue ?? 0) / 100);
-  const today = new Date().toISOString().slice(0, 10);
-
-  async function reserve(event: FormEvent) {
-    event.preventDefault();
-    if (!isPetOwnerAuthenticated()) {
-      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-      notify("Login untuk memesan unit");
-      return;
-    }
-    if (!selected || !dateWindow) { setError("Pilih tanggal dan unit yang tersedia"); return; }
-    if (!paymentMethod) return;
-    setBusy(true);
-    setError("");
-    try {
-      const created = await createPetSpotReservation({
-        resource_id: selected.id,
-        guest_name: name.trim(),
-        guest_phone: phone.trim(),
-        guest_count: guests,
-        pet_count: pets,
-        starts_at: dateWindow.starts_at,
-        ends_at: dateWindow.ends_at,
-        special_request: requestNote.trim(),
-      });
-      setReservation(created);
-      try {
-        setPayment(await createPaymentIntent("petspot_reservation", created.id, paymentMethod));
-      } catch (cause) {
-        setError((cause instanceof Error ? cause.message : "Pembayaran belum tersedia")
-          + ". Reservasi " + created.reservation_number + " tercatat; buka Aktivitas untuk melanjutkan sebelum batas DP.");
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Reservasi belum dapat dibuat");
-      // The availability may have changed while the guest was completing the form.
-      if (dateWindow) {
-        try {
-          const result = await getPetSpotAvailability(item.id, dateWindow.starts_at, dateWindow.ends_at, guests);
-          setUnits(result.data.filter((unit) => ["room", "unit"].includes(unit.resource_type)));
-          setUnitID("");
-        } catch { /* The error above remains visible. */ }
-      }
-    } finally { setBusy(false); }
-  }
-  return (
-    <Modal close={close} className="world-modal spot-modal housing-modal">
-      <div className="modal-world-body">
-        {done ? (
-          <Success title="Unit berhasil dipesan"
-            note={"Reservasi " + reservation?.reservation_number + " sudah terkonfirmasi. Detail tersedia di Aktivitas."}
-            close={close}
-            activity={reservation ? { type: "reservation", id: reservation.id } : undefined} />
-        ) : payment ? (
-          <QrisPaymentPanel payment={payment} onPaid={() => setDone(true)} />
-        ) : (
-          <>
-            {item.cover_url ? <div className="housing-cover" style={{ backgroundImage: "url(" + JSON.stringify(item.cover_url) + ")" }} /> : null}
-            <small className="world-kicker">{isBoarding ? "KOSAN / COLIVING" : "APARTEMEN"} · {item.city}</small>
-            <h2>{item.name}</h2>
-            <p>{item.description}</p>
-            <p className="housing-address">{item.address}</p>
-            {item.pet_facilities.length ? <div className="housing-chips">{item.pet_facilities.map((value) => <span key={value}>✓ {value}</span>)}</div> : null}
-            <form className="world-form housing-booking-form" onSubmit={(event) => void reserve(event)}>
-              <h3>Cari unit tersedia</h3>
-              <div className="housing-form-row">
-                <label><span>Mulai tinggal</span><input required type="date" min={today} value={startDate}
-                  onChange={(event) => { setStartDate(event.target.value); setUnits([]); setUnitID(""); setChecking(true); setError(""); }} /></label>
-                <label><span>Selesai tinggal</span><input required type="date" min={startDate || today} value={endDate}
-                  onChange={(event) => { setEndDate(event.target.value); setUnits([]); setUnitID(""); setChecking(true); setError(""); }} /></label>
-              </div>
-              <p className="housing-hint">{isBoarding ? "Minimal 30 malam. Harga unit dapat berlaku per 30 malam." : "Harga unit berlaku per malam."}</p>
-              <div className="housing-form-row">
-                <label><span>Penghuni</span><input type="number" min={1} max={20} value={guests} onChange={(event) => { setGuests(Number(event.target.value)); setUnits([]); setUnitID(""); setChecking(true); }} /></label>
-                <label><span>Hewan</span><input type="number" min={0} max={10} value={pets} onChange={(event) => { setPets(Number(event.target.value)); setUnitID(""); }} /></label>
-              </div>
-              {startDate && endDate && !dateWindow && <p className="housing-error">Pilih durasi {isBoarding ? "minimal 30" : "minimal 1"} dan maksimal 366 malam.</p>}
-              {dateWindow && <section className="housing-units" aria-label="Pilihan unit">
-                <h3>Unit {checking ? "sedang dicek…" : "(" + units.filter(canHost).length + " tersedia)"}</h3>
-                {!checking && !units.length && <p>Belum ada unit yang cocok. Coba tanggal atau jumlah penghuni lain.</p>}
-                {units.map((unit) => {
-                  const period = unit.booking_rules?.rate_period === "month" ? "30 malam" : "malam";
-                  return <button type="button" key={unit.id} disabled={!canHost(unit)}
-                    className={"housing-unit " + (unitID === unit.id ? "selected" : "")}
-                    onClick={() => setUnitID(unit.id)}>
-                    {unit.image_urls?.[0] ? <span className="housing-unit-photo" role="img" aria-label={unit.name}
-                      style={{ backgroundImage: "url(" + JSON.stringify(unit.image_urls[0]) + ")" }} /> : null}
-                    <span><b>{unit.name}</b><small>{unit.code} · {unit.floor_name || "Unit"} · {unit.capacity} penghuni</small>
-                    {unit.description ? <small>{unit.description}</small> : null}
-                    <span className="housing-chips">{(unit.amenities ?? []).slice(0, 6).map((facility) => <i key={facility}>{facility}</i>)}</span>
-                    <strong>{money.format(unit.base_price)} / {period}</strong></span>
-                    <em>{!unit.available ? "Terisi" : !canHost(unit) ? "Batas pet" : "Pilih"}</em>
-                  </button>;
-                })}
-              </section>}
-              {selected && <section className="housing-summary">
-                <b>Rincian {selected.name}</b>
-                <span>Sewa {periods} × {selected.booking_rules?.rate_period === "month" ? "30 malam" : "malam"} <strong>{money.format(subtotal)}</strong></span>
-                <span>DP untuk mengunci unit <strong>{money.format(deposit)}</strong></span>
-                <span>Sisa dibayar sesuai ketentuan pemilik <strong>{money.format(Math.max(subtotal - deposit, 0))}</strong></span>
-              </section>}
-              <h3>Data pemesan</h3>
-              <div className="housing-form-row">
-                <label><span>Nama lengkap</span><input required value={name} onChange={(event) => setName(event.target.value)} /></label>
-                <label><span>Nomor HP</span><input required type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
-              </div>
-              <label><span>Catatan untuk pemilik</span><textarea value={requestNote} onChange={(event) => setRequestNote(event.target.value)} /></label>
-              {reservation && !payment && <p>Nomor reservasi: <b>{reservation.reservation_number}</b>. Batas DP: {when(reservation.hold_expires_at)}.</p>}
-              {error && <p role="alert" className="housing-error">{error}</p>}
-              <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />
-              <button type="submit" className="primary-button" disabled={busy || !paymentMethod || !selected || !dateWindow || !!reservation}>
-                {busy ? "Memproses…" : "Pesan unit & bayar DP"}
-              </button>
-            </form>
-          </>
+    <Modal
+      close={close}
+      className="world-modal spot-modal petspot-experience-modal"
+    >
+      <PetSpotDetail
+        item={item}
+        ownerName={ownerName}
+        close={close}
+        notify={notify}
+        gallery={(spot) => (
+          <WorldImageGallery
+            images={[spot.cover_url, ...(spot.image_urls ?? [])]}
+            alt={spot.name}
+            fallback="⌖"
+            tag={
+              spot.verified ? "✓ Partner terverifikasi" : "Pet-friendly venue"
+            }
+            className="petspot-detail-gallery"
+          />
         )}
-      </div>
+      />
     </Modal>
   );
 }
-
 function StreamModal({
   item,
   close,
@@ -2579,9 +2646,12 @@ function Modal({
     <div className="modal-overlay" onMouseDown={close}>
       <section
         className={`modal ${className}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Detail Slivadoc"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <button type="button" className="modal-close" aria-label="Tutup detail" onClick={close}>
           <Icon name="close" />
         </button>
         {children}

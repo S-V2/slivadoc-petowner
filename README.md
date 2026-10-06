@@ -61,6 +61,14 @@ Buka alamat lokal yang ditampilkan Vite, biasanya `http://localhost:5173`.
 Fitur Sliva Academy, Pet Event, PetSpot, dan PetHub membaca data dari API utama
 Slivadoc di `NEXT_PUBLIC_PLATFORM_API_URL` (default `http://localhost:8080`).
 
+### PetSpot dan PetHub
+
+PetSpot memakai grid dua kolom, galeri foto venue dari DB (berganti setiap 1 detik), detail fasilitas/jam buka/aturan/ulasan, dan reservasi meja atau unit berdasarkan ketersediaan API. Foto belum diunggah akan ditandai, bukan diganti foto venue lain. Pengelola dapat mengunggah hingga 12 foto melalui dashboard Kebijakan & Integrasi.
+
+Booking disimpan sebagai `pending_payment` sebelum QRIS dibuat; hanya pembayaran terverifikasi yang mengonfirmasi booking. Dashboard pemilik memeriksa revisi DB tiap 2 detik ketika terbuka, melewati cache, lalu memuat ulang daftar hanya jika datanya berubah. Ini sinkronisasi polling otomatis, bukan WebSocket. Data dan draft form tetap terpisah.
+
+PetHub menempatkan interaksi feed di bawah media/caption dan Reels pada panel vertikal kanan. Video dirender sebagai video dengan kontrol pemutaran, bukan elemen gambar.
+
 ## 3. Menjalankan mobile Android/iOS
 
 Buka terminal ketiga:

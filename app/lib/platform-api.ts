@@ -2432,6 +2432,7 @@ export const sendPetOwnerSupportTicketMessage = (
 export const getPaymentMethods = () =>
   request<PlatformList<PaymentMethod> & { provider: string; currency: string }>(
     "/api/v1/payment-methods",
+    { cache: "no-store" },
   );
 
 export const createPaymentIntent = (

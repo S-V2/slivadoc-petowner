@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   View,
 } from "react-native";
@@ -28,15 +28,10 @@ const qrClosedMessages: Record<string, string> = {
   failed: "Pembayaran gagal.",
 };
 
-// No provider name may reach a customer. BatPay stays in the pattern because errors
-// and references written before the Yokke cutover can still carry it.
-const providerBrandPattern = /\b(?:bat[\s-]?pay|yokke)\b/gi;
-
 function neutralPaymentMessage(value: unknown, fallback: string) {
-  const message = value instanceof Error ? value.message : String(value || "");
-  return message.trim()
-    ? message.replace(providerBrandPattern, "penyedia pembayaran")
-    : fallback;
+  if (value instanceof Error && "status" in value && value.status === 401)
+    return "Sesi Anda berakhir. Silakan login kembali.";
+  return fallback;
 }
 
 export function MobilePaymentMethods({
@@ -48,73 +43,67 @@ export function MobilePaymentMethods({
   onChange: (value: string) => void;
   disabled?: boolean;
 }) {
-  const [methods, setMethods] = useState<MobilePaymentMethod[]>([]);
+  const [method, setMethod] = useState<MobilePaymentMethod | null>(null);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
     void getMobilePaymentMethods()
       .then((result) => {
         if (!active) return;
-        // Only QRIS is collected. A backend that predates the cutover still lists
-        // other methods while frontends roll out first, so narrow the list here too.
-        const qris = result.data.filter((item) => item.method === "qris");
-        setMethods(qris);
-        const first = qris[0];
-        if (first && !qris.some((item) => item.code === value))
-          onChange(first.code);
+        const qris = result.data.find((item) => item.method === "qris" && item.code === "qris");
+        setMethod(qris ?? null);
+        if (!qris) setMessage("Pembayaran QRIS sementara belum tersedia. Coba lagi.");
       })
       .catch(
         (cause) =>
           active &&
           setMessage(
-            neutralPaymentMessage(cause, "Metode pembayaran belum tersedia"),
+            neutralPaymentMessage(cause, "Pembayaran QRIS sementara belum tersedia. Coba lagi."),
           ),
-      );
+      )
+      .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
-  }, [onChange, value]);
+  }, [attempt]);
+  useEffect(() => {
+    onChange(method?.code ?? "");
+  }, [method, onChange]);
+
+  function retry() {
+    setMethod(null);
+    setMessage("");
+    setLoading(true);
+    setAttempt((current) => current + 1);
+  }
   return (
     <View style={styles.methods}>
       <Text style={styles.label}>Metode pembayaran</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.methodRow}
+      <Pressable
+        accessibilityRole="radio"
+        accessibilityLabel="QRIS"
+        accessibilityState={{ checked: !!method && method.code === value, disabled: disabled || loading || !method, busy: loading }}
+        disabled={disabled || loading || !method}
+        onPress={() => method && onChange(method.code)}
+        style={[styles.method, method && method.code === value && styles.methodActive]}
       >
-        {methods.map((item) => (
-          <Pressable
-            disabled={disabled}
-            onPress={() => onChange(item.code)}
-            key={item.code}
-            style={[styles.method, item.code === value && styles.methodActive]}
-          >
-            <View style={styles.methodIcon}>
-              <Ionicons
-                name="qr-code-outline"
-                size={18}
-                color={colors.sky600}
-              />
-            </View>
-            <Text style={styles.methodLabel}>QRIS</Text>
-            <Text numberOfLines={1} style={styles.methodNote}>
-              Bayar dengan aplikasi pilihan Anda
-            </Text>
-            {item.code === value ? (
-              <Ionicons
-                name="checkmark-circle"
-                size={17}
-                color={colors.sky600}
-                style={styles.check}
-              />
-            ) : null}
+        <View style={styles.methodIcon}><Ionicons name="qr-code-outline" size={22} color={colors.sky600} /></View>
+        <View style={styles.methodCopy}>
+          <Text style={styles.methodLabel}>QRIS</Text>
+          <Text style={styles.methodNote}>Bayar dengan aplikasi pilihan Anda</Text>
+        </View>
+        {loading ? <ActivityIndicator size="small" color={colors.sky600} /> : method && method.code === value ? <Ionicons name="checkmark-circle" size={21} color={colors.sky600} /> : null}
+      </Pressable>
+      {loading ? <Text accessibilityLiveRegion="polite" style={styles.message}>Memuat metode pembayaran…</Text> : message ? (
+        <View style={styles.feedback}>
+          <Text accessibilityRole="alert" style={styles.message}>{message}</Text>
+          <Pressable disabled={disabled} accessibilityRole="button" onPress={retry} style={styles.retry}>
+            <Ionicons name="refresh-outline" size={16} color={colors.sky600} />
+            <Text style={styles.retryText}>Coba lagi</Text>
           </Pressable>
-        ))}
-      </ScrollView>
-      {!methods.length ? (
-        <Text style={styles.message}>
-          {message || "Memuat metode pembayaran…"}
-        </Text>
+        </View>
       ) : null}
     </View>
   );
@@ -281,42 +270,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
-  methodRow: { gap: 8, paddingRight: 8 },
   method: {
-    position: "relative",
-    width: 132,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     minHeight: 74,
-    padding: 9,
+    padding: 13,
     borderWidth: 1,
     borderColor: colors.sky100,
-    borderRadius: 18,
+    borderRadius: 14,
     backgroundColor: colors.white,
-    ...shadow,
   },
+  methodCopy: { flex: 1 },
   methodActive: { borderColor: colors.sky500, backgroundColor: colors.sky50 },
   methodIcon: {
-    width: 32,
-    height: 32,
+    width: 40,
+    height: 40,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.sky50,
   },
   methodLabel: {
-    marginTop: 5,
     color: colors.navy,
-    fontSize: 11,
+    fontSize: 15,
     fontWeight: "700",
   },
-  methodNote: { marginTop: 3, color: colors.muted, fontSize: 10 },
-  check: {
-    position: "absolute",
-    right: 9,
-    top: 9,
-  },
+  methodNote: { marginTop: 3, color: colors.muted, fontSize: 12, lineHeight: 17 },
+  feedback: { gap: 4 },
+  retry: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 12, backgroundColor: colors.sky50 },
+  retryText: { color: colors.sky600, fontSize: 13, fontWeight: "600" },
   message: {
     padding: 12,
     color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
     backgroundColor: colors.canvas,
     borderRadius: 12,
   },

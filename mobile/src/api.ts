@@ -1321,7 +1321,7 @@ export const cancelMobileBooking = (id: string, reason?: string) =>
     { method: "POST", body: JSON.stringify(reason ? { reason } : {}) },
   );
 export const getMobilePaymentMethods = () =>
-  platformRequest<{ data: MobilePaymentMethod[] }>("/api/v1/payment-methods");
+  platformRequest<{ data: MobilePaymentMethod[] }>("/api/v1/payment-methods", { cache: "no-store" });
 export const createMobilePaymentIntent = (
   referenceType: string,
   referenceId: string,

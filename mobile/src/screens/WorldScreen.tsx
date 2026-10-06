@@ -562,7 +562,11 @@ export function WorldScreen({
   const [academyReviewBusy, setAcademyReviewBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const requiresPayment =
+    (["academy", "events", "consult", "documents"].includes(mode) &&
+      Number(selected?.price || selected?.total_fee || 0) > 0) ||
+    (mode === "petspot" && !!selected?.reservable);
   const [payment, setPayment] = useState<MobilePaymentIntent>();
   const paymentActivityType = payment
     ? activityTypeForReference(payment.reference_type)
@@ -1144,6 +1148,10 @@ export function WorldScreen({
       onRequirePet();
       return;
     }
+    if (requiresPayment && !paymentMethod) {
+      onAction("Tunggu hingga pembayaran QRIS tersedia.");
+      return;
+    }
     if (
       mode === "adoption" &&
       (!adoptionForm.applicantName.trim() ||
@@ -1254,7 +1262,7 @@ export function WorldScreen({
             await createMobilePaymentIntent(
               "event_registration",
               source.id,
-              "qris",
+              paymentMethod,
             ),
           );
         else onAction("Tiket event gratis berhasil dibuat");
@@ -3199,11 +3207,7 @@ export function WorldScreen({
                       ) : null}
                     </View>
                   ) : null}
-                  {(["academy", "consult", "documents"].includes(
-                    mode,
-                  ) &&
-                    Number(selected?.price || selected?.total_fee || 0) > 0) ||
-                  (mode === "petspot" && selected?.reservable) ? (
+                  {requiresPayment ? (
                     <MobilePaymentMethods
                       value={paymentMethod}
                       onChange={setPaymentMethod}
@@ -3235,6 +3239,7 @@ export function WorldScreen({
                     onPress={runPrimaryAction}
                     disabled={
                       busy ||
+                      (!!owner && requiresPayment && !paymentMethod) ||
                       (mode === "events" &&
                         selected?.ticket_unit === "owner_pet" &&
                         !selectedEventPetID) ||

@@ -3,6 +3,7 @@
 import NextImage from "next/image";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState } from "react";
+import { usePetOwnerI18n } from "../PetOwnerI18n";
 import {
   getPaymentIntent,
   getPaymentMethods,
@@ -10,15 +11,10 @@ import {
   type PaymentMethod,
 } from "../../lib/platform-api";
 
-// No provider name may reach a customer. BatPay stays in the pattern because errors
-// and references written before the Yokke cutover can still carry it.
-const providerBrandPattern = /\b(?:bat[\s-]?pay|yokke)\b/gi;
-
 function neutralPaymentMessage(value: unknown, fallback: string) {
-  const message = value instanceof Error ? value.message : String(value || "");
-  return message.trim()
-    ? message.replace(providerBrandPattern, "penyedia pembayaran")
-    : fallback;
+  if (value instanceof Error && "status" in value && value.status === 401)
+    return "Sesi Anda berakhir. Silakan login kembali.";
+  return fallback;
 }
 
 export function PaymentMethodPicker({
@@ -30,62 +26,66 @@ export function PaymentMethodPicker({
   onChange: (value: string) => void;
   disabled?: boolean;
 }) {
-  const [methods, setMethods] = useState<PaymentMethod[]>([]);
+  const { t } = usePetOwnerI18n();
+  const [method, setMethod] = useState<PaymentMethod | null>(null);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
     void getPaymentMethods()
       .then((result) => {
         if (!active) return;
-        // Only QRIS is collected. A backend that predates the cutover still lists
-        // other methods while frontends roll out first, so narrow the list here too.
-        const qris = result.data.filter((item) => item.method === "qris");
-        setMethods(qris);
-        const first = qris[0];
-        if (first && !qris.some((item) => item.code === value))
-          onChange(first.code);
+        const qris = result.data.find((item) => item.method === "qris" && item.code === "qris");
+        setMethod(qris ?? null);
+        if (!qris) setMessage("Pembayaran QRIS sementara belum tersedia. Coba lagi.");
       })
       .catch((error) => {
         if (active)
           setMessage(
             neutralPaymentMessage(
               error,
-              "Metode pembayaran belum dapat dimuat",
+              "Pembayaran QRIS sementara belum tersedia. Coba lagi.",
             ),
           );
-      });
+      })
+      .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
-  }, [onChange, value]);
+  }, [attempt]);
+  useEffect(() => {
+    onChange(method?.code ?? "");
+  }, [method, onChange]);
+
+  function retry() {
+    setMethod(null);
+    setMessage("");
+    setLoading(true);
+    setAttempt((current) => current + 1);
+  }
   return (
-    <fieldset className="qris-methods" disabled={disabled}>
-      <legend>Metode pembayaran</legend>
-      {methods.length ? (
-        <div>
-          {methods.map((method) => (
-            <button
-              type="button"
-              className={method.code === value ? "active" : ""}
-              onClick={() => onChange(method.code)}
-              key={method.code}
-            >
-              <span>▦</span>
-              <p>
-                <b>QRIS</b>
-                <small>
-                  Pindai kode QR dengan aplikasi pembayaran pilihan Anda.
-                </small>
-              </p>
-              <i>{method.code === value ? "✓" : ""}</i>
-            </button>
-          ))}
+    <fieldset className="qris-methods" disabled={disabled} aria-busy={loading}>
+      <legend>{t("Metode pembayaran")}</legend>
+      <div>
+        <button
+          type="button"
+          disabled={loading || !method}
+          aria-pressed={!!method && method.code === value}
+          className={method && method.code === value ? "active" : ""}
+          onClick={() => method && onChange(method.code)}
+        >
+          <span>▦</span>
+          <p><b>QRIS</b><small>{t("Pindai kode QR dengan aplikasi pembayaran pilihan Anda.")}</small></p>
+          <i>{loading ? <span className="button-spinner" aria-hidden="true" /> : method && method.code === value ? "✓" : ""}</i>
+        </button>
+      </div>
+      {loading ? <p className="qris-method-message" role="status">{t("Memuat metode pembayaran…")}</p> : message ? (
+        <div className="qris-method-feedback" role="alert">
+          <p>{t(message)}</p>
+          <button type="button" onClick={retry}>{t("Coba lagi")}</button>
         </div>
-      ) : (
-        <p className="qris-method-message">
-          {message || "Memuat metode pembayaran…"}
-        </p>
-      )}
+      ) : null}
     </fieldset>
   );
 }

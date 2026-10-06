@@ -9317,12 +9317,12 @@ textarea {
 .qris-methods legend {
   margin-bottom: 9px;
   color: #3c5368;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 900;
 }
 .qris-methods > div {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   max-height: 190px;
   overflow: auto;
@@ -9363,15 +9363,14 @@ textarea {
   display: block;
 }
 .qris-methods button b {
-  font-size: 11px;
+  font-size: 15px;
 }
 .qris-methods button small {
   margin-top: 3px;
   overflow: hidden;
   color: #73889a;
-  font-size: 9px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  font-size: 12px;
+  line-height: 1.5;
 }
 .qris-methods button i {
   color: #1598d6;
@@ -9384,8 +9383,27 @@ textarea {
   border-radius: 11px;
   color: #73889a;
   background: #f4f8fa;
-  font-size: 11px;
+  font-size: 13px;
 }
+.qris-methods > .qris-method-feedback {
+  margin-top: 8px;
+  padding: 12px;
+  max-height: none;
+  border-radius: 12px;
+  color: #526e82;
+  background: #f0f8fc;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.qris-method-feedback p { margin: 0; }
+.qris-method-feedback button {
+  justify-content: center;
+  min-height: 44px;
+  color: #0878ac;
+  font-size: 13px;
+  font-weight: 700;
+}
+.qris-methods button:disabled { cursor: default; }
 .qris-result {
   display: grid;
   justify-items: center;

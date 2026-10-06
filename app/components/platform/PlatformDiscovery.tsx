@@ -1365,7 +1365,7 @@ function ProgramModal({
   const [enroll, setEnroll] = useState(false);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [enrollmentId, setEnrollmentId] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
@@ -1428,6 +1428,7 @@ function ProgramModal({
       notify("Pilih pet dan jadwal mulai kelas terlebih dahulu");
       return;
     }
+    if (program.price > 0 && !paymentMethod) return;
     setBusy(true);
     try {
       const enrollment = await enrollAcademy({
@@ -1684,7 +1685,7 @@ function ProgramModal({
                 disabled={busy}
               />
             )}
-            <button className="primary-button full" disabled={busy}>
+            <button className="primary-button full" disabled={busy || (program.price > 0 && !paymentMethod)}>
               {busy
                 ? "Membuat pembayaran…"
                 : program.price > 0
@@ -1773,6 +1774,7 @@ function EventModal({
   const [register, setRegister] = useState(false);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [registrationId, setRegistrationId] = useState("");
   const allowedPets = item.ticket_unit === "owner_pet"
@@ -1790,6 +1792,7 @@ function EventModal({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isPetOwnerAuthenticated()) return;
+    if (item.price > 0 && !paymentMethod) return;
     const values = Object.fromEntries(new FormData(event.currentTarget));
     setBusy(true);
     try {
@@ -1805,7 +1808,7 @@ function EventModal({
           await createPaymentIntent(
             "event_registration",
             registration.id,
-            "qris",
+            paymentMethod,
           ),
         );
       else setDone(true);
@@ -1883,8 +1886,8 @@ function EventModal({
               <span>{item.ticket_unit === "owner_pet" ? "1 owner + 1 pet" : "Harga per tiket"}</span>
               <b>{item.price ? money.format(item.price) : "Gratis"}</b>
             </div>
-            {item.price > 0 ? <div className="event-qris-note"><span>▦</span><div><b>Pembayaran QRIS</b><small>QR tampil otomatis setelah tiket dibuat</small></div><i>✓</i></div> : null}
-            <button className="primary-button full" disabled={busy || (item.ticket_unit === "owner_pet" && !selectedPetID)}>
+            {item.price > 0 ? <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} disabled={busy} /> : null}
+            <button className="primary-button full" disabled={busy || (item.price > 0 && !paymentMethod) || (item.ticket_unit === "owner_pet" && !selectedPetID)}>
               {busy
                 ? "Membuat pembayaran…"
                 : item.price > 0
@@ -2073,7 +2076,7 @@ function HousingBookingModal({
   const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [reservation, setReservation] = useState<PetSpotReservation | null>(null);
   const [done, setDone] = useState(false);
@@ -2133,6 +2136,7 @@ function HousingBookingModal({
       return;
     }
     if (!selected || !dateWindow) { setError("Pilih tanggal dan unit yang tersedia"); return; }
+    if (!paymentMethod) return;
     setBusy(true);
     setError("");
     try {
@@ -2230,7 +2234,7 @@ function HousingBookingModal({
               {reservation && !payment && <p>Nomor reservasi: <b>{reservation.reservation_number}</b>. Batas DP: {when(reservation.hold_expires_at)}.</p>}
               {error && <p role="alert" className="housing-error">{error}</p>}
               <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />
-              <button type="submit" className="primary-button" disabled={busy || !selected || !dateWindow || !!reservation}>
+              <button type="submit" className="primary-button" disabled={busy || !paymentMethod || !selected || !dateWindow || !!reservation}>
                 {busy ? "Memproses…" : "Pesan unit & bayar DP"}
               </button>
             </form>

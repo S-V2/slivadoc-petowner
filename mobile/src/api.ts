@@ -307,6 +307,8 @@ export type MobilePet = {
   vaccination_status: string;
   photo_url: string;
   last_medical_record_at?: string;
+  access_role?: string;
+  permissions?: string[];
 };
 export type MobileOwner = {
   id: string;
@@ -523,6 +525,7 @@ export type MobileBootstrap = {
     earned: number;
     redeemed: number;
     membership?: MobileMembership;
+  unread_notifications?: number;
     formula: {
       enabled: boolean;
       point_value_rupiah?: number;
@@ -1239,6 +1242,10 @@ export type MobileCommunityPost = {
   group_name: string;
   body: string;
   category: string;
+export const getMobileNotifications = (limit = 100) =>
+  platformRequest<{ data: MobileNotification[]; count: number; unread_count: number }>(
+    `/api/v1/notifications?limit=${limit}`,
+  );
   image_url: string;
   location: string;
   like_count: number;

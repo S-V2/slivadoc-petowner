@@ -39,6 +39,7 @@ import {
   Pill,
   PrimaryButton,
   Screen,
+  useAppSurface,
 } from "../components/ui";
 import { MobileQrisModal } from "../components/QrisPayment";
 import { LocalizedText as Text, useI18n } from "../i18n";
@@ -1266,6 +1267,7 @@ export function ActivityScreen({
   onOpenProduct,
 }: ActivityScreenProps) {
   const { formatDate } = useI18n();
+  const { unreadNotifications } = useAppSurface();
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [stateFilter, setStateFilter] = useState<MobileActivityState>("all");
   const [selected, setSelected] = useState<SelectedActivity>();
@@ -1390,7 +1392,7 @@ export function ActivityScreen({
               size={20}
               color={colors.text}
             />
-            <View style={styles.notificationDot} />
+            {unreadNotifications > 0 ? <View style={styles.notificationDot} /> : null}
           </Pressable>
         </View>
 

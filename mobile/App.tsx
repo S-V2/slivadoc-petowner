@@ -46,6 +46,8 @@ import {
   getMobileActivityCenter,
   getMobileBootstrap,
   getMobileMedicalRecords,
+  getMobileNotifications,
+  uniqueById,
   getMobileServiceAvailability,
   getMobileServices,
   hasPlatformSession,
@@ -439,6 +441,20 @@ function MobileApp() {
   const openNotifications = useCallback((category = "") => {
     setNotificationCategory(category);
     setNotificationsOpen(true);
+    // The bootstrap only carries a slice; load the full list and merge it in.
+    void getMobileNotifications(100)
+      .then((result) =>
+        setBootstrap((current) =>
+          current
+            ? {
+                ...current,
+                notifications: uniqueById([...result.data, ...current.notifications]),
+                unread_notifications: result.unread_count,
+              }
+            : current,
+        ),
+      )
+      .catch(() => undefined);
   }, []);
   useEffect(() => {
     if (!toast) return;
@@ -726,6 +742,13 @@ function MobileApp() {
     setChatContext("support");
     setChatOpen(true);
   };
+  const openCareChat = (petId?: string) => {
+    if (!requireLogin()) return;
+    if (petId && pets.some((item) => item.id === petId)) selectPet(petId);
+    setChatContext("care");
+    // A Modal (notifications) is still dismissing; iOS drops a sheet presented over it.
+    setTimeout(() => setChatOpen(true), 400);
+  };
   const openBooking = (service?: Service) => {
     if (!service) {
       navigateTo("discover");
@@ -964,6 +987,7 @@ function MobileApp() {
           bottomInset={navigationBottom}
           refreshing={refreshing}
           onRefresh={() => void reloadData(true)}
+          unreadNotifications={bootstrap?.unread_notifications ?? 0}
         >
           <View style={styles.app}>
             {tab !== "home" ? (
@@ -1282,6 +1306,10 @@ function MobileApp() {
               current
                 ? {
                     ...current,
+                    unread_notifications: Math.max(
+                      0,
+                      (current.unread_notifications ?? 0) - (item.read_at ? 0 : 1),
+                    ),
                     notifications: current.notifications.map((value) =>
                       value.id === item.id
                         ? { ...value, read_at: new Date().toISOString() }
@@ -1301,21 +1329,23 @@ function MobileApp() {
         onReadAll={async (category) => {
           if (!bootstrap) return;
           await readAllMobileNotifications(category);
-          setBootstrap((current) =>
-            current
-              ? {
-                  ...current,
-                  notifications: current.notifications.map((item) =>
-                    !category || item.category === category
-                      ? {
-                          ...item,
-                          read_at: item.read_at || new Date().toISOString(),
-                        }
-                      : item,
-                  ),
-                }
-              : current,
-          );
+          setBootstrap((current) => {
+            if (!current) return current;
+            const cleared = current.notifications.filter(
+              (item) => !item.read_at && (!category || item.category === category),
+            ).length;
+            return {
+              ...current,
+              unread_notifications: category
+                ? Math.max(0, (current.unread_notifications ?? 0) - cleared)
+                : 0,
+              notifications: current.notifications.map((item) =>
+                !category || item.category === category
+                  ? { ...item, read_at: item.read_at || new Date().toISOString() }
+                  : item,
+              ),
+            };
+          });
         }}
         onOpenTarget={(item) => {
           setNotificationsOpen(false);
@@ -1330,8 +1360,15 @@ function MobileApp() {
             .split("/")
             .filter(Boolean)
             .at(-1) ?? "home";
+          const petId = item.metadata?.pet_id;
           if (route === "consult") {
             openConsultation();
+          } else if (route === "care") {
+            openCareChat(typeof petId === "string" ? petId : undefined);
+          } else if (route === "support") {
+            setTimeout(openSupportChat, 400);
+          } else if (route === "pawdating" || route === "adoption") {
+            openWorldFeature(route);
           } else {
             navigateTo(searchRouteTabs[route] ?? "home");
           }

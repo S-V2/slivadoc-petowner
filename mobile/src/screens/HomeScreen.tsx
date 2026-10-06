@@ -22,7 +22,7 @@ import {
 import type { PetView, Service } from "../data";
 import { getActivityTypePresentation } from "../activity";
 import { colors, radius, shadow, spacing, typography } from "../theme";
-import { Pill, Screen } from "../components/ui";
+import { Pill, Screen, useAppSurface } from "../components/ui";
 import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
 
 type Props = {
@@ -302,6 +302,7 @@ export function HomeScreen({
   activities,
 }: Props) {
   const { formatDate } = useI18n();
+  const { unreadNotifications } = useAppSurface();
   const [searchOpen, setSearchOpen] = useState(false);
   const [petPickerOpen, setPetPickerOpen] = useState(false);
   const [veterinarians, setVeterinarians] = useState<WorldItem[]>([]);
@@ -386,7 +387,7 @@ export function HomeScreen({
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" onPress={onOpenNotifications} style={styles.notificationButton}>
             <Ionicons name="notifications-outline" size={20} color={colors.text} />
-            <View style={styles.notificationDot} />
+            {unreadNotifications > 0 ? <View style={styles.notificationDot} /> : null}
           </Pressable>
         </View>
 

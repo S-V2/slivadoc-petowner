@@ -52,6 +52,7 @@ import {
   Pill,
   PrimaryButton,
   Screen,
+  useAppSurface,
 } from "../components/ui";
 import type { Service } from "../data";
 import {
@@ -456,6 +457,7 @@ export function MarketplaceScreen({
   onIntentHandled,
   intent,
 }: MarketplaceScreenProps) {
+  const { unreadNotifications } = useAppSurface();
   const [products, setProducts] = useState<MobileProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -1308,7 +1310,7 @@ export function MarketplaceScreen({
               size={20}
               color={colors.text}
             />
-            <View style={styles.notificationDot} />
+            {unreadNotifications > 0 ? <View style={styles.notificationDot} /> : null}
           </Pressable>
           <Pressable
             accessibilityRole="button"

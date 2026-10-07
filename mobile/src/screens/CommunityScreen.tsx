@@ -1,8 +1,9 @@
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { useEffect, useState } from "react";
 import {
   Image,
   Modal,
-  Pressable,
+
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -275,7 +276,7 @@ export function CommunityScreen({
                   <Text>{post.author_name.slice(0, 1)}</Text>
                 </View>
                 <View style={styles.authorCopy}>
-                  <Text style={styles.author}>{post.author_name}</Text>
+                  <Text translate={false} style={styles.author}>{post.author_name}</Text>
                   <Text style={styles.meta}>
                     {post.pet_name || post.group_name || "Slivadoc Community"} ·{" "}
                     {formatDate(post.created_at, { dateStyle: "medium", timeStyle: "short" })}
@@ -339,7 +340,7 @@ export function CommunityScreen({
         }}
         onAction={onAction}
       />
-      <Modal
+      <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
         visible={Boolean(selected)}
         transparent
         animationType="slide"
@@ -389,10 +390,10 @@ export function CommunityScreen({
                       {parent ? (
                         <View style={styles.replyContext}>
                           <Ionicons name="return-down-forward" size={12} color={colors.sky600} />
-                          <Text numberOfLines={1} style={styles.replyContextText}>Membalas {parent.author_name}</Text>
+                          <Text translate={false} numberOfLines={1} style={styles.replyContextText}>Membalas {parent.author_name}</Text>
                         </View>
                       ) : null}
-                      <Text style={styles.author}>{item.author_name}</Text>
+                      <Text translate={false} style={styles.author}>{item.author_name}</Text>
                       <Text style={styles.body}>{item.body}</Text>
                       <View style={styles.commentMetaRow}>
                         <Text style={styles.meta}>{formatDate(item.created_at, { dateStyle: "medium", timeStyle: "short" })}</Text>
@@ -405,7 +406,7 @@ export function CommunityScreen({
               {replyingTo ? (
                 <View style={styles.replyingBanner}>
                   <Ionicons name="return-down-forward" size={14} color={colors.sky600} />
-                  <Text numberOfLines={1} style={styles.replyingText}>Membalas {replyingTo.author_name}</Text>
+                  <Text translate={false} numberOfLines={1} style={styles.replyingText}>Membalas {replyingTo.author_name}</Text>
                   <Pressable onPress={() => setReplyingTo(undefined)} hitSlop={8}><Ionicons name="close" size={16} color={colors.muted} /></Pressable>
                 </View>
               ) : null}

@@ -1,4 +1,5 @@
 "use client";
+import { LocalizedCopy, LocalizedButton, LocalizedInput } from "../LocalizedCopy";
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -47,7 +48,7 @@ const errorMessage = (error: unknown, fallback: string) =>
 function StatusBadge({ status }: { status: AdoptionApplicationStatus }) {
   return (
     <span className={`adoption-status adoption-status-${status}`}>
-      {statusLabel[status] ?? status}
+      <LocalizedCopy>{statusLabel[status] ?? status}</LocalizedCopy>
     </span>
   );
 }
@@ -66,44 +67,43 @@ export function MyAdoptionListings({ notify }: { notify: Notify }) {
   useEffect(() => {
     queueMicrotask(() => void load());
   }, [load]);
-  if (!items) return <div className="empty-state compact">Memuat listing…</div>;
+  if (!items) return <div className="empty-state compact"><LocalizedCopy>{"Memuat listing…"}</LocalizedCopy></div>;
   if (!items.length)
     return (
       <div className="empty-state">
-        <span>🐾</span>
-        <h3>Belum ada listing</h3>
-        <p>Ajukan pet kamu untuk mulai menerima lamaran adopsi.</p>
+        <span><LocalizedCopy>{"🐾"}</LocalizedCopy></span>
+        <h3><LocalizedCopy>{"Belum ada listing"}</LocalizedCopy></h3>
+        <p><LocalizedCopy>{"Ajukan pet kamu untuk mulai menerima lamaran adopsi."}</LocalizedCopy></p>
       </div>
     );
   return (
     <div className="adoption-manage-list">
-      {items.map((item) => (
+      <LocalizedCopy>{items.map((item) => (
         <article className="adoption-manage-card" key={item.id}>
           <header>
             <div>
-              <b>{item.name}</b>
+              <b><LocalizedCopy>{item.name}</LocalizedCopy></b>
               <small>
-                {item.breed || item.species} · {item.city} · {item.status}
+                <LocalizedCopy>{item.breed || item.species}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{item.city}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{item.status}</LocalizedCopy>
               </small>
             </div>
-            <button
+            <LocalizedButton
               type="button"
               className="secondary-button"
               aria-expanded={openId === item.id}
               onClick={() => setOpenId(openId === item.id ? "" : item.id)}
             >
-              {item.applicant_count} lamaran
-            </button>
+              <LocalizedCopy>{item.applicant_count}</LocalizedCopy><LocalizedCopy>{" lamaran"}</LocalizedCopy></LocalizedButton>
           </header>
-          {openId === item.id && (
+          <LocalizedCopy>{openId === item.id && (
             <ListingApplications
               listingId={item.id}
               notify={notify}
               changed={load}
             />
-          )}
+          )}</LocalizedCopy>
         </article>
-      ))}
+      ))}</LocalizedCopy>
     </div>
   );
 }
@@ -144,39 +144,39 @@ function ListingApplications({
       setBusy(false);
     }
   }
-  if (!apps) return <p>Memuat lamaran…</p>;
-  if (!apps.length) return <p>Belum ada lamaran masuk.</p>;
+  if (!apps) return <p><LocalizedCopy>{"Memuat lamaran…"}</LocalizedCopy></p>;
+  if (!apps.length) return <p><LocalizedCopy>{"Belum ada lamaran masuk."}</LocalizedCopy></p>;
   return (
     <div className="adoption-applications">
-      {apps.map((app) => (
+      <LocalizedCopy>{apps.map((app) => (
         <section key={app.id}>
           <header>
-            <b>{app.applicant_name}</b>
+            <b><LocalizedCopy>{app.applicant_name}</LocalizedCopy></b>
             <StatusBadge status={app.status} />
           </header>
           <dl>
-            <dt>Telepon</dt>
-            <dd>{app.phone}</dd>
-            <dt>Alamat</dt>
-            <dd>{app.address}</dd>
-            <dt>Tempat tinggal</dt>
-            <dd>{app.housing_type}</dd>
-            <dt>Hewan lain</dt>
-            <dd>{app.has_other_pets ? "Ya" : "Tidak"}</dd>
-            <dt>Pengalaman</dt>
-            <dd>{app.experience || "-"}</dd>
-            <dt>Alasan</dt>
-            <dd>{app.reason}</dd>
-            {app.status_note && (
+            <dt><LocalizedCopy>{"Telepon"}</LocalizedCopy></dt>
+            <dd><LocalizedCopy>{app.phone}</LocalizedCopy></dd>
+            <dt><LocalizedCopy>{"Alamat"}</LocalizedCopy></dt>
+            <dd><LocalizedCopy>{app.address}</LocalizedCopy></dd>
+            <dt><LocalizedCopy>{"Tempat tinggal"}</LocalizedCopy></dt>
+            <dd><LocalizedCopy>{app.housing_type}</LocalizedCopy></dd>
+            <dt><LocalizedCopy>{"Hewan lain"}</LocalizedCopy></dt>
+            <dd><LocalizedCopy>{app.has_other_pets ? "Ya" : "Tidak"}</LocalizedCopy></dd>
+            <dt><LocalizedCopy>{"Pengalaman"}</LocalizedCopy></dt>
+            <dd><LocalizedCopy>{app.experience || "-"}</LocalizedCopy></dd>
+            <dt><LocalizedCopy>{"Alasan"}</LocalizedCopy></dt>
+            <dd><LocalizedCopy>{app.reason}</LocalizedCopy></dd>
+            <LocalizedCopy>{app.status_note && (
               <>
-                <dt>Catatan</dt>
-                <dd>{app.status_note}</dd>
+                <dt><LocalizedCopy>{"Catatan"}</LocalizedCopy></dt>
+                <dd><LocalizedCopy>{app.status_note}</LocalizedCopy></dd>
               </>
-            )}
+            )}</LocalizedCopy>
           </dl>
-          {transitions[app.status] && (
+          <LocalizedCopy>{transitions[app.status] && (
             <>
-              <input
+              <LocalizedInput
                 value={notes[app.id] ?? ""}
                 onChange={(event) =>
                   setNotes((current) => ({
@@ -188,8 +188,8 @@ function ListingApplications({
                 aria-label={`Catatan untuk ${app.applicant_name}`}
               />
               <div className="adoption-application-actions">
-                {transitions[app.status]?.map((next) => (
-                  <button
+                <LocalizedCopy>{transitions[app.status]?.map((next) => (
+                  <LocalizedButton
                     key={next}
                     type="button"
                     className={
@@ -198,14 +198,14 @@ function ListingApplications({
                     disabled={busy}
                     onClick={() => void review(app, next)}
                   >
-                    {actionLabel[next]}
-                  </button>
-                ))}
+                    <LocalizedCopy>{actionLabel[next]}</LocalizedCopy>
+                  </LocalizedButton>
+                ))}</LocalizedCopy>
               </div>
             </>
-          )}
+          )}</LocalizedCopy>
         </section>
-      ))}
+      ))}</LocalizedCopy>
     </div>
   );
 }
@@ -236,38 +236,36 @@ export function MyAdoptionApplications({ notify }: { notify: Notify }) {
       setBusy(false);
     }
   }
-  if (!items) return <div className="empty-state compact">Memuat lamaran…</div>;
+  if (!items) return <div className="empty-state compact"><LocalizedCopy>{"Memuat lamaran…"}</LocalizedCopy></div>;
   if (!items.length)
     return (
       <div className="empty-state">
-        <span>🐾</span>
-        <h3>Belum ada lamaran</h3>
-        <p>Pilih pet di tab Jelajahi untuk mengajukan lamaran adopsi.</p>
+        <span><LocalizedCopy>{"🐾"}</LocalizedCopy></span>
+        <h3><LocalizedCopy>{"Belum ada lamaran"}</LocalizedCopy></h3>
+        <p><LocalizedCopy>{"Pilih pet di tab Jelajahi untuk mengajukan lamaran adopsi."}</LocalizedCopy></p>
       </div>
     );
   return (
     <div className="adoption-manage-list">
-      {items.map((item) => (
+      <LocalizedCopy>{items.map((item) => (
         <article className="adoption-manage-card" key={item.id}>
           <header>
             <div>
-              <b>{item.listing_name}</b>
-              {item.status_note && <small>{item.status_note}</small>}
+              <b><LocalizedCopy>{item.listing_name}</LocalizedCopy></b>
+              <LocalizedCopy>{item.status_note && <small><LocalizedCopy>{item.status_note}</LocalizedCopy></small>}</LocalizedCopy>
             </div>
             <StatusBadge status={item.status} />
           </header>
-          {!["rejected", "withdrawn", "completed"].includes(item.status) && (
-            <button
+          <LocalizedCopy>{!["rejected", "withdrawn", "completed"].includes(item.status) && (
+            <LocalizedButton
               type="button"
               className="secondary-button"
               disabled={busy}
               onClick={() => void withdraw(item)}
-            >
-              Tarik lamaran
-            </button>
-          )}
+            ><LocalizedCopy>{"Tarik lamaran"}</LocalizedCopy></LocalizedButton>
+          )}</LocalizedCopy>
         </article>
-      ))}
+      ))}</LocalizedCopy>
     </div>
   );
 }

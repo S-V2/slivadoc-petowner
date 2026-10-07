@@ -1,3 +1,5 @@
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
+import { useResponsiveLayout } from "../responsive";
 import { Ionicons } from "@expo/vector-icons";
 import { DiscountBadge } from "../components/DiscountBadge";
 import { LinearGradient } from "expo-linear-gradient";
@@ -9,7 +11,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
+
   ScrollView,
   StyleSheet,
   useWindowDimensions,
@@ -278,7 +280,7 @@ function ProductVisual({
   product: MobileProduct;
   large?: boolean;
 }) {
-  const { width } = useWindowDimensions();
+  const { sheetWidth: width } = useResponsiveLayout();
   const [previewIndex, setPreviewIndex] = useState<number>();
   const [activeImage, setActiveImage] = useState(0);
   const galleryRef = useRef<ScrollView>(null);
@@ -308,7 +310,7 @@ function ProductVisual({
           </ScrollView>
           {images.length > 1 ? <View style={styles.productGalleryBadge}><Ionicons name="images-outline" size={13} color={colors.white} /><Text style={styles.productGalleryBadgeText}>{activeImage + 1}/{images.length} · otomatis</Text></View> : null}
         </View>
-        <Modal visible={previewIndex !== undefined} animationType="fade" statusBarTranslucent transparent onRequestClose={() => setPreviewIndex(undefined)}>
+        <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible={previewIndex !== undefined} animationType="fade" statusBarTranslucent transparent onRequestClose={() => setPreviewIndex(undefined)}>
           <SafeAreaView style={styles.productViewer}>
             <Pressable accessibilityRole="button" hitSlop={10} onPress={() => setPreviewIndex(undefined)} style={styles.productViewerClose} accessibilityLabel="Tutup galeri"><Ionicons name="close" size={24} color={colors.white} /></Pressable>
             <Image alt={`Foto ${product.name}`} accessibilityLabel={`Foto ${product.name}`} source={{ uri: images[previewIndex ?? 0] }} resizeMode="contain" style={styles.productViewerImage} />
@@ -357,13 +359,14 @@ function ProductCard({
   onFavorite: () => void;
 }) {
   const { formatCurrency, formatDate, formatNumber } = useI18n();
+  const layout = useResponsiveLayout();
   const discount = productDiscount(product);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Buka ${product.name}`}
       onPress={onOpen}
-      style={({ pressed }) => [styles.productCard, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.productCard, { width: `${100 / layout.columns - 1.5}%` }, pressed && styles.pressed]}
     >
       <View style={styles.productVisualWrap}>
         <ProductVisual product={product} />
@@ -398,7 +401,7 @@ function ProductCard({
         <Text numberOfLines={1} style={styles.productCategory}>
           {product.category}
         </Text>
-        <Text numberOfLines={2} style={styles.productName}>
+        <Text catalogue numberOfLines={2} style={styles.productName}>
           {product.name}
         </Text>
         <Pressable
@@ -1774,7 +1777,7 @@ function SheetFrame({
   children: React.ReactNode;
 }) {
   return (
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={visible}
       transparent
       animationType="slide"
@@ -1940,7 +1943,7 @@ function ProductDetailSheet({
           </Text>
         </View>
         <Text style={styles.detailSectionTitle}>Tentang produk</Text>
-        <Text style={styles.detailDescription}>
+        <Text catalogue style={styles.detailDescription}>
           {product.description ||
             "Produk pilihan dari partner Slivadoc untuk kebutuhan harian pet-mu."}
         </Text>
@@ -2040,7 +2043,7 @@ function ProductDetailSheet({
             </View>
             <View style={styles.reviewBody}>
               <View style={styles.reviewerLine}>
-                <Text style={styles.reviewerName}>{review.reviewer_name}</Text>
+                <Text translate={false} style={styles.reviewerName}>{review.reviewer_name}</Text>
                 {review.verified_purchase ? (
                   <Pill tone="mint">Pembelian valid</Pill>
                 ) : null}
@@ -2234,7 +2237,7 @@ function StorefrontSheet({
   }, [category, products, sort]);
 
   return (
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={visible}
       transparent
       statusBarTranslucent
@@ -2478,7 +2481,7 @@ function StorefrontSheet({
                   </LinearGradient>
                   <View style={styles.storefrontServiceCopy}>
                     <Text style={styles.productCategory}>{service.category}</Text>
-                    <Text numberOfLines={2} style={styles.storefrontServiceName}>{service.name}</Text>
+                    <Text catalogue numberOfLines={2} style={styles.storefrontServiceName}>{service.name}</Text>
                     <Text numberOfLines={1} style={styles.storefrontServiceMeta}>{service.durationMinutes ? `${service.durationMinutes} menit · ` : ""}{service.price}</Text>
                   </View>
                   <View style={styles.storefrontServiceArrow}><Ionicons name="chevron-forward" size={16} color={colors.sky600} /></View>
@@ -2523,7 +2526,7 @@ function StorefrontSheet({
                       </Text>
                     </View>
                     <View style={styles.reviewBody}>
-                      <Text style={styles.reviewerName}>
+                      <Text translate={false} style={styles.reviewerName}>
                         {review.reviewer_name}
                       </Text>
                       <Stars value={review.rating} size={11} />
@@ -2660,7 +2663,7 @@ export function MarketplaceChatSheet({
           </View>
           <View style={styles.chatProductCopy}>
             <Text style={styles.chatProductLabel}>TANYAKAN PRODUK INI</Text>
-            <Text numberOfLines={1} style={styles.chatProductName}>
+            <Text catalogue numberOfLines={1} style={styles.chatProductName}>
               {product.name}
             </Text>
           </View>
@@ -2981,7 +2984,7 @@ function CartSheet({
                 />
               </View>
               <View style={styles.cartItemCopy}>
-                <Text numberOfLines={2} style={styles.cartItemName}>
+                <Text catalogue numberOfLines={2} style={styles.cartItemName}>
                   {product.name}
                 </Text>
                 <Text numberOfLines={1} style={styles.cartItemStore}>
@@ -3779,7 +3782,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(13,35,54,.45)",
   },
-  sheetSafeArea: { width: "100%", maxHeight: "88%" },
+  sheetSafeArea: {maxWidth: 720, alignSelf: "center",  width: "100%", maxHeight: "88%" },
   sheetSafeAreaFill: { height: "88%" },
   sheet: {
     overflow: "hidden",
@@ -4161,7 +4164,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(14,32,55,.46)",
   },
-  storefrontSheet: {
+  storefrontSheet: {width: "100%", maxWidth: 720, alignSelf: "center",
     overflow: "hidden",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,

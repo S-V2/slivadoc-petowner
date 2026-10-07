@@ -1,4 +1,6 @@
 "use client";
+import { petOwnerIntlLocale } from "../../lib/petowner-locale";
+import { LocalizedCopy, LocalizedButton, LocalizedInput } from "../LocalizedCopy";
 
 import { useEffect, useRef, useState } from "react";
 import type { Pet } from "../../lib/petowner-domain";
@@ -196,22 +198,22 @@ export default function SlivaCareDrawer({
       >
         <header className="chat-header">
           <div className="doctor-avatar">
-            {mode === "assistant" ? "✦" : "👩🏻‍⚕️"}
+            <LocalizedCopy>{mode === "assistant" ? "✦" : "👩🏻‍⚕️"}</LocalizedCopy>
             <i />
           </div>
           <div>
             <h3>
-              {supportMode ? "Slivadoc Support" : mode === "assistant" ? "SlivaCare Assistant" : "SlivaCare Team"}
+              <LocalizedCopy>{supportMode ? "Slivadoc Support" : mode === "assistant" ? "SlivaCare Assistant" : "SlivaCare Team"}</LocalizedCopy>
             </h3>
             <p>
-              {supportMode ? "Chat bantuan akun Slivadoc" : mode === "assistant"
+              <LocalizedCopy>{supportMode ? "Chat bantuan akun Slivadoc" : mode === "assistant"
                 ? "AI khusus kebutuhan hewan"
                 : connected
                   ? "Realtime • terhubung"
-                  : "Menghubungkan percakapan..."}
+                  : "Menghubungkan percakapan..."}</LocalizedCopy>
             </p>
           </div>
-          {!supportMode && <button
+          <LocalizedCopy>{!supportMode && <LocalizedButton
             className="video-call"
             type="button"
             onClick={() => {
@@ -223,20 +225,18 @@ export default function SlivaCareDrawer({
             aria-label="Buka konsultasi video"
           >
             <Icon name="video" size={18} />
-          </button>}
-          <button type="button" aria-label="Tutup chat" onClick={onClose}>
+          </LocalizedButton>}</LocalizedCopy>
+          <LocalizedButton type="button" aria-label="Tutup chat" onClick={onClose}>
             <Icon name="close" />
-          </button>
+          </LocalizedButton>
         </header>
-        {!supportMode && <div className="chat-mode-tabs">
-          <button
+        <LocalizedCopy>{!supportMode && <div className="chat-mode-tabs">
+          <LocalizedButton
             type="button"
             className={mode === "assistant" ? "active" : ""}
             onClick={() => setMode("assistant")}
-          >
-            ✦ AI Assistant
-          </button>
-          <button
+          ><LocalizedCopy>{"✦ AI Assistant"}</LocalizedCopy></LocalizedButton>
+          <LocalizedButton
             type="button"
             className={mode === "care-team" ? "active" : ""}
             onClick={() => {
@@ -246,38 +246,33 @@ export default function SlivaCareDrawer({
               }
               setMode("care-team");
             }}
-          >
-            💬 Care Team <i className={connected ? "online" : ""} />
-          </button>
-        </div>}
+          ><LocalizedCopy>{"💬 Care Team "}</LocalizedCopy><i className={connected ? "online" : ""} />
+          </LocalizedButton>
+        </div>}</LocalizedCopy>
         <div className="chat-context">
-          <span>{pet.avatar}</span>
+          <span><LocalizedCopy>{pet.avatar}</LocalizedCopy></span>
           <p>
-            <small>{supportMode ? "BANTUAN AKUN" : "KONSULTASI UNTUK"}</small>
+            <small><LocalizedCopy>{supportMode ? "BANTUAN AKUN" : "KONSULTASI UNTUK"}</LocalizedCopy></small>
             <b>
-              {supportMode ? owner?.full_name : `${pet.name} • ${pet.breed}`}
+              <LocalizedCopy>{supportMode ? owner?.full_name : `${pet.name} • ${pet.breed}`}</LocalizedCopy>
             </b>
           </p>
-          <span className="pet-only-badge">{supportMode ? "SUPPORT" : "PET ONLY"}</span>
+          <span className="pet-only-badge"><LocalizedCopy>{supportMode ? "SUPPORT" : "PET ONLY"}</LocalizedCopy></span>
         </div>
         <div className="chat-messages" ref={scrollRef}>
-          <span className="chat-date">Hari ini</span>
-          {mode === "assistant" && (
+          <span className="chat-date"><LocalizedCopy>{"Hari ini"}</LocalizedCopy></span>
+          <LocalizedCopy>{mode === "assistant" && (
             <div className="assistant-scope">
-              <Icon name="shield" size={15} /> SlivaCare menolak pertanyaan di
-              luar topik hewan dan tidak menggantikan diagnosis dokter.
-            </div>
-          )}
-          {messages.length === 0 && mode === "care-team" && (
+              <Icon name="shield" size={15} /><LocalizedCopy>{" SlivaCare menolak pertanyaan di luar topik hewan dan tidak menggantikan diagnosis dokter."}</LocalizedCopy></div>
+          )}</LocalizedCopy>
+          <LocalizedCopy>{messages.length === 0 && mode === "care-team" && (
             <div className="chat-empty">
-              <span>💬</span>
-              <b>Mulai percakapan realtime</b>
-              <p>
-                Percakapanmu tersimpan di akun Slivadoc dan tersinkron di semua perangkat.
-              </p>
+              <span><LocalizedCopy>{"💬"}</LocalizedCopy></span>
+              <b><LocalizedCopy>{"Mulai percakapan realtime"}</LocalizedCopy></b>
+              <p><LocalizedCopy>{"Percakapanmu tersimpan di akun Slivadoc dan tersinkron di semua perangkat."}</LocalizedCopy></p>
             </div>
-          )}
-          {messages.map((item, index) => {
+          )}</LocalizedCopy>
+          <LocalizedCopy>{messages.map((item, index) => {
             const isAssistant =
               "role" in item
                 ? item.role === "assistant"
@@ -288,65 +283,59 @@ export default function SlivaCareDrawer({
                 className={`message ${isAssistant ? "doctor" : "me"}`}
                 key={("id" in item && item.id) || `${content}-${index}`}
               >
-                {isAssistant && (
-                  <span>{mode === "assistant" ? "✦" : "👩🏻‍⚕️"}</span>
-                )}
+                <LocalizedCopy>{isAssistant && (
+                  <span><LocalizedCopy>{mode === "assistant" ? "✦" : "👩🏻‍⚕️"}</LocalizedCopy></span>
+                )}</LocalizedCopy>
                 <p>
-                  {content}
+                  <LocalizedCopy>{content}</LocalizedCopy>
                   <small>
-                    {new Date().toLocaleTimeString("id-ID", {
+                    <LocalizedCopy>{new Date().toLocaleTimeString(petOwnerIntlLocale(), {
                       hour: "2-digit",
                       minute: "2-digit",
-                    })}
-                    {!isAssistant && " ✓✓"}
+                    })}</LocalizedCopy>
+                    <LocalizedCopy>{!isAssistant && " ✓✓"}</LocalizedCopy>
                   </small>
                 </p>
               </div>
             );
-          })}
-          {loading && (
+          })}</LocalizedCopy>
+          <LocalizedCopy>{loading && (
             <div className="message doctor">
-              <span>✦</span>
+              <span><LocalizedCopy>{"✦"}</LocalizedCopy></span>
               <p className="typing">
                 <i />
                 <i />
                 <i />
               </p>
             </div>
-          )}
-          {mode === "assistant" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{mode === "assistant" && (
             <div className="quick-replies">
-              <button
+              <LocalizedButton
                 type="button"
                 onClick={() =>
                   setMessage(
                     "Anjing saya muntah, apa yang perlu saya perhatikan?",
                   )
                 }
-              >
-                🩺 Konsultasi gejala
-              </button>
-              <button
+              ><LocalizedCopy>{"🩺 Konsultasi gejala"}</LocalizedCopy></LocalizedButton>
+              <LocalizedButton
                 type="button"
                 onClick={() =>
                   setMessage(
                     "Apa jadwal vaksin yang perlu saya tanyakan ke dokter?",
                   )
                 }
-              >
-                💉 Tanya vaksin
-              </button>
-              <button
+              ><LocalizedCopy>{"💉 Tanya vaksin"}</LocalizedCopy></LocalizedButton>
+              <LocalizedButton
                 type="button"
                 onClick={() => setMessage("Hewan saya sesak napas dan lemas")}
-              >
-                🚑 Darurat
-              </button>
+              ><LocalizedCopy>{"🚑 Darurat"}</LocalizedCopy></LocalizedButton>
             </div>
-          )}
+          )}</LocalizedCopy>
         </div>
         <div className="chat-input">
-          <input
+          <LocalizedInput
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             onKeyDown={(event) => event.key === "Enter" && send()}
@@ -356,9 +345,9 @@ export default function SlivaCareDrawer({
                 : "Tulis pesan ke care team..."
             }
           />
-          <button type="button" aria-label="Kirim pesan" onClick={send} disabled={loading || !message.trim()}>
+          <LocalizedButton type="button" aria-label="Kirim pesan" onClick={send} disabled={loading || !message.trim()}>
             <Icon name="arrow" size={18} />
-          </button>
+          </LocalizedButton>
         </div>
       </aside>
     </div>

@@ -1,5 +1,6 @@
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator,  StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import {

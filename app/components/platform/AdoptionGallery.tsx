@@ -1,4 +1,5 @@
 "use client";
+import { LocalizedCopy, LocalizedButton } from "../LocalizedCopy";
 import Image from "next/image";
 import { useState } from "react";
 
@@ -12,8 +13,7 @@ export function AdoptionGallery({
   const [index, setIndex] = useState(0);
   if (!photos.length)
     return (
-      <div className="adoption-passport-placeholder">
-        🐾<small>Foto belum tersedia</small>
+      <div className="adoption-passport-placeholder"><LocalizedCopy>{"🐾"}</LocalizedCopy><small><LocalizedCopy>{"Foto belum tersedia"}</LocalizedCopy></small>
       </div>
     );
   return (
@@ -25,29 +25,25 @@ export function AdoptionGallery({
         height={640}
         unoptimized
       />
-      {photos.length > 1 && (
+      <LocalizedCopy>{photos.length > 1 && (
         <div className="adoption-gallery-controls">
-          <button
+          <LocalizedButton
             type="button"
             aria-label="Foto sebelumnya"
             onClick={() =>
               setIndex((index + photos.length - 1) % photos.length)
             }
-          >
-            ‹
-          </button>
+          ><LocalizedCopy>{"‹"}</LocalizedCopy></LocalizedButton>
           <span>
-            {index + 1} / {photos.length}
+            <LocalizedCopy>{index + 1}</LocalizedCopy><LocalizedCopy>{" / "}</LocalizedCopy><LocalizedCopy>{photos.length}</LocalizedCopy>
           </span>
-          <button
+          <LocalizedButton
             type="button"
             aria-label="Foto berikutnya"
             onClick={() => setIndex((index + 1) % photos.length)}
-          >
-            ›
-          </button>
+          ><LocalizedCopy>{"›"}</LocalizedCopy></LocalizedButton>
         </div>
-      )}
+      )}</LocalizedCopy>
     </div>
   );
 }

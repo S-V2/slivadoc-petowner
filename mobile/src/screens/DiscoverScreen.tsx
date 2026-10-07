@@ -1,4 +1,5 @@
-import { Image, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
+import { Image, Modal,  ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { DiscountBadge } from "../components/DiscountBadge";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -63,7 +64,7 @@ export function DiscoverScreen({ onBook, onOpenNotifications,services,favorites,
                 <Pressable hitSlop={10} onPress={(event) => { event.stopPropagation();onToggleFavorite(service.id) }} style={styles.favorite}><Ionicons name={favorite ? "heart" : "heart-outline"} size={18} color={favorite ? colors.red : colors.text} /></Pressable>
               </View>
               <View style={styles.serviceBody}>
-                <View style={styles.serviceTitleRow}><View style={styles.serviceTitleCopy}><Text numberOfLines={2} style={styles.serviceName}>{service.name}</Text><Text numberOfLines={2} style={styles.serviceLocation}><Ionicons name="location-outline" size={10} /> {service.distance} • {service.address}</Text></View><View style={styles.rating}><Ionicons name="star" size={10} color={colors.yellow} /><Text style={styles.ratingText}>{service.rating}</Text></View></View>
+                <View style={styles.serviceTitleRow}><View style={styles.serviceTitleCopy}><Text catalogue numberOfLines={2} style={styles.serviceName}>{service.name}</Text><Text numberOfLines={2} style={styles.serviceLocation}><Ionicons name="location-outline" size={10} /> {service.distance} • {service.address}</Text></View><View style={styles.rating}><Ionicons name="star" size={10} color={colors.yellow} /><Text style={styles.ratingText}>{service.rating}</Text></View></View>
                 <View style={styles.tags}><Text style={styles.tagText}>✓ Terverifikasi</Text><Text style={styles.tagText}>Pet friendly</Text></View>
                 <View style={styles.status}><View style={styles.liveDot} /><Text style={styles.statusText}>{service.status}</Text></View>
                 <View style={styles.serviceFooter}><View><Text style={styles.priceLabel}>Estimasi harga</Text>{service.originalPrice && service.originalPrice > service.priceValue ? <Text style={styles.oldPrice}>{formatCurrency(service.originalPrice)}</Text> : null}<Text style={styles.price}>{service.price}</Text></View><PrimaryButton compact label="Booking" onPress={() => onBook(service)} /></View>
@@ -96,12 +97,12 @@ function ServiceDetailSheet({ service, onClose, onBook }: { service?: Service; o
   const activeIndex = images.length ? imageIndex % images.length : 0;
   const activeImage = images[activeIndex];
   return <>
-    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.detailBackdrop}>
         <SafeAreaView style={styles.detailSafe} edges={["top", "bottom"]}>
           <View style={styles.detailSheet}>
             <View style={styles.detailHeader}>
-              <View><Text style={styles.detailEyebrow}>DETAIL LAYANAN</Text><Text numberOfLines={1} style={styles.detailHeaderTitle}>{service.name}</Text></View>
+              <View><Text style={styles.detailEyebrow}>DETAIL LAYANAN</Text><Text catalogue numberOfLines={1} style={styles.detailHeaderTitle}>{service.name}</Text></View>
               <Pressable accessibilityLabel="Tutup detail layanan" onPress={onClose} style={styles.detailClose}><Ionicons name="close" size={21} color={colors.text} /></Pressable>
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.detailContent}>
@@ -111,14 +112,14 @@ function ServiceDetailSheet({ service, onClose, onBook }: { service?: Service; o
                 <DiscountBadge percent={service.discountPercent} />
                 {images.length > 1 ? <View style={styles.detailPager}><Pressable onPress={() => setImageIndex((activeIndex - 1 + images.length) % images.length)}><Ionicons name="chevron-back" size={18} color={colors.white} /></Pressable><Text style={styles.detailPagerText}>{activeIndex + 1}/{images.length} · otomatis</Text><Pressable onPress={() => setImageIndex((activeIndex + 1) % images.length)}><Ionicons name="chevron-forward" size={18} color={colors.white} /></Pressable></View> : null}
               </View>
-              <View style={styles.detailTitleRow}><View style={styles.detailTitleCopy}><Text style={styles.detailName}>{service.name}</Text><Text style={styles.detailAddress}><Ionicons name="location-outline" size={12} /> {service.address}</Text></View><View style={styles.detailRating}><Ionicons name="star" size={12} color={colors.yellow} /><Text style={styles.detailRatingText}>{service.rating}</Text></View></View>
+              <View style={styles.detailTitleRow}><View style={styles.detailTitleCopy}><Text catalogue style={styles.detailName}>{service.name}</Text><Text style={styles.detailAddress}><Ionicons name="location-outline" size={12} /> {service.address}</Text></View><View style={styles.detailRating}><Ionicons name="star" size={12} color={colors.yellow} /><Text style={styles.detailRatingText}>{service.rating}</Text></View></View>
               <View style={styles.detailHighlights}>
                 <View style={styles.detailHighlight}><Ionicons name="shield-checkmark-outline" size={19} color={colors.sky600} /><Text style={styles.detailHighlightTitle}>{service.licenseStatus === "verified" ? "Terverifikasi" : "Mitra aktif"}</Text><Text style={styles.detailHighlightNote}>Status mitra</Text></View>
                 <View style={styles.detailHighlight}><Ionicons name="time-outline" size={19} color="#14836E" /><Text style={styles.detailHighlightTitle}>{service.durationMinutes ?? 60} menit</Text><Text style={styles.detailHighlightNote}>Durasi</Text></View>
                 <View style={styles.detailHighlight}><Ionicons name="wallet-outline" size={19} color="#6655C7" />{service.originalPrice && service.originalPrice > service.priceValue ? <Text style={styles.detailHighlightOldPrice}>{formatCurrency(service.originalPrice)}</Text> : null}<Text style={styles.detailHighlightTitle}>{service.price}</Text><Text style={styles.detailHighlightNote}>{service.discountPercent ? `Hemat ${Math.round(service.discountPercent)}%` : "Estimasi"}</Text></View>
               </View>
               <Text style={styles.detailSectionTitle}>Tentang layanan</Text>
-              <Text style={styles.detailDescription}>{service.description || "Layanan pet care dari mitra Slivadoc dengan jadwal dan kapasitas yang tersinkron langsung."}</Text>
+              <Text catalogue style={styles.detailDescription}>{service.description || "Layanan pet care dari mitra Slivadoc dengan jadwal dan kapasitas yang tersinkron langsung."}</Text>
               {service.inclusions?.length ? <><Text style={styles.detailSectionTitle}>Yang termasuk</Text><View style={styles.detailTags}>{service.inclusions.map((item) => <View key={item} style={styles.detailTag}><Ionicons name="checkmark-circle" size={14} color="#14836E" /><Text style={styles.detailTagText}>{item}</Text></View>)}</View></> : null}
               <View style={styles.detailPolicy}><Ionicons name="information-circle-outline" size={21} color={colors.sky600} /><View><Text style={styles.detailPolicyTitle}>Sebelum booking</Text><Text style={styles.detailPolicyText}>{service.cancellationPolicy || "Jadwal aktual, kapasitas, biaya, dan kebijakan akan ditampilkan sebelum konfirmasi."}</Text>{service.cancellationCutoffHours !== undefined ? <Text style={styles.detailPolicyText}>Bisa dibatalkan hingga {service.cancellationCutoffHours} jam sebelum jadwal</Text> : null}</View></View>
             </ScrollView>
@@ -127,7 +128,7 @@ function ServiceDetailSheet({ service, onClose, onBook }: { service?: Service; o
         </SafeAreaView>
       </View>
     </Modal>
-    <Modal visible={viewerOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setViewerOpen(false)}>
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible={viewerOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setViewerOpen(false)}>
       <SafeAreaView style={styles.viewer}><Pressable accessibilityRole="button" hitSlop={10} accessibilityLabel="Tutup galeri" onPress={() => setViewerOpen(false)} style={styles.viewerClose}><Ionicons name="close" size={25} color={colors.white} /></Pressable>{activeImage ? <Image source={{ uri: activeImage }} alt={`Foto ${service.name}`} style={styles.viewerImage} resizeMode="contain" /> : null}{images.length > 1 ? <View style={styles.viewerControls}><Pressable onPress={() => setImageIndex((activeIndex - 1 + images.length) % images.length)}><Ionicons name="chevron-back" size={25} color={colors.white} /></Pressable><Text style={styles.viewerCount}>{activeIndex + 1} / {images.length}</Text><Pressable onPress={() => setImageIndex((activeIndex + 1) % images.length)}><Ionicons name="chevron-forward" size={25} color={colors.white} /></Pressable></View> : null}</SafeAreaView>
     </Modal>
   </>;
@@ -153,7 +154,7 @@ const styles = StyleSheet.create({
   empty: { minHeight: 230, alignItems: "center", justifyContent: "center" }, emptyIcon: { width: 58, height: 58, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: colors.sky50 }, emptyTitle: { marginTop: 8, color: colors.navy, fontSize: 17, fontWeight: "600" }, emptyNote: { marginTop: 4, marginBottom: 13, color: colors.muted, fontSize: 12 },
   detailBackdrop: { flex: 1, backgroundColor: "rgba(14,32,55,.46)" },
   detailSafe: { flex: 1, justifyContent: "flex-end" },
-  detailSheet: { height: "94%", overflow: "hidden", borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.white },
+  detailSheet: {width: "100%", maxWidth: 720, alignSelf: "center",  height: "94%", overflow: "hidden", borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.white },
   detailHeader: { minHeight: 70, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.line },
   detailEyebrow: { color: colors.sky600, fontSize: 9, fontWeight: "700", letterSpacing: .8 },
   detailHeaderTitle: { maxWidth: 260, marginTop: 3, color: colors.navy, fontSize: 15, fontWeight: "700" },

@@ -1,3 +1,4 @@
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 /* React Native Image uses accessibilityLabel instead of the web alt attribute. */
 /* eslint-disable jsx-a11y/alt-text */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -7,7 +8,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
+
   ScrollView,
   StyleSheet,
   View,
@@ -273,7 +274,7 @@ function JoinRequests({ group, onAction }: { group: MobileCommunityGroup; onActi
       <Text style={styles.requestsTitle}>Permintaan bergabung</Text>
       {requests.map((member) => (
         <View key={member.user_id} style={styles.requestRow}>
-          <Text numberOfLines={1} style={styles.requestName}>{member.full_name}</Text>
+          <Text translate={false} numberOfLines={1} style={styles.requestName}>{member.full_name}</Text>
           <Pressable accessibilityRole="button" disabled={busy} onPress={() => void review(member, "blocked")} style={[styles.requestReject, busy && { opacity: 0.55 }]}><Text style={styles.requestRejectText}>Tolak</Text></Pressable>
           <Pressable accessibilityRole="button" disabled={busy} onPress={() => void review(member, "active")} style={[styles.requestApprove, busy && { opacity: 0.55 }]}><Text style={styles.requestApproveText}>Setujui</Text></Pressable>
         </View>
@@ -327,7 +328,7 @@ function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { 
   };
 
   return (
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={Boolean(group)}
       animationType="slide"
       presentationStyle="fullScreen"
@@ -351,7 +352,7 @@ function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { 
           <ScrollView ref={scrollRef} onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.messages}>
             <View style={styles.encryptionNote}><Ionicons name="lock-closed" size={11} color="#8B7123" /><Text style={styles.encryptionText}>Percakapan tersimpan aman di Slivadoc. Jangan bagikan data kontak pribadi.</Text></View>
             {group.owner ? <JoinRequests group={group} onAction={onAction} /> : null}
-            {messages.length ? messages.map((message) => <View key={message.id} style={[styles.bubbleWrap, message.mine && styles.myBubbleWrap]}><View style={[styles.bubble, message.mine && styles.myBubble]}>{!message.mine ? <Text style={styles.senderName}>{message.sender_name}</Text> : null}<Text style={styles.messageBody}>{message.body}</Text><Text style={styles.messageTime}>{messageTime(message.created_at, locale)}{message.mine ? "  ✓✓" : ""}</Text></View></View>) : <View style={styles.roomEmpty}><View style={styles.emptyIcon}><Ionicons name="chatbubbles-outline" size={24} color={colors.sky600}/></View><Text style={styles.emptyTitle}>Mulai percakapan</Text><Text style={styles.emptyNote}>Sapa member grup dengan pesan pertama yang ramah.</Text></View>}
+            {messages.length ? messages.map((message) => <View key={message.id} style={[styles.bubbleWrap, message.mine && styles.myBubbleWrap]}><View style={[styles.bubble, message.mine && styles.myBubble]}>{!message.mine ? <Text translate={false} style={styles.senderName}>{message.sender_name}</Text> : null}<Text style={styles.messageBody}>{message.body}</Text><Text style={styles.messageTime}>{messageTime(message.created_at, locale)}{message.mine ? "  ✓✓" : ""}</Text></View></View>) : <View style={styles.roomEmpty}><View style={styles.emptyIcon}><Ionicons name="chatbubbles-outline" size={24} color={colors.sky600}/></View><Text style={styles.emptyTitle}>Mulai percakapan</Text><Text style={styles.emptyNote}>Sapa member grup dengan pesan pertama yang ramah.</Text></View>}
           </ScrollView>
           <View style={[styles.roomComposer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
             <TextInput value={body} onChangeText={setBody} editable={hasPet && !sending} multiline maxLength={2000} placeholder={hasPet ? `Pesan sebagai ${owner.full_name.split(" ")[0]}…` : "Mode lihat saja — tambahkan pet untuk membalas"} placeholderTextColor={colors.muted} style={styles.roomInput} />

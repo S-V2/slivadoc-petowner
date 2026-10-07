@@ -1,4 +1,5 @@
 "use client";
+import { LocalizedCopy, LocalizedButton } from "./LocalizedCopy";
 
 import { createContext, useContext, type ReactNode } from "react";
 import { usePetOwnerI18n } from "./PetOwnerI18n";
@@ -57,12 +58,12 @@ export function PetRequiredNotice() {
     <section className="pet-required-notice" aria-label={t("Mode lihat saja")}>
       <span className="pet-required-icon"><Icon name="paw" /></span>
       <div>
-        <strong>{t("Mode lihat saja")}</strong>
-        <p>{t("Tambahkan profil pet agar bisa booking, belanja, dan berinteraksi.")}</p>
+        <strong><LocalizedCopy>{t("Mode lihat saja")}</LocalizedCopy></strong>
+        <p><LocalizedCopy>{t("Tambahkan profil pet agar bisa booking, belanja, dan berinteraksi.")}</LocalizedCopy></p>
       </div>
-      <button type="button" className="primary-button small" onClick={requirePet}>
-        <Icon name="plus" size={16} /> {t("Tambah pet")}
-      </button>
+      <LocalizedButton type="button" className="primary-button small" onClick={requirePet}>
+        <Icon name="plus" size={16} /> <LocalizedCopy>{t("Tambah pet")}</LocalizedCopy>
+      </LocalizedButton>
     </section>
   );
 }

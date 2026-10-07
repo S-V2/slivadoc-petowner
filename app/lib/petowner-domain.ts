@@ -1,3 +1,4 @@
+import { petOwnerIntlLocale } from "./petowner-locale.ts";
 export type AppView =
   | "home"
   | "pets"
@@ -139,7 +140,7 @@ export type Product = {
 };
 
 export const formatRupiah = (value: number) =>
-  new Intl.NumberFormat("id-ID", {
+  new Intl.NumberFormat(petOwnerIntlLocale(), {
     style: "currency",
     currency: "IDR",
     maximumFractionDigits: 0,

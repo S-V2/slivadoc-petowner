@@ -1,4 +1,6 @@
 "use client";
+import { LocalizedButton, LocalizedCopy, LocalizedInput } from "./LocalizedCopy";
+import { usePetOwnerI18n } from "./PetOwnerI18n";
 
 import {
   Children,
@@ -64,7 +66,7 @@ function textContent(node: ReactNode): string {
 function collectOptions(children: ReactNode, group?: string, groupDisabled = false): Option[] {
   return Children.toArray(children).flatMap((child): Option[] => {
     if (!isValidElement<ChoiceProps>(child)) return [];
-    if (child.type === Fragment) return collectOptions(child.props.children, group, groupDisabled);
+    if (child.type === Fragment || child.type === LocalizedCopy) return collectOptions(child.props.children, group, groupDisabled);
     if (child.type === "optgroup") {
       return collectOptions(child.props.children, child.props.label, Boolean(child.props.disabled));
     }
@@ -97,11 +99,12 @@ export function SlivaSelect({
   "aria-labelledby": ariaLabelledBy,
   "aria-describedby": ariaDescribedBy,
 }: Props) {
+  const { t } = usePetOwnerI18n();
   const generatedID = useId();
   const selectID = id ?? `sliva-select-${generatedID}`;
   const listID = `${selectID}-list`;
   const errorID = `${selectID}-error`;
-  const options = collectOptions(children);
+  const options = collectOptions(children).map(option => ({ ...option, label: t(option.label), group: option.group ? t(option.group) : undefined }));
   const [localValue, setLocalValue] = useState<string | undefined>(
     defaultValue === undefined ? undefined : String(defaultValue),
   );
@@ -262,12 +265,12 @@ export function SlivaSelect({
   }
 
   const expanded = open && !isDisabled;
-  const accessibleName = ariaLabel ?? "Pilih opsi";
+  const accessibleName = t(ariaLabel ?? "Pilih opsi");
   const activeID = expanded && activeIndex >= 0 ? `${listID}-option-${activeIndex}` : undefined;
 
   return (
     <span ref={rootRef} className={`sliva-select ${className}`} data-open={expanded || undefined}>
-      <button
+      <LocalizedButton
         ref={triggerRef}
         id={selectID}
         type="button"
@@ -286,14 +289,14 @@ export function SlivaSelect({
         onClick={() => expanded ? setOpen(false) : show()}
         onKeyDown={handleKey}
       >
-        <span className="sliva-select-value">{selected?.label ?? "Pilih opsi"}</span>
+        <span className="sliva-select-value"><LocalizedCopy>{selected?.label ?? t("Pilih opsi")}</LocalizedCopy></span>
         <svg className="sliva-select-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-      </button>
-      {name && <input type="hidden" name={name} value={selected?.value ?? ""} disabled={disabled} />}
-      {required && (
-        <input
+      </LocalizedButton>
+      <LocalizedCopy>{name && <LocalizedInput type="hidden" name={name} value={selected?.value ?? ""} disabled={disabled} />}</LocalizedCopy>
+      <LocalizedCopy>{required && (
+        <LocalizedInput
           ref={validationRef}
           className="sliva-select-validation"
           tabIndex={-1}
@@ -308,17 +311,17 @@ export function SlivaSelect({
             triggerRef.current?.focus({ preventScroll: true });
           }}
         />
-      )}
-      {invalid && <span id={errorID} className="sliva-select-error" role="alert">Pilih salah satu opsi untuk melanjutkan.</span>}
-      {expanded && createPortal(
+      )}</LocalizedCopy>
+      <LocalizedCopy>{invalid && <span id={errorID} className="sliva-select-error" role="alert"><LocalizedCopy>{"Pilih salah satu opsi untuk melanjutkan."}</LocalizedCopy></span>}</LocalizedCopy>
+      <LocalizedCopy>{expanded && createPortal(
         <div ref={popupRef} className="sliva-select-popup" style={position} onClick={(event) => event.stopPropagation()}>
-          {searchable && (
+          <LocalizedCopy>{searchable && (
             <div className="sliva-select-search">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" strokeWidth="1.8" />
                 <path d="m16 16 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
-              <input
+              <LocalizedInput
                 ref={searchRef}
                 role="combobox"
                 aria-label={`Cari opsi ${accessibleName}`}
@@ -326,19 +329,19 @@ export function SlivaSelect({
                 aria-controls={listID}
                 aria-activedescendant={activeID}
                 aria-autocomplete="list"
-                placeholder="Cari pilihan…"
+                placeholder={t("Cari pilihan…")}
                 value={query}
                 autoComplete="off"
                 onChange={(event) => { setQuery(event.target.value); setActiveValue(undefined); }}
                 onKeyDown={handleKey}
               />
             </div>
-          )}
+          )}</LocalizedCopy>
           <div id={listID} className="sliva-select-options" role="listbox" aria-label={accessibleName}>
-            {filtered.map((option, index) => (
+            <LocalizedCopy>{filtered.map((option, index) => (
               <Fragment key={`${option.value}-${index}`}>
                 {option.group && option.group !== filtered[index - 1]?.group && (
-                  <div className="sliva-select-group" role="presentation">{option.group}</div>
+                  <div className="sliva-select-group" role="presentation"><LocalizedCopy>{option.group}</LocalizedCopy></div>
                 )}
                 <div
                   id={`${listID}-option-${index}`}
@@ -351,19 +354,19 @@ export function SlivaSelect({
                   onPointerDown={(event) => event.preventDefault()}
                   onClick={(event) => { event.preventDefault(); event.stopPropagation(); choose(option); }}
                 >
-                  <span>{option.label}</span>
-                  {option.value === selectedValue && (
+                  <span><LocalizedCopy>{option.label}</LocalizedCopy></span>
+                  <LocalizedCopy>{option.value === selectedValue && (
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <path d="m5 12 4 4L19 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                  )}
+                  )}</LocalizedCopy>
                 </div>
               </Fragment>
-            ))}
-            {!filtered.length && <p className="sliva-select-empty" role="status">Pilihan tidak ditemukan. Coba kata lain.</p>}
+            ))}</LocalizedCopy>
+            <LocalizedCopy>{!filtered.length && <p className="sliva-select-empty" role="status"><LocalizedCopy>{"Pilihan tidak ditemukan. Coba kata lain."}</LocalizedCopy></p>}</LocalizedCopy>
           </div>
         </div>, document.body,
-      )}
+      )}</LocalizedCopy>
     </span>
   );
 }

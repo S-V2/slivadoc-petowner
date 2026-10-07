@@ -1,7 +1,8 @@
+import { LocalizedPressable as Pressable } from "./LocalizedPressable";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import {  StyleSheet, View } from "react-native";
 
 import { uploadMobileImage, type MobileSubmittedDocument } from "../api";
 import { LocalizedText as Text } from "../i18n";

@@ -1,4 +1,7 @@
 "use client";
+import { petOwnerIntlLocale } from "../../lib/petowner-locale";
+import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } from "../LocalizedCopy";
+import { SlivaDatePicker } from "../SlivaDatePicker";
 
 import { usePetOwnerFlow } from "../PetOwnerFlow";
 
@@ -25,12 +28,12 @@ import type { LocationResult } from "../../lib/petowner-api";
 import { Icon } from "../Icon";
 import { QrisPaymentPanel, PaymentMethodPicker } from "../payments/QrisPayment";
 
-const money = new Intl.NumberFormat("id-ID", {
+const money = new Intl.NumberFormat(petOwnerIntlLocale(), {
   style: "currency",
   currency: "IDR",
   maximumFractionDigits: 0,
 });
-const integer = new Intl.NumberFormat("id-ID");
+const integer = new Intl.NumberFormat(petOwnerIntlLocale());
 
 export function PetshipView({
   pet,
@@ -149,28 +152,21 @@ export function PetshipView({
     <div className="petship-page">
       <section className="petship-hero">
         <div>
-          <span className="world-kicker">LIVE · PRIVACY-FIRST</span>
-          <h2>Temukan teman anabul di sekitarmu</h2>
-          <p>
-            Check-in pada tempat yang kamu kunjungi. Pawrents lain hanya melihat
-            nama tempat dan profil pet—bukan koordinat personal.
-          </p>
+          <span className="world-kicker"><LocalizedCopy>{"LIVE · PRIVACY-FIRST"}</LocalizedCopy></span>
+          <h2><LocalizedCopy>{"Temukan teman anabul di sekitarmu"}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Check-in pada tempat yang kamu kunjungi. Pawrents lain hanya melihat nama tempat dan profil pet—bukan koordinat personal."}</LocalizedCopy></p>
           <div>
-            <button
+            <LocalizedButton
               className="primary-button"
               disabled={busy || !selected}
               onClick={() => void (checkedIn ? checkOut() : checkIn())}
             >
-              {checkedIn ? "Check-out Petship" : `Check-in ${pet.name}`}
-            </button>
-            <button className="secondary-button" onClick={() => void load()}>
-              ↻ Update live
-            </button>
+              <LocalizedCopy>{checkedIn ? "Check-out Petship" : `Check-in ${pet.name}`}</LocalizedCopy>
+            </LocalizedButton>
+            <LocalizedButton className="secondary-button" onClick={() => void load()}><LocalizedCopy>{"↻ Update live"}</LocalizedCopy></LocalizedButton>
           </div>
         </div>
-        <span className="petship-radar">
-          🐾
-          <i />
+        <span className="petship-radar"><LocalizedCopy>{"🐾"}</LocalizedCopy><i />
           <b />
         </span>
       </section>
@@ -178,71 +174,68 @@ export function PetshipView({
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <span className="section-eyebrow">TEMPAT DI SEKITARMU</span>
-              <h3>{places.length} lokasi aktif</h3>
+              <span className="section-eyebrow"><LocalizedCopy>{"TEMPAT DI SEKITARMU"}</LocalizedCopy></span>
+              <h3><LocalizedCopy>{places.length}</LocalizedCopy><LocalizedCopy>{" lokasi aktif"}</LocalizedCopy></h3>
             </div>
           </div>
-          {loading ? (
-            <div className="empty-state compact">Mencari lokasi Petship…</div>
+          <LocalizedCopy>{loading ? (
+            <div className="empty-state compact"><LocalizedCopy>{"Mencari lokasi Petship…"}</LocalizedCopy></div>
           ) : (
             <div className="petship-places">
-              {places.map((place) => (
-                <button
+              <LocalizedCopy>{places.map((place) => (
+                <LocalizedButton
                   className={selected?.id === place.id ? "active" : ""}
                   key={place.id}
                   onClick={() => setSelected(place)}
                 >
                   <span>
-                    {place.category === "mall"
+                    <LocalizedCopy>{place.category === "mall"
                       ? "🏬"
                       : place.category === "park"
                         ? "🌳"
-                        : "☕"}
+                        : "☕"}</LocalizedCopy>
                   </span>
                   <div>
-                    <b>{place.name}</b>
+                    <b><LocalizedCopy>{place.name}</LocalizedCopy></b>
                     <small>
-                      {place.city}
-                      {typeof place.distance_km === "number"
+                      <LocalizedCopy>{place.city}</LocalizedCopy>
+                      <LocalizedCopy>{typeof place.distance_km === "number"
                         ? ` · ${place.distance_km.toFixed(1)} km`
-                        : ""}
+                        : ""}</LocalizedCopy>
                     </small>
                   </div>
-                  <em>{place.active_petowners} online</em>
-                </button>
-              ))}
+                  <em><LocalizedCopy>{place.active_petowners}</LocalizedCopy><LocalizedCopy>{" online"}</LocalizedCopy></em>
+                </LocalizedButton>
+              ))}</LocalizedCopy>
             </div>
-          )}
+          )}</LocalizedCopy>
         </section>
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <span className="section-eyebrow">PAWRENTS LIVE</span>
-              <h3>{selected?.name ?? "Pilih lokasi"}</h3>
+              <span className="section-eyebrow"><LocalizedCopy>{"PAWRENTS LIVE"}</LocalizedCopy></span>
+              <h3><LocalizedCopy>{selected?.name ?? "Pilih lokasi"}</LocalizedCopy></h3>
             </div>
-            <em className="live-place-count">{pawrents.length} aktif</em>
+            <em className="live-place-count"><LocalizedCopy>{pawrents.length}</LocalizedCopy><LocalizedCopy>{" aktif"}</LocalizedCopy></em>
           </div>
           <div className="petship-pawrents">
-            {pawrents.length ? (
+            <LocalizedCopy>{pawrents.length ? (
               pawrents.map((item) => (
                 <article key={item.id}>
-                  <span>{item.species === "cat" ? "🐈" : "🐕"}</span>
+                  <span><LocalizedCopy>{item.species === "cat" ? "🐈" : "🐕"}</LocalizedCopy></span>
                   <div>
-                    <b>{item.pet_name}</b>
+                    <b><LocalizedCopy preserve>{item.pet_name}</LocalizedCopy></b>
                     <small>
-                      {item.breed} · bersama {item.owner_first_name}
+                      <LocalizedCopy>{item.breed}</LocalizedCopy><LocalizedCopy>{" · bersama "}</LocalizedCopy><LocalizedCopy>{item.owner_first_name}</LocalizedCopy>
                     </small>
-                    <p>{item.message || "Sedang menikmati waktu bersama."}</p>
+                    <p><LocalizedCopy>{item.message || "Sedang menikmati waktu bersama."}</LocalizedCopy></p>
                   </div>
                   <i />
                 </article>
               ))
             ) : (
-              <div className="empty-state compact">
-                Belum ada pawrents aktif di lokasi ini. Jadilah yang pertama
-                check-in.
-              </div>
-            )}
+              <div className="empty-state compact"><LocalizedCopy>{"Belum ada pawrents aktif di lokasi ini. Jadilah yang pertama check-in."}</LocalizedCopy></div>
+            )}</LocalizedCopy>
           </div>
         </section>
       </div>
@@ -293,56 +286,50 @@ export function FundraisingView({
   return (
     <div className="fundraising-page">
       <section className="fundraising-hero">
-        <span>♥</span>
+        <span><LocalizedCopy>{"♥"}</LocalizedCopy></span>
         <div>
-          <small>SLIVADOC ANIMAL FUND</small>
-          <h2>Bersama, perawatan jadi mungkin</h2>
-          <p>
-            Campaign diverifikasi tim operasional. Dana, jumlah donatur, dan
-            progres diperbarui dari transaksi yang sudah dibayar.
-          </p>
+          <small><LocalizedCopy>{"SLIVADOC ANIMAL FUND"}</LocalizedCopy></small>
+          <h2><LocalizedCopy>{"Bersama, perawatan jadi mungkin"}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Campaign diverifikasi tim operasional. Dana, jumlah donatur, dan progres diperbarui dari transaksi yang sudah dibayar."}</LocalizedCopy></p>
         </div>
-        <button
+        <LocalizedButton
           className="primary-button"
           onClick={() => (requirePet() && setCreateOpen(true))}
-        >
-          ＋ Galang dana
-        </button>
+        ><LocalizedCopy>{"＋ Galang dana"}</LocalizedCopy></LocalizedButton>
       </section>
-      {mine.length > 0 && (
+      <LocalizedCopy>{mine.length > 0 && (
         <section className="panel my-fundraisers">
           <div className="panel-heading">
             <div>
-              <span className="section-eyebrow">PENGAJUAN SAYA</span>
-              <h3>Status verifikasi campaign</h3>
+              <span className="section-eyebrow"><LocalizedCopy>{"PENGAJUAN SAYA"}</LocalizedCopy></span>
+              <h3><LocalizedCopy>{"Status verifikasi campaign"}</LocalizedCopy></h3>
             </div>
           </div>
           <div>
-            {mine.map((item) => (
+            <LocalizedCopy>{mine.map((item) => (
               <article key={item.id}>
                 <span className={`fund-status ${item.status}`}>
-                  {item.status}
+                  <LocalizedCopy>{item.status}</LocalizedCopy>
                 </span>
-                <b>{item.title}</b>
+                <b><LocalizedCopy>{item.title}</LocalizedCopy></b>
                 <small>
-                  {money.format(item.raised_amount)} dari{" "}
-                  {money.format(item.goal_amount)}
+                  <LocalizedCopy>{money.format(item.raised_amount)}</LocalizedCopy><LocalizedCopy>{" dari"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                  <LocalizedCopy>{money.format(item.goal_amount)}</LocalizedCopy>
                 </small>
               </article>
-            ))}
+            ))}</LocalizedCopy>
           </div>
         </section>
-      )}
+      )}</LocalizedCopy>
       <div className="fundraiser-grid">
-        {items.map((item) => (
+        <LocalizedCopy>{items.map((item) => (
           <article className="fundraiser-card" key={item.id}>
-            <div className="fundraiser-cover">
-              🐾<span>{item.city}</span>
+            <div className="fundraiser-cover"><LocalizedCopy>{"🐾"}</LocalizedCopy><span><LocalizedCopy>{item.city}</LocalizedCopy></span>
             </div>
             <div>
-              <small>TERVERIFIKASI SLIVADOC · {item.donor_count} DONATUR</small>
-              <h3>{item.title}</h3>
-              <p>{item.story}</p>
+              <small><LocalizedCopy>{"TERVERIFIKASI SLIVADOC · "}</LocalizedCopy><LocalizedCopy>{item.donor_count}</LocalizedCopy><LocalizedCopy>{" DONATUR"}</LocalizedCopy></small>
+              <h3><LocalizedCopy>{item.title}</LocalizedCopy></h3>
+              <p><LocalizedCopy>{item.story}</LocalizedCopy></p>
               <div className="fundraiser-progress">
                 <i>
                   <b
@@ -352,48 +339,44 @@ export function FundraisingView({
                   />
                 </i>
                 <span>
-                  <strong>{money.format(item.raised_amount)}</strong>
-                  <em>dari {money.format(item.goal_amount)}</em>
+                  <strong><LocalizedCopy>{money.format(item.raised_amount)}</LocalizedCopy></strong>
+                  <em><LocalizedCopy>{"dari "}</LocalizedCopy><LocalizedCopy>{money.format(item.goal_amount)}</LocalizedCopy></em>
                 </span>
               </div>
-              <button
+              <LocalizedButton
                 className="primary-button full"
                 onClick={() => (requirePet() && setActive(item))}
-              >
-                Donasi sekarang
-              </button>
+              ><LocalizedCopy>{"Donasi sekarang"}</LocalizedCopy></LocalizedButton>
             </div>
           </article>
-        ))}
+        ))}</LocalizedCopy>
       </div>
-      {loading && (
-        <div className="empty-state compact">
-          Memuat campaign terverifikasi…
-        </div>
-      )}
-      {!loading && !items.length && (
+      <LocalizedCopy>{loading && (
+        <div className="empty-state compact"><LocalizedCopy>{"Memuat campaign terverifikasi…"}</LocalizedCopy></div>
+      )}</LocalizedCopy>
+      <LocalizedCopy>{!loading && !items.length && (
         <div className="empty-state">
-          <span>♥</span>
-          <h3>Belum ada campaign aktif</h3>
-          <p>Campaign baru akan tampil setelah verifikasi Slivadoc.</p>
+          <span><LocalizedCopy>{"♥"}</LocalizedCopy></span>
+          <h3><LocalizedCopy>{"Belum ada campaign aktif"}</LocalizedCopy></h3>
+          <p><LocalizedCopy>{"Campaign baru akan tampil setelah verifikasi Slivadoc."}</LocalizedCopy></p>
         </div>
-      )}
-      {active && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{active && (
         <DonationModal
           item={active}
           close={() => setActive(null)}
           notify={notify}
           paid={load}
         />
-      )}{" "}
-      {createOpen && (
+      )}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
+      <LocalizedCopy>{createOpen && (
         <CreateFundraiserModal
           pet={pet}
           close={() => setCreateOpen(false)}
           notify={notify}
           created={load}
         />
-      )}
+      )}</LocalizedCopy>
     </div>
   );
 }
@@ -446,10 +429,10 @@ function DonationModal({
         className="modal donation-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <LocalizedButton className="modal-close" onClick={close}>
           <Icon name="close" />
-        </button>
-        {payment ? (
+        </LocalizedButton>
+        <LocalizedCopy>{payment ? (
           <QrisPaymentPanel
             payment={payment}
             onPaid={() => {
@@ -468,16 +451,15 @@ function DonationModal({
           />
         ) : (
           <>
-            <span className="section-eyebrow">DONASI TRANSPARAN</span>
-            <h2>{item.title}</h2>
+            <span className="section-eyebrow"><LocalizedCopy>{"DONASI TRANSPARAN"}</LocalizedCopy></span>
+            <h2><LocalizedCopy>{item.title}</LocalizedCopy></h2>
             <p>
-              {money.format(item.raised_amount)} sudah terkumpul untuk{" "}
-              {item.beneficiary_name}.
-            </p>
+              <LocalizedCopy>{money.format(item.raised_amount)}</LocalizedCopy><LocalizedCopy>{" sudah terkumpul untuk"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+              <LocalizedCopy>{item.beneficiary_name}</LocalizedCopy><LocalizedCopy>{"."}</LocalizedCopy></p>
             <form className="world-form" onSubmit={submit}>
               <label>
-                <span>Nominal donasi</span>
-                <input
+                <span><LocalizedCopy>{"Nominal donasi"}</LocalizedCopy></span>
+                <LocalizedInput
                   inputMode="numeric"
                   value={integer.format(Number(amount || 0))}
                   onChange={(event) =>
@@ -485,32 +467,32 @@ function DonationModal({
                   }
                   required
                 />
-                <input type="hidden" name="amount" value={amount} />
+                <LocalizedInput type="hidden" name="amount" value={amount} />
               </label>
               <label>
-                <span>Pesan dukungan</span>
-                <textarea name="message" placeholder="Semoga lekas pulih…" />
+                <span><LocalizedCopy>{"Pesan dukungan"}</LocalizedCopy></span>
+                <LocalizedTextarea name="message" placeholder="Semoga lekas pulih…" />
               </label>
               <label className="fund-check">
-                <input name="anonymous" type="checkbox" />
-                <span>Tampilkan sebagai donatur anonim</span>
+                <LocalizedInput name="anonymous" type="checkbox" />
+                <span><LocalizedCopy>{"Tampilkan sebagai donatur anonim"}</LocalizedCopy></span>
               </label>
               <PaymentMethodPicker
                 value={paymentMethod}
                 onChange={setPaymentMethod}
                 disabled={busy}
               />
-              <button
+              <LocalizedButton
                 className="primary-button full"
                 disabled={busy || !paymentMethod || Number(amount) < 10000}
               >
-                {busy
+                <LocalizedCopy>{busy
                   ? "Membuat pembayaran…"
-                  : `Donasi ${money.format(Number(amount || 0))}`}
-              </button>
+                  : `Donasi ${money.format(Number(amount || 0))}`}</LocalizedCopy>
+              </LocalizedButton>
             </form>
           </>
-        )}
+        )}</LocalizedCopy>
       </section>
     </div>
   );
@@ -563,39 +545,36 @@ function CreateFundraiserModal({
         className="modal form-modal fundraiser-create-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <LocalizedButton className="modal-close" onClick={close}>
           <Icon name="close" />
-        </button>
-        <span className="section-eyebrow">AJUKAN PENGGALANGAN DANA</span>
-        <h2>Bantu hewan mendapatkan perawatan</h2>
-        <p className="muted-copy">
-          Identitas, cerita, dan dokumen medis akan diperiksa sebelum campaign
-          dipublikasikan.
-        </p>
+        </LocalizedButton>
+        <span className="section-eyebrow"><LocalizedCopy>{"AJUKAN PENGGALANGAN DANA"}</LocalizedCopy></span>
+        <h2><LocalizedCopy>{"Bantu hewan mendapatkan perawatan"}</LocalizedCopy></h2>
+        <p className="muted-copy"><LocalizedCopy>{"Identitas, cerita, dan dokumen medis akan diperiksa sebelum campaign dipublikasikan."}</LocalizedCopy></p>
         <form className="world-form" onSubmit={submit}>
           <label>
-            <span>Judul campaign</span>
-            <input name="title" minLength={5} required />
+            <span><LocalizedCopy>{"Judul campaign"}</LocalizedCopy></span>
+            <LocalizedInput name="title" minLength={5} required />
           </label>
           <label>
-            <span>Nama penerima</span>
-            <input
+            <span><LocalizedCopy>{"Nama penerima"}</LocalizedCopy></span>
+            <LocalizedInput
               name="beneficiary_name"
               defaultValue={pet.name || "Hewan rescue"}
               required
             />
           </label>
           <label>
-            <span>Kota</span>
-            <input name="city" minLength={2} required />
+            <span><LocalizedCopy>{"Kota"}</LocalizedCopy></span>
+            <LocalizedInput name="city" minLength={2} required />
           </label>
           <label>
-            <span>Cerita dan kebutuhan medis</span>
-            <textarea name="story" minLength={30} required />
+            <span><LocalizedCopy>{"Cerita dan kebutuhan medis"}</LocalizedCopy></span>
+            <LocalizedTextarea name="story" minLength={30} required />
           </label>
           <label>
-            <span>Target dana</span>
-            <input
+            <span><LocalizedCopy>{"Target dana"}</LocalizedCopy></span>
+            <LocalizedInput
               inputMode="numeric"
               value={integer.format(Number(goal || 0))}
               onChange={(event) =>
@@ -603,18 +582,18 @@ function CreateFundraiserModal({
               }
               required
             />
-            <input type="hidden" name="goal_amount" value={goal} />
+            <LocalizedInput type="hidden" name="goal_amount" value={goal} />
           </label>
           <label>
-            <span>Batas campaign</span>
-            <input name="ends_at" type="date" required />
+            <span><LocalizedCopy>{"Batas campaign"}</LocalizedCopy></span>
+            <SlivaDatePicker name="ends_at" type="date" required />
           </label>
-          <button
+          <LocalizedButton
             className="primary-button full"
             disabled={busy || Number(goal) < 100000}
           >
-            {busy ? "Mengirim…" : "Kirim untuk verifikasi"}
-          </button>
+            <LocalizedCopy>{busy ? "Mengirim…" : "Kirim untuk verifikasi"}</LocalizedCopy>
+          </LocalizedButton>
         </form>
       </section>
     </div>

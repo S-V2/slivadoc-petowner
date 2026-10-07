@@ -1,3 +1,5 @@
+import { PetOwnerLanguageProvider } from "./components/PetOwnerI18n";
+import { SlivaDialogHost } from "./components/SlivaDialog";
 import type { Metadata } from "next";
 import "./globals.css";
 import "./revamp-home.css";
@@ -8,6 +10,7 @@ import "./genz-revamp.css";
 import "./promo-tickets.css";
 import "./adoption-passport.css";
 import "./sliva-select.css";
+import "./sliva-controls.css";
 import { SEO, absoluteUrl } from "./lib/seo-config";
 
 export const metadata: Metadata = {
@@ -83,7 +86,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang={SEO.language}>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased"><PetOwnerLanguageProvider>{children}<SlivaDialogHost /></PetOwnerLanguageProvider></body>
     </html>
   );
 }

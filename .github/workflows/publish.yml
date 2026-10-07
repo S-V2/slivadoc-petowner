@@ -154,6 +154,25 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  translation-overlay:
+    name: Check translation infrastructure access
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 5
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: infra-token
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: S-V2
+          repositories: slivadoc-infrastructure
+      - uses: actions/checkout@v4
+        with:
+          repository: S-V2/slivadoc-infrastructure
+          token: ${{ steps.infra-token.outputs.token }}
+          path: .deployment-infra
+      - run: test -f .deployment-infra/compose.yaml
+
   web:
     name: Build, smoke and push slivadoc-petowner (web)
     needs: verify-web
@@ -418,11 +437,24 @@ jobs:
 
   deploy:
     name: Deploy to VM
-    needs: [web, api]
+    needs: [web, api, translation-overlay]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
+      - uses: actions/create-github-app-token@v3
+        id: infra-token
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: S-V2
+          repositories: slivadoc-infrastructure
+      - uses: actions/checkout@v4
+        with:
+          repository: S-V2/slivadoc-infrastructure
+          ref: main
+          token: ${{ steps.infra-token.outputs.token }}
+          path: .deployment-infra
       - name: Deploy to production VM
         env:
           SSH_HOST: ${{ secrets.VM_SSH_HOST }}
@@ -444,6 +476,12 @@ jobs:
 
           SSH_CMD="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o BatchMode=yes ${SSH_USER:-ubuntu}@${SSH_HOST}"
 
+          OVERLAY=.deployment-infra/compose.override.yaml
+          grep -q '^# Slivadoc managed translation overlay' "$OVERLAY"
+          REMOTE_OVERLAY="/opt/slivadoc/.compose.translation.${GITHUB_RUN_ID}.yaml"
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o BatchMode=yes \
+            "$OVERLAY" "${SSH_USER:-ubuntu}@${SSH_HOST}:${REMOTE_OVERLAY}"
+
           echo "Deploying slivadoc-petowner web (${WEB_DIGEST}) and api (${API_DIGEST}) to ${SSH_HOST}..."
           $SSH_CMD bash <<EOF
             set -euo pipefail
@@ -454,13 +492,24 @@ jobs:
             exec 9>.slivadoc-deploy.lock
             flock -w 600 9
 
+            # The managed overlay is validated under the same lock as image pins.
+            if [ -f compose.override.yaml ] && ! grep -q '^# Slivadoc managed translation overlay' compose.override.yaml; then
+              echo "Refusing to replace an unrelated Compose overlay"
+              rm -f "${REMOTE_OVERLAY}"
+              exit 1
+            fi
+            docker compose -f compose.yaml -f "${REMOTE_OVERLAY}" config --quiet
+            mv "${REMOTE_OVERLAY}" compose.override.yaml
+
             # 1. Update pins in .env
             sed -i.bak -E "s|^PETOWNER_WEB_REF=.*|PETOWNER_WEB_REF=${WEB_DIGEST}|" .env
             sed -i.bak -E "s|^PETOWNER_API_REF=.*|PETOWNER_API_REF=${API_DIGEST}|" .env
 
             # 2. Pull updated images and recreate containers
-            docker compose pull petowner-web petowner-api
+            docker compose pull translation petowner-web petowner-api
+            docker compose up -d --wait --wait-timeout 360 translation
             docker compose up -d --force-recreate petowner-web petowner-api
+            docker compose exec -T petowner-api node -e 'fetch("http://translation:5000/translate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({q:"Makanan kucing",source:"id",target:"en",format:"text"}), signal: AbortSignal.timeout(60000) }).then(async r => { if (!r.ok) throw new Error("Translation unhealthy"); const b=await r.json(); if (!b.translatedText) throw new Error("Empty translation"); console.log(b.translatedText); }).catch(e=>{console.error(e.message);process.exit(1)})'
 
             # 3. Verify running containers match .env specification
             ./scripts/verify-pins.sh

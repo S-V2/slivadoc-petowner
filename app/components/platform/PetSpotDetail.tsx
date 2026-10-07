@@ -1,4 +1,7 @@
 "use client";
+import { petOwnerIntlLocale } from "../../lib/petowner-locale";
+import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } from "../LocalizedCopy";
+import { SlivaDatePicker } from "../SlivaDatePicker";
 import Image from "next/image";
 import {
   useEffect,
@@ -29,7 +32,7 @@ import {
 import { Icon } from "../Icon";
 import { PaymentMethodPicker, QrisPaymentPanel } from "../payments/QrisPayment";
 
-const money = new Intl.NumberFormat("id-ID", {
+const money = new Intl.NumberFormat(petOwnerIntlLocale(), {
   style: "currency",
   currency: "IDR",
   maximumFractionDigits: 0,
@@ -122,129 +125,111 @@ export function PetSpotDetail({
       : "";
   return (
     <div className="petspot-detail-scroll">
-      {gallery(spot)}
+      <LocalizedCopy>{gallery(spot)}</LocalizedCopy>
       <div className="petspot-detail-body">
         <div className="petspot-detail-heading" ref={heading}>
           <span className="world-kicker">
-            {petSpotCategory(spot.category)} · {spot.city}
+            <LocalizedCopy>{petSpotCategory(spot.category)}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{spot.city}</LocalizedCopy>
           </span>
-          <h2>{spot.name}</h2>
+          <h2><LocalizedCopy>{spot.name}</LocalizedCopy></h2>
           <div className="petspot-detail-meta">
-            <span>
-              ★{" "}
-              {spot.review_count
+            <span><LocalizedCopy>{"★"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+              <LocalizedCopy>{spot.review_count
                 ? Number(spot.rating).toFixed(1)
-                : "Belum dinilai"}{" "}
-              · {spot.review_count || 0} ulasan
-            </span>
-            {spot.verified ? (
-              <span className="petspot-verified">✓ Partner terverifikasi</span>
-            ) : null}
+                : "Belum dinilai"}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"· "}</LocalizedCopy><LocalizedCopy>{spot.review_count || 0}</LocalizedCopy><LocalizedCopy>{" ulasan"}</LocalizedCopy></span>
+            <LocalizedCopy>{spot.verified ? (
+              <span className="petspot-verified"><LocalizedCopy>{"✓ Partner terverifikasi"}</LocalizedCopy></span>
+            ) : null}</LocalizedCopy>
           </div>
-          <p>{spot.address}</p>
+          <p><LocalizedCopy>{spot.address}</LocalizedCopy></p>
         </div>
         <nav className="petspot-detail-tabs" aria-label="Detail tempat">
-          {tabs
+          <LocalizedCopy>{tabs
             .filter((tab) => tab.id !== "booking" || spot.reservable)
             .map((tab) => (
-              <button
+              <LocalizedButton
                 type="button"
                 key={tab.id}
                 aria-pressed={section === tab.id}
                 className={section === tab.id ? "active" : ""}
                 onClick={() => select(tab.id)}
               >
-                {tab.label}
-              </button>
-            ))}
+                <LocalizedCopy>{tab.label}</LocalizedCopy>
+              </LocalizedButton>
+            ))}</LocalizedCopy>
         </nav>
-        {!detail && !detailError ? (
-          <div role="status" className="petspot-loading">
-            Memuat informasi tempat, fasilitas, dan ulasan…
-          </div>
-        ) : null}
-        {detailError ? (
+        <LocalizedCopy>{!detail && !detailError ? (
+          <div role="status" className="petspot-loading"><LocalizedCopy>{"Memuat informasi tempat, fasilitas, dan ulasan…"}</LocalizedCopy></div>
+        ) : null}</LocalizedCopy>
+        <LocalizedCopy>{detailError ? (
           <div className="petspot-error" role="alert">
-            {detailError}{" "}
-            <button
+            <LocalizedCopy>{detailError}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
+            <LocalizedButton
               type="button"
               onClick={() => setLoadAttempt((value) => value + 1)}
-            >
-              Coba lagi
-            </button>
+            ><LocalizedCopy>{"Coba lagi"}</LocalizedCopy></LocalizedButton>
           </div>
-        ) : null}
-        {section === "overview" ? (
+        ) : null}</LocalizedCopy>
+        <LocalizedCopy>{section === "overview" ? (
           <>
             <section className="petspot-detail-section">
-              <h3>Kenali tempatnya</h3>
+              <h3><LocalizedCopy>{"Kenali tempatnya"}</LocalizedCopy></h3>
               <p>
-                {spot.description || "Deskripsi belum ditambahkan pengelola."}
+                <LocalizedCopy>{spot.description || "Deskripsi belum ditambahkan pengelola."}</LocalizedCopy>
               </p>
               <div className="petspot-highlights">
-                {facilities.slice(0, 4).map((facility) => (
+                <LocalizedCopy>{facilities.slice(0, 4).map((facility) => (
                   <span
                     key={
                       typeof facility === "string" ? facility : facility.name
                     }
-                  >
-                    ✓ {typeof facility === "string" ? facility : facility.name}
+                  ><LocalizedCopy>{"✓ "}</LocalizedCopy><LocalizedCopy>{typeof facility === "string" ? facility : facility.name}</LocalizedCopy>
                   </span>
-                ))}
+                ))}</LocalizedCopy>
               </div>
             </section>
             <section className="petspot-detail-section">
-              <h3>Lokasi & akses</h3>
+              <h3><LocalizedCopy>{"Lokasi & akses"}</LocalizedCopy></h3>
               <p>
-                {spot.address} · {spot.city}
+                <LocalizedCopy>{spot.address}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{spot.city}</LocalizedCopy>
               </p>
               <div className="petspot-contact-actions">
-                {maps ? (
+                <LocalizedCopy>{maps ? (
                   <a href={maps} target="_blank" rel="noreferrer">
-                    <Icon name="map" size={17} /> Petunjuk arah
-                  </a>
-                ) : null}
-                {spot.phone ? (
+                    <Icon name="map" size={17} /><LocalizedCopy>{" Petunjuk arah"}</LocalizedCopy></a>
+                ) : null}</LocalizedCopy>
+                <LocalizedCopy>{spot.phone ? (
                   <a href={`tel:${spot.phone.replace(/[^+0-9]/g, "")}`}>
-                    <Icon name="chat" size={17} /> Hubungi tempat
-                  </a>
-                ) : null}
-                {/^https:\/\//.test(spot.website_url ?? "") ? (
-                  <a href={spot.website_url} target="_blank" rel="noreferrer">
-                    Website tempat ↗
-                  </a>
-                ) : null}
+                    <Icon name="chat" size={17} /><LocalizedCopy>{" Hubungi tempat"}</LocalizedCopy></a>
+                ) : null}</LocalizedCopy>
+                <LocalizedCopy>{/^https:\/\//.test(spot.website_url ?? "") ? (
+                  <a href={spot.website_url} target="_blank" rel="noreferrer"><LocalizedCopy>{"Website tempat ↗"}</LocalizedCopy></a>
+                ) : null}</LocalizedCopy>
               </div>
             </section>
             <section className="petspot-detail-section">
-              <h3>Jam operasional</h3>
-              {Object.entries(spot.opening_hours ?? {}).length ? (
+              <h3><LocalizedCopy>{"Jam operasional"}</LocalizedCopy></h3>
+              <LocalizedCopy>{Object.entries(spot.opening_hours ?? {}).length ? (
                 <div className="petspot-hours-grid">
-                  {Object.entries(spot.opening_hours).map(([day, hours]) => (
+                  <LocalizedCopy>{Object.entries(spot.opening_hours).map(([day, hours]) => (
                     <div className="petspot-fact-row" key={day}>
-                      <span>{day === "daily" ? "Setiap hari" : day}</span>
-                      <b>{hours}</b>
+                      <span><LocalizedCopy>{day === "daily" ? "Setiap hari" : day}</LocalizedCopy></span>
+                      <b><LocalizedCopy>{hours}</LocalizedCopy></b>
                     </div>
-                  ))}
+                  ))}</LocalizedCopy>
                 </div>
               ) : (
-                <p>
-                  Konfirmasi jam buka langsung kepada pengelola sebelum
-                  berkunjung.
-                </p>
-              )}
+                <p><LocalizedCopy>{"Konfirmasi jam buka langsung kepada pengelola sebelum berkunjung."}</LocalizedCopy></p>
+              )}</LocalizedCopy>
             </section>
             {spot.resources?.length ? (
               <section className="petspot-detail-section">
-                <h3>Pilihan tempat untukmu</h3>
-                <p>
-                  Meja dan unit berasal dari pengelola. Ketersediaannya akan
-                  dicek sesuai jadwalmu.
-                </p>
+                <h3><LocalizedCopy>{"Pilihan tempat untukmu"}</LocalizedCopy></h3>
+                <p><LocalizedCopy>{"Meja dan unit berasal dari pengelola. Ketersediaannya akan dicek sesuai jadwalmu."}</LocalizedCopy></p>
                 <div className="petspot-resource-preview">
-                  {spot.resources.map((resource) => (
+                  <LocalizedCopy>{spot.resources.map((resource) => (
                     <div key={resource.id}>
-                      {resource.image_urls?.[0] ? (
+                      <LocalizedCopy>{resource.image_urls?.[0] ? (
                         <Image
                           src={resource.image_urls[0]}
                           alt={resource.name}
@@ -253,156 +238,139 @@ export function PetSpotDetail({
                           unoptimized
                         />
                       ) : (
-                        <span className="petspot-resource-symbol">⌖</span>
-                      )}
+                        <span className="petspot-resource-symbol"><LocalizedCopy>{"⌖"}</LocalizedCopy></span>
+                      )}</LocalizedCopy>
                       <span>
-                        <b>{resource.name}</b>
+                        <b><LocalizedCopy>{resource.name}</LocalizedCopy></b>
                         <small>
-                          {resource.floor_name || resource.resource_type} ·{" "}
-                          {resource.capacity} tamu
-                        </small>
+                          <LocalizedCopy>{resource.floor_name || resource.resource_type}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                          <LocalizedCopy>{resource.capacity}</LocalizedCopy><LocalizedCopy>{" tamu"}</LocalizedCopy></small>
                         <strong>
-                          {money.format(resource.base_price)} /{" "}
-                          {isPetSpotStay(spot.category)
+                          <LocalizedCopy>{money.format(resource.base_price)}</LocalizedCopy><LocalizedCopy>{" /"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                          <LocalizedCopy>{isPetSpotStay(spot.category)
                             ? resource.booking_rules?.rate_period === "month"
                               ? "30 malam"
                               : "malam"
-                            : "reservasi"}
+                            : "reservasi"}</LocalizedCopy>
                         </strong>
                       </span>
                     </div>
-                  ))}
+                  ))}</LocalizedCopy>
                 </div>
               </section>
             ) : null}
           </>
-        ) : null}
-        {section === "facilities" ? (
+        ) : null}</LocalizedCopy>
+        <LocalizedCopy>{section === "facilities" ? (
           <>
             <section className="petspot-detail-section">
-              <h3>Fasilitas untuk pet & pet parent</h3>
+              <h3><LocalizedCopy>{"Fasilitas untuk pet & pet parent"}</LocalizedCopy></h3>
               <div className="petspot-facility-grid">
-                {facilities.map((facility) => (
+                <LocalizedCopy>{facilities.map((facility) => (
                   <article
                     key={
                       typeof facility === "string" ? facility : facility.name
                     }
                   >
-                    <span>✓</span>
+                    <span><LocalizedCopy>{"✓"}</LocalizedCopy></span>
                     <div>
                       <h4>
-                        {typeof facility === "string"
+                        <LocalizedCopy>{typeof facility === "string"
                           ? facility
-                          : facility.name}
+                          : facility.name}</LocalizedCopy>
                       </h4>
-                      {typeof facility !== "string" && facility.description ? (
-                        <p>{facility.description}</p>
-                      ) : null}
+                      <LocalizedCopy>{typeof facility !== "string" && facility.description ? (
+                        <p><LocalizedCopy>{facility.description}</LocalizedCopy></p>
+                      ) : null}</LocalizedCopy>
                     </div>
                   </article>
-                ))}
+                ))}</LocalizedCopy>
               </div>
-              {!facilities.length ? (
-                <p>Fasilitas belum ditambahkan pengelola.</p>
-              ) : null}
+              <LocalizedCopy>{!facilities.length ? (
+                <p><LocalizedCopy>{"Fasilitas belum ditambahkan pengelola."}</LocalizedCopy></p>
+              ) : null}</LocalizedCopy>
             </section>
             <section className="petspot-detail-section">
-              <h3>Pet policy & house rules</h3>
-              {policy.require_vaccine ? (
-                <p>✓ Bukti vaksin diperlukan sebelum kunjungan.</p>
-              ) : null}
-              {rules.length ? (
+              <h3><LocalizedCopy>{"Pet policy & house rules"}</LocalizedCopy></h3>
+              <LocalizedCopy>{policy.require_vaccine ? (
+                <p><LocalizedCopy>{"✓ Bukti vaksin diperlukan sebelum kunjungan."}</LocalizedCopy></p>
+              ) : null}</LocalizedCopy>
+              <LocalizedCopy>{rules.length ? (
                 <ul>
-                  {rules.map((rule) => (
-                    <li key={rule}>{rule}</li>
-                  ))}
+                  <LocalizedCopy>{rules.map((rule) => (
+                    <li key={rule}><LocalizedCopy>{rule}</LocalizedCopy></li>
+                  ))}</LocalizedCopy>
                 </ul>
               ) : (
-                <p>
-                  Konfirmasi aturan leash, ukuran pet, dan area yang dapat
-                  diakses kepada pengelola.
-                </p>
-              )}
-              {spot.reservable ? (
+                <p><LocalizedCopy>{"Konfirmasi aturan leash, ukuran pet, dan area yang dapat diakses kepada pengelola."}</LocalizedCopy></p>
+              )}</LocalizedCopy>
+              <LocalizedCopy>{spot.reservable ? (
                 <div className="petspot-policy-summary">
-                  {typeof policy.minimum_notice_minutes === "number" ? (
-                    <p>
-                      Pesan minimal {policy.minimum_notice_minutes} menit
-                      sebelum jadwal.
-                    </p>
-                  ) : null}
-                  {typeof policy.maximum_party_size === "number" ? (
-                    <p>
-                      Maksimal {policy.maximum_party_size} tamu per reservasi.
-                    </p>
-                  ) : null}
-                  {typeof policy.cancellation_hours === "number" ? (
-                    <p>
-                      Batas pembatalan {policy.cancellation_hours} jam sebelum
-                      kunjungan
-                      {Number(policy.cancellation_fee_percent) > 0
+                  <LocalizedCopy>{typeof policy.minimum_notice_minutes === "number" ? (
+                    <p><LocalizedCopy>{"Pesan minimal "}</LocalizedCopy><LocalizedCopy>{policy.minimum_notice_minutes}</LocalizedCopy><LocalizedCopy>{" menit sebelum jadwal."}</LocalizedCopy></p>
+                  ) : null}</LocalizedCopy>
+                  <LocalizedCopy>{typeof policy.maximum_party_size === "number" ? (
+                    <p><LocalizedCopy>{"Maksimal "}</LocalizedCopy><LocalizedCopy>{policy.maximum_party_size}</LocalizedCopy><LocalizedCopy>{" tamu per reservasi."}</LocalizedCopy></p>
+                  ) : null}</LocalizedCopy>
+                  <LocalizedCopy>{typeof policy.cancellation_hours === "number" ? (
+                    <p><LocalizedCopy>{"Batas pembatalan "}</LocalizedCopy><LocalizedCopy>{policy.cancellation_hours}</LocalizedCopy><LocalizedCopy>{" jam sebelum kunjungan"}</LocalizedCopy><LocalizedCopy>{Number(policy.cancellation_fee_percent) > 0
                         ? ` · biaya ${policy.cancellation_fee_percent}%`
-                        : ""}
-                      .
-                    </p>
-                  ) : null}
+                        : ""}</LocalizedCopy><LocalizedCopy>{"."}</LocalizedCopy></p>
+                  ) : null}</LocalizedCopy>
                 </div>
-              ) : null}
+              ) : null}</LocalizedCopy>
             </section>
             {spot.supported_events?.length ? (
               <section className="petspot-detail-section">
-                <h3>Aktivitas & pengalaman</h3>
+                <h3><LocalizedCopy>{"Aktivitas & pengalaman"}</LocalizedCopy></h3>
                 <div className="petspot-activities-grid">
-                  {spot.supported_events.map((event) => (
+                  <LocalizedCopy>{spot.supported_events.map((event) => (
                     <article key={event.name}>
-                      <h4>{event.name}</h4>
-                      <p>{event.description}</p>
-                      {event.inclusions?.length ? (
+                      <h4><LocalizedCopy>{event.name}</LocalizedCopy></h4>
+                      <p><LocalizedCopy>{event.description}</LocalizedCopy></p>
+                      <LocalizedCopy>{event.inclusions?.length ? (
                         <div className="petspot-highlights">
-                          {event.inclusions.map((value) => (
-                            <span key={value}>{value}</span>
-                          ))}
+                          <LocalizedCopy>{event.inclusions.map((value) => (
+                            <span key={value}><LocalizedCopy>{value}</LocalizedCopy></span>
+                          ))}</LocalizedCopy>
                         </div>
-                      ) : null}
+                      ) : null}</LocalizedCopy>
                     </article>
-                  ))}
+                  ))}</LocalizedCopy>
                 </div>
               </section>
             ) : null}
           </>
-        ) : null}
-        {section === "reviews" ? (
+        ) : null}</LocalizedCopy>
+        <LocalizedCopy>{section === "reviews" ? (
           <section className="petspot-detail-section">
-            <h3>Pengalaman pet parents</h3>
+            <h3><LocalizedCopy>{"Pengalaman pet parents"}</LocalizedCopy></h3>
             <div className="petspot-review-summary">
-              <b>{spot.review_count ? Number(spot.rating).toFixed(1) : "—"}</b>
-              <span>Dari {spot.review_count || 0} ulasan pengunjung</span>
+              <b><LocalizedCopy>{spot.review_count ? Number(spot.rating).toFixed(1) : "—"}</LocalizedCopy></b>
+              <span><LocalizedCopy>{"Dari "}</LocalizedCopy><LocalizedCopy>{spot.review_count || 0}</LocalizedCopy><LocalizedCopy>{" ulasan pengunjung"}</LocalizedCopy></span>
             </div>
-            {spot.reviews?.length ? (
+            <LocalizedCopy>{spot.reviews?.length ? (
               spot.reviews.map((review) => (
                 <article className="petspot-review-card" key={review.id}>
                   <header>
-                    <b>{review.reviewer_name}</b>
-                    <span>★ {review.rating}/5</span>
+                    <b><LocalizedCopy preserve>{review.reviewer_name}</LocalizedCopy></b>
+                    <span><LocalizedCopy>{"★ "}</LocalizedCopy><LocalizedCopy>{review.rating}</LocalizedCopy><LocalizedCopy>{"/5"}</LocalizedCopy></span>
                   </header>
                   <small>
-                    {review.verified_visit ? "Kunjungan terverifikasi · " : ""}
-                    {new Intl.DateTimeFormat("id-ID", {
+                    <LocalizedCopy>{review.verified_visit ? "Kunjungan terverifikasi · " : ""}</LocalizedCopy>
+                    <LocalizedCopy>{new Intl.DateTimeFormat(petOwnerIntlLocale(), {
                       dateStyle: "medium",
-                    }).format(new Date(review.created_at))}
+                    }).format(new Date(review.created_at))}</LocalizedCopy>
                   </small>
-                  <p>{review.comment || "Rating tanpa komentar."}</p>
+                  <p><LocalizedCopy>{review.comment || "Rating tanpa komentar."}</LocalizedCopy></p>
                 </article>
               ))
             ) : (
-              <div className="petspot-empty">
-                Belum ada ulasan. Cerita pengunjung akan tampil di sini, bukan
-                rating buatan.
-              </div>
-            )}
+              <div className="petspot-empty"><LocalizedCopy>{"Belum ada ulasan. Cerita pengunjung akan tampil di sini, bukan rating buatan."}</LocalizedCopy></div>
+            )}</LocalizedCopy>
           </section>
-        ) : null}
-        {spot.reservable ? (
+        ) : null}</LocalizedCopy>
+        <LocalizedCopy>{spot.reservable ? (
           <div hidden={section !== "booking"}>
             <PetSpotBooking
               spot={spot}
@@ -411,31 +379,29 @@ export function PetSpotDetail({
               close={close}
             />
           </div>
-        ) : null}
-        {section !== "booking" ? (
+        ) : null}</LocalizedCopy>
+        <LocalizedCopy>{section !== "booking" ? (
           <footer className="petspot-detail-footer">
-            <button
+            <LocalizedButton
               type="button"
               className="secondary-button"
               disabled={favoriteBusy}
               onClick={() => void save()}
             >
-              <Icon name="heart" size={18} />{" "}
-              {favoriteBusy ? "Menyimpan…" : "Simpan tempat"}
-            </button>
-            {spot.reservable ? (
-              <button
+              <Icon name="heart" size={18} /><LocalizedCopy>{" "}</LocalizedCopy>
+              <LocalizedCopy>{favoriteBusy ? "Menyimpan…" : "Simpan tempat"}</LocalizedCopy>
+            </LocalizedButton>
+            <LocalizedCopy>{spot.reservable ? (
+              <LocalizedButton
                 type="button"
                 className="primary-button"
                 onClick={() => select("booking")}
-              >
-                Pilih jadwal & tempat →
-              </button>
+              ><LocalizedCopy>{"Pilih jadwal & tempat →"}</LocalizedCopy></LocalizedButton>
             ) : (
-              <span>Reservasi aplikasi belum diaktifkan pengelola.</span>
-            )}
+              <span><LocalizedCopy>{"Reservasi aplikasi belum diaktifkan pengelola."}</LocalizedCopy></span>
+            )}</LocalizedCopy>
           </footer>
-        ) : null}
+        ) : null}</LocalizedCopy>
       </div>
     </div>
   );
@@ -592,14 +558,10 @@ function PetSpotBooking({
   if (paid)
     return (
       <section className="petspot-detail-section">
-        <h3>Reservasi terkonfirmasi ✓</h3>
+        <h3><LocalizedCopy>{"Reservasi terkonfirmasi ✓"}</LocalizedCopy></h3>
         <p>
-          {reservation?.reservation_number} · Detail tersedia di Aktivitas dan
-          dashboard pengelola.
-        </p>
-        <button className="primary-button" onClick={close}>
-          Selesai
-        </button>
+          <LocalizedCopy>{reservation?.reservation_number}</LocalizedCopy><LocalizedCopy>{" · Detail tersedia di Aktivitas dan dashboard pengelola."}</LocalizedCopy></p>
+        <LocalizedButton className="primary-button" onClick={close}><LocalizedCopy>{"Selesai"}</LocalizedCopy></LocalizedButton>
       </section>
     );
   if (payment)
@@ -610,16 +572,13 @@ function PetSpotBooking({
       onSubmit={(event) => void reserve(event)}
     >
       <section className="petspot-detail-section">
-        <span className="world-kicker">01 · JADWAL KUNJUNGAN</span>
-        <h3>{stay ? "Pilih masa tinggal" : "Kapan ingin berkunjung?"}</h3>
-        <p>
-          Waktu tempat: Asia/Jakarta (WIB). Pilih meja/unit sendiri setelah
-          ketersediaan dicek.
-        </p>
+        <span className="world-kicker"><LocalizedCopy>{"01 · JADWAL KUNJUNGAN"}</LocalizedCopy></span>
+        <h3><LocalizedCopy>{stay ? "Pilih masa tinggal" : "Kapan ingin berkunjung?"}</LocalizedCopy></h3>
+        <p><LocalizedCopy>{"Waktu tempat: Asia/Jakarta (WIB). Pilih meja/unit sendiri setelah ketersediaan dicek."}</LocalizedCopy></p>
         <div className="petspot-form-grid">
           <label>
-            <span>{stay ? "Check-in" : "Tanggal kunjungan"}</span>
-            <input
+            <span><LocalizedCopy>{stay ? "Check-in" : "Tanggal kunjungan"}</LocalizedCopy></span>
+            <SlivaDatePicker
               type="date"
               required
               min={today}
@@ -630,10 +589,10 @@ function PetSpotBooking({
               }}
             />
           </label>
-          {stay ? (
+          <LocalizedCopy>{stay ? (
             <label>
-              <span>Check-out</span>
-              <input
+              <span><LocalizedCopy>{"Check-out"}</LocalizedCopy></span>
+              <SlivaDatePicker
                 type="date"
                 required
                 min={date || today}
@@ -646,8 +605,8 @@ function PetSpotBooking({
             </label>
           ) : (
             <label>
-              <span>Jam datang</span>
-              <input
+              <span><LocalizedCopy>{"Jam datang"}</LocalizedCopy></span>
+              <SlivaDatePicker
                 type="time"
                 required
                 value={time}
@@ -657,11 +616,11 @@ function PetSpotBooking({
                 }}
               />
             </label>
-          )}
-          {!stay ? (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{!stay ? (
             <label>
-              <span>Durasi (menit)</span>
-              <input
+              <span><LocalizedCopy>{"Durasi (menit)"}</LocalizedCopy></span>
+              <LocalizedInput
                 type="number"
                 required
                 min={Number(
@@ -678,10 +637,10 @@ function PetSpotBooking({
                 }}
               />
             </label>
-          ) : null}
+          ) : null}</LocalizedCopy>
           <label>
-            <span>{stay ? "Penghuni" : "Jumlah tamu"}</span>
-            <input
+            <span><LocalizedCopy>{stay ? "Penghuni" : "Jumlah tamu"}</LocalizedCopy></span>
+            <LocalizedInput
               type="number"
               required
               min={1}
@@ -694,8 +653,8 @@ function PetSpotBooking({
             />
           </label>
           <label>
-            <span>Jumlah pet</span>
-            <input
+            <span><LocalizedCopy>{"Jumlah pet"}</LocalizedCopy></span>
+            <LocalizedInput
               type="number"
               required
               min={0}
@@ -708,32 +667,26 @@ function PetSpotBooking({
             />
           </label>
         </div>
-        {stay ? (
+        <LocalizedCopy>{stay ? (
           <p>
-            {spot.category === "boarding_house"
+            <LocalizedCopy>{spot.category === "boarding_house"
               ? "Kosan minimal 30 malam."
-              : "Minimal 1 malam."}{" "}
-            Harga mengikuti periode unit dari pengelola.
-          </p>
-        ) : null}
-        {date && (!stay || endDate) && !dateWindow ? (
-          <p className="petspot-error">
-            Durasi belum valid. Periksa tanggal dan waktu pilihanmu.
-          </p>
-        ) : null}
+              : "Minimal 1 malam."}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"Harga mengikuti periode unit dari pengelola."}</LocalizedCopy></p>
+        ) : null}</LocalizedCopy>
+        <LocalizedCopy>{date && (!stay || endDate) && !dateWindow ? (
+          <p className="petspot-error"><LocalizedCopy>{"Durasi belum valid. Periksa tanggal dan waktu pilihanmu."}</LocalizedCopy></p>
+        ) : null}</LocalizedCopy>
       </section>
       <section className="petspot-detail-section">
-        <span className="world-kicker">02 · PILIH TEMPAT</span>
-        <h3>{stay ? "Unit tersedia" : "Meja / area tersedia"}</h3>
-        {!dateWindow ? (
-          <p>Lengkapi jadwal agar kami dapat memeriksa ketersediaan.</p>
+        <span className="world-kicker"><LocalizedCopy>{"02 · PILIH TEMPAT"}</LocalizedCopy></span>
+        <h3><LocalizedCopy>{stay ? "Unit tersedia" : "Meja / area tersedia"}</LocalizedCopy></h3>
+        <LocalizedCopy>{!dateWindow ? (
+          <p><LocalizedCopy>{"Lengkapi jadwal agar kami dapat memeriksa ketersediaan."}</LocalizedCopy></p>
         ) : checking ? (
-          <p role="status" className="petspot-loading">
-            Memeriksa ketersediaan dari pengelola…
-          </p>
+          <p role="status" className="petspot-loading"><LocalizedCopy>{"Memeriksa ketersediaan dari pengelola…"}</LocalizedCopy></p>
         ) : (
           <div className="petspot-unit-grid">
-            {units.map((unit) => {
+            <LocalizedCopy>{units.map((unit) => {
               const eligible =
                 unit.available &&
                 pets <=
@@ -743,7 +696,7 @@ function PetSpotBooking({
                       99,
                   );
               return (
-                <button
+                <LocalizedButton
                   type="button"
                   key={unit.id}
                   disabled={!eligible || Boolean(reservation)}
@@ -751,7 +704,7 @@ function PetSpotBooking({
                   className={`petspot-unit-choice ${unitID === unit.id ? "selected" : ""}`}
                   onClick={() => setUnitID(unit.id)}
                 >
-                  {unit.image_urls?.[0] ? (
+                  <LocalizedCopy>{unit.image_urls?.[0] ? (
                     <Image
                       src={unit.image_urls[0]}
                       alt={unit.name}
@@ -759,77 +712,69 @@ function PetSpotBooking({
                       height={100}
                       unoptimized
                     />
-                  ) : null}
+                  ) : null}</LocalizedCopy>
                   <span>
-                    <b>{unit.name}</b>
+                    <b><LocalizedCopy>{unit.name}</LocalizedCopy></b>
                     <small>
-                      {unit.code} · {unit.floor_name || "Area"} ·{" "}
-                      {unit.capacity} tamu
-                    </small>
-                    {unit.amenities?.length ? (
-                      <small>{unit.amenities.slice(0, 3).join(" · ")}</small>
-                    ) : null}
+                      <LocalizedCopy>{unit.code}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{unit.floor_name || "Area"}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedCopy>{unit.capacity}</LocalizedCopy><LocalizedCopy>{" tamu"}</LocalizedCopy></small>
+                    <LocalizedCopy>{unit.amenities?.length ? (
+                      <small><LocalizedCopy>{unit.amenities.slice(0, 3).join(" · ")}</LocalizedCopy></small>
+                    ) : null}</LocalizedCopy>
                     <strong>
-                      {money.format(unit.base_price)} /{" "}
-                      {stay
+                      <LocalizedCopy>{money.format(unit.base_price)}</LocalizedCopy><LocalizedCopy>{" /"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedCopy>{stay
                         ? unit.booking_rules?.rate_period === "month"
                           ? "30 malam"
                           : "malam"
-                        : "reservasi"}
+                        : "reservasi"}</LocalizedCopy>
                     </strong>
                     <em>
-                      {!unit.available
+                      <LocalizedCopy>{!unit.available
                         ? "Sudah dipesan"
                         : !eligible
                           ? "Batas jumlah pet"
                           : unitID === unit.id
                             ? "✓ Pilihanmu"
-                            : "Pilih tempat ini"}
+                            : "Pilih tempat ini"}</LocalizedCopy>
                     </em>
                   </span>
-                </button>
+                </LocalizedButton>
               );
-            })}
-            {!units.length ? (
-              <p>
-                Tidak ada meja/unit yang cocok. Coba jadwal atau jumlah tamu
-                lain.
-              </p>
-            ) : null}
+            })}</LocalizedCopy>
+            <LocalizedCopy>{!units.length ? (
+              <p><LocalizedCopy>{"Tidak ada meja/unit yang cocok. Coba jadwal atau jumlah tamu lain."}</LocalizedCopy></p>
+            ) : null}</LocalizedCopy>
           </div>
-        )}
+        )}</LocalizedCopy>
       </section>
-      {quote ? (
+      <LocalizedCopy>{quote ? (
         <section className="petspot-cost-summary">
-          <h3>Rincian reservasi</h3>
+          <h3><LocalizedCopy>{"Rincian reservasi"}</LocalizedCopy></h3>
           <div>
-            <span>
-              Total {selected?.name}
-              {quote.periods > 1 ? ` · ${quote.periods} periode` : ""}
+            <span><LocalizedCopy>{"Total "}</LocalizedCopy><LocalizedCopy>{selected?.name}</LocalizedCopy>
+              <LocalizedCopy>{quote.periods > 1 ? ` · ${quote.periods} periode` : ""}</LocalizedCopy>
             </span>
-            <b>{money.format(quote.subtotal)}</b>
+            <b><LocalizedCopy>{money.format(quote.subtotal)}</LocalizedCopy></b>
           </div>
           <div>
-            <span>DP sekarang melalui QRIS</span>
-            <strong>{money.format(quote.deposit)}</strong>
+            <span><LocalizedCopy>{"DP sekarang melalui QRIS"}</LocalizedCopy></span>
+            <strong><LocalizedCopy>{money.format(quote.deposit)}</LocalizedCopy></strong>
           </div>
           <div>
-            <span>Sisa sesuai kebijakan pengelola</span>
-            <b>{money.format(quote.remaining)}</b>
+            <span><LocalizedCopy>{"Sisa sesuai kebijakan pengelola"}</LocalizedCopy></span>
+            <b><LocalizedCopy>{money.format(quote.remaining)}</LocalizedCopy></b>
           </div>
-          <p>
-            Booking dikonfirmasi setelah DP terverifikasi. Ketersediaan ditahan
-            sementara selama{" "}
-            {Number(spot.reservation_policy?.hold_minutes ?? 15)} menit.
-          </p>
+          <p><LocalizedCopy>{"Booking dikonfirmasi setelah DP terverifikasi. Ketersediaan ditahan sementara selama"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+            <LocalizedCopy>{Number(spot.reservation_policy?.hold_minutes ?? 15)}</LocalizedCopy><LocalizedCopy>{" menit."}</LocalizedCopy></p>
         </section>
-      ) : null}
+      ) : null}</LocalizedCopy>
       <section className="petspot-detail-section">
-        <span className="world-kicker">03 · DATA PEMESAN</span>
+        <span className="world-kicker"><LocalizedCopy>{"03 · DATA PEMESAN"}</LocalizedCopy></span>
         <div className="petspot-form-grid">
           <label>
-            <span>Nama lengkap</span>
-            <input
+            <span><LocalizedCopy>{"Nama lengkap"}</LocalizedCopy></span>
+            <LocalizedInput
               required
               maxLength={180}
               autoComplete="name"
@@ -839,8 +784,8 @@ function PetSpotBooking({
             />
           </label>
           <label>
-            <span>Nomor HP</span>
-            <input
+            <span><LocalizedCopy>{"Nomor HP"}</LocalizedCopy></span>
+            <LocalizedInput
               required
               type="tel"
               autoComplete="tel"
@@ -851,8 +796,8 @@ function PetSpotBooking({
           </label>
         </div>
         <label>
-          <span>Catatan untuk pengelola (opsional)</span>
-          <textarea
+          <span><LocalizedCopy>{"Catatan untuk pengelola (opsional)"}</LocalizedCopy></span>
+          <LocalizedTextarea
             placeholder="Contoh: area outdoor, membawa 2 anjing"
             maxLength={2000}
             value={note}
@@ -860,30 +805,27 @@ function PetSpotBooking({
           />
         </label>
       </section>
-      {reservation ? (
-        <p className="petspot-policy-summary">
-          Reservasi {reservation.reservation_number} tersimpan. Batas DP:{" "}
-          {new Intl.DateTimeFormat("id-ID", {
+      <LocalizedCopy>{reservation ? (
+        <p className="petspot-policy-summary"><LocalizedCopy>{"Reservasi "}</LocalizedCopy><LocalizedCopy>{reservation.reservation_number}</LocalizedCopy><LocalizedCopy>{" tersimpan. Batas DP:"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+          <LocalizedCopy>{new Intl.DateTimeFormat(petOwnerIntlLocale(), {
             dateStyle: "short",
             timeStyle: "short",
             timeZone: "Asia/Jakarta",
-          }).format(new Date(reservation.hold_expires_at))}{" "}
-          WIB.
-        </p>
-      ) : null}
-      {error ? (
+          }).format(new Date(reservation.hold_expires_at))}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"WIB."}</LocalizedCopy></p>
+      ) : null}</LocalizedCopy>
+      <LocalizedCopy>{error ? (
         <p role="alert" className="petspot-error">
-          {error}
+          <LocalizedCopy>{error}</LocalizedCopy>
         </p>
-      ) : null}
+      ) : null}</LocalizedCopy>
       <PaymentMethodPicker value={method} onChange={setMethod} />
-      <button
+      <LocalizedButton
         type="submit"
         className="primary-button petspot-confirm"
         disabled={!selected || !method || busy || Boolean(reservation)}
       >
-        {busy ? "Menyimpan reservasi…" : "Reservasi & bayar DP"}
-      </button>
+        <LocalizedCopy>{busy ? "Menyimpan reservasi…" : "Reservasi & bayar DP"}</LocalizedCopy>
+      </LocalizedButton>
     </form>
   );
 }

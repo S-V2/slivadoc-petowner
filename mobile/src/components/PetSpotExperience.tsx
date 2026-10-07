@@ -1,3 +1,4 @@
+import { LocalizedPressable as Pressable } from "./LocalizedPressable";
 /* Native Image uses accessibilityLabel rather than web alt. */
 /* eslint-disable jsx-a11y/alt-text */
 import { useEffect, useMemo, useState } from "react";
@@ -5,7 +6,7 @@ import {
   AppState,
   Image,
   Linking,
-  Pressable,
+
   StyleSheet,
   View,
 } from "react-native";
@@ -363,7 +364,7 @@ export function PetSpotVenueInformation({ item }: { item: WorldItem }) {
           item.petspot_reviews.map((review) => (
             <View key={review.id} style={styles.review}>
               <View style={styles.factRow}>
-                <Text style={styles.facilityName}>{review.reviewer_name}</Text>
+                <Text translate={false} style={styles.facilityName}>{review.reviewer_name}</Text>
                 <Text style={styles.reviewStars}>★ {review.rating}/5</Text>
               </View>
               <Text style={styles.note}>

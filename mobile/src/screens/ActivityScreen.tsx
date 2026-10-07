@@ -1,11 +1,12 @@
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
+import { SlivaAlert } from "../components/SlivaAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   Modal,
-  Pressable,
+
   ScrollView,
   StyleSheet,
   View,
@@ -418,7 +419,7 @@ function ReturnRequest({
       setFormOpen(false);
       setReason("");
       await onReload();
-      Alert.alert(`Permintaan retur terkirim (${result.ticket_number})`);
+      SlivaAlert.alert(`Permintaan retur terkirim (${result.ticket_number})`);
     } catch (cause) {
       if (cause instanceof MobileApiError && cause.code === "return_already_requested")
         void onReload();
@@ -510,7 +511,7 @@ function ActivityDetailSheet({
       ? `Bisa dibatalkan hingga ${item.cancellation_cutoff_hours} jam sebelum jadwal`
       : undefined;
   const confirmCancel = () =>
-    Alert.alert(
+    SlivaAlert.alert(
       "Batalkan booking?",
       [item.cancellation_policy, cancelHint].filter(Boolean).join("\n\n"),
       [
@@ -523,14 +524,14 @@ function ActivityDetailSheet({
             cancelMobileBooking(item.reference_id)
               .then(async (result) => {
                 await onReload();
-                Alert.alert(
+                SlivaAlert.alert(
                   result.refund_queued
                     ? "Booking dibatalkan. Dana akan dikembalikan setelah diverifikasi tim finance."
                     : "Booking dibatalkan.",
                 );
               })
               .catch((cause) =>
-                Alert.alert(
+                SlivaAlert.alert(
                   "Booking belum dapat dibatalkan",
                   cause instanceof Error
                     ? cause.message
@@ -543,7 +544,7 @@ function ActivityDetailSheet({
       ],
     );
   const confirmCancelOrder = () =>
-    Alert.alert(
+    SlivaAlert.alert(
       "Batalkan pesanan?",
       "Pesanan akan dibatalkan sebelum diproses penjual dan dana masuk antrean pengembalian.",
       [
@@ -556,7 +557,7 @@ function ActivityDetailSheet({
             cancelMobileOrder(item.reference_id)
               .then(async (result) => {
                 await onReload();
-                Alert.alert(
+                SlivaAlert.alert(
                   result.refund_queued
                     ? "Pesanan dibatalkan. Dana akan dikembalikan setelah diverifikasi tim finance."
                     : "Pesanan dibatalkan.",
@@ -566,7 +567,7 @@ function ActivityDetailSheet({
                 // Order state moved on (e.g. seller started processing): resync so the button disappears.
                 if (cause instanceof MobileApiError && cause.code === "order_not_cancellable")
                   void onReload();
-                Alert.alert(
+                SlivaAlert.alert(
                   "Pesanan belum dapat dibatalkan",
                   cause instanceof Error
                     ? cause.message
@@ -584,7 +585,7 @@ function ActivityDetailSheet({
       documentPhotos,
     );
     if (!documents) {
-      Alert.alert("Unggah foto untuk semua dokumen yang kurang");
+      SlivaAlert.alert("Unggah foto untuk semua dokumen yang kurang");
       return;
     }
     setResubmitBusy(true);
@@ -592,9 +593,9 @@ function ActivityDetailSheet({
       await resubmitMobileDocuments(item.reference_id, documents);
       setDocumentPhotos({});
       await onReload();
-      Alert.alert("Dokumen dikirim ulang dan akan ditinjau kembali.");
+      SlivaAlert.alert("Dokumen dikirim ulang dan akan ditinjau kembali.");
     } catch (cause) {
-      Alert.alert(
+      SlivaAlert.alert(
         "Dokumen belum dapat dikirim",
         cause instanceof Error
           ? cause.message
@@ -650,7 +651,7 @@ function ActivityDetailSheet({
     typeof item.latitude === "number" && typeof item.longitude === "number";
   const place = [item.address, item.city].filter(Boolean).join(", ");
   return <>
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <SafeAreaView
           edges={["bottom", "left", "right"]}
@@ -807,7 +808,7 @@ function ActivityDetailSheet({
                         />
                       </View>
                       <View style={styles.productCopy}>
-                        <Text numberOfLines={2} style={styles.productName}>
+                        <Text catalogue numberOfLines={2} style={styles.productName}>
                           {product.name}
                         </Text>
                         <Text style={styles.productStore}>
@@ -1287,7 +1288,7 @@ function ActivityDetailSheet({
                             [requirement]: document,
                           }))
                         }
-                        onAction={(message) => Alert.alert(message)}
+                        onAction={(message) => SlivaAlert.alert(message)}
                         disabled={resubmitBusy}
                       />
                       <PrimaryButton
@@ -1475,7 +1476,7 @@ function ActivityDetailSheet({
                     )
                       .then(setInvoiceHTML)
                       .catch((cause) =>
-                        Alert.alert(
+                        SlivaAlert.alert(
                           "Invoice belum dapat dibuka",
                           cause instanceof Error
                             ? cause.message
@@ -1520,7 +1521,7 @@ function ActivityDetailSheet({
         </SafeAreaView>
       </Pressable>
     </Modal>
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={Boolean(invoiceHTML)}
       animationType="slide"
       presentationStyle="fullScreen"
@@ -2281,7 +2282,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(10,38,58,.38)",
   },
-  sheetSafeArea: { width: "100%", maxHeight: "88%" },
+  sheetSafeArea: {maxWidth: 720, alignSelf: "center",  width: "100%", maxHeight: "88%" },
   invoicePage: { flex: 1, backgroundColor: colors.white },
   invoiceHeader: { minHeight: 66, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.sky100, backgroundColor: colors.sky25 },
   invoiceHeaderIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.sky600 },

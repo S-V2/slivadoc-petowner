@@ -1,4 +1,8 @@
 "use client";
+import { petOwnerIntlLocale } from "../../lib/petowner-locale";
+import { SlivaFilePicker } from "../SlivaFilePicker";
+import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } from "../LocalizedCopy";
+import { SlivaDatePicker } from "../SlivaDatePicker";
 
 import { usePetOwnerFlow } from "../PetOwnerFlow";
 
@@ -434,21 +438,16 @@ export default function PawDatingExperience({
   return (
     <section className="pawdating-shell">
       <div className="paw-welfare-banner">
-        <span>🛡️</span>
+        <span><LocalizedCopy>{"🛡️"}</LocalizedCopy></span>
         <div>
-          <strong>Welfare-first, bukan sekadar swipe.</strong>
-          <p>
-            PAW Dating tidak menjamin hasil breeding. Keputusan akhir wajib
-            mengikuti pemeriksaan dan rekomendasi dokter hewan.
-          </p>
+          <strong><LocalizedCopy>{"Welfare-first, bukan sekadar swipe."}</LocalizedCopy></strong>
+          <p><LocalizedCopy>{"PAW Dating tidak menjamin hasil breeding. Keputusan akhir wajib mengikuti pemeriksaan dan rekomendasi dokter hewan."}</LocalizedCopy></p>
         </div>
-        <button type="button" onClick={() => setTab("standards")}>
-          Lihat standar →
-        </button>
+        <LocalizedButton type="button" onClick={() => setTab("standards")}><LocalizedCopy>{"Lihat standar →"}</LocalizedCopy></LocalizedButton>
       </div>
 
       <nav className="paw-tabs" aria-label="Menu PAW Dating">
-        {(
+        <LocalizedCopy>{(
           [
             {
               id: "discover",
@@ -465,31 +464,31 @@ export default function PawDatingExperience({
             { id: "standards", label: "Health standards" },
           ] as Array<{ id: Tab; label: string; count?: number }>
         ).map((item) => (
-          <button
+          <LocalizedButton
             key={item.id}
             type="button"
             className={tab === item.id ? "active" : ""}
             onClick={() => setTab(item.id)}
           >
-            {item.label}
-            {item.count !== undefined && <small>{item.count}</small>}
-          </button>
-        ))}
+            <LocalizedCopy>{item.label}</LocalizedCopy>
+            <LocalizedCopy>{item.count !== undefined && <small><LocalizedCopy>{item.count}</LocalizedCopy></small>}</LocalizedCopy>
+          </LocalizedButton>
+        ))}</LocalizedCopy>
       </nav>
 
-      {tab === "discover" && (
+      <LocalizedCopy>{tab === "discover" && (
         <>
           <div className="paw-filters">
             <label className="paw-search">
-              <span>⌕</span>
-              <input
+              <span><LocalizedCopy>{"⌕"}</LocalizedCopy></span>
+              <LocalizedInput
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Cari nama, ras, atau kota..."
               />
             </label>
             <label>
-              <span>Spesies</span>
+              <span><LocalizedCopy>{"Spesies"}</LocalizedCopy></span>
               <SlivaSelect aria-label="Spesies"
                 value={species}
                 onChange={(event) => setSpecies(event.target.value)}
@@ -501,7 +500,7 @@ export default function PawDatingExperience({
               </SlivaSelect>
             </label>
             <label>
-              <span>Gender</span>
+              <span><LocalizedCopy>{"Gender"}</LocalizedCopy></span>
               <SlivaSelect aria-label="Gender"
                 value={sex}
                 onChange={(event) => setSex(event.target.value)}
@@ -512,7 +511,7 @@ export default function PawDatingExperience({
               </SlivaSelect>
             </label>
             <label>
-              <span>Minimum level</span>
+              <span><LocalizedCopy>{"Minimum level"}</LocalizedCopy></span>
               <SlivaSelect aria-label="Minimum level"
                 value={level}
                 onChange={(event) => setLevel(event.target.value)}
@@ -524,7 +523,7 @@ export default function PawDatingExperience({
               </SlivaSelect>
             </label>
             <label>
-              <span>Health score</span>
+              <span><LocalizedCopy>{"Health score"}</LocalizedCopy></span>
               <SlivaSelect aria-label="Health score"
                 value={health}
                 onChange={(event) => setHealth(event.target.value)}
@@ -536,7 +535,7 @@ export default function PawDatingExperience({
               </SlivaSelect>
             </label>
             <label>
-              <span>Jarak</span>
+              <span><LocalizedCopy>{"Jarak"}</LocalizedCopy></span>
               <SlivaSelect aria-label="Jarak"
                 value={distance}
                 onChange={(event) => setDistance(event.target.value)}
@@ -550,15 +549,12 @@ export default function PawDatingExperience({
           </div>
           <div className="paw-result-head">
             <div>
-              <h3>Pet terverifikasi untuk {pet.name}</h3>
+              <h3><LocalizedCopy>{"Pet terverifikasi untuk "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy></h3>
               <p>
-                {visibleProfiles.length} profil sesuai filter dan standar
-                minimum Anda.
-              </p>
+                <LocalizedCopy>{visibleProfiles.length}</LocalizedCopy><LocalizedCopy>{" profil sesuai filter dan standar minimum Anda."}</LocalizedCopy></p>
             </div>
-            <label>
-              Kota{" "}
-              <input
+            <label><LocalizedCopy>{"Kota"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+              <LocalizedInput
                 value={city}
                 onChange={(event) => setCity(event.target.value)}
                 placeholder="Jakarta Selatan"
@@ -598,9 +594,9 @@ export default function PawDatingExperience({
             />
           )}
         </>
-      )}
+      )}</LocalizedCopy>
 
-      {tab === "mine" && (
+      <LocalizedCopy>{tab === "mine" && (
         <PrivateGate
           title="Kelola profil PAW Dating"
           text="Login diperlukan untuk membuat profil, mengunggah health report, dan mengatur visibilitas."
@@ -608,19 +604,14 @@ export default function PawDatingExperience({
         >
           <div className="paw-section-head">
             <div>
-              <h3>Profil pet saya</h3>
-              <p>
-                Setiap pet melewati verifikasi bertahap sebelum tampil ke
-                publik.
-              </p>
+              <h3><LocalizedCopy>{"Profil pet saya"}</LocalizedCopy></h3>
+              <p><LocalizedCopy>{"Setiap pet melewati verifikasi bertahap sebelum tampil ke publik."}</LocalizedCopy></p>
             </div>
-            <button
+            <LocalizedButton
               className="paw-primary"
               type="button"
               onClick={() => setCreateOpen(true)}
-            >
-              + Buat profil
-            </button>
+            ><LocalizedCopy>{"+ Buat profil"}</LocalizedCopy></LocalizedButton>
           </div>
           {myProfiles.length === 0 ? (
             <Empty
@@ -631,41 +622,36 @@ export default function PawDatingExperience({
             />
           ) : (
             <div className="paw-my-grid">
-              {myProfiles.map((profile) => (
+              <LocalizedCopy>{myProfiles.map((profile) => (
                 <article key={profile.id} className="paw-my-card">
                   <div className={`paw-avatar ${profile.species}`}>
-                    {speciesEmoji(profile)}
+                    <LocalizedCopy>{speciesEmoji(profile)}</LocalizedCopy>
                   </div>
                   <div>
                     <span
                       className={`paw-level ${levelTone[profile.profile_level]}`}
-                    >
-                      L{profile.profile_level} ·{" "}
-                      {profile.level_name?.split("·")[1]}
+                    ><LocalizedCopy>{"L"}</LocalizedCopy><LocalizedCopy>{profile.profile_level}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedCopy>{profile.level_name?.split("·")[1]}</LocalizedCopy>
                     </span>
-                    <h4>{profile.name}</h4>
+                    <h4><LocalizedCopy>{profile.name}</LocalizedCopy></h4>
                     <p>
-                      {profile.breed} · {profile.city}
+                      <LocalizedCopy>{profile.breed}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{profile.city}</LocalizedCopy>
                     </p>
                     <div className="paw-progress">
                       <i style={{ width: `${profile.health_score}%` }} />
                     </div>
-                    <small>
-                      Health score {profile.health_score}/100 · Status{" "}
-                      {titleCase(profile.status ?? "draft")}
+                    <small><LocalizedCopy>{"Health score "}</LocalizedCopy><LocalizedCopy>{profile.health_score}</LocalizedCopy><LocalizedCopy>{"/100 · Status"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedCopy>{titleCase(profile.status ?? "draft")}</LocalizedCopy>
                     </small>
-                    {profile.status === "review" && (
-                      <small className="paw-queue-note">
-                        Menunggu approval Marketplace · belum tampil publik
+                    <LocalizedCopy>{profile.status === "review" && (
+                      <small className="paw-queue-note"><LocalizedCopy>{"Menunggu approval Marketplace · belum tampil publik"}</LocalizedCopy></small>
+                    )}</LocalizedCopy>
+                    <LocalizedCopy>{profile.rejection_reason && (
+                      <small className="paw-rejection-note"><LocalizedCopy>{"Catatan: "}</LocalizedCopy><LocalizedCopy>{profile.rejection_reason}</LocalizedCopy>
                       </small>
-                    )}
-                    {profile.rejection_reason && (
-                      <small className="paw-rejection-note">
-                        Catatan: {profile.rejection_reason}
-                      </small>
-                    )}
+                    )}</LocalizedCopy>
                   </div>
-                  <button
+                  <LocalizedButton
                     type="button"
                     onClick={() => {
                       if (profile.status === "published")
@@ -677,18 +663,18 @@ export default function PawDatingExperience({
                         );
                     }}
                   >
-                    {profile.status === "published"
+                    <LocalizedCopy>{profile.status === "published"
                       ? "Buka profil →"
-                      : "Lihat status"}
-                  </button>
+                      : "Lihat status"}</LocalizedCopy>
+                  </LocalizedButton>
                 </article>
-              ))}
+              ))}</LocalizedCopy>
             </div>
           )}
         </PrivateGate>
-      )}
+      )}</LocalizedCopy>
 
-      {tab === "requests" && (
+      <LocalizedCopy>{tab === "requests" && (
         <PrivateGate
           title="Permintaan dan match"
           text="Identitas dan ruang percakapan hanya terbuka setelah kedua pet parent menyetujui."
@@ -696,10 +682,10 @@ export default function PawDatingExperience({
         >
           <div className="paw-section-head">
             <div>
-              <h3>Permintaan pasangan</h3>
-              <p>Tinjau profil dan laporan kesehatan sebelum menerima.</p>
+              <h3><LocalizedCopy>{"Permintaan pasangan"}</LocalizedCopy></h3>
+              <p><LocalizedCopy>{"Tinjau profil dan laporan kesehatan sebelum menerima."}</LocalizedCopy></p>
             </div>
-            <span className="paw-safe-chip">🔒 Kontak tetap privat</span>
+            <span className="paw-safe-chip"><LocalizedCopy>{"🔒 Kontak tetap privat"}</LocalizedCopy></span>
           </div>
           {interests.length === 0 ? (
             <Empty
@@ -710,73 +696,67 @@ export default function PawDatingExperience({
             />
           ) : (
             <div className="paw-request-list">
-              {interests.map((interest) => (
+              <LocalizedCopy>{interests.map((interest) => (
                 <article key={interest.id}>
-                  <div className="paw-request-icon">♡</div>
+                  <div className="paw-request-icon"><LocalizedCopy>{"♡"}</LocalizedCopy></div>
                   <div>
                     <span>
-                      {interest.direction === "incoming"
+                      <LocalizedCopy>{interest.direction === "incoming"
                         ? "Permintaan masuk"
-                        : "Terkirim"}
+                        : "Terkirim"}</LocalizedCopy>
                     </span>
                     <h4>
-                      {interest.source_name} × {interest.target_name}
+                      <LocalizedCopy>{interest.source_name}</LocalizedCopy><LocalizedCopy>{" × "}</LocalizedCopy><LocalizedCopy>{interest.target_name}</LocalizedCopy>
                     </h4>
                     <p>
-                      {interest.introduction_message ||
-                        "Ingin mendiskusikan kecocokan pet."}
+                      <LocalizedCopy>{interest.introduction_message ||
+                        "Ingin mendiskusikan kecocokan pet."}</LocalizedCopy>
                     </p>
                     <small>
-                      {titleCase(interest.interest_type)} ·{" "}
-                      {new Date(interest.created_at).toLocaleDateString(
-                        "id-ID",
+                      <LocalizedCopy>{titleCase(interest.interest_type)}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedCopy>{new Date(interest.created_at).toLocaleDateString(
+                        petOwnerIntlLocale(),
                         { day: "numeric", month: "short", year: "numeric" },
-                      )}
+                      )}</LocalizedCopy>
                     </small>
                   </div>
                   <div className="paw-request-status">
                     <b className={interest.status}>
-                      {titleCase(interest.status)}
+                      <LocalizedCopy>{titleCase(interest.status)}</LocalizedCopy>
                     </b>
-                    {interest.direction === "incoming" &&
+                    <LocalizedCopy>{interest.direction === "incoming" &&
                       interest.status === "pending" && (
                         <>
-                          <button
+                          <LocalizedButton
                             type="button"
                             onClick={() => void respond(interest, "accept")}
-                          >
-                            Terima
-                          </button>
-                          <button
+                          ><LocalizedCopy>{"Terima"}</LocalizedCopy></LocalizedButton>
+                          <LocalizedButton
                             className="muted"
                             type="button"
                             onClick={() => void respond(interest, "decline")}
-                          >
-                            Tolak
-                          </button>
+                          ><LocalizedCopy>{"Tolak"}</LocalizedCopy></LocalizedButton>
                         </>
-                      )}
-                    {interest.status === "matched" && interest.match_id && (
-                      <button
+                      )}</LocalizedCopy>
+                    <LocalizedCopy>{interest.status === "matched" && interest.match_id && (
+                      <LocalizedButton
                         type="button"
                         onClick={() => setChatInterest(interest)}
-                      >
-                        Buka chat
-                      </button>
-                    )}
+                      ><LocalizedCopy>{"Buka chat"}</LocalizedCopy></LocalizedButton>
+                    )}</LocalizedCopy>
                   </div>
                 </article>
-              ))}
+              ))}</LocalizedCopy>
             </div>
           )}
         </PrivateGate>
-      )}
+      )}</LocalizedCopy>
 
-      {tab === "standards" && (
+      <LocalizedCopy>{tab === "standards" && (
         <StandardsView standards={standards} notify={notify} />
-      )}
+      )}</LocalizedCopy>
 
-      {selected && (
+      <LocalizedCopy>{selected && (
         <ProfileDetail
           profile={selected}
           health={selected.health_report}
@@ -804,8 +784,8 @@ export default function PawDatingExperience({
           onFavorite={() => void toggleFavorite(selected)}
           submitting={submitting}
         />
-      )}
-      {interestOpen && selected && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{interestOpen && selected && (
         <div
           className="paw-modal-backdrop"
           onMouseDown={() => setInterestOpen(false)}
@@ -815,22 +795,15 @@ export default function PawDatingExperience({
             onSubmit={sendInterest}
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <button
+            <LocalizedButton
               className="paw-modal-close"
               type="button"
               onClick={() => setInterestOpen(false)}
-            >
-              ×
-            </button>
-            <span className="paw-modal-mark">♡</span>
-            <h3>Kirim ketertarikan ke {selected.name}</h3>
-            <p>
-              Pesan akan diteruskan ke pet parent. Nomor telepon tetap
-              tersembunyi hingga keduanya setuju.
-            </p>
-            <label>
-              Pesan perkenalan
-              <textarea
+            ><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
+            <span className="paw-modal-mark"><LocalizedCopy>{"♡"}</LocalizedCopy></span>
+            <h3><LocalizedCopy>{"Kirim ketertarikan ke "}</LocalizedCopy><LocalizedCopy>{selected.name}</LocalizedCopy></h3>
+            <p><LocalizedCopy>{"Pesan akan diteruskan ke pet parent. Nomor telepon tetap tersembunyi hingga keduanya setuju."}</LocalizedCopy></p>
+            <label><LocalizedCopy>{"Pesan perkenalan"}</LocalizedCopy><LocalizedTextarea
                 value={message}
                 minLength={20}
                 maxLength={1000}
@@ -839,25 +812,23 @@ export default function PawDatingExperience({
               />
             </label>
             <div className="paw-modal-actions">
-              <button
+              <LocalizedButton
                 className="paw-secondary"
                 type="button"
                 onClick={() => setInterestOpen(false)}
-              >
-                Batal
-              </button>
-              <button
+              ><LocalizedCopy>{"Batal"}</LocalizedCopy></LocalizedButton>
+              <LocalizedButton
                 className="paw-primary"
                 type="submit"
                 disabled={submitting}
               >
-                {submitting ? "Mengirim..." : "Kirim dengan aman"}
-              </button>
+                <LocalizedCopy>{submitting ? "Mengirim..." : "Kirim dengan aman"}</LocalizedCopy>
+              </LocalizedButton>
             </div>
           </form>
         </div>
-      )}
-      {createOpen && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{createOpen && (
         <CreateProfileModal
           pet={pet}
           onClose={() => setCreateOpen(false)}
@@ -868,21 +839,21 @@ export default function PawDatingExperience({
           }}
           notify={notify}
         />
-      )}
-      {chatInterest?.match_id && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{chatInterest?.match_id && (
         <PawChatModal
           interest={chatInterest}
           close={() => setChatInterest(null)}
           notify={notify}
         />
-      )}
-      {reportProfile && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{reportProfile && (
         <PawReportModal
           profile={reportProfile}
           close={() => setReportProfile(null)}
           notify={notify}
         />
-      )}
+      )}</LocalizedCopy>
     </section>
   );
 }
@@ -908,11 +879,10 @@ function ProfileCard({
       }}
     >
       <div className={`paw-profile-art ${profile.species}`}>
-        <span>{speciesEmoji(profile)}</span>
-        <div className={`paw-level ${levelTone[profile.profile_level]}`}>
-          ✦ Level {profile.profile_level}
+        <span><LocalizedCopy>{speciesEmoji(profile)}</LocalizedCopy></span>
+        <div className={`paw-level ${levelTone[profile.profile_level]}`}><LocalizedCopy>{"✦ Level "}</LocalizedCopy><LocalizedCopy>{profile.profile_level}</LocalizedCopy>
         </div>
-        <button
+        <LocalizedButton
           type="button"
           aria-label={`${favorite ? "Hapus" : "Simpan"} ${profile.name}`}
           aria-pressed={favorite}
@@ -921,53 +891,51 @@ function ProfileCard({
             onFavorite();
           }}
         >
-          {favorite ? "♥" : "♡"}
-        </button>
+          <LocalizedCopy>{favorite ? "♥" : "♡"}</LocalizedCopy>
+        </LocalizedButton>
       </div>
       <div className="paw-profile-body">
         <div className="paw-profile-name">
           <div>
-            <h4>{profile.name}</h4>
+            <h4><LocalizedCopy>{profile.name}</LocalizedCopy></h4>
             <p>
-              {profile.breed} · {profile.sex === "female" ? "Betina" : "Jantan"}
+              <LocalizedCopy>{profile.breed}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{profile.sex === "female" ? "Betina" : "Jantan"}</LocalizedCopy>
             </p>
           </div>
           <HealthScore value={profile.health_score} />
         </div>
         <div className="paw-profile-meta">
-          <span>◷ {ageText(profile.age_months)}</span>
-          <span>
-            ⌖{" "}
-            {typeof profile.distance_km === "number" &&
+          <span><LocalizedCopy>{"◷ "}</LocalizedCopy><LocalizedCopy>{ageText(profile.age_months)}</LocalizedCopy></span>
+          <span><LocalizedCopy>{"⌖"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+            <LocalizedCopy>{typeof profile.distance_km === "number" &&
             Number.isFinite(profile.distance_km)
               ? `${profile.distance_km.toFixed(1)} km`
-              : profile.city}
+              : profile.city}</LocalizedCopy>
           </span>
-          <span>♙ {titleCase(profile.pedigree_status)}</span>
+          <span><LocalizedCopy>{"♙ "}</LocalizedCopy><LocalizedCopy>{titleCase(profile.pedigree_status)}</LocalizedCopy></span>
         </div>
         <div className="paw-tags">
-          {profile.temperament.slice(0, 3).map((tag) => (
-            <span key={tag}>{titleCase(tag)}</span>
-          ))}
+          <LocalizedCopy>{profile.temperament.slice(0, 3).map((tag) => (
+            <span key={tag}><LocalizedCopy>{titleCase(tag)}</LocalizedCopy></span>
+          ))}</LocalizedCopy>
         </div>
         <div className="paw-clearance">
-          <i>✓</i>
+          <i><LocalizedCopy>{"✓"}</LocalizedCopy></i>
           <div>
             <b>
-              {profile.eligibility_status === "eligible"
+              <LocalizedCopy>{profile.eligibility_status === "eligible"
                 ? "Layak berdasarkan report"
-                : "Layak bersyarat"}
+                : "Layak bersyarat"}</LocalizedCopy>
             </b>
-            <small>
-              Valid s.d.{" "}
-              {new Date(profile.health_valid_until).toLocaleDateString(
-                "id-ID",
+            <small><LocalizedCopy>{"Valid s.d."}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+              <LocalizedCopy>{new Date(profile.health_valid_until).toLocaleDateString(
+                petOwnerIntlLocale(),
                 { day: "numeric", month: "short", year: "numeric" },
-              )}
+              )}</LocalizedCopy>
             </small>
           </div>
           <strong>
-            {profile.risk_level === "low" ? "Low risk" : "Review"}
+            <LocalizedCopy>{profile.risk_level === "low" ? "Low risk" : "Review"}</LocalizedCopy>
           </strong>
         </div>
       </div>
@@ -1012,12 +980,12 @@ function PawDatingSwipeDeck({
   return (
     <div className="paw-swipe-experience">
       <div className="paw-swipe-guide" aria-label="Petunjuk swipe">
-        <span>← Geser kiri untuk lewati</span>
-        <b>{profiles.length} pet tersisa</b>
-        <span>Geser kanan untuk suka →</span>
+        <span><LocalizedCopy>{"← Geser kiri untuk lewati"}</LocalizedCopy></span>
+        <b><LocalizedCopy>{profiles.length}</LocalizedCopy><LocalizedCopy>{" pet tersisa"}</LocalizedCopy></b>
+        <span><LocalizedCopy>{"Geser kanan untuk suka →"}</LocalizedCopy></span>
       </div>
       <div className="paw-swipe-stage">
-        {next && (
+        <LocalizedCopy>{next && (
           <div
             className="paw-swipe-card paw-swipe-card-next"
             aria-hidden="true"
@@ -1029,7 +997,7 @@ function PawDatingSwipeDeck({
               onOpen={() => undefined}
             />
           </div>
-        )}
+        )}</LocalizedCopy>
         <div
           className={`paw-swipe-card paw-swipe-card-active ${dragging ? "dragging" : ""} ${offset > 12 ? "swiping-right" : offset < -12 ? "swiping-left" : ""}`}
           style={
@@ -1053,8 +1021,8 @@ function PawDatingSwipeDeck({
             setOffset(0);
           }}
         >
-          <span className="paw-swipe-stamp paw-swipe-like">SUKA</span>
-          <span className="paw-swipe-stamp paw-swipe-pass">LEWATI</span>
+          <span className="paw-swipe-stamp paw-swipe-like"><LocalizedCopy>{"SUKA"}</LocalizedCopy></span>
+          <span className="paw-swipe-stamp paw-swipe-pass"><LocalizedCopy>{"LEWATI"}</LocalizedCopy></span>
           <ProfileCard
             profile={active}
             favorite={favorites.includes(active.id)}
@@ -1063,43 +1031,35 @@ function PawDatingSwipeDeck({
               if (!skipClick.current) onOpen(active);
             }}
           />
-          <button
+          <LocalizedButton
             className="paw-swipe-detail"
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={() => onOpen(active)}
-          >
-            Lihat detail pet & owner
-          </button>
+          ><LocalizedCopy>{"Lihat detail pet & owner"}</LocalizedCopy></LocalizedButton>
         </div>
       </div>
       <div className="paw-swipe-actions">
-        <button
+        <LocalizedButton
           className="pass"
           type="button"
           disabled={busy}
           aria-label={`Lewati ${active.name}`}
           onClick={() => onSwipe(active, "pass")}
-        >
-          ×
-        </button>
-        <button
+        ><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
+        <LocalizedButton
           className="detail"
           type="button"
           disabled={busy}
           onClick={() => onOpen(active)}
-        >
-          Detail
-        </button>
-        <button
+        ><LocalizedCopy>{"Detail"}</LocalizedCopy></LocalizedButton>
+        <LocalizedButton
           className="like"
           type="button"
           disabled={busy}
           aria-label={`Suka ${active.name}`}
           onClick={() => onSwipe(active, "like")}
-        >
-          ♡
-        </button>
+        ><LocalizedCopy>{"♡"}</LocalizedCopy></LocalizedButton>
       </div>
     </div>
   );
@@ -1130,10 +1090,10 @@ function HealthScore({
       aria-label={`Health score ${score} dari 100, ${label}`}
     >
       <div>
-        <strong>{score}</strong>
-        <small>/100</small>
+        <strong><LocalizedCopy>{score}</LocalizedCopy></strong>
+        <small><LocalizedCopy>{"/100"}</LocalizedCopy></small>
       </div>
-      <span>{label}</span>
+      <span><LocalizedCopy>{label}</LocalizedCopy></span>
     </div>
   );
 }
@@ -1185,160 +1145,150 @@ function ProfileDetail({
         className="paw-detail"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="paw-modal-close" type="button" onClick={onClose}>
-          ×
-        </button>
+        <LocalizedButton className="paw-modal-close" type="button" onClick={onClose}><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
         <div className={`paw-detail-cover ${profile.species}`}>
-          <span>{speciesEmoji(profile)}</span>
-          <div className={`paw-level ${levelTone[profile.profile_level]}`}>
-            ✦ Level {profile.profile_level} verified
-          </div>
+          <span><LocalizedCopy>{speciesEmoji(profile)}</LocalizedCopy></span>
+          <div className={`paw-level ${levelTone[profile.profile_level]}`}><LocalizedCopy>{"✦ Level "}</LocalizedCopy><LocalizedCopy>{profile.profile_level}</LocalizedCopy><LocalizedCopy>{" verified"}</LocalizedCopy></div>
         </div>
         <div className="paw-detail-head">
           <div>
             <h3>
-              {profile.name}{" "}
-              <small>{profile.sex === "female" ? "♀" : "♂"}</small>
+              <LocalizedCopy>{profile.name}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
+              <small><LocalizedCopy>{profile.sex === "female" ? "♀" : "♂"}</LocalizedCopy></small>
             </h3>
             <p>
-              {profile.breed} · {ageText(profile.age_months)} · {profile.city}
+              <LocalizedCopy>{profile.breed}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{ageText(profile.age_months)}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{profile.city}</LocalizedCopy>
             </p>
           </div>
           <HealthScore value={profile.health_score} large />
         </div>
-        <p className="paw-detail-desc">{profile.description}</p>
+        <p className="paw-detail-desc"><LocalizedCopy>{profile.description}</LocalizedCopy></p>
         <section className="paw-owner-detail">
           <div className="paw-owner-avatar">
-            {(profile.owner?.name || profile.owner_display || "P")
+            <LocalizedCopy>{(profile.owner?.name || profile.owner_display || "P")
               .slice(0, 1)
-              .toUpperCase()}
+              .toUpperCase()}</LocalizedCopy>
           </div>
           <div>
-            <span>PET OWNER</span>
+            <span><LocalizedCopy>{"PET OWNER"}</LocalizedCopy></span>
             <strong>
-              {profile.owner?.name || profile.owner_display || "Pet Owner"}
-              {profile.owner?.verified ? " ✓" : ""}
+              <LocalizedCopy>{profile.owner?.name || profile.owner_display || "Pet Owner"}</LocalizedCopy>
+              <LocalizedCopy>{profile.owner?.verified ? " ✓" : ""}</LocalizedCopy>
             </strong>
             <small>
-              {profile.owner?.member_since
-                ? `Member sejak ${new Date(profile.owner.member_since).toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`
-                : "Identitas owner dilindungi Slivadoc"}
+              <LocalizedCopy>{profile.owner?.member_since
+                ? `Member sejak ${new Date(profile.owner.member_since).toLocaleDateString(petOwnerIntlLocale(), { month: "long", year: "numeric" })}`
+                : "Identitas owner dilindungi Slivadoc"}</LocalizedCopy>
             </small>
           </div>
           <div className="paw-owner-distance">
-            <span>JARAK DARI ANDA</span>
+            <span><LocalizedCopy>{"JARAK DARI ANDA"}</LocalizedCopy></span>
             <strong>
-              {typeof profile.distance_km === "number" &&
+              <LocalizedCopy>{typeof profile.distance_km === "number" &&
               Number.isFinite(profile.distance_km)
                 ? `${profile.distance_km.toFixed(1)} km`
-                : profile.city}
+                : profile.city}</LocalizedCopy>
             </strong>
           </div>
         </section>
         <div className="paw-tags">
-          {[...profile.temperament, ...profile.traits]
+          <LocalizedCopy>{[...profile.temperament, ...profile.traits]
             .slice(0, 5)
             .map((item) => (
-              <span key={item}>{titleCase(item)}</span>
-            ))}
+              <span key={item}><LocalizedCopy>{titleCase(item)}</LocalizedCopy></span>
+            ))}</LocalizedCopy>
         </div>
-        {health ? (
+        <LocalizedCopy>{health ? (
           <section className="paw-report">
             <div className="paw-report-head">
               <div>
-                <span>🩺</span>
+                <span><LocalizedCopy>{"🩺"}</LocalizedCopy></span>
                 <div>
-                  <h4>Verified health report</h4>
+                  <h4><LocalizedCopy>{"Verified health report"}</LocalizedCopy></h4>
                   <p>
-                    {health.clinic_name} · {health.veterinarian_name}
+                    <LocalizedCopy>{health.clinic_name}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{health.veterinarian_name}</LocalizedCopy>
                   </p>
                 </div>
               </div>
-              <b>✓ VERIFIED</b>
+              <b><LocalizedCopy>{"✓ VERIFIED"}</LocalizedCopy></b>
             </div>
             <div className="paw-report-summary">
               <div>
-                <span>Status breeding</span>
-                <strong>{titleCase(health.eligibility_status)}</strong>
+                <span><LocalizedCopy>{"Status breeding"}</LocalizedCopy></span>
+                <strong><LocalizedCopy>{titleCase(health.eligibility_status)}</LocalizedCopy></strong>
               </div>
               <div>
-                <span>Risk level</span>
-                <strong>{titleCase(health.risk_level)}</strong>
+                <span><LocalizedCopy>{"Risk level"}</LocalizedCopy></span>
+                <strong><LocalizedCopy>{titleCase(health.risk_level)}</LocalizedCopy></strong>
               </div>
               <div>
-                <span>Valid sampai</span>
+                <span><LocalizedCopy>{"Valid sampai"}</LocalizedCopy></span>
                 <strong>
-                  {new Date(health.valid_until).toLocaleDateString("id-ID", {
+                  <LocalizedCopy>{new Date(health.valid_until).toLocaleDateString(petOwnerIntlLocale(), {
                     day: "numeric",
                     month: "short",
                     year: "numeric",
-                  })}
+                  })}</LocalizedCopy>
                 </strong>
               </div>
             </div>
             <div className="paw-report-grid">
-              {sections.map(([title, data]) => (
+              <LocalizedCopy>{sections.map(([title, data]) => (
                 <details key={title}>
                   <summary>
-                    <span>✓ {title}</span>
-                    <b>Clear</b>
+                    <span><LocalizedCopy>{"✓ "}</LocalizedCopy><LocalizedCopy>{title}</LocalizedCopy></span>
+                    <b><LocalizedCopy>{"Clear"}</LocalizedCopy></b>
                   </summary>
                   <div>
-                    {Object.entries(data ?? { status: "Terdokumentasi" }).map(
+                    <LocalizedCopy>{Object.entries(data ?? { status: "Terdokumentasi" }).map(
                       ([key, value]) => (
                         <p key={key}>
-                          <span>{titleCase(key)}</span>
-                          <strong>{titleCase(String(value))}</strong>
+                          <span><LocalizedCopy>{titleCase(key)}</LocalizedCopy></span>
+                          <strong><LocalizedCopy>{titleCase(String(value))}</LocalizedCopy></strong>
                         </p>
                       ),
-                    )}
+                    )}</LocalizedCopy>
                   </div>
                 </details>
-              ))}
+              ))}</LocalizedCopy>
             </div>
             <details className="paw-genetic">
               <summary>
-                <span>🧬 Panel genetik spesifik ras</span>
-                <b>{health.genetic_tests?.length ?? 0} hasil</b>
+                <span><LocalizedCopy>{"🧬 Panel genetik spesifik ras"}</LocalizedCopy></span>
+                <b><LocalizedCopy>{health.genetic_tests?.length ?? 0}</LocalizedCopy><LocalizedCopy>{" hasil"}</LocalizedCopy></b>
               </summary>
               <div>
-                {(health.genetic_tests ?? []).map((test) => (
+                <LocalizedCopy>{(health.genetic_tests ?? []).map((test) => (
                   <p key={test.test}>
-                    <span>{test.test}</span>
-                    <strong>✓ {test.result}</strong>
+                    <span><LocalizedCopy>{test.test}</LocalizedCopy></span>
+                    <strong><LocalizedCopy>{"✓ "}</LocalizedCopy><LocalizedCopy>{test.result}</LocalizedCopy></strong>
                   </p>
-                ))}
+                ))}</LocalizedCopy>
               </div>
             </details>
             <div className="paw-vet-note">
-              <strong>Catatan dokter</strong>
+              <strong><LocalizedCopy>{"Catatan dokter"}</LocalizedCopy></strong>
               <p>
-                {health.findings} {health.recommendations}
+                <LocalizedCopy>{health.findings}</LocalizedCopy> <LocalizedCopy>{health.recommendations}</LocalizedCopy>
               </p>
-              <small>
-                STRV {health.veterinarian_license} · Ditandatangani secara
-                digital
-              </small>
+              <small><LocalizedCopy>{"STRV "}</LocalizedCopy><LocalizedCopy>{health.veterinarian_license}</LocalizedCopy><LocalizedCopy>{" · Ditandatangani secara digital"}</LocalizedCopy></small>
             </div>
           </section>
         ) : (
           <section className="paw-report">
             <div className="paw-report-head">
               <div>
-                <span>🩺</span>
+                <span><LocalizedCopy>{"🩺"}</LocalizedCopy></span>
                 <div>
-                  <h4>Laporan kesehatan belum tersedia</h4>
-                  <p>
-                    Profil ini belum memiliki laporan dokter yang dapat
-                    ditampilkan.
-                  </p>
+                  <h4><LocalizedCopy>{"Laporan kesehatan belum tersedia"}</LocalizedCopy></h4>
+                  <p><LocalizedCopy>{"Profil ini belum memiliki laporan dokter yang dapat ditampilkan."}</LocalizedCopy></p>
                 </div>
               </div>
-              <b>PERLU REVIEW</b>
+              <b><LocalizedCopy>{"PERLU REVIEW"}</LocalizedCopy></b>
             </div>
           </section>
-        )}
-        {compatibility && (
+        )}</LocalizedCopy>
+        <LocalizedCopy>{compatibility && (
           <section className={`paw-compatibility ${compatibility.grade}`}>
             <div className="paw-compat-head">
               <div
@@ -1349,40 +1299,38 @@ function ProfileDetail({
                   } as CSSProperties
                 }
               >
-                <strong>{compatibility.score}</strong>
-                <span>/100</span>
+                <strong><LocalizedCopy>{compatibility.score}</LocalizedCopy></strong>
+                <span><LocalizedCopy>{"/100"}</LocalizedCopy></span>
               </div>
               <div>
-                <span>Compatibility report</span>
-                <h4>{titleCase(compatibility.grade)}</h4>
-                <p>Skor membantu screening awal, bukan pengganti dokter.</p>
+                <span><LocalizedCopy>{"Compatibility report"}</LocalizedCopy></span>
+                <h4><LocalizedCopy>{titleCase(compatibility.grade)}</LocalizedCopy></h4>
+                <p><LocalizedCopy>{"Skor membantu screening awal, bukan pengganti dokter."}</LocalizedCopy></p>
               </div>
             </div>
             <div className="paw-breakdown">
-              {Object.entries(compatibility.breakdown).map(([key, value]) => (
+              <LocalizedCopy>{Object.entries(compatibility.breakdown).map(([key, value]) => (
                 <div key={key}>
-                  <span>{titleCase(key)}</span>
+                  <span><LocalizedCopy>{titleCase(key)}</LocalizedCopy></span>
                   <i>
                     <b style={{ width: `${Math.min(100, value * 5)}%` }} />
                   </i>
-                  <strong>{value}</strong>
+                  <strong><LocalizedCopy>{value}</LocalizedCopy></strong>
                 </div>
-              ))}
+              ))}</LocalizedCopy>
             </div>
-            {compatibility.risk_flags.length > 0 && (
+            <LocalizedCopy>{compatibility.risk_flags.length > 0 && (
               <div className="paw-risk-flags">
-                {compatibility.risk_flags.map((flag) => (
-                  <span key={flag}>! {flag}</span>
-                ))}
+                <LocalizedCopy>{compatibility.risk_flags.map((flag) => (
+                  <span key={flag}><LocalizedCopy>{"! "}</LocalizedCopy><LocalizedCopy>{flag}</LocalizedCopy></span>
+                ))}</LocalizedCopy>
               </div>
-            )}
+            )}</LocalizedCopy>
           </section>
-        )}
+        )}</LocalizedCopy>
         <div className="paw-detail-actions">
-          {sourceProfiles.length > 0 && (
-            <label>
-              Bandingkan dengan
-              <SlivaSelect aria-label="Bandingkan dengan"
+          <LocalizedCopy>{sourceProfiles.length > 0 && (
+            <label><LocalizedCopy>{"Bandingkan dengan"}</LocalizedCopy><SlivaSelect aria-label="Bandingkan dengan"
                 value={sourceProfileId}
                 onChange={(event) => setSourceProfileId(event.target.value)}
               >
@@ -1393,30 +1341,26 @@ function ProfileDetail({
                 ))}
               </SlivaSelect>
             </label>
-          )}
-          <button
+          )}</LocalizedCopy>
+          <LocalizedButton
             className="paw-secondary"
             type="button"
             disabled={submitting}
             onClick={onCheck}
           >
-            {submitting ? "Menghitung..." : "Hitung kecocokan"}
-          </button>
-          <button className="paw-primary" type="button" onClick={onInterest}>
-            ♡ Kirim ketertarikan
-          </button>
+            <LocalizedCopy>{submitting ? "Menghitung..." : "Hitung kecocokan"}</LocalizedCopy>
+          </LocalizedButton>
+          <LocalizedButton className="paw-primary" type="button" onClick={onInterest}><LocalizedCopy>{"♡ Kirim ketertarikan"}</LocalizedCopy></LocalizedButton>
         </div>
         <div className="paw-safety-actions">
-          <button
+          <LocalizedButton
             type="button"
             onClick={onFavorite}
             aria-pressed={favorite}
           >
-            {favorite ? "♥ Tersimpan" : "♡ Simpan"}
-          </button>
-          <button type="button" onClick={onReport}>
-            ⚑ Laporkan profil
-          </button>
+            <LocalizedCopy>{favorite ? "♥ Tersimpan" : "♡ Simpan"}</LocalizedCopy>
+          </LocalizedButton>
+          <LocalizedButton type="button" onClick={onReport}><LocalizedCopy>{"⚑ Laporkan profil"}</LocalizedCopy></LocalizedButton>
         </div>
       </aside>
     </div>
@@ -1474,37 +1418,29 @@ function PawChatModal({
         className="paw-small-modal paw-chat-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="paw-modal-close" type="button" onClick={close}>
-          ×
-        </button>
-        <span className="pawdating-kicker">MATCHED · PRIVATE ROOM</span>
+        <LocalizedButton className="paw-modal-close" type="button" onClick={close}><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
+        <span className="pawdating-kicker"><LocalizedCopy>{"MATCHED · PRIVATE ROOM"}</LocalizedCopy></span>
         <h3>
-          {interest.source_name} × {interest.target_name}
+          <LocalizedCopy>{interest.source_name}</LocalizedCopy><LocalizedCopy>{" × "}</LocalizedCopy><LocalizedCopy>{interest.target_name}</LocalizedCopy>
         </h3>
-        <p>
-          Ruang ini hanya terbuka setelah persetujuan kedua pet parent. Kontak
-          dan tautan pribadi tetap dilindungi.
-        </p>
+        <p><LocalizedCopy>{"Ruang ini hanya terbuka setelah persetujuan kedua pet parent. Kontak dan tautan pribadi tetap dilindungi."}</LocalizedCopy></p>
         <div className="paw-chat-list">
-          {busy && !messages.length ? (
-            <small>Memuat percakapan…</small>
+          <LocalizedCopy>{busy && !messages.length ? (
+            <small><LocalizedCopy>{"Memuat percakapan…"}</LocalizedCopy></small>
           ) : messages.length ? (
             messages.map((item) => (
               <article key={item.id}>
-                <b>{item.sender_name}</b>
-                <p>{item.body}</p>
-                <time>{new Date(item.created_at).toLocaleString("id-ID")}</time>
+                <b><LocalizedCopy preserve>{item.sender_name}</LocalizedCopy></b>
+                <p><LocalizedCopy>{item.body}</LocalizedCopy></p>
+                <time><LocalizedCopy>{new Date(item.created_at).toLocaleString(petOwnerIntlLocale())}</LocalizedCopy></time>
               </article>
             ))
           ) : (
-            <small>
-              Belum ada pesan. Mulai diskusi seputar kesehatan dan kecocokan
-              pet.
-            </small>
-          )}
+            <small><LocalizedCopy>{"Belum ada pesan. Mulai diskusi seputar kesehatan dan kecocokan pet."}</LocalizedCopy></small>
+          )}</LocalizedCopy>
         </div>
         <form className="paw-chat-compose" onSubmit={send}>
-          <textarea
+          <LocalizedTextarea
             value={body}
             onChange={(event) => setBody(event.target.value)}
             minLength={1}
@@ -1512,9 +1448,7 @@ function PawChatModal({
             placeholder="Tulis pesan tanpa nomor telepon, akun sosial, atau tautan…"
             required
           />
-          <button className="paw-primary" disabled={busy || !body.trim()}>
-            Kirim
-          </button>
+          <LocalizedButton className="paw-primary" disabled={busy || !body.trim()}><LocalizedCopy>{"Kirim"}</LocalizedCopy></LocalizedButton>
         </form>
       </section>
     </div>
@@ -1558,18 +1492,11 @@ function PawReportModal({
         onSubmit={submit}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="paw-modal-close" type="button" onClick={close}>
-          ×
-        </button>
-        <span className="paw-modal-mark">⚑</span>
-        <h3>Laporkan profil {profile.name}</h3>
-        <p>
-          Tim welfare akan meninjau laporan secara privat. Gunakan untuk
-          keselamatan, data tidak sesuai, atau perilaku mencurigakan.
-        </p>
-        <label>
-          Kategori
-          <SlivaSelect aria-label="Kategori" name="category" required defaultValue="">
+        <LocalizedButton className="paw-modal-close" type="button" onClick={close}><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
+        <span className="paw-modal-mark"><LocalizedCopy>{"⚑"}</LocalizedCopy></span>
+        <h3><LocalizedCopy>{"Laporkan profil "}</LocalizedCopy><LocalizedCopy>{profile.name}</LocalizedCopy></h3>
+        <p><LocalizedCopy>{"Tim welfare akan meninjau laporan secara privat. Gunakan untuk keselamatan, data tidak sesuai, atau perilaku mencurigakan."}</LocalizedCopy></p>
+        <label><LocalizedCopy>{"Kategori"}</LocalizedCopy><SlivaSelect aria-label="Kategori" name="category" required defaultValue="">
             <option value="">Pilih kategori</option>
             <option value="fake_health_data">
               Data kesehatan tidak sesuai
@@ -1579,9 +1506,7 @@ function PawReportModal({
             <option value="other">Lainnya</option>
           </SlivaSelect>
         </label>
-        <label>
-          Detail
-          <textarea
+        <label><LocalizedCopy>{"Detail"}</LocalizedCopy><LocalizedTextarea
             name="details"
             minLength={10}
             maxLength={1200}
@@ -1590,12 +1515,10 @@ function PawReportModal({
           />
         </label>
         <div className="paw-modal-actions">
-          <button className="paw-secondary" type="button" onClick={close}>
-            Batal
-          </button>
-          <button className="paw-primary" type="submit" disabled={busy}>
-            {busy ? "Mengirim…" : "Kirim laporan"}
-          </button>
+          <LocalizedButton className="paw-secondary" type="button" onClick={close}><LocalizedCopy>{"Batal"}</LocalizedCopy></LocalizedButton>
+          <LocalizedButton className="paw-primary" type="submit" disabled={busy}>
+            <LocalizedCopy>{busy ? "Mengirim…" : "Kirim laporan"}</LocalizedCopy>
+          </LocalizedButton>
         </div>
       </form>
     </div>
@@ -1636,68 +1559,56 @@ function StandardsView({
   return (
     <div className="paw-standards">
       <div className="paw-standards-intro">
-        <span>SLIVADOC WELFARE STANDARD</span>
-        <h3>
-          Empat level verifikasi,
-          <br />
-          satu tujuan: pet yang sehat.
-        </h3>
-        <p>
-          Semakin tinggi level, semakin lengkap data kesehatan dan silsilah yang
-          diverifikasi oleh dokter serta tim welfare Slivadoc.
-        </p>
-        <button
+        <span><LocalizedCopy>{"SLIVADOC WELFARE STANDARD"}</LocalizedCopy></span>
+        <h3><LocalizedCopy>{"Empat level verifikasi,"}</LocalizedCopy><br /><LocalizedCopy>{"satu tujuan: pet yang sehat."}</LocalizedCopy></h3>
+        <p><LocalizedCopy>{"Semakin tinggi level, semakin lengkap data kesehatan dan silsilah yang diverifikasi oleh dokter serta tim welfare Slivadoc."}</LocalizedCopy></p>
+        <LocalizedButton
           className="paw-secondary"
           type="button"
           onClick={() => {
             downloadStandardsChecklist(standards);
             notify("Checklist health screening berhasil diunduh");
           }}
-        >
-          ↓ Unduh checklist
-        </button>
+        ><LocalizedCopy>{"↓ Unduh checklist"}</LocalizedCopy></LocalizedButton>
       </div>
       <div className="paw-level-list">
-        {standards.levels.map((item) => (
+        <LocalizedCopy>{standards.levels.map((item) => (
           <article key={item.level} className={levelTone[item.level]}>
             <div>
-              <strong>0{item.level}</strong>
-              <span>LEVEL</span>
+              <strong><LocalizedCopy>{"0"}</LocalizedCopy><LocalizedCopy>{item.level}</LocalizedCopy></strong>
+              <span><LocalizedCopy>{"LEVEL"}</LocalizedCopy></span>
             </div>
             <section>
-              <h4>{item.name}</h4>
-              {item.requirements.map((requirement) => (
-                <p key={requirement}>✓ {requirement}</p>
-              ))}
+              <h4><LocalizedCopy>{item.name}</LocalizedCopy></h4>
+              <LocalizedCopy>{item.requirements.map((requirement) => (
+                <p key={requirement}><LocalizedCopy>{"✓ "}</LocalizedCopy><LocalizedCopy>{requirement}</LocalizedCopy></p>
+              ))}</LocalizedCopy>
             </section>
-            {item.level === 2 && <em>Minimum publish</em>}
+            <LocalizedCopy>{item.level === 2 && <em><LocalizedCopy>{"Minimum publish"}</LocalizedCopy></em>}</LocalizedCopy>
           </article>
-        ))}
+        ))}</LocalizedCopy>
       </div>
       <div className="paw-blocked">
         <div>
-          <span>⛔</span>
+          <span><LocalizedCopy>{"⛔"}</LocalizedCopy></span>
           <div>
-            <h4>Kondisi yang otomatis memblokir pairing</h4>
-            <p>
-              Sistem tidak akan mengirim interest bila salah satu kondisi
-              berikut terdeteksi.
-            </p>
+            <h4><LocalizedCopy>{"Kondisi yang otomatis memblokir pairing"}</LocalizedCopy></h4>
+            <p><LocalizedCopy>{"Sistem tidak akan mengirim interest bila salah satu kondisi berikut terdeteksi."}</LocalizedCopy></p>
           </div>
         </div>
         <ul>
-          {standards.blocked_conditions.map((condition) => (
-            <li key={condition}>{condition}</li>
-          ))}
+          <LocalizedCopy>{standards.blocked_conditions.map((condition) => (
+            <li key={condition}><LocalizedCopy>{condition}</LocalizedCopy></li>
+          ))}</LocalizedCopy>
         </ul>
       </div>
       <div className="paw-principles">
-        {standards.principles.map((principle, index) => (
+        <LocalizedCopy>{standards.principles.map((principle, index) => (
           <article key={principle}>
-            <span>0{index + 1}</span>
-            <p>{principle}</p>
+            <span><LocalizedCopy>{"0"}</LocalizedCopy><LocalizedCopy>{index + 1}</LocalizedCopy></span>
+            <p><LocalizedCopy>{principle}</LocalizedCopy></p>
           </article>
-        ))}
+        ))}</LocalizedCopy>
       </div>
     </div>
   );
@@ -1717,16 +1628,12 @@ function PrivateGate({
   if (isPetOwnerAuthenticated()) return <>{children}</>;
   return (
     <div className="paw-login-gate">
-      <div>🔐</div>
-      <span>PRIVATE & SECURE</span>
-      <h3>{title}</h3>
-      <p>{text}</p>
-      <button className="paw-primary" type="button" onClick={requireLogin}>
-        Login untuk melanjutkan
-      </button>
-      <small>
-        Kontak dan medical document dienkripsi serta hanya dibuka sesuai izin.
-      </small>
+      <div><LocalizedCopy>{"🔐"}</LocalizedCopy></div>
+      <span><LocalizedCopy>{"PRIVATE & SECURE"}</LocalizedCopy></span>
+      <h3><LocalizedCopy>{title}</LocalizedCopy></h3>
+      <p><LocalizedCopy>{text}</LocalizedCopy></p>
+      <LocalizedButton className="paw-primary" type="button" onClick={requireLogin}><LocalizedCopy>{"Login untuk melanjutkan"}</LocalizedCopy></LocalizedButton>
+      <small><LocalizedCopy>{"Kontak dan medical document dienkripsi serta hanya dibuka sesuai izin."}</LocalizedCopy></small>
     </div>
   );
 }
@@ -1744,12 +1651,12 @@ function Empty({
 }) {
   return (
     <div className="paw-empty">
-      <span>♡</span>
-      <h4>{title}</h4>
-      <p>{text}</p>
-      <button className="paw-secondary" type="button" onClick={onAction}>
-        {action}
-      </button>
+      <span><LocalizedCopy>{"♡"}</LocalizedCopy></span>
+      <h4><LocalizedCopy>{title}</LocalizedCopy></h4>
+      <p><LocalizedCopy>{text}</LocalizedCopy></p>
+      <LocalizedButton className="paw-secondary" type="button" onClick={onAction}>
+        <LocalizedCopy>{action}</LocalizedCopy>
+      </LocalizedButton>
     </div>
   );
 }
@@ -1884,45 +1791,39 @@ function CreateProfileModal({
         className="paw-create-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="paw-modal-close" type="button" onClick={onClose}>
-          ×
-        </button>
+        <LocalizedButton className="paw-modal-close" type="button" onClick={onClose}><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
         <div className="paw-create-head">
-          <span>PAW DATING PROFILE</span>
-          <h3>Verifikasi {pet.name}</h3>
+          <span><LocalizedCopy>{"PAW DATING PROFILE"}</LocalizedCopy></span>
+          <h3><LocalizedCopy>{"Verifikasi "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy></h3>
           <div>
-            {[1, 2, 3].map((item) => (
+            <LocalizedCopy>{[1, 2, 3].map((item) => (
               <i key={item} className={step >= item ? "active" : ""}>
-                {item}
+                <LocalizedCopy>{item}</LocalizedCopy>
               </i>
-            ))}
+            ))}</LocalizedCopy>
           </div>
         </div>
-        {step === 1 && (
+        <LocalizedCopy>{step === 1 && (
           <div className="paw-form-step">
-            <h4>Identitas & preferensi</h4>
+            <h4><LocalizedCopy>{"Identitas & preferensi"}</LocalizedCopy></h4>
             <div className="paw-pet-preview">
-              <span>{pet.avatar}</span>
+              <span><LocalizedCopy>{pet.avatar}</LocalizedCopy></span>
               <div>
-                <strong>{pet.name}</strong>
+                <strong><LocalizedCopy preserve>{pet.name}</LocalizedCopy></strong>
                 <p>
-                  {pet.breed} · {pet.gender} · {pet.age}
+                  <LocalizedCopy>{pet.breed}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{pet.gender}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{pet.age}</LocalizedCopy>
                 </p>
               </div>
-              <b>✓ Pet saya</b>
+              <b><LocalizedCopy>{"✓ Pet saya"}</LocalizedCopy></b>
             </div>
             <div className="paw-form-grid">
-              <label>
-                Kota
-                <input
+              <label><LocalizedCopy>{"Kota"}</LocalizedCopy><LocalizedInput
                   value={form.city}
                   onChange={(event) => set("city", event.target.value)}
                   required
                 />
               </label>
-              <label>
-                Jarak maksimum
-                <SlivaSelect aria-label="Jarak maksimum"
+              <label><LocalizedCopy>{"Jarak maksimum"}</LocalizedCopy><SlivaSelect aria-label="Jarak maksimum"
                   value={form.maxDistance}
                   onChange={(event) => set("maxDistance", event.target.value)}
                 >
@@ -1931,9 +1832,7 @@ function CreateProfileModal({
                   <option value="200">200 km</option>
                 </SlivaSelect>
               </label>
-              <label>
-                Pedigree
-                <SlivaSelect aria-label="Pedigree"
+              <label><LocalizedCopy>{"Pedigree"}</LocalizedCopy><SlivaSelect aria-label="Pedigree"
                   value={form.pedigree}
                   onChange={(event) => set("pedigree", event.target.value)}
                 >
@@ -1943,100 +1842,77 @@ function CreateProfileModal({
                   <option value="champion">Champion</option>
                 </SlivaSelect>
               </label>
-              <label>
-                Registry
-                <input
+              <label><LocalizedCopy>{"Registry"}</LocalizedCopy><LocalizedInput
                   value={form.registry}
                   onChange={(event) => set("registry", event.target.value)}
                   placeholder="PERKIN / ICA"
                 />
               </label>
-              <label className="wide">
-                Nomor registrasi
-                <input
+              <label className="wide"><LocalizedCopy>{"Nomor registrasi"}</LocalizedCopy><LocalizedInput
                   value={form.registration}
                   onChange={(event) => set("registration", event.target.value)}
                   placeholder="Opsional"
                 />
               </label>
-              <label className="wide">
-                Tentang {pet.name}
-                <textarea
+              <label className="wide"><LocalizedCopy>{"Tentang "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy>
+                <LocalizedTextarea
                   minLength={20}
                   value={form.description}
                   onChange={(event) => set("description", event.target.value)}
                   required
                 />
               </label>
-              <label>
-                Temperamen
-                <input
+              <label><LocalizedCopy>{"Temperamen"}</LocalizedCopy><LocalizedInput
                   value={form.temperament}
                   onChange={(event) => set("temperament", event.target.value)}
                 />
               </label>
-              <label>
-                Ras preferensi
-                <input
+              <label><LocalizedCopy>{"Ras preferensi"}</LocalizedCopy><LocalizedInput
                   value={form.preferred}
                   onChange={(event) => set("preferred", event.target.value)}
                 />
               </label>
             </div>
           </div>
-        )}
-        {step === 2 && (
+        )}</LocalizedCopy>
+        <LocalizedCopy>{step === 2 && (
           <div className="paw-form-step">
-            <h4>Dokumen health screening</h4>
-            <p className="paw-form-info">
-              Data ini akan berstatus <b>submitted</b> dan hanya naik level
-              setelah dokter Slivadoc memverifikasi dokumen asli.
-            </p>
+            <h4><LocalizedCopy>{"Dokumen health screening"}</LocalizedCopy></h4>
+            <p className="paw-form-info"><LocalizedCopy>{"Data ini akan berstatus "}</LocalizedCopy><b><LocalizedCopy>{"submitted"}</LocalizedCopy></b><LocalizedCopy>{" dan hanya naik level setelah dokter Slivadoc memverifikasi dokumen asli."}</LocalizedCopy></p>
             <div className="paw-form-grid">
-              <label>
-                Klinik / rumah sakit
-                <input
+              <label><LocalizedCopy>{"Klinik / rumah sakit"}</LocalizedCopy><LocalizedInput
                   value={form.clinic}
                   onChange={(event) => set("clinic", event.target.value)}
                   required
                 />
               </label>
-              <label>
-                Nama dokter
-                <input
+              <label><LocalizedCopy>{"Nama dokter"}</LocalizedCopy><LocalizedInput
                   value={form.doctor}
                   onChange={(event) => set("doctor", event.target.value)}
                   required
                 />
               </label>
-              <label>
-                Nomor STRV / SIP
-                <input
+              <label><LocalizedCopy>{"Nomor STRV / SIP"}</LocalizedCopy><LocalizedInput
                   value={form.license}
                   onChange={(event) => set("license", event.target.value)}
                 />
               </label>
-              <label>
-                Tanggal pemeriksaan
-                <input
+              <label><LocalizedCopy>{"Tanggal pemeriksaan"}</LocalizedCopy><SlivaDatePicker
                   type="date"
                   value={form.exam}
                   onChange={(event) => set("exam", event.target.value)}
                   required
                 />
               </label>
-              <label>
-                Valid sampai
-                <input
+              <label><LocalizedCopy>{"Valid sampai"}</LocalizedCopy><SlivaDatePicker
                   type="date"
                   value={form.valid}
                   onChange={(event) => set("valid", event.target.value)}
                   required
                 />
               </label>
-              <label className="paw-vaccine-upload">
-                Foto buku vaksin <b>* wajib</b>
-                <input
+              <label className="paw-vaccine-upload"><LocalizedCopy>{"Foto buku vaksin "}</LocalizedCopy><b><LocalizedCopy>{"* wajib"}</LocalizedCopy></b>
+                <SlivaFilePicker
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   capture="environment"
@@ -2054,17 +1930,15 @@ function CreateProfileModal({
                   required
                 />
                 <span className="paw-upload">
-                  {vaccineBook
+                  <LocalizedCopy>{vaccineBook
                     ? `✓ ${vaccineBook.name}`
-                    : "＋ Ambil / pilih foto buku vaksin"}
+                    : "＋ Ambil / pilih foto buku vaksin"}</LocalizedCopy>
                 </span>
-                <small>
-                  JPG, PNG, atau WebP. Dokumen hanya dilihat tim verifikasi.
-                </small>
+                <small><LocalizedCopy>{"JPG, PNG, atau WebP. Dokumen hanya dilihat tim verifikasi."}</LocalizedCopy></small>
               </label>
             </div>
             <div className="paw-checklist">
-              {[
+              <LocalizedCopy>{[
                 "Pemeriksaan fisik & BCS",
                 "Vaksin dan antiparasit",
                 "Penyakit menular",
@@ -2073,86 +1947,75 @@ function CreateProfileModal({
                 "Ortopedi / jantung / mata",
               ].map((item, index) => (
                 <label key={item}>
-                  <input type="checkbox" defaultChecked={index < 4} />
-                  <span>{item}</span>
-                  <small>{index < 4 ? "Terlampir" : "Jika tersedia"}</small>
+                  <LocalizedInput type="checkbox" defaultChecked={index < 4} />
+                  <span><LocalizedCopy>{item}</LocalizedCopy></span>
+                  <small><LocalizedCopy>{index < 4 ? "Terlampir" : "Jika tersedia"}</LocalizedCopy></small>
                 </label>
-              ))}
+              ))}</LocalizedCopy>
             </div>
           </div>
-        )}
-        {step === 3 && (
+        )}</LocalizedCopy>
+        <LocalizedCopy>{step === 3 && (
           <div className="paw-form-step">
-            <h4>Persetujuan welfare</h4>
+            <h4><LocalizedCopy>{"Persetujuan welfare"}</LocalizedCopy></h4>
             <div className="paw-review-card">
-              <span>{pet.avatar}</span>
+              <span><LocalizedCopy>{pet.avatar}</LocalizedCopy></span>
               <div>
-                <h4>{pet.name}</h4>
+                <h4><LocalizedCopy preserve>{pet.name}</LocalizedCopy></h4>
                 <p>
-                  {form.city} · {titleCase(form.pedigree)} · radius{" "}
-                  {form.maxDistance} km
-                </p>
-                <b>Level awal: Identity Verified</b>
-                <small>
-                  ✓ Buku vaksin: {vaccineBook?.name || "belum dipilih"}
+                  <LocalizedCopy>{form.city}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{titleCase(form.pedigree)}</LocalizedCopy><LocalizedCopy>{" · radius"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                  <LocalizedCopy>{form.maxDistance}</LocalizedCopy><LocalizedCopy>{" km"}</LocalizedCopy></p>
+                <b><LocalizedCopy>{"Level awal: Identity Verified"}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"✓ Buku vaksin: "}</LocalizedCopy><LocalizedCopy>{vaccineBook?.name || "belum dipilih"}</LocalizedCopy>
                 </small>
               </div>
             </div>
             <label className="paw-consent">
-              <input
+              <LocalizedInput
                 type="checkbox"
                 checked={consentData}
                 onChange={(event) => setConsentData(event.target.checked)}
                 required
               />
-              <span>
-                Saya menyatakan data pet dan dokumen kesehatan benar, memiliki
-                hak atas pet ini, dan menyetujui verifikasi dokter serta
-                moderasi welfare Slivadoc.
-              </span>
+              <span><LocalizedCopy>{"Saya menyatakan data pet dan dokumen kesehatan benar, memiliki hak atas pet ini, dan menyetujui verifikasi dokter serta moderasi welfare Slivadoc."}</LocalizedCopy></span>
             </label>
             <label className="paw-consent">
-              <input
+              <LocalizedInput
                 type="checkbox"
                 checked={consentWelfare}
                 onChange={(event) => setConsentWelfare(event.target.checked)}
                 required
               />
-              <span>
-                Saya memahami hasil kompatibilitas bukan izin otomatis untuk
-                breeding dan pemeriksaan pra-breeding tetap wajib.
-              </span>
+              <span><LocalizedCopy>{"Saya memahami hasil kompatibilitas bukan izin otomatis untuk breeding dan pemeriksaan pra-breeding tetap wajib."}</LocalizedCopy></span>
             </label>
           </div>
-        )}
+        )}</LocalizedCopy>
         <div className="paw-form-actions">
-          <button
+          <LocalizedButton
             className="paw-secondary"
             type="button"
             onClick={() =>
               step === 1 ? onClose() : setStep((value) => value - 1)
             }
           >
-            {step === 1 ? "Batal" : "Kembali"}
-          </button>
-          {step < 3 ? (
-            <button
+            <LocalizedCopy>{step === 1 ? "Batal" : "Kembali"}</LocalizedCopy>
+          </LocalizedButton>
+          <LocalizedCopy>{step < 3 ? (
+            <LocalizedButton
               className="paw-primary"
               type="button"
               onClick={continueStep}
-            >
-              Lanjutkan →
-            </button>
+            ><LocalizedCopy>{"Lanjutkan →"}</LocalizedCopy></LocalizedButton>
           ) : (
-            <button
+            <LocalizedButton
               className="paw-primary"
               type="button"
               disabled={busy || !consentData || !consentWelfare}
               onClick={() => void save()}
             >
-              {busy ? "Mengirim..." : "Kirim untuk review"}
-            </button>
-          )}
+              <LocalizedCopy>{busy ? "Mengirim..." : "Kirim untuk review"}</LocalizedCopy>
+            </LocalizedButton>
+          )}</LocalizedCopy>
         </div>
       </div>
     </div>

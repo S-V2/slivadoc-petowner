@@ -1,3 +1,4 @@
+import { LocalizedCopy } from "../components/LocalizedCopy";
 import type { Metadata } from "next";
 import { Breadcrumbs, PublicPage } from "../components/seo/PublicSite";
 import { pageMetadata } from "../lib/seo-config";
@@ -55,32 +56,26 @@ export default function TermsPage() {
           ]}
         />
         <div className="seo-section-heading">
-          <span className="seo-eyebrow">SYARAT & KETENTUAN</span>
-          <h1>Aturan yang jelas untuk setiap langkah transaksi.</h1>
-          <p>
-            Berlaku mulai 4 Oktober 2026. Dengan menggunakan Slivadoc, pengguna
-            menyetujui ketentuan yang relevan dengan fitur dan transaksi yang
-            dipilih.
-          </p>
+          <span className="seo-eyebrow"><LocalizedCopy>{"SYARAT & KETENTUAN"}</LocalizedCopy></span>
+          <h1><LocalizedCopy>{"Aturan yang jelas untuk setiap langkah transaksi."}</LocalizedCopy></h1>
+          <p><LocalizedCopy>{"Berlaku mulai 4 Oktober 2026. Dengan menggunakan Slivadoc, pengguna menyetujui ketentuan yang relevan dengan fitur dan transaksi yang dipilih."}</LocalizedCopy></p>
         </div>
       </section>
       <section className="seo-main-section">
         <div className="seo-card-grid">
-          {sections.map(([title, detail]) => (
+          <LocalizedCopy>{sections.map(([title, detail]) => (
             <article className="seo-card" key={title}>
-              <h2>{title}</h2>
-              <p>{detail}</p>
+              <h2><LocalizedCopy>{title}</LocalizedCopy></h2>
+              <p><LocalizedCopy>{detail}</LocalizedCopy></p>
             </article>
-          ))}
+          ))}</LocalizedCopy>
         </div>
       </section>
       <section className="seo-main-section">
         <div className="seo-section-heading">
-          <h2>Butuh penjelasan?</h2>
-          <p>
-            Gunakan Pusat Bantuan pada akun PetOwner atau hubungi{" "}
-            <a href="mailto:support@slivadoc.com">support@slivadoc.com</a>.
-          </p>
+          <h2><LocalizedCopy>{"Butuh penjelasan?"}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Gunakan Pusat Bantuan pada akun PetOwner atau hubungi"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+            <a href="mailto:support@slivadoc.com"><LocalizedCopy>{"support@slivadoc.com"}</LocalizedCopy></a><LocalizedCopy>{"."}</LocalizedCopy></p>
         </div>
       </section>
     </PublicPage>

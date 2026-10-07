@@ -203,3 +203,13 @@ services/petowner-api/      Express + Socket.IO integration gateway
   knowledge/pet-care.json   curated pet-care knowledge
 public/                     web assets
 ```
+
+## Bahasa Inggris dan terjemahan konten
+
+Web dan Expo memakai kamus bersama di `shared/english-*.ts`. Kamus kurasi didahulukan daripada hasil mesin. Komponen teks berlangganan cache terjemahan sehingga konten produk/layanan baru diperbarui setelah respons datang; identitas pet/pemilik dan nilai formulir tetap asli.
+
+`POST /api/translations` menerima `{ "sources": ["Deskripsi produk"], "target": "en" }`. Gateway membatasi ukuran, laju request, dan pekerjaan inference, lalu menyimpan hasil berdasarkan hash teks dan versi model pada `DATA_DIR/translations`. Teks sumber asli tidak diubah. Jika layanan sedang gagal, UI tetap menampilkan sumber asli; hasil mesin tetap perlu ditinjau untuk istilah medis dan nama produk.
+
+Produksi memakai overlay `compose.override.yaml` dari repository infrastructure. LibreTranslate/Argos Indonesia–Inggris berjalan pada jaringan Docker privat, tanpa port publik atau API vendor berbayar. Model tersimpan pada volume terpisah; unduhan pertama membutuhkan internet dan waktu startup. Workflow deployment memeriksa akses repository infrastructure, memvalidasi overlay di bawah deployment lock, menunggu health model, dan menjalankan inference sebelum menandai deploy sukses.
+
+Untuk pengembangan jalankan engine lokal dan isi `SLIVA_TRANSLATION_URL` pada gateway (contoh `http://127.0.0.1:15000`). Tidak diperlukan kredensial baru. Native orientation dan keyboard resize pada `mobile/app.json` memerlukan build aplikasi baru; export JavaScript tidak memperbarui binary yang sudah dipasang.

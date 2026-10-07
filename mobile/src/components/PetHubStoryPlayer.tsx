@@ -1,6 +1,7 @@
+import { LocalizedPressable as Pressable } from "./LocalizedPressable";
 /* eslint-disable jsx-a11y/alt-text */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, Image, Pressable, StyleSheet, View } from "react-native";
+import { AppState, Image,  StyleSheet, View } from "react-native";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { Ionicons } from "@expo/vector-icons";
 import { LocalizedText as Text } from "../i18n";

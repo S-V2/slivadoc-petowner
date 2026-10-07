@@ -1,9 +1,10 @@
+import { LocalizedPressable as Pressable } from "./LocalizedPressable";
 /* eslint-disable jsx-a11y/alt-text */
 import { useEffect, useRef, useState } from "react";
 import {
   AppState,
   Image,
-  Pressable,
+
   ScrollView,
   StyleSheet,
   View,

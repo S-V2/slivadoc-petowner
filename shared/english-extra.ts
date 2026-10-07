@@ -445,5 +445,19 @@ export const englishExtra: Record<string, string> = {
   "Ulasan pembeli asli": "Verified buyer reviews",
   "Hanya dari transaksi terbayar.": "Reviews from paid orders only.",
   "Buka keranjang": "Open cart",
-  "Last online belum tersedia": "Last online unavailable"
+  "Last online belum tersedia": "Last online unavailable",
+  "Merek": "Brand",
+  "Terakhir online belum tersedia": "Last online unavailable",
+  "Status izin belum tersedia": "License status unavailable",
+  "Retur & garansi": "Returns & warranty",
+  "Kebijakan retur belum dicantumkan oleh penjual.": "The seller has not provided a returns policy.",
+  "Panduan penggunaan belum dicantumkan oleh penjual.": "The seller has not provided usage instructions.",
+  "Belanja terlindungi": "Protected purchases",
+  "Pembayaran jelas": "Clear payments",
+  "Pengiriman jelas": "Clear delivery details",
+  "Jumlah": "Quantity",
+  "Dokter Hewan Online": "Online veterinarian",
+  "Klinik Hewan": "Veterinary clinic",
+  "Grooming Hewan": "Pet grooming",
+  "Vaksinasi Hewan": "Pet vaccination"
 };

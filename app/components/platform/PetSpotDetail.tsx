@@ -2,7 +2,7 @@
 import { petOwnerIntlLocale } from "../../lib/petowner-locale";
 import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } from "../LocalizedCopy";
 import { SlivaDatePicker } from "../SlivaDatePicker";
-import Image from "next/image";
+import { LocalizedImage as Image } from "../LocalizedCopy";
 import {
   useEffect,
   useMemo,

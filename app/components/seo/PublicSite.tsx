@@ -1,5 +1,5 @@
 import { LocalizedCopy } from "../LocalizedCopy";
-import Link from "next/link";
+import { LocalizedLink as Link } from "../LocalizedCopy";
 import type { ReactNode } from "react";
 import { cityPages, guidePages, servicePages } from "../../lib/seo-content";
 
@@ -85,7 +85,7 @@ export function Breadcrumbs({
         <span key={`${item.label}-${index}`}>
           <LocalizedCopy>{index > 0 && <i aria-hidden="true"><LocalizedCopy>{"/"}</LocalizedCopy></i>}</LocalizedCopy>
           <LocalizedCopy>{item.href ? (
-            <Link href={item.href}>{item.label}</Link>
+            <Link href={item.href}><LocalizedCopy>{item.label}</LocalizedCopy></Link>
           ) : (
             <b aria-current="page"><LocalizedCopy>{item.label}</LocalizedCopy></b>
           )}</LocalizedCopy>
@@ -111,7 +111,7 @@ export function DiscoveryLinks() {
           <strong><LocalizedCopy>{"Layanan populer"}</LocalizedCopy></strong>
           <LocalizedCopy>{servicePages.slice(0, 5).map((item) => (
             <Link key={item.slug} href={`/layanan/${item.slug}`}>
-              {item.name}
+              <LocalizedCopy>{item.name}</LocalizedCopy>
             </Link>
           ))}</LocalizedCopy>
         </div>
@@ -120,7 +120,7 @@ export function DiscoveryLinks() {
           <Link href="/belanja"><LocalizedCopy>{"Katalog kebutuhan pet"}</LocalizedCopy></Link>
           <LocalizedCopy>{guidePages.slice(0, 3).map((item) => (
             <Link key={item.slug} href={`/panduan/${item.slug}`}>
-              {item.title}
+              <LocalizedCopy>{item.title}</LocalizedCopy>
             </Link>
           ))}</LocalizedCopy>
         </div>
@@ -128,7 +128,7 @@ export function DiscoveryLinks() {
           <strong><LocalizedCopy>{"Area layanan"}</LocalizedCopy></strong>
           <Link href="/wilayah"><LocalizedCopy>{"Jelajahi seluruh Indonesia"}</LocalizedCopy></Link>
           <LocalizedCopy>{cityPages.slice(0, 5).map((item) => (
-            <Link key={item.slug} href={`/kota/${item.slug}`}><LocalizedCopy>{"Pet care "}</LocalizedCopy>{item.name}
+            <Link key={item.slug} href={`/kota/${item.slug}`}><LocalizedCopy>{"Pet care "}</LocalizedCopy><LocalizedCopy>{item.name}</LocalizedCopy>
             </Link>
           ))}</LocalizedCopy>
         </div>

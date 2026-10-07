@@ -1,5 +1,5 @@
 import { LocalizedCopy } from "../components/LocalizedCopy";
-import Link from "next/link";
+import { LocalizedLink as Link } from "../components/LocalizedCopy";
 import { PublicPage, Breadcrumbs } from "../components/seo/PublicSite";
 import { pageMetadata } from "../lib/seo-config";
 

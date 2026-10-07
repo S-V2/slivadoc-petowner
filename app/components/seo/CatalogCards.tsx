@@ -1,5 +1,5 @@
 import { LocalizedCopy } from "../LocalizedCopy";
-import Link from "next/link";
+import { LocalizedLink as Link } from "../LocalizedCopy";
 import type { PublicProduct } from "../../lib/public-marketplace";
 import type { PublicPlace } from "../../lib/public-directory";
 import { serviceMatches } from "../../lib/seo-taxonomy";

@@ -1,6 +1,6 @@
 import { LocalizedCopy } from "../components/LocalizedCopy";
-import Image from "next/image";
-import Link from "next/link";
+import { LocalizedImage as Image } from "../components/LocalizedCopy";
+import { LocalizedLink as Link } from "../components/LocalizedCopy";
 import JsonLd from "../components/seo/JsonLd";
 import { Breadcrumbs, PublicPage } from "../components/seo/PublicSite";
 import { getPublicProducts } from "../lib/public-marketplace";
@@ -72,7 +72,7 @@ export default async function MarketplacePage() {
       </section>
       <section className="seo-main-section">
         <h2><LocalizedCopy>{"Belanja berdasarkan kebutuhan"}</LocalizedCopy></h2>
-        <div className="seo-tag-list"><LocalizedCopy>{productCategories.map((c) => <Link key={c.slug} href={`/belanja/kategori/${c.slug}`}>{c.name}</Link>)}</LocalizedCopy></div>
+        <div className="seo-tag-list"><LocalizedCopy>{productCategories.map((c) => <Link key={c.slug} href={`/belanja/kategori/${c.slug}`}><LocalizedCopy>{c.name}</LocalizedCopy></Link>)}</LocalizedCopy></div>
         <div className="seo-section-heading">
           <h2><LocalizedCopy>{"Produk yang tersedia"}</LocalizedCopy></h2>
           <p>

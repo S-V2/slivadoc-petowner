@@ -1,8 +1,8 @@
 import { LocalizedCopy } from "../../components/LocalizedCopy";
 import type { Metadata } from "next";
 import { validGtin } from "../../lib/product-discovery";
-import Image from "next/image";
-import Link from "next/link";
+import { LocalizedImage as Image } from "../../components/LocalizedCopy";
+import { LocalizedLink as Link } from "../../components/LocalizedCopy";
 import { notFound, permanentRedirect } from "next/navigation";
 import JsonLd from "../../components/seo/JsonLd";
 import { Breadcrumbs, PublicPage } from "../../components/seo/PublicSite";
@@ -187,9 +187,9 @@ export default async function ProductPage({ params }: PageProps) {
                 className="seo-primary"
                 href={`/?view=shop&product=${product.id}`}
               >
-                {product.available
+                <LocalizedCopy>{product.available
                   ? "Beli di Sliva Market"
-                  : "Lihat alternatif"}
+                  : "Lihat alternatif"}</LocalizedCopy>
               </Link>
               <Link className="seo-secondary" href="/belanja"><LocalizedCopy>{"Kembali ke katalog"}</LocalizedCopy></Link>
             </div>

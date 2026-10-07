@@ -8,6 +8,9 @@ import { responsiveLayout } from "../shared/responsive.ts";
 
 test("web and native share curated copy, plural counts and calendar language", () => {
   assert.equal(translateText("Belanja", "en"), "Shop");
+  assert.equal(translateText(translateText("Rekomendasi", "en"), "en"), "Recommended");
+  assert.equal(translateText(translateText("Beranda", "en"), "en"), "Home");
+  assert.equal(translateText("5 bintang", "en"), "5 stars");
   assert.equal(translateText("Kalender Slivadoc", "en"), "Slivadoc Calendar");
   assert.equal(translateText("  12 produk ditemukan  ", "en"), "  12 products found  ");
   assert.equal(translateText("Makanan kucing", "en"), "Cat food");

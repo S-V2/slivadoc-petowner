@@ -1,6 +1,6 @@
 "use client";
 import { LocalizedCopy, LocalizedButton } from "../LocalizedCopy";
-import Image from "next/image";
+import { LocalizedImage as Image } from "../LocalizedCopy";
 import { useState } from "react";
 
 export function AdoptionGallery({

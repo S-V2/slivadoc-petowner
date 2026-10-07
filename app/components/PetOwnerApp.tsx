@@ -9,8 +9,8 @@ import { featureSearchShortcuts, isWorldMode, worldFeatures, type PetOwnerWorldM
 import { SlivaSelect } from "./SlivaSelect";
 import { DiscountBadge } from "./DiscountBadge";
 
-import Image from "next/image";
-import Link from "next/link";
+import { LocalizedImage as Image } from "./LocalizedCopy";
+import { LocalizedLink as Link } from "./LocalizedCopy";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {

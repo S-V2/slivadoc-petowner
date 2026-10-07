@@ -3,7 +3,7 @@ import { SlivaVideo } from "../SlivaVideo";
 import { SlivaFilePicker } from "../SlivaFilePicker";
 import { LocalizedCopy, LocalizedButton, LocalizedTextarea } from "../LocalizedCopy";
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import { LocalizedImage as Image } from "../LocalizedCopy";
 import { uploadPetHubMedia } from "../../lib/petowner-api";
 import { createPetHubPost, createPetHubStory } from "../../lib/platform-api";
 

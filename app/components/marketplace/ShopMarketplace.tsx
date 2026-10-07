@@ -4,7 +4,7 @@ import { LocalizedCopy, LocalizedButton, LocalizedTextarea, LocalizedInput } fro
 import { SlivaSelect } from "../SlivaSelect";
 import { DiscountBadge } from "../DiscountBadge";
 
-import Image from "next/image";
+import { LocalizedImage as Image } from "../LocalizedCopy";
 import {
   useCallback,
   useDeferredValue,

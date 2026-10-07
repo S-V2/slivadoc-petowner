@@ -1,6 +1,6 @@
 import { LocalizedCopy } from "../../components/LocalizedCopy";
 import type { Metadata } from "next";
-import Link from "next/link";
+import { LocalizedLink as Link } from "../../components/LocalizedCopy";
 import { notFound } from "next/navigation";
 import JsonLd from "../../components/seo/JsonLd";
 import { Breadcrumbs, PublicPage } from "../../components/seo/PublicSite";

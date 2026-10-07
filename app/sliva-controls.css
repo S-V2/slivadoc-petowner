@@ -7,7 +7,7 @@ html:has(.sliva-calendar-backdrop),body:has(.sliva-calendar-backdrop) {overflow:
 .sliva-date-field input { width:100%;padding-right:46px!important; }
 .sliva-date-launch { position:absolute;right:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;border-radius:12px;background:#ebf8ff;color:#05689f;font-size:22px;cursor:pointer; }
 .sliva-calendar-backdrop {position:fixed;inset:0;z-index:240;display:grid;place-items:center;padding:16px;background:rgba(13,35,54,.42);backdrop-filter:blur(3px);}
-.sliva-calendar {width:min(420px,100%);max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #d8f1ff;border-radius:24px;padding:18px;background:white;box-shadow:0 24px 70px #153b5b35;color:#153b5b;}
+.sliva-calendar {box-sizing:border-box;font-family:inherit;width:min(420px,100%);max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #d8f1ff;border-radius:24px;padding:18px;background:white;box-shadow:0 24px 70px #153b5b35;color:#153b5b;}
 .sliva-calendar header,.sliva-calendar footer,.sliva-calendar-month,.sliva-calendar-time {display:flex;align-items:center;gap:8px;}
 .sliva-calendar header {justify-content:space-between;margin-bottom:16px;}
 .sliva-calendar button {min-height:40px;border:0;border-radius:12px;padding:8px;background:#ebf8ff;color:#05689f;cursor:pointer;}

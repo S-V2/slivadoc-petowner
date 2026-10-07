@@ -1,4 +1,6 @@
 "use client";
+import Image from "next/image";
+import Link from "next/link";
 import { Children, useState, type ReactNode, type ComponentPropsWithRef } from "react";
 import { usePetOwnerI18n } from "./PetOwnerI18n";
 import { translateText } from "../../shared/i18n";
@@ -22,4 +24,13 @@ export function LocalizedTextarea(props: ComponentPropsWithRef<"textarea">) {
 export function LocalizedButton(props: ComponentPropsWithRef<"button">) {
   const { t } = usePetOwnerI18n();
   return <button {...props} aria-label={props["aria-label"] ? t(props["aria-label"]) : undefined} title={props.title ? t(props.title) : undefined}>{props.children}</button>;
+}
+
+export function LocalizedImage(props: ComponentPropsWithRef<typeof Image>) {
+  const { t } = usePetOwnerI18n();
+  return <Image {...props} alt={t(props.alt)} />;
+}
+export function LocalizedLink(props: ComponentPropsWithRef<typeof Link>) {
+  const { t } = usePetOwnerI18n();
+  return <Link {...props} aria-label={props["aria-label"] ? t(props["aria-label"]) : undefined} title={props.title ? t(props.title) : undefined} />;
 }

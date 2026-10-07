@@ -5,6 +5,7 @@ import { englishExtra } from "./english-extra.ts";
 const englishCopy = { ...englishGenerated, ...baseCopy, ...englishExtra };
 export type SlivaLanguage = "id" | "en";
 const folded = new Map([...Object.entries(englishGenerated), ...Object.entries(baseCopy), ...Object.entries(englishExtra)].map(([key, value]) => [key.toLocaleLowerCase("id"), value]));
+const englishOutputs = new Set([...Object.values(baseCopy), ...Object.values(englishExtra)].map(value => value.toLocaleLowerCase("en")));
 export function translateText(value: string, language: SlivaLanguage, forceContent = false): string {
   if (language === "id" || !value.trim()) return value;
   if (value.length > 12000) {
@@ -21,10 +22,14 @@ export function translateText(value: string, language: SlivaLanguage, forceConte
     return parts.join("");
   }
   const core = value.trim();
+  // Primitives can nest: an English label must never be translated a second time.
+  if (englishOutputs.has(core.toLocaleLowerCase("en"))) return value;
   const exact = englishCopy[core] ?? folded.get(core.toLocaleLowerCase("id"));
   let translated: string | undefined = exact;
   if (!translated) {
     const patterns: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
+      [/^(\d+) bintang$/i, m => `${m[1]} stars`],
+      [/^(\d+) tersedia$/i, m => `${m[1]} available`],
       [/^(\d+) (produk|layanan) ditemukan$/i, m => `${m[1]} ${m[2]?.toLowerCase() === "produk" ? "products" : "services"} found`],
       [/^(\d+) (toko|terjual|komentar|suka|aktivitas|item|menit|tiket|kursi|ulasan|hari|minggu|tahun)$/i, m => `${m[1]} ${({toko:"stores",terjual:"sold",komentar:"comments",suka:"likes",aktivitas:"activities",item:"items",menit:"minutes",tiket:"tickets",kursi:"seats",ulasan:"reviews",hari:"days",minggu:"weeks",tahun:"years"} as Record<string,string>)[m[2]!.toLowerCase()]}`],
       [/^Belum ada rekam medis untuk (.+)\.?$/i, m => `No medical records for ${m[1]} yet.`],

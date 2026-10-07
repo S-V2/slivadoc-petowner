@@ -3,7 +3,7 @@ import { SlivaVideo } from "../SlivaVideo";
 import { petOwnerIntlLocale } from "../../lib/petowner-locale";
 import { LocalizedCopy, LocalizedButton } from "../LocalizedCopy";
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import { LocalizedImage as Image } from "../LocalizedCopy";
 import { useStoryClock } from "../../lib/use-story-clock";
 import { storyProgress } from "../../lib/pethub-interactions";
 import {

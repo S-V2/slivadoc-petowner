@@ -1,3 +1,5 @@
+import { PET_PROFILE_REQUIRED_MESSAGE, petOwnerMutationRequiresPet } from "../../mobile/src/petowner-flow.ts";
+
 export const PLATFORM_API_URL =
   process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? "http://localhost:8080";
 
@@ -70,6 +72,7 @@ const getCacheTTL = 15_000;
 let refreshPromise: Promise<AuthTokens> | null = null;
 let cachedUser: UserIdentity | null = null;
 let userPromise: Promise<UserIdentity | null> | null = null;
+let petOwnerProfile: { token: string; hasPet: boolean } | undefined;
 
 function beginMutationUI(method: string) {
   if (method === "GET" || typeof document === "undefined") {
@@ -140,8 +143,12 @@ export function getRefreshToken(): string {
   return localStorage.getItem(refreshKey) ?? "";
 }
 
-export function saveTokens(tokens: AuthTokens) {
+export function saveTokens(tokens: AuthTokens, preservePetProfile = false) {
   if (typeof localStorage === "undefined") return;
+  const previousToken = getAccessToken();
+  petOwnerProfile = preservePetProfile && petOwnerProfile?.token === previousToken
+    ? { ...petOwnerProfile, token: tokens.access_token }
+    : undefined;
   localStorage.setItem(accessKey, tokens.access_token);
   localStorage.setItem(refreshKey, tokens.refresh_token);
   if (tokens.session_id) localStorage.setItem(sessionKey, tokens.session_id);
@@ -157,6 +164,7 @@ export function saveTokens(tokens: AuthTokens) {
 }
 
 export function clearSession() {
+  petOwnerProfile = undefined;
   if (typeof localStorage === "undefined") return;
   localStorage.removeItem(accessKey);
   localStorage.removeItem(refreshKey);
@@ -201,7 +209,7 @@ async function performSessionRefresh(): Promise<AuthTokens> {
       data.code,
     );
   }
-  saveTokens(data as AuthTokens);
+  saveTokens(data as AuthTokens, true);
   return data as AuthTokens;
 }
 
@@ -254,6 +262,11 @@ export async function apiRequest<T>(
   retry = true,
 ): Promise<T> {
   const method = String(init.method ?? "GET").toUpperCase();
+  if (petOwnerProfile && petOwnerProfile.token === getAccessToken() && !petOwnerProfile.hasPet &&
+      petOwnerMutationRequiresPet(path, method)) {
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("slivadoc:pet-required"));
+    throw new ApiError(PET_PROFILE_REQUIRED_MESSAGE, 428, "pet_profile_required");
+  }
   const key = requestKey(path, init);
   const useGetCache = method === "GET" && init.cache !== "no-store";
 
@@ -306,6 +319,7 @@ export async function apiRequest<T>(
     }
 
     const data = (await response.json().catch(() => ({}))) as T & {
+      id?: string;
       message?: string;
       code?: string;
       error?: string;
@@ -323,6 +337,20 @@ export async function apiRequest<T>(
           ? data.available_stock
           : undefined,
       );
+    }
+
+    if (path === "/api/v1/petowner/bootstrap" && method === "GET" &&
+        token && token === getAccessToken()) {
+      const bootstrap = data as { pets?: unknown[] };
+      if (Array.isArray(bootstrap.pets)) {
+        petOwnerProfile = { token, hasPet: bootstrap.pets.length > 0 };
+      }
+    }
+
+    // Creating the first pet unlocks actions immediately, before the next bootstrap poll.
+    if (path === "/api/v1/petowner/pets" && method === "POST" &&
+        token && token === getAccessToken() && typeof data.id === "string") {
+      petOwnerProfile = { token, hasPet: true };
     }
 
     if (useGetCache) {

@@ -163,7 +163,7 @@ test("Aktivitas surfaces every commitment, resumes payment and deep links", asyn
       return json({ ...petOwner, role: "pet_owner" });
     if (path === "/api/v1/petowner/bootstrap")
       return json({
-        ...petOwnerBootstrap(),
+        ...petOwnerBootstrap({ withPet: true }),
         notifications: [notification],
         unread_notifications: 1,
       });

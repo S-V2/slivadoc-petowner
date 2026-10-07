@@ -10,19 +10,48 @@ export const petOwner = {
   phone: "081234567890",
 };
 
+/** A real owner pet; transaction stories opt in to the same prerequisite as mobile. */
+export const petOwnerPet = {
+  id: "58000000-0000-4000-8000-000000000002",
+  name: "Milo",
+  species: "dog",
+  species_group: "dog",
+  species_common_name: "Dog",
+  species_scientific_name: "Canis lupus familiaris",
+  species_attributes: {},
+  emoji: "🐶",
+  type: "Dog",
+  breed: "Beagle",
+  sex: "male",
+  birth_date: "2022-01-01T00:00:00Z",
+  age_months: 57,
+  color: "Brown",
+  weight_kg: 11,
+  microchip_number: "",
+  allergies: "",
+  medical_notes: "",
+  vaccination_status: "complete",
+  photo_url: "",
+  medical_record_count: 0,
+  last_medical_record_at: null,
+  health_score: 90,
+  access_role: "owner",
+  permissions: ["profile", "health", "booking", "family", "lost_mode"],
+};
+
 /**
  * GET /api/v1/petowner/bootstrap for a pet owner without pets, notifications
  * or points. public_code is the six-character base36 member code every
  * account gets (users.public_code, NOT NULL).
  */
-export function petOwnerBootstrap() {
+export function petOwnerBootstrap(options: { withPet?: boolean } = {}) {
   return {
     user: {
       ...petOwner,
       public_code: "7K2Q9M",
       member_since: "2026-01-01T08:00:00Z",
     },
-    pets: [],
+    pets: options.withPet ? [petOwnerPet] : [],
     notifications: [],
     unread_notifications: 0,
     favorites: [],

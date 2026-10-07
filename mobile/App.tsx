@@ -23,6 +23,7 @@ import {
 } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
+import { worldFeatures as sharedWorldFeatures } from "./src/petowner-flow";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { DiscoverScreen } from "./src/screens/DiscoverScreen";
 import {
@@ -160,20 +161,12 @@ const moreTabs: TabItem[] = [
   },
 ];
 
-const worldFeatures: Array<{
-  mode: WorldMode;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}> = [
-  { mode: "academy", label: "Pet Academy", icon: "school-outline" },
-  { mode: "events", label: "Pet Event", icon: "ticket-outline" },
-  { mode: "petspot", label: "PetSpot", icon: "map-outline" },
-  { mode: "pethub", label: "PetHub", icon: "videocam-outline" },
-  { mode: "consult", label: "Konsultasi", icon: "medkit-outline" },
-  { mode: "adoption", label: "Adopsi", icon: "paw-outline" },
-  { mode: "documents", label: "Pet Documents", icon: "document-text-outline" },
-  { mode: "pawdating", label: "PAW Dating", icon: "heart-circle-outline" },
-];
+const worldIcons: Record<WorldMode, keyof typeof Ionicons.glyphMap> = {
+  academy: "school-outline", events: "ticket-outline", petspot: "map-outline",
+  pethub: "videocam-outline", consult: "medkit-outline", adoption: "paw-outline",
+  documents: "document-text-outline", pawdating: "heart-circle-outline",
+};
+const worldFeatures = sharedWorldFeatures.map((item) => ({ ...item, icon: worldIcons[item.mode] }));
 
 const navigationStorageKey = "slivadoc.petowner.active_tab";
 const petStorageKey = "slivadoc.petowner.active_pet";

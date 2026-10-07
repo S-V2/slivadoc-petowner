@@ -1,5 +1,7 @@
 "use client";
 
+import { usePetOwnerFlow } from "../PetOwnerFlow";
+
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { Pet } from "../../lib/petowner-domain";
 import {
@@ -32,10 +34,8 @@ const integer = new Intl.NumberFormat("id-ID");
 
 export function PetshipView({
   pet,
-  authenticated,
   location,
   notify,
-  onLogin,
 }: {
   pet: Pet;
   authenticated: boolean;
@@ -43,6 +43,7 @@ export function PetshipView({
   notify: (message: string) => void;
   onLogin: () => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [places, setPlaces] = useState<PetshipPlace[]>([]);
   const [selected, setSelected] = useState<PetshipPlace | null>(null);
   const [pawrents, setPawrents] = useState<PetshipPresence[]>([]);
@@ -102,10 +103,7 @@ export function PetshipView({
     return () => window.clearInterval(timer);
   }, [checkedIn]);
   async function checkIn() {
-    if (!authenticated) {
-      onLogin();
-      return;
-    }
+    if (!requirePet()) return;
     if (!selected || !pet.id)
       return notify("Pilih pet dan lokasi terlebih dahulu");
     setBusy(true);
@@ -256,13 +254,13 @@ export function FundraisingView({
   pet,
   authenticated,
   notify,
-  onLogin,
 }: {
   pet: Pet;
   authenticated: boolean;
   notify: (message: string) => void;
   onLogin: () => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [items, setItems] = useState<Fundraiser[]>([]);
   const [mine, setMine] = useState<MyFundraiser[]>([]);
   const [active, setActive] = useState<Fundraiser | null>(null);
@@ -306,7 +304,7 @@ export function FundraisingView({
         </div>
         <button
           className="primary-button"
-          onClick={() => (authenticated ? setCreateOpen(true) : onLogin())}
+          onClick={() => (requirePet() && setCreateOpen(true))}
         >
           ＋ Galang dana
         </button>
@@ -360,7 +358,7 @@ export function FundraisingView({
               </div>
               <button
                 className="primary-button full"
-                onClick={() => (authenticated ? setActive(item) : onLogin())}
+                onClick={() => (requirePet() && setActive(item))}
               >
                 Donasi sekarang
               </button>

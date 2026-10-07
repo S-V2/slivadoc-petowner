@@ -1,5 +1,7 @@
 "use client";
 
+import { usePetOwnerFlow } from "../PetOwnerFlow";
+
 import { SlivaSelect } from "../SlivaSelect";
 import {
   useCallback,
@@ -67,6 +69,7 @@ export default function PawDatingExperience({
   pet: Pet;
   notify: Notify;
 }) {
+  const { requirePet: requireLogin } = usePetOwnerFlow();
   const [tab, setTab] = useState<Tab>("discover");
   const [profiles, setProfiles] = useState<PawDatingProfile[]>([]);
   const [dismissedProfileIds, setDismissedProfileIds] = useState<string[]>([]);
@@ -426,13 +429,7 @@ export default function PawDatingExperience({
     }
   }
 
-  const requireLogin = () => {
-    if (!isPetOwnerAuthenticated()) {
-      window.dispatchEvent(new Event("slivadoc:login-required"));
-      return false;
-    }
-    return true;
-  };
+
 
   return (
     <section className="pawdating-shell">

@@ -31,7 +31,7 @@ test("doctor booking searches providers and submits a server-provided slot", asy
     if (path === "/api/v1/auth/me")
       return json({ ...petOwner, role: "pet_owner" });
     if (path === "/api/v1/petowner/bootstrap")
-      return json(petOwnerBootstrap());
+      return json(petOwnerBootstrap({ withPet: true }));
     if (path === "/api/v1/petowner/activities")
       return json(activityCenter());
     if (

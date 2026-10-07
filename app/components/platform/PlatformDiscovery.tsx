@@ -1,5 +1,6 @@
 "use client";
 
+import { usePetOwnerFlow } from "../PetOwnerFlow";
 import { SlivaSelect } from "../SlivaSelect";
 import NextImage from "next/image";
 import {
@@ -63,6 +64,7 @@ import "../../petspot-experience.css";
 export type DiscoveryMode = "academy" | "events" | "petspot" | "pethub";
 type Props = {
   mode: DiscoveryMode;
+  initialItemId?: string;
   petName: string;
   pets?: Array<{
     id: string;
@@ -74,7 +76,6 @@ type Props = {
   ownerName?: string;
   ownerEmail?: string;
   notify: (message: string) => void;
-  navigate: (mode: DiscoveryMode) => void;
 };
 
 const money = new Intl.NumberFormat("id-ID", {
@@ -304,13 +305,14 @@ function WorldImageGallery({
 
 export default function PlatformDiscovery({
   mode,
+  initialItemId,
   petName,
   pets = [],
   ownerName = "Pet Parent",
   ownerEmail = "",
   notify,
-  navigate,
 }: Props) {
+  const { requirePet } = usePetOwnerFlow();
   const [programs, setPrograms] = useState<AcademyProgram[]>([]);
   const [academyTrainers, setAcademyTrainers] = useState<AcademyTrainer[]>([]);
   const [selectedTrainer, setSelectedTrainer] = useState<AcademyTrainer | null>(
@@ -332,6 +334,22 @@ export default function PlatformDiscovery({
   const [selectedStream, setSelectedStream] = useState<PetHubStream | null>(
     null,
   );
+  const handledItem = useRef("");
+  useEffect(() => {
+    if (!initialItemId || loading) return;
+    const key = `${mode}:${initialItemId}`;
+    if (handledItem.current === key) return;
+    const program = mode === "academy" ? programs.find((item) => item.id === initialItemId) : undefined;
+    const event = mode === "events" ? events.find((item) => item.id === initialItemId) : undefined;
+    const spot = mode === "petspot" ? spots.find((item) => item.id === initialItemId) : undefined;
+    handledItem.current = key;
+    queueMicrotask(() => {
+      if (program) setSelectedProgram(program);
+      else if (event) setSelectedEvent(event);
+      else if (spot) setSelectedSpot(spot);
+      else notify("Item ini belum tersedia. Pilih item lain dari katalog.");
+    });
+  }, [initialItemId, loading, mode, programs, events, spots, notify]);
   const [composer, setComposer] = useState(false);
   const [storyComposer, setStoryComposer] = useState(false);
   const [stories, setStories] = useState<PetHubStory[]>([]);
@@ -501,10 +519,7 @@ export default function PlatformDiscovery({
     );
   }
   async function like(post: PetHubPost, ensureLiked = false) {
-    if (!isPetOwnerAuthenticated()) {
-      loginRequired();
-      return;
-    }
+    if (!requirePet()) return;
     const burst = () => {
       setHeartBurst(post.id);
       if (heartTimer.current) clearTimeout(heartTimer.current);
@@ -554,10 +569,7 @@ export default function PlatformDiscovery({
     }
   }
   async function followChannel(channelID?: string) {
-    if (!channelID || !isPetOwnerAuthenticated()) {
-      loginRequired();
-      return;
-    }
+    if (!channelID || !requirePet()) return;
     try {
       const result = await togglePetHubChannel(channelID);
       setPosts((current) =>
@@ -585,10 +597,7 @@ export default function PlatformDiscovery({
     window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
   }
   async function savePost(post: PetHubPost) {
-    if (!isPetOwnerAuthenticated()) {
-      loginRequired();
-      return;
-    }
+    if (!requirePet()) return;
     if (pendingSaves.current.has(post.id)) return;
     pendingSaves.current.add(post.id);
     try {
@@ -613,7 +622,6 @@ export default function PlatformDiscovery({
   if (mode === "academy")
     return (
       <>
-        <UniverseNav active={mode} navigate={navigate} />
         <section className="world-hero academy-hero">
           <div>
             <span>SLIVADOC PET ACADEMY</span>
@@ -869,7 +877,6 @@ export default function PlatformDiscovery({
     const featured = events.find((item) => item.featured) || events[0];
     return (
       <>
-        <UniverseNav active={mode} navigate={navigate} />
         {featured && (
           <section
             className={`event-banner ${featured.banner_url ? "has-media" : ""}`}
@@ -1056,7 +1063,6 @@ export default function PlatformDiscovery({
   if (mode === "petspot")
     return (
       <>
-        <UniverseNav active={mode} navigate={navigate} />
         <section className="petspot-head">
           <div>
             <span>PET FRIENDLY DISCOVERY</span>
@@ -1200,7 +1206,6 @@ export default function PlatformDiscovery({
 
   return (
     <>
-      <UniverseNav active={mode} navigate={navigate} />
       <section className="pethub-head">
         <div>
           <span>
@@ -1215,7 +1220,7 @@ export default function PlatformDiscovery({
         <button
           className="primary-button"
           onClick={() =>
-            isPetOwnerAuthenticated() ? setComposer(true) : loginRequired()
+            requirePet() && setComposer(true)
           }
         >
           ＋ Buat posting
@@ -1225,7 +1230,7 @@ export default function PlatformDiscovery({
         <button
           className="story-add"
           onClick={() =>
-            isPetOwnerAuthenticated() ? setStoryComposer(true) : loginRequired()
+            requirePet() && setStoryComposer(true)
           }
         >
           <span>＋</span>
@@ -1553,37 +1558,6 @@ export default function PlatformDiscovery({
   );
 }
 
-function UniverseNav({
-  active,
-  navigate,
-}: {
-  active: DiscoveryMode;
-  navigate: (mode: DiscoveryMode) => void;
-}) {
-  return (
-    <nav className="universe-nav">
-      <span>SLIVA WORLD</span>
-      {(
-        [
-          { id: "academy", label: "Pet Academy", icon: "🎓" },
-          { id: "events", label: "Pet Event", icon: "🎟️" },
-          { id: "petspot", label: "PetSpot", icon: "⌖" },
-          { id: "pethub", label: "PetHub", icon: "▶" },
-        ] as const
-      ).map((item) => (
-        <button
-          key={item.id}
-          className={active === item.id ? "active" : ""}
-          onClick={() => navigate(item.id)}
-        >
-          <i>{item.icon}</i>
-          {item.label}
-        </button>
-      ))}
-    </nav>
-  );
-}
-
 function ProgramModal({
   item,
   petName,
@@ -1607,6 +1581,7 @@ function ProgramModal({
   notify: (message: string) => void;
   openTrainer: (trainer: AcademyTrainer) => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [detail, setDetail] = useState<AcademyProgramDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(true);
   const [enroll, setEnroll] = useState(false);
@@ -1654,11 +1629,7 @@ function ProgramModal({
     };
   }, [item.id, notify]);
   function startEnrollment() {
-    if (!isPetOwnerAuthenticated()) {
-      notify("Login diperlukan untuk mendaftar academy");
-      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-      return;
-    }
+    if (!requirePet()) return;
     const firstEligible = eligiblePets[0];
     if (!firstEligible) {
       notify("Belum ada pet yang sesuai dengan jenis pet kelas ini");
@@ -1670,11 +1641,7 @@ function ProgramModal({
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isPetOwnerAuthenticated()) {
-      notify("Login diperlukan untuk mendaftar academy");
-      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-      return;
-    }
+    if (!requirePet()) return;
     const values = Object.fromEntries(new FormData(event.currentTarget));
     if (!selectedPet || !selectedScheduleID) {
       notify("Pilih pet dan jadwal mulai kelas terlebih dahulu");
@@ -1699,7 +1666,7 @@ function ProgramModal({
             paymentMethod,
           ),
         );
-      else setDone(true);
+      else close();
       notify(
         enrollment.amount > 0
           ? "Pendaftaran dibuat, selesaikan pembayaran"
@@ -1717,11 +1684,7 @@ function ProgramModal({
   }
   async function submitReview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isPetOwnerAuthenticated()) {
-      notify("Login diperlukan untuk menulis ulasan kelas");
-      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-      return;
-    }
+    if (!requirePet()) return;
     if (reviewComment.trim().length < 10) {
       setReviewMessage("Ceritakan pengalaman minimal 10 karakter.");
       return;
@@ -2133,6 +2096,7 @@ function EventModal({
   close: () => void;
   notify: (message: string) => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [register, setRegister] = useState(false);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -2151,16 +2115,12 @@ function EventModal({
     () => allowedPets[0]?.id ?? "",
   );
   function start() {
-    if (!isPetOwnerAuthenticated()) {
-      notify("Login diperlukan untuk mengambil tiket event");
-      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-      return;
-    }
+    if (!requirePet()) return;
     setRegister(true);
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isPetOwnerAuthenticated()) return;
+    if (!requirePet()) return;
     if (item.price > 0 && !paymentMethod) return;
     const values = Object.fromEntries(new FormData(event.currentTarget));
     setBusy(true);
@@ -2181,7 +2141,7 @@ function EventModal({
             paymentMethod,
           ),
         );
-      else setDone(true);
+      else close();
       notify(
         registration.amount > 0 && registration.payment_status !== "paid"
           ? "Tiket dibuat, selesaikan pembayaran"
@@ -2542,6 +2502,7 @@ function CommentsModal({
   notify: (message: string) => void;
   onCount: (count: number) => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [comments, setComments] = useState<PetHubComment[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(true);
@@ -2571,11 +2532,7 @@ function CommentsModal({
   }, [post.id]);
   async function send() {
     if (pending.current || !text.trim()) return;
-    if (!isPetOwnerAuthenticated()) {
-      notify("Login diperlukan untuk berkomentar");
-      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-      return;
-    }
+    if (!requirePet()) return;
     pending.current = true;
     setSending(true);
     try {

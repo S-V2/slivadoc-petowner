@@ -1,4 +1,5 @@
 "use client";
+import { usePetOwnerFlow } from "../PetOwnerFlow";
 import { SlivaSelect } from "../SlivaSelect";
 import { DiscountBadge } from "../DiscountBadge";
 
@@ -37,7 +38,6 @@ import {
   getTrainerConsultationPlans,
   getTrainers,
   getVeterinarians,
-  isPetOwnerAuthenticated,
   sendConsultationMessage,
   type AdoptionListing,
   type Consultation,
@@ -80,12 +80,6 @@ function planCharge(
 ): number {
   return Math.round((plan.price * (100 - plan.discount_percent)) / 100);
 }
-function requireLogin(notify: (message: string) => void) {
-  if (isPetOwnerAuthenticated()) return true;
-  notify("Silakan login terlebih dahulu untuk melanjutkan.");
-  window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-  return false;
-}
 
 function hasSpecialty(specialties: string[] | undefined, selected: string) {
   return (
@@ -103,6 +97,7 @@ export default function CareMarketplace({
   notify,
   initialVeterinarianId,
 }: Props) {
+  const { requireLogin, requirePet } = usePetOwnerFlow();
   const [doctors, setDoctors] = useState<Veterinarian[]>([]);
   const [plans, setPlans] = useState<ConsultationPlan[]>([]);
   const [trainers, setTrainers] = useState<Trainer[]>([]);
@@ -641,7 +636,7 @@ export default function CareMarketplace({
                   <button
                     key={plan.id}
                     className={selectedPlan?.id === plan.id ? "active" : ""}
-                    onClick={() => setSelectedPlan(plan)}
+                    onClick={() => requirePet() && setSelectedPlan(plan)}
                   >
                     <i>
                       {plan.mode === "chat"
@@ -727,7 +722,7 @@ export default function CareMarketplace({
                     className={
                       selectedTrainerPlan?.id === plan.id ? "active" : ""
                     }
-                    onClick={() => setSelectedTrainerPlan(plan)}
+                    onClick={() => requirePet() && setSelectedTrainerPlan(plan)}
                   >
                     <i>
                       {plan.mode === "chat"
@@ -810,7 +805,7 @@ export default function CareMarketplace({
             </p>
             <button
               className="primary-button"
-              onClick={() => requireLogin(notify) && setAdoptionComposer(true)}
+              onClick={() => requirePet() && setAdoptionComposer(true)}
             >
               Ajukan pet saya
             </button>
@@ -847,7 +842,7 @@ export default function CareMarketplace({
               className={adoptionTab === key ? "active" : ""}
               aria-pressed={adoptionTab === key}
               onClick={() =>
-                (key === "browse" || requireLogin(notify)) &&
+                (key === "browse" || requireLogin()) &&
                 setAdoptionTab(key)
               }
             >
@@ -1190,6 +1185,7 @@ function ConsultBooking({
   notify: (m: string) => void;
   complete: (c: PayableConsultation) => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [busy, setBusy] = useState(false);
   const [slots, setSlots] = useState<VeterinarianAvailabilitySlot[]>([]);
   const [timezone, setTimezone] = useState("Asia/Jakarta");
@@ -1223,7 +1219,7 @@ function ConsultBooking({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!requireLogin(notify)) return;
+    if (!requirePet()) return;
     if (planCharge(plan) > 0 && !paymentMethod) return;
     if (plan.mode !== "chat" && !selectedSlot) {
       notify("Pilih slot jadwal yang tersedia untuk telepon atau video call.");
@@ -1368,6 +1364,7 @@ function TrainerConsultBooking({
   notify: (message: string) => void;
   complete: (consultation: PayableConsultation) => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [busy, setBusy] = useState(false);
   const [slots, setSlots] = useState<TrainerAvailabilitySlot[]>([]);
   const [timezone, setTimezone] = useState("Asia/Jakarta");
@@ -1401,7 +1398,7 @@ function TrainerConsultBooking({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!requireLogin(notify)) return;
+    if (!requirePet()) return;
     if (planCharge(plan) > 0 && !paymentMethod) return;
     if (plan.mode !== "chat" && !selectedSlot) {
       notify("Pilih slot jadwal yang tersedia untuk telepon atau video call.");
@@ -2140,12 +2137,13 @@ function AdoptionModal({
   close: () => void;
   notify: (m: string) => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!requireLogin(notify)) return;
+    if (!requirePet()) return;
     if (pending.current) return;
     pending.current = true;
     setBusy(true);
@@ -2257,7 +2255,7 @@ function AdoptionModal({
                 </div>
                 <button
                   className="primary-button full"
-                  onClick={() => setStep(1)}
+                  onClick={() => requirePet() && setStep(1)}
                 >
                   Mulai screening adopter
                 </button>
@@ -2300,7 +2298,7 @@ function AdoptionModal({
                 </label>
                 <label>
                   <span>Mengapa ingin mengadopsi {item.name}?</span>
-                  <textarea name="reason" required />
+                  <textarea name="reason" minLength={10} required />
                 </label>
                 <label>
                   <span>Pengalaman merawat pet</span>
@@ -2333,6 +2331,7 @@ function DocumentModal({
   close: () => void;
   notify: (m: string) => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [done, setDone] = useState("");
   const [busy, setBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -2345,7 +2344,7 @@ function DocumentModal({
   );
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!requireLogin(notify)) return;
+    if (!requirePet()) return;
     if (item.total_fee > 0 && !paymentMethod) return;
     setBusy(true);
     const v = Object.fromEntries(new FormData(event.currentTarget));
@@ -2371,7 +2370,7 @@ function DocumentModal({
             paymentMethod,
           ),
         );
-      else setDone(result.request_number);
+      else { close(); notify("Permohonan dokumen tersimpan di Aktivitas."); }
       notify(
         result.amount > 0
           ? "Permohonan dibuat, selesaikan pembayaran"

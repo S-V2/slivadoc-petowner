@@ -2456,6 +2456,15 @@ export const sendPetOwnerSupportTicketMessage = (
     { method: "POST", body: JSON.stringify({ body }) },
   );
 
+export const getPetOwnerSupportChat = () =>
+  request<{ ticket_id: string | null; messages: SupportMessage[] }>(
+    "/api/v1/petowner/support-chat", { cache: "no-store" },
+  );
+export const sendPetOwnerSupportChatMessage = (body: string) =>
+  request<SupportMessage>("/api/v1/petowner/support-chat", {
+    method: "POST", body: JSON.stringify({ body }),
+  });
+
 export const getPaymentMethods = () =>
   request<PlatformList<PaymentMethod> & { provider: string; currency: string }>(
     "/api/v1/payment-methods",

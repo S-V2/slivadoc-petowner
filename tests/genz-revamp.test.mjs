@@ -21,9 +21,9 @@ test("Sky Playground is the final web design-system cascade", () => {
 });
 
 test("desktop navigation groups features by pet-parent intent", () => {
-  assert.match(petowner, /Hari-hari bareng pet/);
-  assert.match(petowner, /Cari & seru-seruan/);
-  assert.match(petowner, /Lebih banyak/);
+  assert.match(petowner, /Navigasi utama/);
+  assert.match(petowner, /Akun & perawatan/);
+  assert.match(petowner, /Kebutuhan pet/);
   assert.match(petowner, /className="side-nav-group"/);
 });
 

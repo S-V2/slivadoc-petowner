@@ -72,7 +72,7 @@ test("stock error returns to cart and marks affected product", async ({ page }) 
         role: "pet_owner",
       });
     if (path === "/api/v1/petowner/bootstrap")
-      return json(petOwnerBootstrap());
+      return json(petOwnerBootstrap({ withPet: true }));
     if (path === "/api/v1/petowner/activities")
       return json(activityCenter());
     if (path === "/api/v1/public/discovery/products")

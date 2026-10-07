@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { worldFeatures } from "../mobile/src/petowner-flow.ts";
 
 const root = new URL("../", import.meta.url);
 const [web, webI18n, webCss, mobileApp, mobileHome, mobileProfile, mobileHealth, mobileMarket, mobileI18n] =
@@ -45,9 +46,9 @@ test("native medical records open a detailed bounded sheet", () => {
 });
 
 test("More exposes SlivaWorld destinations directly and marketplace has no fake all-store chip", () => {
-  for (const mode of ["academy", "events", "petspot", "pethub", "consult", "adoption", "documents", "pawdating"]) {
-    assert.ok(mobileApp.includes(`mode: "${mode}"`), `${mode} must be directly reachable`);
-  }
+  assert.deepEqual(worldFeatures.map((feature) => feature.mode), ["academy", "events", "petspot", "pethub", "consult", "adoption", "documents", "pawdating"]);
+  assert.match(mobileApp, /worldFeatures as sharedWorldFeatures/);
+  assert.match(mobileApp, /sharedWorldFeatures\.map/);
   assert.doesNotMatch(mobileMarket, /id: "Semua toko"/);
   assert.doesNotMatch(mobileMarket, /name: "Semua toko"/);
 });

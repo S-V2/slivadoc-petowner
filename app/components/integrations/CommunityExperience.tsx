@@ -1,5 +1,6 @@
 "use client";
 
+import { usePetOwnerFlow } from "../PetOwnerFlow";
 import { SlivaSelect } from "../SlivaSelect";
 import NextImage from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -13,7 +14,6 @@ import {
   getCommunityGroupMessages,
   getCommunityGroups,
   getCommunityPosts,
-  isPetOwnerAuthenticated,
   joinCommunityGroup,
   reactCommunityPost,
   updateCommunityGroupMember,
@@ -35,13 +35,9 @@ const categoryMap: Record<string, string> = {
   Adopsi: "adoption",
   "Lost & Found": "lost_found",
 };
-function requireLogin() {
-  if (isPetOwnerAuthenticated()) return true;
-  window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-  return false;
-}
 
 export default function CommunityExperience({ notify, onOpenLocation }: Props) {
+  const { requireLogin, requirePet } = usePetOwnerFlow();
   const [tab, setTab] = useState("Untuk Kamu");
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [groups, setGroups] = useState<CommunityGroup[]>([]);
@@ -78,7 +74,7 @@ export default function CommunityExperience({ notify, onOpenLocation }: Props) {
     return () => window.clearTimeout(timer);
   }, [load, query]);
   async function like(post: CommunityPost) {
-    if (!requireLogin()) return;
+    if (!requirePet()) return;
     try {
       const result = await reactCommunityPost(post.id);
       setPosts((current) =>
@@ -95,7 +91,7 @@ export default function CommunityExperience({ notify, onOpenLocation }: Props) {
     }
   }
   async function join(group: CommunityGroup) {
-    if (!requireLogin()) return;
+    if (!requirePet()) return;
     try {
       const result = await joinCommunityGroup(group.id);
       setGroups((current) =>
@@ -152,14 +148,14 @@ export default function CommunityExperience({ notify, onOpenLocation }: Props) {
           <span className="avatar avatar-blue">YOU</span>
           <button
             type="button"
-            onClick={() => requireLogin() && setComposer(true)}
+            onClick={() => requirePet() && setComposer(true)}
           >
             Bagikan cerita atau pertanyaan tentang pet-mu…
           </button>
           <button
             type="button"
             aria-label="Tambah foto"
-            onClick={() => requireLogin() && setComposer(true)}
+            onClick={() => requirePet() && setComposer(true)}
           >
             <Icon name="camera" size={19} />
           </button>
@@ -254,7 +250,7 @@ export default function CommunityExperience({ notify, onOpenLocation }: Props) {
             <h3>Grup komunitas</h3>
             <button
               className="round-button"
-              onClick={() => requireLogin() && setGroupComposer(true)}
+              onClick={() => requirePet() && setGroupComposer(true)}
             >
               <Icon name="plus" size={16} />
             </button>

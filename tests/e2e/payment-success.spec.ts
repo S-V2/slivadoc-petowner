@@ -75,7 +75,7 @@ test("QRIS waits for the API, hides configuration errors, and recovers on retry"
     const path = new URL(request.url()).pathname;
     const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
     if (path === "/api/v1/auth/me") return json({ ...petOwner, role: "pet_owner" });
-    if (path === "/api/v1/petowner/bootstrap") return json(petOwnerBootstrap());
+    if (path === "/api/v1/petowner/bootstrap") return json(petOwnerBootstrap({ withPet: true }));
     if (path === "/api/v1/public/discovery/products") return json({ data: [product], count: 1 });
     if (path === "/api/v1/public/discovery/services" || path === "/api/v1/public/campaigns") return json({ data: [], count: 0 });
     if (path === "/api/v1/petowner/shipping-addresses") return json({ addresses: [address] });
@@ -150,7 +150,7 @@ test("mobile checkout keeps address readable and confirms paid orders", async ({
         role: "pet_owner",
       });
     if (path === "/api/v1/petowner/bootstrap")
-      return json(petOwnerBootstrap());
+      return json(petOwnerBootstrap({ withPet: true }));
     if (path === "/api/v1/public/discovery/products")
       return json({ data: [product], count: 1 });
     if (
@@ -286,7 +286,7 @@ test("a failed payment intent retries on the same order instead of creating anot
     if (path === "/api/v1/auth/me")
       return json({ ...petOwner, role: "pet_owner" });
     if (path === "/api/v1/petowner/bootstrap")
-      return json(petOwnerBootstrap());
+      return json(petOwnerBootstrap({ withPet: true }));
     if (path === "/api/v1/public/discovery/products")
       return json({ data: [product], count: 1 });
     if (
@@ -326,7 +326,7 @@ test("a failed payment intent retries on the same order instead of creating anot
         earned: 0,
         redeemed: 0,
         pending: 0,
-        formula: petOwnerBootstrap().points.formula,
+        formula: petOwnerBootstrap({ withPet: true }).points.formula,
       });
 
     return route.fulfill({ status: 404, body: "Unmocked API route" });

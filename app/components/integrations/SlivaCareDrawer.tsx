@@ -8,16 +8,21 @@ import {
   type AssistantMessage,
   type RealtimeMessage,
 } from "../../lib/petowner-api";
-import type { PetOwnerUser } from "../../lib/platform-api";
+import { getPetOwnerSupportChat, sendPetOwnerSupportChatMessage, type PetOwnerUser, type SupportMessage } from "../../lib/platform-api";
 import { Icon } from "../Icon";
 
 type Props = {
   pet: Pet;
   owner?: PetOwnerUser;
-  initialMode?: "assistant" | "care-team";
+  initialMode?: "assistant" | "care-team" | "support";
   onClose: () => void;
   notify: (message: string) => void;
 };
+
+function supportMessage(item: SupportMessage): RealtimeMessage {
+  return { id: item.id, conversationId: item.ticket_id, senderId: item.sender_id,
+    senderName: item.sender_name, body: item.body, createdAt: item.created_at };
+}
 
 export default function SlivaCareDrawer({
   pet,
@@ -26,7 +31,8 @@ export default function SlivaCareDrawer({
   onClose,
   notify,
 }: Props) {
-  const [mode, setMode] = useState<"assistant" | "care-team">(initialMode);
+  const supportMode = initialMode === "support";
+  const [mode, setMode] = useState<"assistant" | "care-team">(supportMode ? "care-team" : initialMode);
   const [message, setMessage] = useState("");
   const [assistantMessages, setAssistantMessages] = useState<
     AssistantMessage[]
@@ -43,7 +49,27 @@ export default function SlivaCareDrawer({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!owner) return;
+    if (!owner || !supportMode) return;
+    let active = true;
+    const load = async (silent: boolean) => {
+      try {
+        const chat = await getPetOwnerSupportChat();
+        if (!active) return;
+        setConnected(true);
+        setTeamMessages(chat.messages.map(supportMessage));
+      } catch (cause) {
+        if (!active) return;
+        setConnected(false);
+        if (!silent) notify(cause instanceof Error ? cause.message : "Chat support belum dapat dimuat");
+      }
+    };
+    void load(false);
+    const timer = window.setInterval(() => void load(true), 15_000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [owner, supportMode, notify]);
+
+  useEffect(() => {
+    if (!owner || supportMode || !pet.id) return;
     const socket = realtimeSocket();
     const onConnect = () => {
       setConnected(true);
@@ -75,7 +101,7 @@ export default function SlivaCareDrawer({
       socket.off("chat:history", onHistory);
       socket.off("chat:message", onMessage);
     };
-  }, [conversationId, owner]);
+  }, [conversationId, owner, pet.id, supportMode]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -92,6 +118,17 @@ export default function SlivaCareDrawer({
       if (!owner) {
         window.dispatchEvent(new Event("slivadoc:login-required"));
         notify("Login diperlukan untuk menghubungi care team");
+        return;
+      }
+      if (supportMode) {
+        setLoading(true);
+        try {
+          const sent = supportMessage(await sendPetOwnerSupportChatMessage(body));
+          setTeamMessages((current) => current.some((item) => item.id === sent.id) ? current : [...current, sent]);
+        } catch (cause) {
+          setMessage(body);
+          notify(cause instanceof Error ? cause.message : "Pesan support belum terkirim");
+        } finally { setLoading(false); }
         return;
       }
       realtimeSocket().emit(
@@ -164,17 +201,17 @@ export default function SlivaCareDrawer({
           </div>
           <div>
             <h3>
-              {mode === "assistant" ? "SlivaCare Assistant" : "SlivaCare Team"}
+              {supportMode ? "Slivadoc Support" : mode === "assistant" ? "SlivaCare Assistant" : "SlivaCare Team"}
             </h3>
             <p>
-              {mode === "assistant"
+              {supportMode ? "Chat bantuan akun Slivadoc" : mode === "assistant"
                 ? "AI khusus kebutuhan hewan"
                 : connected
                   ? "Realtime • terhubung"
                   : "Menghubungkan percakapan..."}
             </p>
           </div>
-          <button
+          {!supportMode && <button
             className="video-call"
             type="button"
             onClick={() => {
@@ -186,12 +223,12 @@ export default function SlivaCareDrawer({
             aria-label="Buka konsultasi video"
           >
             <Icon name="video" size={18} />
-          </button>
-          <button type="button" onClick={onClose}>
+          </button>}
+          <button type="button" aria-label="Tutup chat" onClick={onClose}>
             <Icon name="close" />
           </button>
         </header>
-        <div className="chat-mode-tabs">
+        {!supportMode && <div className="chat-mode-tabs">
           <button
             type="button"
             className={mode === "assistant" ? "active" : ""}
@@ -212,16 +249,16 @@ export default function SlivaCareDrawer({
           >
             💬 Care Team <i className={connected ? "online" : ""} />
           </button>
-        </div>
+        </div>}
         <div className="chat-context">
           <span>{pet.avatar}</span>
           <p>
-            <small>KONSULTASI UNTUK</small>
+            <small>{supportMode ? "BANTUAN AKUN" : "KONSULTASI UNTUK"}</small>
             <b>
-              {pet.name} • {pet.breed}
+              {supportMode ? owner?.full_name : `${pet.name} • ${pet.breed}`}
             </b>
           </p>
-          <span className="pet-only-badge">PET ONLY</span>
+          <span className="pet-only-badge">{supportMode ? "SUPPORT" : "PET ONLY"}</span>
         </div>
         <div className="chat-messages" ref={scrollRef}>
           <span className="chat-date">Hari ini</span>
@@ -236,8 +273,7 @@ export default function SlivaCareDrawer({
               <span>💬</span>
               <b>Mulai percakapan realtime</b>
               <p>
-                Pesan akan tersimpan di gateway lokal dan langsung muncul pada
-                perangkat lain.
+                Percakapanmu tersimpan di akun Slivadoc dan tersinkron di semua perangkat.
               </p>
             </div>
           )}
@@ -315,12 +351,12 @@ export default function SlivaCareDrawer({
             onChange={(event) => setMessage(event.target.value)}
             onKeyDown={(event) => event.key === "Enter" && send()}
             placeholder={
-              mode === "assistant"
+              supportMode ? "Tulis pesan ke Slivadoc Support..." : mode === "assistant"
                 ? "Tanya seputar hewan..."
                 : "Tulis pesan ke care team..."
             }
           />
-          <button type="button" onClick={send} disabled={loading}>
+          <button type="button" aria-label="Kirim pesan" onClick={send} disabled={loading || !message.trim()}>
             <Icon name="arrow" size={18} />
           </button>
         </div>

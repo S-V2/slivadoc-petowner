@@ -180,7 +180,7 @@ test("booking cancel is offered before the cutoff and queues the refund", async 
   });
   await signIn(page, async (path, route, json) => {
     if (path === "/api/v1/petowner/bootstrap")
-      return json(petOwnerBootstrap());
+      return json(petOwnerBootstrap({ withPet: true }));
     if (path === "/api/v1/petowner/activities")
       return json(activityCenter([booking(), pastCutoff, clinic]));
     if (path === `/api/v1/petowner/bookings/${bookingID}/cancel`) {
@@ -254,7 +254,7 @@ test("a document in need_revision takes the missing uploads and goes back to ver
   );
   await signIn(page, async (path, route, json) => {
     if (path === "/api/v1/petowner/bootstrap")
-      return json(petOwnerBootstrap());
+      return json(petOwnerBootstrap({ withPet: true }));
     if (path === "/api/v1/petowner/activities")
       return json(activityCenter([document()]));
     if (path === "/api/v1/pet-document-requests" && route.request().method() === "GET")
@@ -353,7 +353,7 @@ test("an expired QR is not shown as a payable code", async ({ page }) => {
   });
   await signIn(page, (path, route, json) => {
     if (path === "/api/v1/petowner/bootstrap")
-      return json(petOwnerBootstrap());
+      return json(petOwnerBootstrap({ withPet: true }));
     if (path === "/api/v1/petowner/activities")
       return json(activityCenter([academy]));
     if (path === "/api/v1/payment-intents" && route.request().method() === "POST")

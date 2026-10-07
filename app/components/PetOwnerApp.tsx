@@ -1,4 +1,7 @@
 "use client";
+import { PetOwnerFlowProvider, PetRequiredNotice, usePetOwnerFlow } from "./PetOwnerFlow";
+import { WorldNavigation } from "./WorldNavigation";
+import { isWorldMode, worldFeatures, type PetOwnerWorldMode } from "../../mobile/src/petowner-flow";
 import { SlivaSelect } from "./SlivaSelect";
 import { DiscountBadge } from "./DiscountBadge";
 
@@ -202,12 +205,13 @@ function rewardFormulaText(formula: RewardFormula) {
 const navItems: { id: AppView; label: string; icon: IconName }[] = [
   { id: "home", label: "Beranda", icon: "home" },
   { id: "pets", label: "Hewan Saya", icon: "paw" },
-  { id: "discover", label: "Jelajahi", icon: "search" },
+  { id: "discover", label: "Layanan", icon: "search" },
   { id: "bookings", label: "Aktivitas", icon: "calendar" },
   { id: "health", label: "Kesehatan", icon: "heart" },
   { id: "shop", label: "Belanja", icon: "bag" },
   { id: "favorites", label: "Favorit Saya", icon: "heart" },
   { id: "community", label: "Komunitas", icon: "users" },
+  { id: "world", label: "Sliva World", icon: "sparkle" },
   { id: "academy", label: "Pet Academy", icon: "sparkle" },
   { id: "events", label: "Pet Event", icon: "calendar" },
   { id: "petspot", label: "PetSpot", icon: "map" },
@@ -224,37 +228,9 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
 ];
 
 const navGroups: { label: string; items: AppView[] }[] = [
-  {
-    label: "Hari-hari bareng pet",
-    items: ["home", "pets", "bookings", "health"],
-  },
-  {
-    label: "Cari & seru-seruan",
-    items: [
-      "discover",
-      "shop",
-      "community",
-      "consult",
-      "academy",
-      "events",
-      "petspot",
-      "pethub",
-    ],
-  },
-  {
-    label: "Lebih banyak",
-    items: [
-      "favorites",
-      "adoption",
-      "documents",
-      "pawdating",
-      "petship",
-      "fundraising",
-      "messages",
-      "support",
-      "profile",
-    ],
-  },
+  { label: "Navigasi utama", items: ["home", "shop", "community", "bookings"] },
+  { label: "Akun & perawatan", items: ["messages", "discover", "world", "health", "profile"] },
+  { label: "Kebutuhan pet", items: ["pets", "favorites", "petship", "fundraising", "support"] },
 ];
 
 // Pages arrive newest first; entries of `later` already in `first` are dropped.
@@ -270,6 +246,7 @@ function mergeActivityPages(
 }
 
 const titles: Record<AppView, { title: string; subtitle: string }> = {
+  world: { title: "Sliva World", subtitle: "Seluruh dunia pet dalam satu aplikasi." },
   home: {
     title: "Selamat datang di Slivadoc",
     subtitle: "Semua kebutuhan pet tersinkron dalam satu tempat.",
@@ -374,16 +351,9 @@ const featureSearchItems: GlobalSearchResult[] = navItems.map((item) => ({
 
 const protectedViews: AppView[] = [
   "pets",
-  "bookings",
-  "health",
-  "consult",
-  "documents",
-  "pawdating",
   "favorites",
-  "messages",
   "notifications",
   "support",
-  "profile",
 ];
 
 function apiPetToView(pet: PetOwnerBootstrap["pets"][number]): Pet {
@@ -437,6 +407,9 @@ const checkoutSuccessStorageKey = "slivadoc.checkout-success";
 export default function PetOwnerApp() {
   const router = useRouter();
   const [activeView, setActiveView] = useState<AppView>("home");
+  const [navigationVersion, setNavigationVersion] = useState(0);
+  const [worldMode, setWorldMode] = useState<PetOwnerWorldMode>("academy");
+  const featureView = activeView === "world" ? worldMode : activeView;
   const [petProfiles, setPetProfiles] = useState<Pet[]>([]);
   const [selectedPetId, setSelectedPetId] = useState("");
   const [account, setAccount] = useState<PetOwnerBootstrap["user"] | null>(
@@ -484,7 +457,6 @@ export default function PetOwnerApp() {
   // dropping the pages the owner scrolled to.
   const moreActivitiesLoaded = useRef(false);
   const [chatUnread, setChatUnread] = useState(0);
-  const [bookedId, setBookedId] = useState("");
   const [points, setPoints] = useState(0);
   const [membership, setMembership] =
     useState<MembershipStatus>(starterMembership);
@@ -496,7 +468,7 @@ export default function PetOwnerApp() {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [notificationCategory, setNotificationCategory] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatMode, setChatMode] = useState<"assistant" | "care-team">(
+  const [chatMode, setChatMode] = useState<"assistant" | "care-team" | "support">(
     "assistant",
   );
   const [inboxChatThread, setInboxChatThread] =
@@ -510,7 +482,6 @@ export default function PetOwnerApp() {
   );
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
-  const [bookingSuccess, setBookingSuccess] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [directBuyCart, setDirectBuyCart] = useState<Record<string, number> | null>(null);
@@ -642,6 +613,10 @@ export default function PetOwnerApp() {
               ? savedView
               : "home";
         setActiveView(view);
+        const mode = new URLSearchParams(window.location.search).get("world_mode");
+        setWorldMode(isWorldMode(mode) ? mode : "academy");
+        const savedPet = window.localStorage.getItem("slivadoc.active_pet");
+        if (savedPet) setSelectedPetId(savedPet);
         if (window.sessionStorage.getItem(checkoutSuccessStorageKey) === "1")
           setCheckoutSuccess(true);
       });
@@ -677,7 +652,10 @@ export default function PetOwnerApp() {
         setLoginOpen(true);
         return;
       }
+      setNavigationVersion((value) => value + 1);
       setActiveView(next);
+      const mode = new URLSearchParams(window.location.search).get("world_mode");
+      setWorldMode(isWorldMode(mode) ? mode : "academy");
       window.localStorage.setItem("slivadoc.active_view", next);
     };
     window.addEventListener("popstate", restoreViewFromURL);
@@ -811,6 +789,9 @@ export default function PetOwnerApp() {
       void getPetOwnerBootstrap()
         .then((data) => {
           if (cancelled) return;
+          const mapped = data.pets.map(apiPetToView);
+          setPetProfiles(mapped);
+          setSelectedPetId((current) => mapped.some((pet) => pet.id === current) ? current : mapped[0]?.id ?? "");
           applyNotifications(data.notifications, data.unread_notifications);
           setPoints(data.points.balance);
           setMembership(data.points.membership ?? starterMembership);
@@ -924,11 +905,54 @@ export default function PetOwnerApp() {
       });
   }, [currentLocation]);
 
+  useEffect(() => {
+    if (selectedPetId) window.localStorage.setItem("slivadoc.active_pet", selectedPetId);
+  }, [selectedPetId]);
+
+  function requireLogin() {
+    if (authenticated) return true;
+    setLoginOpen(true);
+    return false;
+  }
+  function openPetSetup() {
+    if (!requireLogin()) return;
+    setBookingOpen(false);
+    setCartOpen(false);
+    setNotificationOpen(false);
+    navigate("profile");
+    setAddPetOpen(true);
+    notify("Tambahkan profil pet terlebih dahulu. Akunmu sedang dalam mode lihat saja.");
+  }
+  function requirePet() {
+    if (!requireLogin()) return false;
+    if (petProfiles.length) return true;
+    openPetSetup();
+    return false;
+  }
+  useEffect(() => {
+    const listener = () => {
+      if (!authenticated) setLoginOpen(true);
+      else {
+        window.localStorage.setItem("slivadoc.active_view", "profile");
+        const url = new URL(window.location.href);
+        url.search = "?view=profile";
+        window.history.pushState({ view: "profile" }, "", `${url.pathname}${url.search}`);
+        setActiveView("profile");
+        setBookingOpen(false);
+        setCartOpen(false);
+        setAddPetOpen(true);
+      }
+    };
+    window.addEventListener("slivadoc:pet-required", listener);
+    return () => window.removeEventListener("slivadoc:pet-required", listener);
+  }, [authenticated]);
+
   const navigate = (view: AppView) => {
     if (protectedViews.includes(view) && !authenticated) {
       setLoginOpen(true);
       return;
     }
+    if (view === "world") setWorldMode("academy");
     setActiveView(view);
     window.localStorage.setItem("slivadoc.active_view", view);
     const url = new URL(window.location.href);
@@ -945,7 +969,10 @@ export default function PetOwnerApp() {
       url.searchParams.delete("activity");
       url.searchParams.delete("activity_type");
     }
-    if (view !== "consult") url.searchParams.delete("veterinarian");
+    if (view !== "consult" && view !== "world") url.searchParams.delete("veterinarian");
+    url.searchParams.delete("world_item");
+    if (view === "world") url.searchParams.set("world_mode", "academy");
+    else url.searchParams.delete("world_mode");
     if (view === "home") url.searchParams.delete("view");
     else url.searchParams.set("view", view);
     window.history.pushState(
@@ -973,6 +1000,7 @@ export default function PetOwnerApp() {
       "",
       `${url.pathname}${url.search}${url.hash}`,
     );
+    window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
   const openPartnerProfile = (businessId: string) => {
@@ -992,6 +1020,7 @@ export default function PetOwnerApp() {
       "",
       `${url.pathname}${url.search}${url.hash}`,
     );
+    window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
   const openInboxChatShortcut = (shortcut: MarketplaceChatShortcut) => {
@@ -1028,29 +1057,26 @@ export default function PetOwnerApp() {
       "",
       `${url.pathname}${url.search}${url.hash}`,
     );
+    window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
-  const openConsultation = (veterinarianId?: string) => {
-    setActiveView("consult");
-    window.localStorage.setItem("slivadoc.active_view", "consult");
+  const openWorld = (mode: PetOwnerWorldMode, itemId?: string, veterinarianId?: string) => {
+    setWorldMode(mode);
+    setActiveView("world");
+    window.localStorage.setItem("slivadoc.active_view", "world");
     const url = new URL(window.location.href);
-    url.searchParams.set("view", "consult");
+    for (const key of ["product", "store", "store_section", "service", "service_type", "activity", "activity_type", "veterinarian", "world_item"]) url.searchParams.delete(key);
+    url.searchParams.set("view", "world");
+    url.searchParams.set("world_mode", mode);
+    if (itemId) url.searchParams.set("world_item", itemId);
     if (veterinarianId) url.searchParams.set("veterinarian", veterinarianId);
-    else url.searchParams.delete("veterinarian");
-    url.searchParams.delete("product");
-    url.searchParams.delete("store");
-    url.searchParams.delete("store_section");
-    url.searchParams.delete("service");
-    url.searchParams.delete("service_type");
-    url.searchParams.delete("activity");
-    window.history.pushState(
-      { view: "consult", veterinarianId },
-      "",
-      `${url.pathname}${url.search}${url.hash}`,
-    );
+    window.history.pushState({ view: "world", worldMode: mode }, "", `${url.pathname}${url.search}${url.hash}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
   };
+  const openConsultation = (veterinarianId?: string) => openWorld("consult", undefined, veterinarianId);
 
   const openSearchResult = (result: GlobalSearchResult) => {
+    if (result.id === "booking") { openServiceCatalog(); return; }
     if (result.category === "service") {
       const service = serviceCatalog.find((item) => item.id === result.id);
       openServiceCatalog(service?.type, result.id);
@@ -1069,37 +1095,34 @@ export default function PetOwnerApp() {
         "",
         `${url.pathname}${url.search}${url.hash}`,
       );
+      window.dispatchEvent(new PopStateEvent("popstate"));
       return;
     }
     if (result.category === "veterinarian") {
       openConsultation(result.id);
       return;
     }
-    const route = result.route as AppView;
-    if (titles[route]) navigate(route);
+    const mode = result.category === "event" ? "events" : result.category;
+    if (isWorldMode(mode)) {
+      openWorld(mode, result.id);
+      return;
+    }
+    const aliases: Record<string, AppView> = { marketplace: "shop", product: "shop", products: "shop", activity: "bookings", world: "world" };
+    const route = aliases[result.route] ?? result.route as AppView;
+    if (isWorldMode(route)) openWorld(route);
+    else if (titles[route]) navigate(route);
     else notify(`${result.title} · ${result.subtitle}`);
   };
 
   const openBooking = (service?: Service) => {
-    if (!authenticated) {
-      setLoginOpen(true);
-      return;
-    }
-    if (!service) {
-      notify("Pilih layanan dari halaman Jelajahi terlebih dahulu");
-      openServiceCatalog();
-      return;
-    }
+    if (!service) { openServiceCatalog(); return; }
+    if (!requirePet()) return;
     setSelectedService(service);
-    setBookingSuccess(false);
     setBookingOpen(true);
   };
 
   const toggleFavorite = async (entityType: string, id: string) => {
-    if (!authenticated) {
-      setLoginOpen(true);
-      return;
-    }
+    if (!requirePet()) return;
     try {
       const result = await togglePetOwnerFavorite(entityType, id);
       setFavoriteIds((current) =>
@@ -1120,6 +1143,7 @@ export default function PetOwnerApp() {
   };
 
   const addToCart = async (id: string, quantity = 1) => {
+    if (!requirePet()) return false;
     const product = productCatalog.find((item) => item.id === id);
     if (!product?.available) {
       notify("Produk sedang tidak tersedia");
@@ -1138,6 +1162,7 @@ export default function PetOwnerApp() {
   };
 
   const buyNow = (id: string, quantity = 1) => {
+    if (!requirePet()) return;
     const product = productCatalog.find((item) => item.id === id);
     if (!product?.available) {
       notify("Produk sedang tidak tersedia");
@@ -1265,6 +1290,7 @@ export default function PetOwnerApp() {
     return <OpeningExperience />;
 
   return (
+    <PetOwnerFlowProvider authenticated={authenticated} hasPet={petProfiles.length > 0} onLogin={() => setLoginOpen(true)} onAddPet={openPetSetup}>
     <div className="app-shell">
       <Sidebar
         activeView={activeView}
@@ -1307,7 +1333,9 @@ export default function PetOwnerApp() {
             selectedPet={selectedPet}
             account={account}
           />
-          {activeView === "home" && (
+          {isWorldMode(featureView) ? <WorldNavigation active={featureView} onSelect={openWorld} /> : null}
+          <PetRequiredNotice />
+          {featureView === "home" && (
             <HomeView
               selectedPet={selectedPet}
               petProfiles={petProfiles}
@@ -1317,25 +1345,25 @@ export default function PetOwnerApp() {
               openServiceCatalog={openServiceCatalog}
               openPartnerProfile={openPartnerProfile}
               openConsultation={openConsultation}
-              setChatOpen={setChatOpen}
+              setChatOpen={(open) => { if (!open || requireLogin()) setChatOpen(open); }}
               services={serviceCatalog}
               activities={activities}
               openActivity={openActivity}
               ownerName={account?.full_name}
             />
           )}
-          {activeView === "pets" && (
+          {featureView === "pets" && (
             <PetsView
               petProfiles={petProfiles}
               selectedPetId={selectedPetId}
               setSelectedPetId={setSelectedPetId}
-              setAddPetOpen={setAddPetOpen}
+              setAddPetOpen={(open) => { if (!open || requireLogin()) setAddPetOpen(open); }}
               setActiveView={navigate}
               notify={notify}
               onChanged={loadBootstrap}
             />
           )}
-          {activeView === "discover" && (
+          {featureView === "discover" && (
             <DiscoverView
               favorites={favoriteIds}
               toggleFavorite={(id) => void toggleFavorite("service", id)}
@@ -1344,7 +1372,14 @@ export default function PetOwnerApp() {
               serviceCatalog={serviceCatalog}
             />
           )}
-          {activeView === "bookings" && (
+          {!authenticated && (featureView === "bookings" || featureView === "messages") && (
+            <section className="empty-state panel">
+              <h2>{featureView === "bookings" ? "Masuk untuk melihat aktivitas" : "Masuk untuk melihat chat"}</h2>
+              <p>Booking, belanja, dan konsultasi tersimpan aman di akunmu.</p>
+              <button type="button" className="primary-button" onClick={() => setLoginOpen(true)}>Masuk ke akun</button>
+            </section>
+          )}
+          {featureView === "bookings" && authenticated && (
             <BookingsView
               openBooking={openBooking}
               setActiveView={navigate}
@@ -1362,10 +1397,10 @@ export default function PetOwnerApp() {
               onLoadMore={() => void loadMoreActivities()}
             />
           )}
-          {activeView === "health" && (
+          {featureView === "health" && (
             <HealthView pet={selectedPet} notify={notify} />
           )}
-          {activeView === "shop" && (
+          {featureView === "shop" && (
             <ShopMarketplace
               addToCart={addToCart}
               buyNow={buyNow}
@@ -1382,17 +1417,18 @@ export default function PetOwnerApp() {
               toggleFavorite={(id) => void toggleFavorite("product", id)}
             />
           )}
-          {activeView === "community" && (
+          {featureView === "community" && (
             <CommunityExperience
               notify={notify}
               onOpenLocation={() => setLocationOpen(true)}
             />
           )}
           {(["academy", "events", "petspot", "pethub"] as AppView[]).includes(
-            activeView,
+            featureView,
           ) && (
             <PlatformDiscovery
-              mode={activeView as "academy" | "events" | "petspot" | "pethub"}
+              key={`${featureView}:${navigationVersion}`}
+              mode={featureView as "academy" | "events" | "petspot" | "pethub"}
               petName={selectedPet.name}
               pets={petProfiles.map((pet) => ({
                 id: pet.id,
@@ -1404,28 +1440,29 @@ export default function PetOwnerApp() {
               ownerName={account?.full_name}
               ownerEmail={account?.email}
               notify={notify}
-              navigate={navigate}
+              initialItemId={typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("world_item") ?? undefined : undefined}
             />
           )}
           {(["consult", "adoption", "documents"] as AppView[]).includes(
-            activeView,
+            featureView,
           ) && (
             <CareMarketplace
-              mode={activeView as "consult" | "adoption" | "documents"}
+              key={`${featureView}:${navigationVersion}`}
+              mode={featureView as "consult" | "adoption" | "documents"}
               pet={selectedPet}
               pets={petProfiles}
               notify={notify}
               initialVeterinarianId={
-                activeView === "consult" && typeof window !== "undefined"
+                featureView === "consult" && typeof window !== "undefined"
                   ? new URLSearchParams(window.location.search).get("veterinarian") ?? undefined
                   : undefined
               }
             />
           )}
-          {activeView === "pawdating" && (
+          {featureView === "pawdating" && (
             <PawDatingExperience pet={selectedPet} notify={notify} />
           )}
-          {activeView === "petship" && (
+          {featureView === "petship" && (
             <PetshipView
               pet={selectedPet}
               authenticated={authenticated}
@@ -1434,7 +1471,7 @@ export default function PetOwnerApp() {
               onLogin={() => setLoginOpen(true)}
             />
           )}
-          {activeView === "fundraising" && (
+          {featureView === "fundraising" && (
             <FundraisingView
               pet={selectedPet}
               authenticated={authenticated}
@@ -1442,7 +1479,7 @@ export default function PetOwnerApp() {
               onLogin={() => setLoginOpen(true)}
             />
           )}
-          {activeView === "favorites" && (
+          {featureView === "favorites" && (
             <FavoritesView
               services={serviceCatalog.filter((item) =>
                 favoriteIds.includes(item.id),
@@ -1455,7 +1492,7 @@ export default function PetOwnerApp() {
               remove={(type, id) => toggleFavorite(type, id)}
             />
           )}
-          {activeView === "notifications" && (
+          {featureView === "notifications" && (
             <NotificationCenter
               items={notifications}
               setItems={setNotifications}
@@ -1465,7 +1502,7 @@ export default function PetOwnerApp() {
               onOpen={openNotificationTarget}
             />
           )}
-          {activeView === "messages" && (
+          {featureView === "messages" && authenticated && (
             <>
               <ChatInboxView
                 activities={activities}
@@ -1493,10 +1530,16 @@ export default function PetOwnerApp() {
               )}
             </>
           )}
-          {activeView === "support" && (
+          {featureView === "support" && (
             <SupportCenter activities={activities} notify={notify} />
           )}
-          {activeView === "profile" && account && (
+          {featureView === "profile" && !account && (
+            <section className="empty-state" aria-label="Akun Pet Owner">
+              <h2>Masuk ke akun</h2><p>Sinkronkan profil pet, aktivitas, dan membership Slivadoc.</p>
+              <button type="button" className="primary-button" onClick={() => setLoginOpen(true)}>Masuk / Daftar</button>
+            </section>
+          )}
+          {featureView === "profile" && account && (
             <ProfileView
               notify={notify}
               account={account}
@@ -1508,7 +1551,7 @@ export default function PetOwnerApp() {
               onChanged={loadBootstrap}
               currentLocation={currentLocation}
               onOpenLocation={() => setLocationOpen(true)}
-              onOpenSupport={() => navigate("support")}
+              onOpenSupport={() => { if (requireLogin()) { setChatMode("support"); setChatOpen(true); } }}
               onOpenNotifications={openNotifications}
               onLogout={async () => {
                 await logoutSession();
@@ -1525,13 +1568,13 @@ export default function PetOwnerApp() {
         setActiveView={navigate}
         cartCount={cartCount}
         authenticated={authenticated}
-        onOpenChat={() => setChatOpen(true)}
+        onOpenChat={() => { if (requireLogin()) setChatOpen(true); }}
       />
 
       <button
         className="floating-chat"
         type="button"
-        onClick={() => setChatOpen(true)}
+        onClick={() => { if (requireLogin()) setChatOpen(true); }}
         aria-label="Buka chat SlivaCare"
       >
         <Icon name="chat" size={22} />
@@ -1555,6 +1598,7 @@ export default function PetOwnerApp() {
       )}
       {chatOpen && (
         <SlivaCareDrawer
+          key={chatMode}
           pet={selectedPet}
           owner={account ?? undefined}
           initialMode={chatMode}
@@ -1593,6 +1637,7 @@ export default function PetOwnerApp() {
           onSaved={(pet) => {
             setPetProfiles((current) => [...current, pet]);
             setSelectedPetId(pet.id);
+            void loadBootstrap();
           }}
         />
       )}
@@ -1617,17 +1662,12 @@ export default function PetOwnerApp() {
           pets={petProfiles}
           selectedPetId={selectedPet.id}
           onSelectPet={setSelectedPetId}
-          success={bookingSuccess}
-          setSuccess={setBookingSuccess}
           onClose={() => setBookingOpen(false)}
           onBooked={async (bookingId) => {
-            setBookedId(bookingId);
             await loadBootstrap();
-            setBookingSuccess(true);
-          }}
-          onOpenActivity={() => {
             setBookingOpen(false);
-            openActivity("booking", bookedId);
+            openActivity("booking", bookingId);
+            notify("Booking berhasil. Jadwal dan status pembayaran tersedia di Aktivitas.");
           }}
         />
       )}
@@ -1688,6 +1728,7 @@ export default function PetOwnerApp() {
         </div>
       )}
     </div>
+    </PetOwnerFlowProvider>
   );
 }
 
@@ -2162,7 +2203,7 @@ function Sidebar({
                 <button
                   type="button"
                   key={item.id}
-                  className={activeView === item.id ? "active" : ""}
+                  className={activeView === item.id || (item.id === "world" && isWorldMode(activeView)) ? "active" : ""}
                   onClick={() => setActiveView(item.id)}
                 >
                   <Icon name={item.icon} size={19} />
@@ -2321,10 +2362,10 @@ function Topbar({
           value={query}
           placeholder="Cari dokter, layanan, produk..."
           onFocus={() => setSearchOpen(true)}
-          onChange={(event) => {
-            setQuery(event.target.value);
+          onInput={(event) => {
+            setQuery(event.currentTarget.value);
             setSearchOpen(true);
-            if (event.target.value.trim().length < 2) setResults([]);
+            if (event.currentTarget.value.trim().length < 2) setResults([]);
           }}
         />
         <kbd>⌘ K</kbd>
@@ -2791,7 +2832,7 @@ function HomeView({
       note: "Eksplorasi",
       icon: "sparkle",
       tone: "sky",
-      action: () => setActiveView("academy"),
+      action: () => setActiveView("world"),
     },
   ];
 
@@ -5004,6 +5045,7 @@ function InvoiceDetail({
 }
 
 function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
+  const { requirePet } = usePetOwnerFlow();
   const [tab, setTab] = useState("all");
   const [screen, setScreen] = useState<"summary" | "records">("summary");
   const [records, setRecords] = useState<MedicalRecord[]>([]);
@@ -5012,8 +5054,13 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
   const [reminders, setReminders] = useState<CareReminder[]>([]);
   const [reminderOpen, setReminderOpen] = useState(false);
   useEffect(() => {
+    if (!pet.id) {
+      queueMicrotask(() => { setRecords([]); setLoading(false); });
+      return;
+    }
+    let active = true;
     void getMedicalRecords(pet.id)
-      .then((response) => setRecords(response.data))
+      .then((response) => { if (active) setRecords(response.data); })
       .catch((error) => {
         setRecords([]);
         notify(
@@ -5022,9 +5069,11 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
             : "Rekam medis belum dapat dimuat",
         );
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [pet.id, notify]);
   const loadReminders = useCallback(async () => {
+    if (!pet.id) return;
     try {
       setReminders(
         (await getCareReminders()).data.filter(
@@ -5141,7 +5190,7 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
               <span>RINGKASAN KESEHATAN</span>
               <h3>Data medis {pet.name}</h3>
             </div>
-            <button type="button" onClick={() => setReminderOpen(true)}>
+            <button type="button" onClick={() => requirePet() && setReminderOpen(true)}>
               <Icon name="plus" size={15} /> Pengingat
             </button>
           </header>
@@ -5234,7 +5283,7 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
                 <span>PENGINGAT PERAWATAN</span>
                 <h3>Jadwal penting {pet.name}</h3>
               </div>
-              <button type="button" onClick={() => setReminderOpen(true)}>
+              <button type="button" onClick={() => requirePet() && setReminderOpen(true)}>
                 <Icon name="plus" size={15} /> Tambah
               </button>
             </header>
@@ -7792,6 +7841,23 @@ function FavoritesView({
   );
 }
 
+function NotificationDetail({ item, onBack, onOpen }: {
+  item: NotificationItem;
+  onBack: () => void;
+  onOpen: () => void;
+}) {
+  return (
+    <article className="notification-detail panel">
+      <button type="button" className="ghost-text" onClick={onBack}>← Kembali ke semua update</button>
+      <span className="section-eyebrow">{item.category} · {item.read_at ? "Sudah dibaca" : "Belum dibaca"}</span>
+      <h2>{item.title}</h2>
+      <p>{item.body}</p>
+      <time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString("id-ID")}</time>
+      {item.action_route ? <button type="button" className="primary-button full" onClick={onOpen}>Buka halaman terkait</button> : null}
+    </article>
+  );
+}
+
 function NotificationCenter({
   items,
   setItems,
@@ -7807,6 +7873,8 @@ function NotificationCenter({
   notify: Notify;
   onOpen: (item: NotificationItem) => void;
 }) {
+  const [selectedId, setSelectedId] = useState("");
+  const selected = items.find((item) => item.id === selectedId);
   const [category, setCategory] = useState("");
   // The bootstrap slice holds only the latest few; the center shows up to 100.
   useEffect(() => {
@@ -7817,6 +7885,7 @@ function NotificationCenter({
     ? items.filter((item) => item.category === category)
     : items;
   async function open(item: NotificationItem) {
+    setSelectedId(item.id);
     try {
       if (!item.read_at) {
         await readNotification(item.id);
@@ -7828,7 +7897,7 @@ function NotificationCenter({
           ),
         );
       }
-      onOpen(item);
+
     } catch (error) {
       notify(
         error instanceof Error
@@ -7837,6 +7906,7 @@ function NotificationCenter({
       );
     }
   }
+  if (selected) return <NotificationDetail item={selected} onBack={() => setSelectedId("")} onOpen={() => onOpen(selected)} />;
   return (
     <div>
       <div className="notification-center-head">
@@ -7932,18 +8002,8 @@ function MobileNav({
   const { t } = usePetOwnerI18n();
   const [more, setMore] = useState(false);
   const primaryIds: AppView[] = ["home", "shop", "community", "bookings"];
-  const worldIds: AppView[] = [
-    "academy",
-    "events",
-    "petspot",
-    "pethub",
-    "consult",
-    "adoption",
-    "documents",
-    "pawdating",
-    "petship",
-    "fundraising",
-  ];
+  const worldIds: AppView[] = worldFeatures.map((item) => item.mode);
+  const moreIds: AppView[] = ["messages", "discover", "health", "profile"];
   const items = primaryIds
     .map((id) => navItems.find((item) => item.id === id))
     .filter((item): item is (typeof navItems)[number] => Boolean(item));
@@ -7955,7 +8015,7 @@ function MobileNav({
           <button
             type="button"
             key={item.id}
-            className={activeView === item.id ? "active" : ""}
+            className={activeView === item.id || (item.id === "world" && isWorldMode(activeView)) ? "active" : ""}
             onClick={() => {
               setMore(false);
               setActiveView(item.id);
@@ -8014,13 +8074,7 @@ function MobileNav({
                 </span>
                 <b>SlivaCare</b>
               </button>
-              {navItems
-                .filter(
-                  (item) =>
-                    !primaryIds.includes(item.id) &&
-                    !worldIds.includes(item.id) &&
-                    (authenticated || item.id !== "profile"),
-                )
+              {moreIds.map((id) => navItems.find((item) => item.id === id)!)
                 .map((item) => (
                   <button
                     key={item.id}
@@ -8032,7 +8086,7 @@ function MobileNav({
                     <span>
                       <Icon name={item.icon} />
                     </span>
-                    <b>{t(item.label)}</b>
+                    <b>{t(item.id === "profile" && !authenticated ? "Masuk ke akun" : item.label)}</b>
                     {item.id === "shop" && cartCount > 0 && (
                       <em>{cartCount}</em>
                     )}
@@ -8044,7 +8098,7 @@ function MobileNav({
                 <h3>SLIVA WORLD</h3>
                 <p>{t("Semua fitur komunitas dan gaya hidup pet, langsung sekali tap.")}</p>
                 <div className="mobile-more-grid">
-                  {navItems.filter((item) => worldIds.includes(item.id)).map((item) => (
+                  {worldIds.map((id) => navItems.find((item) => item.id === id)!).map((item) => (
                     <button
                       type="button"
                       key={item.id}
@@ -8084,6 +8138,8 @@ function NotificationDrawer({
   setItems: React.Dispatch<React.SetStateAction<NotificationItem[]>>;
   seeAll: () => void;
 }) {
+  const [selectedId, setSelectedId] = useState("");
+  const selected = items.find((item) => item.id === selectedId);
   const [category, setCategory] = useState(initialCategory);
   const categories = Array.from(
     new Set([initialCategory, ...items.map((item) => item.category)].filter(Boolean)),
@@ -8114,6 +8170,8 @@ function NotificationDrawer({
     }
   }
   async function open(item: NotificationItem) {
+    setSelectedId(item.id);
+    try {
     if (!item.read_at) {
       await readNotification(item.id);
       setItems((current) =>
@@ -8124,24 +8182,29 @@ function NotificationDrawer({
         ),
       );
     }
-    onClose();
-    onOpen(item);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Notifikasi belum dapat diperbarui");
+    }
   }
   return (
     <div className="overlay" onMouseDown={onClose}>
       <aside
         className="drawer notification-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label={selected ? "Detail notifikasi" : "Notifikasi"}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header>
           <div>
             <span className="section-eyebrow">UPDATE TERBARU</span>
-            <h2>Notifikasi</h2>
+            <h2>{selected ? "Detail notifikasi" : "Notifikasi"}</h2>
           </div>
-          <button type="button" onClick={onClose}>
+          <button type="button" aria-label="Tutup notifikasi" onClick={onClose}>
             <Icon name="close" />
           </button>
         </header>
+        {selected ? <NotificationDetail item={selected} onBack={() => setSelectedId("")} onOpen={() => { onClose(); onOpen(selected); }} /> : <>
         <div className="notification-category-chips" role="group" aria-label="Filter notifikasi">
           <button
             type="button"
@@ -8208,6 +8271,7 @@ function NotificationDrawer({
         <button className="full-soft-button" type="button" onClick={seeAll}>
           Lihat semua berdasarkan kategori
         </button>
+        </>}
       </aside>
     </div>
   );
@@ -8218,21 +8282,15 @@ function BookingModal({
   pets,
   selectedPetId,
   onSelectPet,
-  success,
-  setSuccess,
   onClose,
   onBooked,
-  onOpenActivity,
 }: {
   service: Service;
   pets: Pet[];
   selectedPetId: string;
   onSelectPet: (petId: string) => void;
-  success: boolean;
-  setSuccess: (value: boolean) => void;
   onClose: () => void;
   onBooked: (bookingId: string) => Promise<void>;
-  onOpenActivity: () => void;
 }) {
   const pet = pets.find((item) => item.id === selectedPetId) ?? pets[0];
   const service = {
@@ -8359,7 +8417,6 @@ function BookingModal({
         );
       } else {
         await onBooked(booking.id);
-        setSuccess(true);
       }
     } catch (error) {
       setMessage(
@@ -8372,45 +8429,6 @@ function BookingModal({
       setBusy(false);
     }
   }
-  if (success)
-    return (
-      <div className="modal-overlay">
-        <div className="modal success-modal">
-          <button className="modal-close" type="button" onClick={onClose}>
-            <Icon name="close" />
-          </button>
-          <span className="success-animation">
-            <Icon name="check" size={34} />
-          </span>
-          <small>BOOKING BERHASIL</small>
-          <h2>Jadwal {pet?.name ?? "pet kamu"} sudah aman!</h2>
-          <p>{service.name} telah menerima permintaan booking kamu.</p>
-          <div className="success-ticket">
-            <span>{service.emoji}</span>
-            <div>
-              <small>
-                {formattedDate} • {selectedSlot?.local_time ?? "-"}{" "}
-                {availability?.timezone ?? ""}
-              </small>
-              <b>{service.name}</b>
-              <p>
-                {pet?.avatar ?? "🐾"} {pet?.name ?? "Pet"} • {service.name}
-              </p>
-            </div>
-          </div>
-          <button
-            className="primary-button full"
-            type="button"
-            onClick={onOpenActivity}
-          >
-            Lihat aktivitas
-          </button>
-          <button className="ghost-text" type="button" onClick={onClose}>
-            Kembali ke beranda
-          </button>
-        </div>
-      </div>
-    );
   if (payment)
     return (
       <div className="modal-overlay">
@@ -8421,7 +8439,7 @@ function BookingModal({
           <QrisPaymentPanel
             payment={payment}
             onPaid={() => {
-              void onBooked(payment.reference_id).then(() => setSuccess(true));
+              void onBooked(payment.reference_id);
             }}
           />
         </div>

@@ -6,6 +6,7 @@ export type AppView =
   | "health"
   | "shop"
   | "community"
+  | "world"
   | "academy"
   | "events"
   | "petspot"

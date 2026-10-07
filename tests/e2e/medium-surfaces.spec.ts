@@ -113,7 +113,7 @@ test("buyer cancels a paid order and files a return request", async ({ page }) =
     const path = new URL(request.url()).pathname;
     const json = respond(route);
     if (path === "/api/v1/auth/me") return json({ ...petOwner, role: "pet_owner" });
-    if (path === "/api/v1/petowner/bootstrap") return json(petOwnerBootstrap());
+    if (path === "/api/v1/petowner/bootstrap") return json(petOwnerBootstrap({ withPet: true }));
     if (
       path === "/api/v1/public/discovery/services" ||
       path === "/api/v1/public/discovery/products" ||
@@ -441,6 +441,10 @@ test("store reply shows a chat badge and its notification opens the thread", asy
     .locator(".notification-drawer .notification")
     .filter({ hasText: "Balasan dari Sliva Pet Shop" })
     .click();
+  const notificationDetail = page.getByRole("dialog", { name: "Detail notifikasi" });
+  await expect(notificationDetail).toContainText("Balasan dari Sliva Pet Shop");
+  await expect(page.locator(".market-chat-panel")).toBeHidden();
+  await notificationDetail.getByRole("button", { name: "Buka halaman terkait" }).click();
   await expect(
     page.getByRole("dialog", { name: "Chat dengan Sliva Pet Shop" }),
   ).toBeVisible();
@@ -461,7 +465,7 @@ test("a hidden review answers with the moderator message", async ({ page }) => {
     const path = new URL(request.url()).pathname;
     const json = respond(route);
     if (path === "/api/v1/auth/me") return json({ ...petOwner, role: "pet_owner" });
-    if (path === "/api/v1/petowner/bootstrap") return json(petOwnerBootstrap());
+    if (path === "/api/v1/petowner/bootstrap") return json(petOwnerBootstrap({ withPet: true }));
     if (path === "/api/v1/petowner/activities") return json(activityCenter());
     if (path === "/api/v1/petowner/marketplace/chats")
       return json({ data: [], count: 0 });

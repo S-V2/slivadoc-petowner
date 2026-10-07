@@ -46,7 +46,7 @@ test("marketplace card navigates to responsive product detail and publishes a re
     if (path === "/api/v1/auth/me") return json({ ...petOwner, role: "pet_owner" });
     if (path === "/api/v1/petowner/bootstrap") {
       await new Promise((resolve) => setTimeout(resolve, 700));
-      return json(petOwnerBootstrap());
+      return json(petOwnerBootstrap({ withPet: true }));
     }
     if (path === "/api/v1/petowner/activities")
       return json(activityCenter());

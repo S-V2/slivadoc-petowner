@@ -292,6 +292,8 @@ test("Aktivitas surfaces every commitment, resumes payment and deep links", asyn
 
   await page.getByRole("button", { name: "Notifikasi" }).click();
   await page.getByRole("button", { name: /Progres kelas diperbarui/ }).click();
+  await expect(page.getByRole("dialog", { name: "Detail notifikasi" })).toBeVisible();
+  await page.getByRole("button", { name: "Buka halaman terkait" }).click();
   await expect(detail.getByRole("heading", { name: "Kelas Kepatuhan Dasar" })).toBeVisible();
   await expect(detail).toContainText("Coach Rina");
 });

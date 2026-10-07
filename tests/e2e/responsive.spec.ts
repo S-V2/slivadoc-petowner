@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { activityCenter, petOwner, petOwnerBootstrap } from "./mock-data";
 
 const viewports = [
   { width: 320, height: 700 },
@@ -43,6 +44,23 @@ async function openApp(page: Page, path = "/") {
   await page.locator(".app-shell").waitFor();
 }
 
+async function signInForCare(page: Page) {
+  await page.addInitScript(() => {
+    localStorage.setItem("slivadoc.access_token", "responsive-care-token");
+    localStorage.setItem("slivadoc.refresh_token", "responsive-care-refresh");
+    localStorage.setItem("slivadoc.access_expires_at", String(Date.now() + 3_600_000));
+  });
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const json = (body: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+    if (path === "/api/v1/auth/me") return json({ ...petOwner, role: "pet_owner" });
+    if (path === "/api/v1/petowner/bootstrap") return json(petOwnerBootstrap({ withPet: true }));
+    if (path === "/api/v1/petowner/activities") return json(activityCenter());
+    if (path === "/api/v1/petowner/marketplace/chats" || path === "/api/v1/public/discovery/products" || path === "/api/v1/public/discovery/services" || path === "/api/v1/public/campaigns") return json({ data: [], count: 0 });
+    return route.fulfill({ status: 404, body: "Unmocked API route" });
+  });
+}
+
 for (const viewport of viewports) {
   test(`app views contain horizontal overflow at ${viewport.width}px`, async ({
     page,
@@ -84,7 +102,10 @@ test("mobile fixed navigation never covers page actions", async ({ page }) => {
   await expect(page.locator(".floating-chat")).toBeHidden();
   await page.getByRole("button", { name: "Lainnya" }).click();
   await page.getByRole("button", { name: "SlivaCare", exact: true }).click();
-  await expect(page.locator(".chat-drawer")).toBeVisible();
+  await expect(page.locator(".petowner-login")).toBeVisible();
+  await expect(page.locator(".chat-drawer")).toBeHidden();
+  const login = await page.locator(".petowner-login").boundingBox();
+  expect(login!.y + login!.height).toBeLessThanOrEqual(812);
 });
 
 test("home service shortcuts open a filtered catalogue before booking", async ({
@@ -253,6 +274,7 @@ test("narrow header keeps the native search launcher and controls tappable", asy
 test("SlivaCare mobile copy and suggestions meet the shared floor", async ({
   page,
 }) => {
+  await signInForCare(page);
   await page.setViewportSize({ width: 320, height: 700 });
   await openApp(page);
   await page.getByRole("button", { name: "Lainnya" }).click();

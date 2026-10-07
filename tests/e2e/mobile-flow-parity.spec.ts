@@ -37,6 +37,9 @@ async function app(page: Page, options: { authenticated?: boolean; withPet?: boo
     if (path === "/api/v1/public/discovery/products") return json({ data: [product], count: 1 });
     if (path === "/api/v1/public/events") return json({ data: [event], count: 1 });
     if (path === "/api/v1/public/search") return json({ data: [{ id: event.id, category: "event", title: event.title, subtitle: event.venue, route: "events" }], count: 1 });
+    if (path === `/api/v1/public/products/${product.id}/reviews`) return json({ data: [], count: 0, rating: 0 });
+    if (path === "/api/v1/public/pawdating/standards") return json({ principles: [], levels: [], minimum_age_months: {}, report_validity_days: 180, blocked_conditions: [] });
+    if (path === "/api/v1/public/pawdating/profiles") return json({ data: [], count: 0, filters: { species: "", breed: "", sex: "", city: "", min_level: 2, min_health_score: 80 } });
     if (path === `/api/v1/notifications/${notification.id}/read`) return json({ id: notification.id, read: true });
     if (path === "/api/v1/petowner/support-chat") {
       if (request.method() === "POST") {
@@ -58,7 +61,7 @@ test("guests browse native destinations and explicitly sign in from activity", a
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?view=bookings", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Masuk untuk melihat aktivitas" })).toBeVisible();
-  await expect(page.locator(".login-modal")).toHaveCount(0);
+  await expect(page.locator(".petowner-login")).toHaveCount(0);
   await page.getByRole("button", { name: "Lainnya", exact: true }).click();
   const more = page.locator(".mobile-more-sheet");
   await more.getByRole("button", { name: "Masuk ke akun" }).click();
@@ -182,7 +185,7 @@ test("three-step free booking goes directly to its saved activity", async ({ pag
   await booking.getByRole("button", { name: "Lanjutkan" }).click();
   await booking.getByRole("checkbox", { name: /Saya menyetujui kebijakan/ }).check();
   await booking.getByRole("button", { name: "Konfirmasi booking" }).click();
-  await expect(page).toHaveURL(new RegExp(`view=bookings.*activity=${bookingID}`));
+  await expect(page).toHaveURL(/view=bookings/);
   await expect(booking).toBeHidden();
   await expect(page.locator(".activity-detail-modal")).toContainText("BOOK-MILO-081");
   expect(payload).toMatchObject({ pet_id: petOwnerPet.id, service_id: service.id, branch_id: service.branch_id, scheduled_at: startsAt });

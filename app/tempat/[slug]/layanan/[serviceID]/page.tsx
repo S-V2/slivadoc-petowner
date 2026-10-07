@@ -150,7 +150,7 @@ export default async function PublicServicePage(props: PageProps) {
         />
         <div className="seo-product-detail-grid">
           <div className="seo-product-detail-media">
-            <LocalizedCopy>{service.image_url ? (
+            <LocalizedCopy catalogue>{service.image_url ? (
               <Image
                 src={service.image_url}
                 alt={`Foto ${service.name}`}
@@ -167,9 +167,9 @@ export default async function PublicServicePage(props: PageProps) {
             <span className="seo-eyebrow">
               <LocalizedCopy>{service.category}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{licenseLabel}</LocalizedCopy>
             </span>
-            <h1><LocalizedCopy>{service.name}</LocalizedCopy></h1>
+            <h1><LocalizedCopy catalogue>{service.name}</LocalizedCopy></h1>
             <p>
-              <LocalizedCopy>{service.description ||
+              <LocalizedCopy catalogue>{service.description ||
                 "Deskripsi rinci belum dicantumkan oleh mitra."}</LocalizedCopy>
             </p>
             <strong className="seo-product-detail-price">
@@ -265,7 +265,7 @@ export default async function PublicServicePage(props: PageProps) {
           <article className="seo-card">
             <small><LocalizedCopy>{"Pembatalan"}</LocalizedCopy></small>
             <p>
-              <LocalizedCopy>{service.cancellation_policy ||
+              <LocalizedCopy catalogue>{service.cancellation_policy ||
                 "Kebijakan pembatalan belum dicantumkan."}</LocalizedCopy>
             </p>
           </article>

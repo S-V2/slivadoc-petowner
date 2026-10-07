@@ -161,16 +161,16 @@ export default async function PlaceDetailPage({
           <p><LocalizedCopy>{"Harga dan ketersediaan mengikuti data aktif dari sistem mitra pada saat halaman dimuat."}</LocalizedCopy></p>
         </div>
         <div className="seo-card-grid">
-          <LocalizedCopy>{place.services.map((service) => (
+          <LocalizedCopy catalogue>{place.services.map((service) => (
             <article className="seo-card" key={service.id}>
               <small><LocalizedCopy>{service.category}</LocalizedCopy></small>
               <h2>
                 <Link href={`/tempat/${place.slug}/layanan/${service.id}`}>
-                  <LocalizedCopy>{service.name}</LocalizedCopy>
+                  <LocalizedCopy catalogue>{service.name}</LocalizedCopy>
                 </Link>
               </h2>
               <p>
-                <LocalizedCopy>{service.description ||
+                <LocalizedCopy catalogue>{service.description ||
                   "Deskripsi layanan belum dicantumkan oleh mitra."}</LocalizedCopy>
               </p>
               <p>

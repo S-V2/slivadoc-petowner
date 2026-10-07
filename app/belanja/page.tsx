@@ -78,16 +78,16 @@ export default async function MarketplacePage() {
           <p>
             <LocalizedCopy>{products.length}</LocalizedCopy><LocalizedCopy>{" produk aktif. Harga dan stok diperbarui dari sistem operasional partner Slivadoc."}</LocalizedCopy></p>
         </div>
-        <LocalizedCopy>{products.length > 0 ? (
+        <LocalizedCopy catalogue>{products.length > 0 ? (
           <div className="seo-product-grid">
-            <LocalizedCopy>{products.map((product) => (
+            <LocalizedCopy catalogue>{products.map((product) => (
               <Link
                 className="seo-product-card"
                 href={`/belanja/${product.slug}`}
                 key={product.id}
               >
                 <div className="seo-product-media">
-                  <LocalizedCopy>{product.imageUrl ? (
+                  <LocalizedCopy catalogue>{product.imageUrl ? (
                     <Image
                       src={product.imageUrl}
                       alt={`Foto ${product.name}`}
@@ -104,7 +104,7 @@ export default async function MarketplacePage() {
                 </div>
                 <div className="seo-product-copy">
                   <span><LocalizedCopy>{product.category}</LocalizedCopy></span>
-                  <h2><LocalizedCopy>{product.name}</LocalizedCopy></h2>
+                  <h2><LocalizedCopy catalogue>{product.name}</LocalizedCopy></h2>
                   <p><LocalizedCopy>{product.businessName}</LocalizedCopy></p>
                   <strong><LocalizedCopy>{rupiah.format(product.price)}</LocalizedCopy></strong>
                   <small>

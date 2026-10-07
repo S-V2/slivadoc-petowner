@@ -126,7 +126,7 @@ export default async function ProductPage({ params }: PageProps) {
         />
         <div className="seo-product-detail-grid">
           <div className="seo-product-detail-media">
-            <LocalizedCopy>{product.imageUrl ? (
+            <LocalizedCopy catalogue>{product.imageUrl ? (
               <Image
                 src={product.imageUrl}
                 alt={`Foto ${product.name}`}
@@ -141,9 +141,9 @@ export default async function ProductPage({ params }: PageProps) {
           </div>
           <div className="seo-product-detail-copy">
             <span className="seo-eyebrow"><LocalizedCopy>{product.category}</LocalizedCopy></span>
-            <h1><LocalizedCopy>{product.name}</LocalizedCopy></h1>
+            <h1><LocalizedCopy catalogue>{product.name}</LocalizedCopy></h1>
             <p>
-              <LocalizedCopy>{product.description ||
+              <LocalizedCopy catalogue>{product.description ||
                 "Deskripsi produk belum dicantumkan oleh penjual."}</LocalizedCopy>
             </p>
             <strong className="seo-product-detail-price">
@@ -239,7 +239,7 @@ export default async function ProductPage({ params }: PageProps) {
           <h2><LocalizedCopy>{"Penggunaan, keamanan, dan retur"}</LocalizedCopy></h2>
         </div>
         <div className="seo-card-grid">
-          <LocalizedCopy>{[
+          <LocalizedCopy catalogue>{[
             ["Komposisi / bahan", product.ingredients],
             ["Cara penggunaan", product.usageInstructions],
             ["Penyimpanan", product.storageInstructions],
@@ -255,7 +255,7 @@ export default async function ProductPage({ params }: PageProps) {
                 <p><LocalizedCopy>{value}</LocalizedCopy></p>
               </article>
             ))}</LocalizedCopy>
-          <LocalizedCopy>{!product.ingredients &&
+          <LocalizedCopy catalogue>{!product.ingredients &&
             !product.usageInstructions &&
             !product.returnPolicy && (
               <article className="seo-card">

@@ -23,7 +23,7 @@ import {
 } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
-import { worldFeatures as sharedWorldFeatures } from "./src/petowner-flow";
+import { worldFeatures as sharedWorldFeatures } from "../shared/petowner-flow";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { DiscoverScreen } from "./src/screens/DiscoverScreen";
 import {

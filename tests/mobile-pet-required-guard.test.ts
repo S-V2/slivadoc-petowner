@@ -6,7 +6,7 @@ const read = (path: string) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 const api = read("mobile/src/api.ts");
-const policy = read("mobile/src/petowner-flow.ts");
+const policy = read("shared/petowner-flow.ts");
 const app = read("mobile/App.tsx");
 const marketplace = read("mobile/src/screens/MarketplaceScreen.tsx");
 const community = read("mobile/src/screens/CommunityScreen.tsx");

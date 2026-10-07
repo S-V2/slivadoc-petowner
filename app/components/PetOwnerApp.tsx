@@ -1,7 +1,7 @@
 "use client";
 import { PetOwnerFlowProvider, PetRequiredNotice, usePetOwnerFlow } from "./PetOwnerFlow";
 import { WorldNavigation } from "./WorldNavigation";
-import { isWorldMode, worldFeatures, type PetOwnerWorldMode } from "../../mobile/src/petowner-flow";
+import { isWorldMode, worldFeatures, type PetOwnerWorldMode } from "../../shared/petowner-flow";
 import { SlivaSelect } from "./SlivaSelect";
 import { DiscountBadge } from "./DiscountBadge";
 

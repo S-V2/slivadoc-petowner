@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { worldFeatures } from "../mobile/src/petowner-flow.ts";
+import { worldFeatures } from "../shared/petowner-flow.ts";
 
 const root = new URL("../", import.meta.url);
 const [web, webI18n, webCss, mobileApp, mobileHome, mobileProfile, mobileHealth, mobileMarket, mobileI18n] =

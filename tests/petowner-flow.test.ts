@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { apiRequest, clearSession, saveTokens } from "../app/lib/session.ts";
-import { petOwnerMutationRequiresPet } from "../mobile/src/petowner-flow.ts";
+import { petOwnerMutationRequiresPet } from "../shared/petowner-flow.ts";
 
 class Storage {
   values = new Map<string, string>();

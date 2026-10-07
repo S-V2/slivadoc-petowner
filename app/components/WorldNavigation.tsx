@@ -1,6 +1,6 @@
 "use client";
 
-import { worldFeatures, type PetOwnerWorldMode } from "../../mobile/src/petowner-flow";
+import { worldFeatures, type PetOwnerWorldMode } from "../../shared/petowner-flow";
 import { usePetOwnerI18n } from "./PetOwnerI18n";
 
 export function WorldNavigation({ active, onSelect }: {

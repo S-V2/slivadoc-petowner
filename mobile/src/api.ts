@@ -3,8 +3,8 @@ import * as SecureStore from "expo-secure-store";
 import { NativeModules, Platform } from "react-native";
 import { io, type Socket } from "socket.io-client";
 import { uniqueById } from "./collections";
-import { PET_PROFILE_REQUIRED_MESSAGE, petOwnerMutationRequiresPet as mobileMutationRequiresPet } from "./petowner-flow";
-export { PET_PROFILE_REQUIRED_MESSAGE, petOwnerMutationRequiresPet as mobileMutationRequiresPet } from "./petowner-flow";
+import { PET_PROFILE_REQUIRED_MESSAGE, petOwnerMutationRequiresPet as mobileMutationRequiresPet } from "../../shared/petowner-flow";
+export { PET_PROFILE_REQUIRED_MESSAGE, petOwnerMutationRequiresPet as mobileMutationRequiresPet } from "../../shared/petowner-flow";
 import { buildMobilePawDatingDiscoveryPath } from "./pawdating";
 
 export { uniqueById } from "./collections";

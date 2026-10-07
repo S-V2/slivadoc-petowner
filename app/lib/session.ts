@@ -1,4 +1,4 @@
-import { PET_PROFILE_REQUIRED_MESSAGE, petOwnerMutationRequiresPet } from "../../mobile/src/petowner-flow.ts";
+import { PET_PROFILE_REQUIRED_MESSAGE, petOwnerMutationRequiresPet } from "../../shared/petowner-flow.ts";
 
 export const PLATFORM_API_URL =
   process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? "http://localhost:8080";

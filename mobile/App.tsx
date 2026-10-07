@@ -51,6 +51,7 @@ import {
   getMobileActivityCenter,
   getMobileBootstrap,
   getMobileMedicalRecords,
+  getMobileMarketplaceChats,
   getMobileNotifications,
   uniqueById,
   getMobileServiceAvailability,
@@ -340,6 +341,9 @@ function MobileApp() {
   const [activityCenter, setActivityCenter] =
     useState<MobileActivityCenterResponse>();
   const [activityLoading, setActivityLoading] = useState(false);
+  const [activityLoadingMore, setActivityLoadingMore] = useState(false);
+  const [chatUnread, setChatUnread] = useState(0);
+  const activityExtraRef = useRef(false);
   const [activityIntent, setActivityIntent] = useState<{
     token: number;
     type: MobileActivityType;
@@ -552,13 +556,29 @@ function MobileApp() {
     return data;
   }, []);
   const loadActivityCenter = useCallback(
-    async (silent = false) => {
+    // keepLoaded: background refreshes keep pages the user already loaded.
+    async (silent = false, keepLoaded = false) => {
       const request = activityRequestRef.current + 1;
       activityRequestRef.current = request;
       setActivityLoading(true);
       try {
         const result = await getMobileActivityCenter();
-        if (activityRequestRef.current === request) setActivityCenter(result);
+        if (activityRequestRef.current === request) {
+          const keep = keepLoaded && activityExtraRef.current;
+          if (!keep) activityExtraRef.current = false;
+          setActivityCenter((current) => {
+            if (!keep || !current) return result;
+            const fresh = new Set(result.data.map((item) => item.id));
+            return {
+              ...result,
+              data: [
+                ...result.data,
+                ...current.data.filter((item) => !fresh.has(item.id)),
+              ],
+              next_cursor: current.next_cursor,
+            };
+          });
+        }
       } catch (cause) {
         if (!silent)
           notify(
@@ -571,17 +591,63 @@ function MobileApp() {
     },
     [notify],
   );
+  const loadMoreActivities = useCallback(async () => {
+    const cursor = activityCenter?.next_cursor;
+    if (!cursor || activityLoadingMore) return;
+    const request = activityRequestRef.current;
+    setActivityLoadingMore(true);
+    try {
+      const page = await getMobileActivityCenter(cursor);
+      // A refresh started meanwhile owns the list; drop this stale page.
+      if (activityRequestRef.current !== request) return;
+      activityExtraRef.current = true;
+      setActivityCenter((current) =>
+        current
+          ? {
+              ...current,
+              data: uniqueById([...current.data, ...page.data]),
+              next_cursor: page.next_cursor,
+            }
+          : current,
+      );
+    } catch (cause) {
+      notify(
+        (cause instanceof Error && cause.message) ||
+          "Aktivitas lainnya belum dapat dimuat",
+      );
+    } finally {
+      setActivityLoadingMore(false);
+    }
+  }, [activityCenter?.next_cursor, activityLoadingMore, notify]);
   const signedIn = Boolean(bootstrap);
   useEffect(() => {
     if (!signedIn) return;
-    queueMicrotask(() => void loadActivityCenter(true));
-    const timer = setInterval(() => void loadActivityCenter(true), 60_000);
+    queueMicrotask(() => void loadActivityCenter(true, true));
+    const timer = setInterval(() => void loadActivityCenter(true, true), 60_000);
     return () => clearInterval(timer);
   }, [loadActivityCenter, signedIn]);
   useEffect(() => {
     if ((tab === "activity" || tab === "messages") && signedIn)
-      queueMicrotask(() => void loadActivityCenter(true));
+      queueMicrotask(() => void loadActivityCenter(true, true));
   }, [loadActivityCenter, signedIn, tab]);
+  // Header chat badge: one fetch on login, whenever notifications refresh, and
+  // when the chat inbox / thread sheet closes.
+  const unreadNotificationCount = bootstrap?.unread_notifications ?? 0;
+  const messagesOpen = tab === "messages";
+  const inboxChatOpen = Boolean(inboxChatThread);
+  useEffect(() => {
+    if (!signedIn) return;
+    queueMicrotask(
+      () =>
+        void getMobileMarketplaceChats()
+          .then((result) =>
+            setChatUnread(
+              result.data.reduce((total, item) => total + item.unread_count, 0),
+            ),
+          )
+          .catch(() => undefined),
+    );
+  }, [signedIn, unreadNotificationCount, messagesOpen, inboxChatOpen, refreshVersion]);
   const needsActionCount =
     activityCenter?.data.filter((item) => item.needs_action).length ?? 0;
   const loadServices = useCallback(async () => {
@@ -826,6 +892,18 @@ function MobileApp() {
   const openStoreChat = (chatThread: MobileMarketplaceChatThread) => {
     setInboxChatThread(chatThread);
   };
+  // A store reply notification opens its thread; unknown thread falls back to the inbox.
+  const openNotificationThread = async (threadId: string) => {
+    try {
+      const result = await getMobileMarketplaceChats();
+      const thread = result.data.find((item) => item.id === threadId);
+      if (thread) {
+        setInboxChatThread(thread);
+        return;
+      }
+    } catch {}
+    navigateTo("messages");
+  };
   const openInboxChatShortcut = (shortcut: MarketplaceChatShortcut) => {
     const thread = inboxChatThread;
     if (!thread) return;
@@ -1033,6 +1111,7 @@ function MobileApp() {
           refreshing={refreshing}
           onRefresh={() => void reloadData(true)}
           unreadNotifications={bootstrap?.unread_notifications ?? 0}
+          chatUnread={signedIn ? chatUnread : 0}
           openChatInbox={() => {
             if (requireLogin()) navigateTo("messages");
           }}
@@ -1090,7 +1169,6 @@ function MobileApp() {
               {tab === "discover" ? (
                 <DiscoverScreen
                   onBook={openBooking}
-                  onAction={notify}
                   onOpenNotifications={openNotifications}
                   services={services}
                   favorites={favorites}
@@ -1188,6 +1266,9 @@ function MobileApp() {
                   summary={activityCenter?.summary}
                   loading={activityLoading}
                   onReload={() => loadActivityCenter(true)}
+                  hasMore={Boolean(activityCenter?.next_cursor)}
+                  loadingMore={activityLoadingMore}
+                  onLoadMore={() => void loadMoreActivities()}
                   intent={activityIntent}
                   onIntentHandled={consumeActivityIntent}
                   onAction={notify}
@@ -1220,7 +1301,6 @@ function MobileApp() {
               ) : null}
               {tab === "health" ? (
                 <HealthScreen
-                  onAction={notify}
                   onBook={() => openBooking()}
                   onOpenNotifications={openNotifications}
                   pet={pet}
@@ -1262,6 +1342,7 @@ function MobileApp() {
                     await logoutMobile();
                     setBootstrap(undefined);
                     setActivityCenter(undefined);
+                    activityExtraRef.current = false;
                     setRecords([]);
                     navigateTo("home", true);
                     notify("Sesi berhasil diakhiri");
@@ -1407,6 +1488,11 @@ function MobileApp() {
         }}
         onOpenTarget={(item) => {
           setNotificationsOpen(false);
+          const threadId = item.metadata?.thread_id;
+          if (typeof threadId === "string" && threadId) {
+            void openNotificationThread(threadId);
+            return;
+          }
           const activityType = item.metadata?.activity_type;
           const activityId = item.metadata?.activity_id;
           if (typeof activityType === "string" && typeof activityId === "string") {

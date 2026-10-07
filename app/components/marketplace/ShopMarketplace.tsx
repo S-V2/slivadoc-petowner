@@ -14,6 +14,7 @@ import {
 } from "react";
 import { Icon, type IconName } from "../Icon";
 import {
+  ApiError,
   createMarketplaceChat,
   getMarketplaceChatMessages,
   getMarketplaceStore,
@@ -1668,9 +1669,13 @@ export default function ShopMarketplace({
       setReviewAverage(refreshed.rating || rating);
     } catch (cause) {
       const message =
-        cause instanceof Error ? cause.message : "Ulasan belum dapat disimpan";
+        cause instanceof ApiError && cause.code === "review_hidden"
+          ? "Ulasanmu disembunyikan moderator dan tidak bisa diubah. Hubungi dukungan jika ada keberatan."
+          : cause instanceof Error
+            ? cause.message
+            : "Ulasan belum dapat disimpan";
       notify(message);
-      throw cause;
+      throw new Error(message);
     } finally {
       setReviewSubmitting(false);
     }

@@ -1477,3 +1477,9 @@ textarea {
   .home-member-tagline { margin-top: 12px; font-size: 9px; }
   .profile-member-card { min-height: 230px; padding: 19px; }
 }
+
+/* At 320px the chat button next to the bell leaves the search launcher under 200px; tighten the header gutters. */
+@media (max-width: 340px) {
+  .topbar { gap: 8px !important; padding-inline: 10px !important; }
+  .top-actions { flex: 0 0 92px !important; gap: 4px !important; }
+}

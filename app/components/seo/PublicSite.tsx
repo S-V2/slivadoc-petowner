@@ -16,6 +16,7 @@ export function PublicHeader() {
         <Link href="/layanan">Layanan</Link>
         <Link href="/belanja">Belanja</Link>
         <Link href="/kota">Kota</Link>
+        <Link href="/wilayah">Wilayah</Link>
         <Link href="/tempat">Tempat</Link>
         <Link href="/panduan">Panduan</Link>
         <Link href="/tentang">Tentang</Link>
@@ -41,6 +42,7 @@ export function PublicFooter() {
         <Link href="/layanan">Layanan pet care</Link>
         <Link href="/belanja">Belanja kebutuhan pet</Link>
         <Link href="/kota">Layanan berdasarkan kota</Link>
+        <Link href="/wilayah">Seluruh wilayah Indonesia</Link>
         <Link href="/tempat">Direktori tempat</Link>
         <Link href="/panduan">Panduan pet parent</Link>
       </div>
@@ -48,6 +50,9 @@ export function PublicFooter() {
         <strong>Perusahaan</strong>
         <Link href="/tentang">Tentang Slivadoc</Link>
         <Link href="/mitra">Mitra pet business</Link>
+        <Link href="/untuk/pet-owner">Manfaat untuk pet owner</Link>
+        <Link href="/gratis">Program gratis Slivadoc</Link>
+        <Link href="/en">English</Link>
         <Link href="/?view=community">Komunitas</Link>
       </div>
       <div>
@@ -131,11 +136,19 @@ export function DiscoveryLinks() {
         </div>
         <div>
           <strong>Area layanan</strong>
+          <Link href="/wilayah">Jelajahi seluruh Indonesia</Link>
           {cityPages.slice(0, 5).map((item) => (
             <Link key={item.slug} href={`/kota/${item.slug}`}>
               Pet care {item.name}
             </Link>
           ))}
+        </div>
+        <div>
+          <strong>Kenali manfaatnya</strong>
+          <Link href="/untuk/pet-owner">Untuk pet owner</Link>
+          <Link href="/mitra">Untuk pet clinic & bisnis hewan</Link>
+          <Link href="/gratis">Program aplikasi gratis</Link>
+          <Link href="/en">Pet care in Indonesia (English)</Link>
         </div>
       </div>
     </section>

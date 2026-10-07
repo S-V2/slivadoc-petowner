@@ -1,5 +1,6 @@
 "use client";
 
+import { SlivaSelect } from "./SlivaSelect";
 import { useEffect, useState } from "react";
 import { Icon } from "./Icon";
 import type { LocationResult } from "../lib/petowner-api";
@@ -247,10 +248,10 @@ export default function ShippingAddressModal({
             {levels.slice(0, 2).map((level) => (
               <label key={level}>
                 <span>{level === "province" ? "Provinsi" : "Kabupaten / kota"}</span>
-                <select value={regionIDs[level]} disabled={loadingRegions || (level !== "province" && !regionIDs[levels[levels.indexOf(level) - 1]])} onChange={(event) => selectRegion(level, event.target.value)}>
+                <SlivaSelect aria-label={level === "province" ? "Provinsi" : "Kabupaten / kota"} value={regionIDs[level]} disabled={loadingRegions || (level !== "province" && !regionIDs[levels[levels.indexOf(level) - 1]])} onChange={(event) => selectRegion(level, event.target.value)}>
                   <option value="">Pilih {level === "province" ? "provinsi" : "kabupaten / kota"}</option>
                   {regions[level].map((option) => <option key={option.code} value={option.code}>{option.name}</option>)}
-                </select>
+                </SlivaSelect>
               </label>
             ))}
           </div>
@@ -258,10 +259,10 @@ export default function ShippingAddressModal({
             {levels.slice(2).map((level) => (
               <label key={level}>
                 <span>{level === "district" ? "Kecamatan" : "Kelurahan / desa"}</span>
-                <select value={regionIDs[level]} disabled={loadingRegions || !regionIDs[levels[levels.indexOf(level) - 1]]} onChange={(event) => selectRegion(level, event.target.value)}>
+                <SlivaSelect aria-label={level === "district" ? "Kecamatan" : "Kelurahan / desa"} value={regionIDs[level]} disabled={loadingRegions || !regionIDs[levels[levels.indexOf(level) - 1]]} onChange={(event) => selectRegion(level, event.target.value)}>
                   <option value="">Pilih {level === "district" ? "kecamatan" : "kelurahan / desa"}</option>
                   {regions[level].map((option) => <option key={option.code} value={option.code}>{option.name}</option>)}
-                </select>
+                </SlivaSelect>
               </label>
             ))}
           </div>

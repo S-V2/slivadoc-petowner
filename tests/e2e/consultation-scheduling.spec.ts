@@ -130,7 +130,8 @@ test("doctor booking searches providers and submits a server-provided slot", asy
   await page
     .getByRole("textbox", { name: /Keluhan utama/ })
     .fill("Kulit kemerahan dan sering digaruk sejak kemarin.");
-  await page.getByLabel("Slot jadwal · Asia/Jakarta").selectOption(slot);
+  await page.getByRole("combobox", { name: "Slot jadwal · Asia/Jakarta", exact: true }).click();
+  await page.getByRole("option").filter({ hasText: "30 menit" }).click();
   await page.getByRole("button", { name: "Mulai konsultasi gratis" }).click();
 
   await expect.poll(() => consultationBody?.scheduled_at).toBe(slot);

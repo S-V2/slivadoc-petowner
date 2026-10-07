@@ -1,4 +1,6 @@
 "use client";
+import { SlivaSelect } from "../SlivaSelect";
+import { DiscountBadge } from "../DiscountBadge";
 
 import Image from "next/image";
 import {
@@ -254,7 +256,7 @@ function ProductCard({
           {badge}
         </span>
         {discountPercent > 0 ? (
-          <span className="market-discount-badge">-{discountPercent}%</span>
+          <DiscountBadge percent={discountPercent} />
         ) : null}
         <button
           className={`market-favorite ${favorite ? "is-favorite" : ""}`}
@@ -680,6 +682,7 @@ function ProductDetail({
       <section className="market-detail-hero">
         <div className="market-detail-gallery">
           <ProductPicture product={product} detail />
+          <DiscountBadge percent={discountPercent} />
           <div className="market-detail-assurance">
             <span>
               <Icon name="shield" size={17} />
@@ -730,7 +733,7 @@ function ProductDetail({
           </div>
           <div className="market-detail-price-block">
             {discountPercent > 0 ? (
-              <span><em>-{discountPercent}%</em><s>{formatRupiah(product.originalPrice!)}</s></span>
+              <span><s>{formatRupiah(product.originalPrice!)}</s></span>
             ) : null}
             <strong className="market-detail-price">{formatRupiah(product.price)}</strong>
             {discountPercent > 0 ? <small>Kamu hemat {formatRupiah(product.originalPrice! - product.price)}</small> : null}
@@ -1847,7 +1850,7 @@ export default function ShopMarketplace({
           <div className="market-catalog-filters">
             <label>
               <span>Toko</span>
-              <select
+              <SlivaSelect aria-label="Toko"
                 value={store}
                 onChange={(event) => setStore(event.target.value)}
               >
@@ -1855,11 +1858,11 @@ export default function ShopMarketplace({
                 {stores.map((item) => (
                   <option key={item.id} value={item.id}>{item.name}</option>
                 ))}
-              </select>
+              </SlivaSelect>
             </label>
             <label>
               <span>Urutkan</span>
-              <select
+              <SlivaSelect aria-label="Urutkan"
                 value={sort}
                 onChange={(event) => setSort(event.target.value as SortMode)}
               >
@@ -1867,7 +1870,7 @@ export default function ShopMarketplace({
                 <option value="popular">Terlaris</option>
                 <option value="rating">Rating tertinggi</option>
                 <option value="price">Harga termurah</option>
-              </select>
+              </SlivaSelect>
             </label>
           </div>
         </header>

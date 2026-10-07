@@ -47,6 +47,7 @@ next-env.d.ts
 /.sites-runtime/
 /outputs/
 /work/
+**/.idea/
 
 # runtime API data
 /services/petowner-api/data/*.json

@@ -1,3 +1,5 @@
+import { publicCatalog } from "./public-catalog.ts";
+
 const PLATFORM_API_URL = (
   process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? "http://localhost:8080"
 ).replace(/\/$/, "");
@@ -14,6 +16,10 @@ type PublicService = {
   price: number;
   address: string;
   city: string;
+  province_code?: string;
+  regency_code?: string;
+  district_code?: string;
+  village_code?: string;
   latitude?: number | null;
   longitude?: number | null;
   rating?: number | null;
@@ -61,6 +67,7 @@ export type PublicPlace = {
   branchName: string;
   address: string;
   city: string;
+  regionCodes?: string[];
   latitude?: number | null;
   longitude?: number | null;
   rating?: number | null;
@@ -83,16 +90,11 @@ export function directorySlug(
   return `${label || "mitra-slivadoc"}-${branchId}`;
 }
 
-export const getPublicPlaces = cache(async (): Promise<PublicPlace[]> => {
+export const getPublicPlaces = cache(async (regionCode = "", strict = false): Promise<PublicPlace[]> => {
   try {
-    const response = await fetch(
-      `${PLATFORM_API_URL}/api/v1/public/discovery/services`,
-      { cache: "no-store", headers: { accept: "application/json" } },
-    );
-    if (!response.ok) return [];
-    const payload = (await response.json()) as { data?: PublicService[] };
+    const data = await publicCatalog<PublicService>("services", regionCode);
     const groups = new Map<string, PublicPlace>();
-    for (const service of payload.data ?? []) {
+    for (const service of data) {
       if (!service.branch_id || !service.business_name || !service.branch_name)
         continue;
       const current = groups.get(service.branch_id) ?? {
@@ -107,6 +109,7 @@ export const getPublicPlaces = cache(async (): Promise<PublicPlace[]> => {
         branchName: service.branch_name,
         address: service.address,
         city: service.city,
+        regionCodes: [service.province_code, service.regency_code, service.district_code, service.village_code].filter((code): code is string => Boolean(code)),
         latitude: service.latitude,
         longitude: service.longitude,
         rating: service.rating,
@@ -135,7 +138,8 @@ export const getPublicPlaces = cache(async (): Promise<PublicPlace[]> => {
         a.city.localeCompare(b.city, "id") ||
         a.name.localeCompare(b.name, "id"),
     );
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     return [];
   }
 });

@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { publicCatalog } from "./public-catalog.ts";
 
 const PLATFORM_API_URL = (
   process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? "http://localhost:8080"
@@ -164,18 +165,14 @@ function normalizeProduct(value: ProductPayload): PublicProduct | null {
   };
 }
 
-export const getPublicProducts = cache(async (): Promise<PublicProduct[]> => {
+export const getPublicProducts = cache(async (strict = false): Promise<PublicProduct[]> => {
   try {
-    const response = await fetch(
-      `${PLATFORM_API_URL}/api/v1/public/discovery/products`,
-      { cache: "no-store", headers: { accept: "application/json" } },
-    );
-    if (!response.ok) return [];
-    const payload = (await response.json()) as { data?: ProductPayload[] };
-    return (payload.data ?? [])
+    const data = await publicCatalog<ProductPayload>("products");
+    return data
       .map(normalizeProduct)
       .filter((product): product is PublicProduct => product !== null);
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     return [];
   }
 });

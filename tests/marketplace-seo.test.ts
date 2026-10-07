@@ -14,7 +14,7 @@ const read = (path: string) =>
 const catalog = read("app/belanja/page.tsx");
 const detail = read("app/belanja/[slug]/page.tsx");
 const marketplace = read("app/lib/public-marketplace.ts");
-const sitemap = read("app/sitemap.ts");
+const sitemap = read("app/lib/seo-sitemap.ts");
 const robots = read("app/robots.ts");
 const navigation = read("app/components/seo/PublicSite.tsx");
 

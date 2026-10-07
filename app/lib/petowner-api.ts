@@ -102,6 +102,17 @@ export async function uploadDocument(file: File, folder: string) {
   }>("/api/uploads/documents", { method: "POST", body });
 }
 
+export async function uploadPetHubMedia(file: File, folder = "pethub/posts") {
+  const body = new FormData();
+  body.append("file", file);
+  body.append("folder", folder);
+  return apiFetch<{
+    url: string;
+    resourceType: "image" | "video";
+    thumbnailUrl?: string;
+  }>("/api/uploads/media", { method: "POST", body });
+}
+
 export function reverseGeocode(latitude: number, longitude: number) {
   return apiFetch<LocationResult>(
     `/api/location/reverse?lat=${encodeURIComponent(latitude)}&lng=${encodeURIComponent(longitude)}`,

@@ -1,4 +1,6 @@
 "use client";
+import { SlivaSelect } from "./SlivaSelect";
+import { DiscountBadge } from "./DiscountBadge";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -1334,6 +1336,7 @@ export default function PetOwnerApp() {
             <CareMarketplace
               mode={activeView as "consult" | "adoption" | "documents"}
               pet={selectedPet}
+              pets={petProfiles}
               notify={notify}
               initialVeterinarianId={
                 activeView === "consult" && typeof window !== "undefined"
@@ -2331,7 +2334,7 @@ function Topbar({
         {authenticated && petProfiles.length > 0 && (
           <label className="pet-switcher compact-select">
             <span className="pet-mini">{selectedPet.avatar}</span>
-            <select
+            <SlivaSelect
               aria-label="Pilih hewan"
               value={selectedPetId}
               onChange={(event) => setSelectedPetId(event.target.value)}
@@ -2341,7 +2344,7 @@ function Topbar({
                   {pet.name}
                 </option>
               ))}
-            </select>
+            </SlivaSelect>
           </label>
         )}
         <button
@@ -3551,13 +3554,13 @@ function PetEditModal({
           <div className="form-row">
             <label>
               <span>Jenis kelamin</span>
-              <select
+              <SlivaSelect aria-label="Jenis kelamin"
                 name="sex"
                 defaultValue={pet.gender === "Betina" ? "female" : "male"}
               >
                 <option value="male">Jantan</option>
                 <option value="female">Betina</option>
-              </select>
+              </SlivaSelect>
             </label>
             <label>
               <span>Tanggal lahir</span>
@@ -3813,12 +3816,12 @@ function FamilyModal({
           </label>
           <label>
             <span>Role akses</span>
-            <select name="role">
+            <SlivaSelect aria-label="Role akses" name="role">
               <option value="co_parent">Co-parent</option>
               <option value="caregiver">Caregiver</option>
               <option value="veterinarian">Dokter</option>
               <option value="viewer">Viewer</option>
-            </select>
+            </SlivaSelect>
           </label>
           <button className="primary-button full" disabled={busy}>
             {busy ? "Mengirim…" : "Kirim undangan"}
@@ -3945,12 +3948,12 @@ function LostModeModal({
             </div>
             <label>
               <span>Radius notifikasi</span>
-              <select name="radius_km" defaultValue="10">
+              <SlivaSelect aria-label="Radius notifikasi" name="radius_km" defaultValue="10">
                 <option value="3">3 km</option>
                 <option value="5">5 km</option>
                 <option value="10">10 km</option>
                 <option value="25">25 km</option>
-              </select>
+              </SlivaSelect>
             </label>
             <label>
               <span>Kronologi & ciri khusus</span>
@@ -4132,7 +4135,7 @@ function DiscoverView({
         <p>
           <b>{result.length} layanan</b> dari seluruh area layanan Slivadoc
         </p>
-        <select
+        <SlivaSelect
           aria-label="Urutkan layanan"
           value={sort}
           onChange={(event) => setSort(event.target.value as typeof sort)}
@@ -4141,7 +4144,7 @@ function DiscoverView({
           <option value="distance">Jarak terdekat</option>
           <option value="rating">Rating tertinggi</option>
           <option value="price">Harga terendah</option>
-        </select>
+        </SlivaSelect>
       </div>
       <div className="service-list-grid">
         {result.map((service) => (
@@ -4164,7 +4167,7 @@ function DiscoverView({
               )}
               <em>{service.type}</em>
               {service.discountPercent && service.discountPercent > 0 ? (
-                <span className="service-discount-badge">-{service.discountPercent}%</span>
+                <DiscountBadge percent={service.discountPercent} />
               ) : null}
               <button
                 type="button"
@@ -4289,7 +4292,7 @@ function DiscoverView({
             </label>
             <label>
               <span>Urutkan berdasarkan</span>
-              <select
+              <SlivaSelect aria-label="Urutkan berdasarkan"
                 value={sort}
                 onChange={(event) => setSort(event.target.value as typeof sort)}
               >
@@ -4297,7 +4300,7 @@ function DiscoverView({
                 <option value="distance">Jarak terdekat</option>
                 <option value="rating">Rating tertinggi</option>
                 <option value="price">Harga terendah</option>
-              </select>
+              </SlivaSelect>
             </label>
             <footer>
               <button
@@ -5177,7 +5180,7 @@ function ReminderModal({
         <form className="world-form" onSubmit={submit}>
           <label>
             <span>Jenis perawatan</span>
-            <select name="reminder_type">
+            <SlivaSelect aria-label="Jenis perawatan" name="reminder_type">
               <option value="vaccination">Vaksinasi</option>
               <option value="medication">Obat</option>
               <option value="deworming">Obat cacing</option>
@@ -5186,7 +5189,7 @@ function ReminderModal({
               <option value="follow_up">Kontrol dokter</option>
               <option value="document">Dokumen</option>
               <option value="custom">Lainnya</option>
-            </select>
+            </SlivaSelect>
           </label>
           <label>
             <span>Judul</span>
@@ -5204,7 +5207,7 @@ function ReminderModal({
           <div className="form-row">
             <label>
               <span>Pengulangan</span>
-              <select name="recurrence" defaultValue="yearly">
+              <SlivaSelect aria-label="Pengulangan" name="recurrence" defaultValue="yearly">
                 <option value="once">Satu kali</option>
                 <option value="daily">Harian</option>
                 <option value="weekly">Mingguan</option>
@@ -5212,7 +5215,7 @@ function ReminderModal({
                 <option value="quarterly">Tiga bulanan</option>
                 <option value="yearly">Tahunan</option>
                 <option value="custom">Jarak khusus</option>
-              </select>
+              </SlivaSelect>
             </label>
             <label>
               <span>Jarak khusus (hari)</span>
@@ -5447,7 +5450,7 @@ function SupportCenter({
           <form className="world-form" onSubmit={submit}>
             <label>
               <span>Kategori</span>
-              <select
+              <SlivaSelect aria-label="Kategori"
                 name="category"
                 value={category}
                 onChange={(event) => setCategory(event.target.value)}
@@ -5461,13 +5464,13 @@ function SupportCenter({
                 <option value="account">Akun</option>
                 <option value="privacy">Privasi & data</option>
                 <option value="other">Lainnya</option>
-              </select>
+              </SlivaSelect>
             </label>
             <label>
               <span>
                 Pesanan atau booking terkait <small>(opsional)</small>
               </span>
-              <select
+              <SlivaSelect aria-label="Pesanan atau booking terkait (opsional)"
                 value={reference}
                 onChange={(event) => setReference(event.target.value)}
               >
@@ -5477,7 +5480,7 @@ function SupportCenter({
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </SlivaSelect>
             </label>
             <label>
               <span>Subjek</span>

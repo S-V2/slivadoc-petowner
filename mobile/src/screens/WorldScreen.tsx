@@ -101,6 +101,8 @@ import {
   PetSpotVenueInformation,
 } from "../components/PetSpotExperience";
 import { AdoptionManager } from "./AdoptionManager";
+import { AdoptionExperience } from "./AdoptionExperience";
+import { DiscountBadge } from "../components/DiscountBadge";
 
 export type WorldMode =
   | "pawdating"
@@ -119,6 +121,8 @@ type WorldPet = {
   species?: string;
   breed: string;
   icon?: string;
+  photo_url?: string;
+  access_role?: string;
 };
 type AdoptionForm = {
   applicantName: string;
@@ -339,6 +343,8 @@ function MobilePawDatingDeck({
   onDetail: (profile: WorldItem) => void;
   onSwipe: (profile: WorldItem, decision: "like" | "pass") => void;
 }) {
+  const { height: screenHeight } = useWindowDimensions();
+  const cardHeight = Math.max(520, screenHeight - 170);
   const active = profiles[0];
   const next = profiles[1];
   const [position] = useState(() => new Animated.ValueXY());
@@ -393,8 +399,8 @@ function MobilePawDatingDeck({
 
   if (!active) return null;
   const renderCard = (item: WorldItem) => (
-    <View style={styles.swipeCard}>
-      <View style={styles.swipeVisual}>
+    <View style={[styles.swipeCard, { height: cardHeight }]}>
+      <View style={[styles.swipeVisual, { height: cardHeight * 0.66 }]}>
         {item.photo_urls?.[0] ? (
           <Image
             source={{ uri: item.photo_urls[0] }}
@@ -441,7 +447,7 @@ function MobilePawDatingDeck({
       <Text style={styles.swipeGuide}>
         ← kiri untuk lewati · kanan untuk suka →
       </Text>
-      <View style={styles.swipeStage}>
+      <View style={[styles.swipeStage, { height: cardHeight + 14 }]}>
         {next ? (
           <View style={styles.swipeCardNext}>{renderCard(next)}</View>
         ) : null}
@@ -1082,7 +1088,12 @@ export function WorldScreen({
       const resources = result.data.filter(
         (resource) =>
           (!isHousing || ["room", "unit"].includes(resource.resource_type)) &&
-          form.petCount <= Number(resource.pet_policy?.pet_limit ?? resource.pet_policy?.max_pets ?? 99),
+          form.petCount <=
+            Number(
+              resource.pet_policy?.pet_limit ??
+                resource.pet_policy?.max_pets ??
+                99,
+            ),
       );
       setPetSpotResources(resources);
       // The owner must explicitly choose the table/unit, never auto-select one.
@@ -1158,7 +1169,12 @@ export function WorldScreen({
           setSelected((current) =>
             current?.id === item.id ? { ...current, ...detail } : current,
           );
-          setItems((current) => ({ ...current, petspot: current.petspot.map((venue) => venue.id === detail.id ? { ...venue, ...detail } : venue) }));
+          setItems((current) => ({
+            ...current,
+            petspot: current.petspot.map((venue) =>
+              venue.id === detail.id ? { ...venue, ...detail } : venue,
+            ),
+          }));
         }
       } catch (cause) {
         if (request === spotDetailRequest.current)
@@ -1483,12 +1499,6 @@ export function WorldScreen({
       } else if (selected.playback_url) {
         await Linking.openURL(selected.playback_url);
         onAction("Live PetHub dibuka");
-      } else {
-        onAction(
-          selected.status === "live"
-            ? "Live PetHub dibuka"
-            : "Pengingat PetHub diaktifkan",
-        );
       }
       completed = true;
     } catch (cause) {
@@ -1552,7 +1562,7 @@ export function WorldScreen({
       icon: "document-text-outline",
     },
   };
-  if (mode === "pethub") {
+  if (["pethub", "adoption"].includes(mode)) {
     return (
       <Screen>
         <TopHeader
@@ -1593,14 +1603,14 @@ export function WorldScreen({
             </Pressable>
           ))}
         </ScrollView>
-        <PetHubExperience
+        {mode === "adoption" ? <AdoptionExperience owner={owner} pets={pets} onLogin={onLogin} onRequirePet={onRequirePet} onAction={onAction} refreshVersion={refreshVersion} /> : <PetHubExperience
           refreshVersion={refreshVersion}
           owner={owner}
           hasPet={hasPet}
           onLogin={onLogin}
           onRequirePet={onRequirePet}
           onAction={onAction}
-        />
+        />}
       </Screen>
     );
   }
@@ -1796,23 +1806,7 @@ export function WorldScreen({
               <Ionicons name="add" size={18} color={colors.white} />
               <Text style={styles.createText}>Daftarkan pet</Text>
             </Pressable>
-          ) : (
-            <Pressable
-              onPress={() =>
-                onAction(
-                  mode === "petspot"
-                    ? "Lokasi perangkat digunakan untuk mengurutkan PetSpot"
-                    : "Filter dibuka",
-                )
-              }
-            >
-              <Ionicons
-                name={mode === "petspot" ? "navigate" : "options"}
-                size={20}
-                color={colors.sky600}
-              />
-            </Pressable>
-          )}
+          ) : null}
         </View>
         {mode === "pawdating" && pawDatingInterests.length ? (
           <View style={styles.pawMatchSection}>
@@ -2157,18 +2151,10 @@ export function WorldScreen({
                     </View>
                   ) : null}
                   {mode === "academy" && item.discount_percent ? (
-                    <View style={styles.academyDiscountBadge}>
-                      <Text style={styles.academyDiscountText}>
-                        -{Math.round(item.discount_percent)}%
-                      </Text>
-                    </View>
+                    <DiscountBadge percent={item.discount_percent} />
                   ) : null}
                   {mode === "consult" && item.discount_percent ? (
-                    <View style={styles.academyDiscountBadge}>
-                      <Text style={styles.academyDiscountText}>
-                        -{Math.round(item.discount_percent)}%
-                      </Text>
-                    </View>
+                    <DiscountBadge percent={item.discount_percent} />
                   ) : null}
                   {mode === "academy" && (item.image_urls?.length ?? 0) > 1 ? (
                     <View style={styles.academyGalleryBadge}>
@@ -2536,12 +2522,11 @@ export function WorldScreen({
                   ) : null}
                   {["academy", "consult"].includes(mode) &&
                   Number(selected?.price ?? selected?.total_fee ?? 0) > 0 ? (
-                    <View style={styles.worldPromoPrice}>
+                    <View style={[styles.worldPromoPrice, selected?.discount_percent ? { paddingRight: 94 } : null]}>
+                      <DiscountBadge percent={selected?.discount_percent} />
                       <View style={styles.worldPromoPriceCopy}>
                         <Text style={styles.worldPromoLabel}>
-                          {selected?.discount_percent
-                            ? `PROMO ${Math.round(selected.discount_percent)}%`
-                            : "BIAYA PROGRAM"}
+                          BIAYA PAKET
                         </Text>
                         {selected?.original_price &&
                         selected.original_price >
@@ -2554,14 +2539,6 @@ export function WorldScreen({
                           {money(selected?.price ?? selected?.total_fee)}
                         </Text>
                       </View>
-                      {selected?.discount_percent ? (
-                        <View style={styles.worldPromoSaving}>
-                          <Ionicons name="pricetag" size={15} color="#128464" />
-                          <Text style={styles.worldPromoSavingText}>
-                            Harga spesial Slivadoc
-                          </Text>
-                        </View>
-                      ) : null}
                     </View>
                   ) : null}
                   {mode === "academy" ? (
@@ -3362,7 +3339,7 @@ export function WorldScreen({
                             ? "Memeriksa ketersediaan…"
                             : petSpotForm.stayKind
                               ? "Cek unit tersedia"
-                              : "Perbarui denah ketersediaan"}
+                              : "Cek pilihan tersedia"}
                         </Text>
                       </Pressable>
                       {petSpotForm.stayKind ? (
@@ -3399,7 +3376,9 @@ export function WorldScreen({
                                     {resource.floor_name || "Unit"} ·{" "}
                                     {resource.capacity} penghuni ·{" "}
                                     {Number(
-                                      resource.pet_policy?.pet_limit ?? resource.pet_policy?.max_pets ?? 0,
+                                      resource.pet_policy?.pet_limit ??
+                                        resource.pet_policy?.max_pets ??
+                                        0,
                                     )}{" "}
                                     pet
                                   </Text>
@@ -3440,75 +3419,55 @@ export function WorldScreen({
                         </View>
                       ) : (
                         <>
-                          <View style={styles.layoutLegend}>
-                            <Text style={styles.layoutLegendAvailable}>
-                              ● Tersedia
-                            </Text>
-                            <Text style={styles.layoutLegendReserved}>
-                              ● Sudah direservasi
-                            </Text>
-                            <Text style={styles.layoutLegendSelected}>
-                              ● Pilihanmu
-                            </Text>
-                          </View>
-                          <View style={styles.petSpotLayout}>
-                            <View style={styles.layoutDoor}>
-                              <Text style={styles.layoutDoorText}>PINTU</Text>
-                            </View>
+                          <View style={styles.petSpotChoiceGrid}>
                             {petSpotResources.map((resource) => {
                               const active =
                                 selectedPetSpotResource?.id === resource.id;
                               return (
                                 <Pressable
                                   key={resource.id}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={resource.name}
+                                  accessibilityState={{
+                                    selected: active,
+                                    disabled: !resource.available,
+                                  }}
                                   disabled={!resource.available}
                                   onPress={() =>
                                     setSelectedPetSpotResource(resource)
                                   }
                                   style={[
-                                    styles.layoutResource,
-                                    {
-                                      left: `${Math.min(82, Math.max(3, resource.x_percent))}%`,
-                                      top: `${Math.min(74, Math.max(5, resource.y_percent))}%`,
-                                    },
-                                    resource.shape === "round" &&
-                                      styles.layoutResourceRound,
+                                    styles.petSpotChoice,
+                                    active && styles.housingCardSelected,
                                     !resource.available &&
-                                      styles.layoutResourceReserved,
-                                    active && styles.layoutResourceSelected,
+                                      styles.housingCardBusy,
                                   ]}
                                 >
-                                  <Text
-                                    style={[
-                                      styles.layoutResourceCode,
-                                      active && styles.layoutResourceCodeActive,
-                                    ]}
-                                  >
-                                    {resource.code}
+                                  <Text style={styles.formTitle}>
+                                    {resource.name}
                                   </Text>
-                                  <Text
-                                    style={[
-                                      styles.layoutResourceCapacity,
-                                      active && styles.layoutResourceCodeActive,
-                                    ]}
-                                  >
-                                    {resource.capacity} org
+                                  <Text style={styles.formNote}>
+                                    {resource.capacity} tamu ·{" "}
+                                    {resource.floor_name}
+                                  </Text>
+                                  <Text style={styles.housingPrice}>
+                                    {money(resource.base_price)}
+                                  </Text>
+                                  <Text style={styles.formNote}>
+                                    {resource.available
+                                      ? active
+                                        ? "✓ Pilihanmu"
+                                        : "Tersedia · Pilih tempat"
+                                      : "Tidak tersedia"}
                                   </Text>
                                 </Pressable>
                               );
                             })}
                             {!availabilityLoading &&
                             !petSpotResources.length ? (
-                              <View style={styles.layoutEmpty}>
-                                <Ionicons
-                                  name="calendar-outline"
-                                  size={24}
-                                  color={colors.muted}
-                                />
-                                <Text style={styles.formNote}>
-                                  Belum ada resource untuk jadwal ini
-                                </Text>
-                              </View>
+                              <Text style={styles.availabilityEmpty}>
+                                Belum ada pilihan untuk jadwal ini.
+                              </Text>
                             ) : null}
                           </View>
                         </>
@@ -3889,9 +3848,7 @@ export function WorldScreen({
                                     ? selected?.reservable
                                       ? "Reservasi & bayar DP"
                                       : "Buka petunjuk arah"
-                                    : selected?.status === "live"
-                                      ? "Tonton live"
-                                      : "Aktifkan pengingat"
+                                    : "Tonton live"
                     }
                     onPress={runPrimaryAction}
                     disabled={
@@ -4503,6 +4460,17 @@ function PawDatingCreateModal({
 }
 
 const styles = StyleSheet.create({
+  petSpotChoiceGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  petSpotChoice: {
+    width: "48%",
+    flexGrow: 1,
+    gap: 7,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+  },
   modeRow: { gap: 6, paddingVertical: 9, paddingRight: 14 },
   mode: {
     minWidth: 78,

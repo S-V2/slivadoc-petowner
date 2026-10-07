@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { DiscountBadge } from "../components/DiscountBadge";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -389,9 +390,7 @@ function ProductCard({
           </View>
         ) : null}
         {discount ? (
-          <View style={styles.productPromoBadge}>
-            <Text style={styles.productPromoBadgeText}>-{discount}%</Text>
-          </View>
+          <DiscountBadge percent={discount} />
         ) : null}
       </View>
       <View style={styles.productCardBody}>
@@ -1871,7 +1870,7 @@ function ProductDetailSheet({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.detailContent}
       >
-        <ProductVisual product={product} large />
+        <View><ProductVisual product={product} large /><DiscountBadge percent={discount} /></View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Buka toko ${product.business_name}`}
@@ -3607,7 +3606,7 @@ const styles = StyleSheet.create({
   },
   favoriteButton: {
     position: "absolute",
-    right: 9,
+    left: 9,
     top: 9,
     width: 34,
     height: 34,
@@ -3622,7 +3621,7 @@ const styles = StyleSheet.create({
   soldOutBadge: {
     position: "absolute",
     left: 8,
-    top: 8,
+    bottom: 8,
     paddingHorizontal: 7,
     paddingVertical: 4,
     borderRadius: 7,

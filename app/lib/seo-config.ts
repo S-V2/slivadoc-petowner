@@ -27,6 +27,8 @@ export function pageMetadata(input: {
   type?: "website" | "article";
   noIndex?: boolean;
   image?: { url: string; alt: string };
+  locale?: "id_ID" | "en_US";
+  languages?: Record<string, string>;
 }): Metadata {
   const canonical = absoluteUrl(input.path);
   const socialImage = input.image ?? {
@@ -37,7 +39,7 @@ export function pageMetadata(input: {
     title: input.title,
     description: input.description,
     keywords: input.keywords,
-    alternates: { canonical },
+    alternates: { canonical, ...(input.languages ? { languages: Object.fromEntries(Object.entries(input.languages).map(([lang, path]) => [lang, absoluteUrl(path)])) } : {}) },
     robots: input.noIndex
       ? { index: false, follow: true }
       : {
@@ -53,7 +55,7 @@ export function pageMetadata(input: {
         },
     openGraph: {
       type: input.type ?? "website",
-      locale: SEO.locale,
+      locale: input.locale ?? SEO.locale,
       siteName: SEO.brand,
       title: input.title,
       description: input.description,

@@ -1,5 +1,6 @@
 "use client";
 
+import { SlivaSelect } from "../SlivaSelect";
 import {
   useCallback,
   useEffect,
@@ -191,7 +192,7 @@ export default function PawDatingExperience({
           profile.profile_level >= Number(level || 1) &&
           profile.health_score >= Number(health || 0) &&
           (!city || profile.city.toLowerCase().includes(city.toLowerCase())) &&
-          (profile.distance_km === undefined ||
+          (profile.distance_km == null ||
             profile.distance_km <= Number(distance || 9999))
         );
       }),
@@ -459,7 +460,7 @@ export default function PawDatingExperience({
             </label>
             <label>
               <span>Spesies</span>
-              <select
+              <SlivaSelect aria-label="Spesies"
                 value={species}
                 onChange={(event) => setSpecies(event.target.value)}
               >
@@ -467,22 +468,22 @@ export default function PawDatingExperience({
                 <option value="dog">Anjing</option>
                 <option value="cat">Kucing</option>
                 <option value="rabbit">Kelinci</option>
-              </select>
+              </SlivaSelect>
             </label>
             <label>
               <span>Gender</span>
-              <select
+              <SlivaSelect aria-label="Gender"
                 value={sex}
                 onChange={(event) => setSex(event.target.value)}
               >
                 <option value="">Semua</option>
                 <option value="male">Jantan</option>
                 <option value="female">Betina</option>
-              </select>
+              </SlivaSelect>
             </label>
             <label>
               <span>Minimum level</span>
-              <select
+              <SlivaSelect aria-label="Minimum level"
                 value={level}
                 onChange={(event) => setLevel(event.target.value)}
               >
@@ -490,11 +491,11 @@ export default function PawDatingExperience({
                 <option value="2">Level 2</option>
                 <option value="3">Level 3</option>
                 <option value="4">Level 4</option>
-              </select>
+              </SlivaSelect>
             </label>
             <label>
               <span>Health score</span>
-              <select
+              <SlivaSelect aria-label="Health score"
                 value={health}
                 onChange={(event) => setHealth(event.target.value)}
               >
@@ -502,11 +503,11 @@ export default function PawDatingExperience({
                 <option value="80">80+</option>
                 <option value="90">90+</option>
                 <option value="95">95+</option>
-              </select>
+              </SlivaSelect>
             </label>
             <label>
               <span>Jarak</span>
-              <select
+              <SlivaSelect aria-label="Jarak"
                 value={distance}
                 onChange={(event) => setDistance(event.target.value)}
               >
@@ -514,7 +515,7 @@ export default function PawDatingExperience({
                 <option value="100">≤ 100 km</option>
                 <option value="200">≤ 200 km</option>
                 <option value="9999">Semua</option>
-              </select>
+              </SlivaSelect>
             </label>
           </div>
           <div className="paw-result-head">
@@ -1334,7 +1335,7 @@ function ProfileDetail({
           {sourceProfiles.length > 0 && (
             <label>
               Bandingkan dengan
-              <select
+              <SlivaSelect aria-label="Bandingkan dengan"
                 value={sourceProfileId}
                 onChange={(event) => setSourceProfileId(event.target.value)}
               >
@@ -1343,7 +1344,7 @@ function ProfileDetail({
                     {source.name} · L{source.profile_level}
                   </option>
                 ))}
-              </select>
+              </SlivaSelect>
             </label>
           )}
           <button
@@ -1520,7 +1521,7 @@ function PawReportModal({
         </p>
         <label>
           Kategori
-          <select name="category" required defaultValue="">
+          <SlivaSelect aria-label="Kategori" name="category" required defaultValue="">
             <option value="">Pilih kategori</option>
             <option value="fake_health_data">
               Data kesehatan tidak sesuai
@@ -1528,7 +1529,7 @@ function PawReportModal({
             <option value="animal_welfare">Keselamatan pet</option>
             <option value="fraud">Aktivitas mencurigakan</option>
             <option value="other">Lainnya</option>
-          </select>
+          </SlivaSelect>
         </label>
         <label>
           Detail
@@ -1873,18 +1874,18 @@ function CreateProfileModal({
               </label>
               <label>
                 Jarak maksimum
-                <select
+                <SlivaSelect aria-label="Jarak maksimum"
                   value={form.maxDistance}
                   onChange={(event) => set("maxDistance", event.target.value)}
                 >
                   <option value="25">25 km</option>
                   <option value="100">100 km</option>
                   <option value="200">200 km</option>
-                </select>
+                </SlivaSelect>
               </label>
               <label>
                 Pedigree
-                <select
+                <SlivaSelect aria-label="Pedigree"
                   value={form.pedigree}
                   onChange={(event) => set("pedigree", event.target.value)}
                 >
@@ -1892,7 +1893,7 @@ function CreateProfileModal({
                   <option value="registered">Registered</option>
                   <option value="pedigree">Pedigree</option>
                   <option value="champion">Champion</option>
-                </select>
+                </SlivaSelect>
               </label>
               <label>
                 Registry

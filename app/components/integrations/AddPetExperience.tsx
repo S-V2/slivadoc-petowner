@@ -1,5 +1,6 @@
 "use client";
 
+import { SlivaSelect } from "../SlivaSelect";
 import NextImage from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Pet } from "../../lib/petowner-domain";
@@ -199,7 +200,7 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
         </label>
         <div className="species-picker">
           <span aria-hidden="true">{species?.emoji ?? "🐾"}</span>
-          <select
+          <SlivaSelect aria-label="Jenis hewan"
             id="pet-species"
             value={speciesCode}
             disabled={!speciesOptions.length}
@@ -216,7 +217,7 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
                 ))}
               </optgroup>
             ))}
-          </select>
+          </SlivaSelect>
         </div>
         {species && (
           <p className="species-hint">
@@ -265,13 +266,13 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
           </label>
           <label>
             <span>Jenis kelamin</span>
-            <select
+            <SlivaSelect aria-label="Jenis kelamin"
               value={gender}
               onChange={(event) => setGender(event.target.value)}
             >
               <option value="male">Jantan</option>
               <option value="female">Betina</option>
-            </select>
+            </SlivaSelect>
           </label>
           <label>
             <span>Tanggal lahir / menetas (opsional)</span>

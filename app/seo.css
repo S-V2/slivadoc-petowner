@@ -526,6 +526,17 @@
 .seo-product-assurance b { color: var(--navy); }
 .seo-product-assurance p { margin: 7px 0 0; color: var(--seo-muted); font-size: var(--type-body); line-height: 1.55; }
 
+.seo-site .seo-hero {
+  background: linear-gradient(120deg, #edf7ff, #ecfbf5);
+  color: #17374c;
+}
+.seo-site .seo-hero p,
+.seo-site .seo-breadcrumbs,
+.seo-site .seo-breadcrumbs a { color: #405e70; }
+.seo-site .seo-hero h1 { color: #17374c; }
+.seo-site .seo-eyebrow { color: #256583; }
+.seo-site .seo-tag-list a { display: inline-block; padding: 8px 12px; border-radius: 12px; background: #edf7ff; color: #1d526e; }
+
 @media (max-width: 880px) {
   .seo-header nav > a:not(.seo-header-cta) { display: none; }
   .seo-hero { padding-top: 36px; }

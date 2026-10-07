@@ -53,7 +53,7 @@ test("discovery results stack their sorter instead of squeezing summary copy", (
   );
   assert.match(
     css,
-    /\.discover-result-head select\s*\{[\s\S]*?width:\s*100%/,
+    /\.discover-result-head \.sliva-select-trigger\s*\{[\s\S]*?width:\s*100%/,
   );
 });
 

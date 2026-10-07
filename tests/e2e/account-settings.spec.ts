@@ -217,7 +217,8 @@ test("account settings update the profile, filter security alerts, and manage fa
   await expect(familyModal).toContainText("Care Giver");
   await familyModal.getByRole("textbox", { name: "Nama lengkap" }).fill("Trusted Sibling");
   await familyModal.getByRole("textbox", { name: "Email" }).fill("sibling@example.test");
-  await familyModal.getByRole("combobox", { name: "Role akses" }).selectOption("viewer");
+  await familyModal.getByRole("combobox", { name: "Role akses" }).click();
+  await page.getByRole("option", { name: "Viewer", exact: true }).click();
   await familyModal.getByRole("button", { name: "Kirim undangan" }).click();
   await expect.poll(() => familyInvite).toEqual({
     email: "sibling@example.test",

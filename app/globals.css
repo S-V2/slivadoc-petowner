@@ -687,7 +687,7 @@ body {
 }
 button,
 input,
-select,
+.sliva-select-trigger,
 textarea {
   font: inherit;
 }
@@ -695,12 +695,12 @@ button {
   color: inherit;
 }
 button,
-select {
+.sliva-select-trigger {
   cursor: pointer;
 }
 button:focus-visible,
 input:focus-visible,
-select:focus-visible,
+.sliva-select-trigger:focus-visible,
 textarea:focus-visible {
   outline: 3px solid rgba(21, 157, 232, 0.2);
   outline-offset: 2px;
@@ -1102,7 +1102,7 @@ kbd {
   border: 1px solid var(--line);
   border-radius: 11px;
 }
-.compact-select select {
+.compact-select .sliva-select-trigger {
   max-width: 66px;
   border: 0;
   outline: 0;
@@ -2270,8 +2270,8 @@ kbd {
 .discover-result-head p b {
   color: var(--text);
 }
-.discover-result-head select,
-.shop-section-head select {
+.discover-result-head .sliva-select-trigger,
+.shop-section-head .sliva-select-trigger {
   padding: 7px 10px;
   border: 1px solid var(--line);
   border-radius: 9px;
@@ -5215,7 +5215,7 @@ body:has(
   font-weight: 700;
 }
 .form-grid input,
-.form-grid select {
+.form-grid .sliva-select-trigger {
   width: 100%;
   height: 37px;
   padding: 0 10px;
@@ -5241,7 +5241,7 @@ body:has(
   background: var(--sky-50);
   font-size: 23px;
 }
-.species-picker select {
+.species-picker .sliva-select-trigger {
   width: 100%;
   height: 42px;
   padding: 0 11px;
@@ -5251,7 +5251,7 @@ body:has(
   color: var(--text);
   font-size: 9px;
 }
-.species-picker select:focus {
+.species-picker .sliva-select-trigger:focus {
   outline: 3px solid rgba(74, 174, 230, 0.14);
   border-color: var(--sky-500);
 }
@@ -6693,7 +6693,7 @@ body:has(
 .composer-author small {
   color: var(--muted);
 }
-.composer-author select {
+.composer-author .sliva-select-trigger {
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: 9px;
@@ -7816,7 +7816,7 @@ button:disabled,
     font-size: 10px;
   }
   .world-form input,
-  .world-form select,
+  .world-form .sliva-select-trigger,
   .world-form textarea {
     font-size: 16px !important;
   }
@@ -8034,7 +8034,7 @@ body {
 }
 button,
 input,
-select,
+.sliva-select-trigger,
 textarea {
   font-family: inherit;
 }
@@ -8062,7 +8062,7 @@ textarea {
 }
 .world-form textarea:focus,
 .world-form input:focus,
-.world-form select:focus {
+.world-form .sliva-select-trigger:focus {
   border-color: var(--sky-400);
   box-shadow: 0 0 0 3px rgba(21, 157, 232, 0.09);
 }
@@ -8120,7 +8120,7 @@ textarea {
   color: #fff;
   background: var(--sky-500);
 }
-.community-composer > select {
+.community-composer > .sliva-select {
   width: 100%;
   min-height: 42px;
   margin: 13px 0 9px;
@@ -8512,7 +8512,7 @@ textarea {
   font-size: 9px;
   font-weight: 800;
 }
-.discover-filter-panel select {
+.discover-filter-panel .sliva-select-trigger {
   min-height: 43px;
   padding: 0 12px;
   border: 1px solid var(--line);
@@ -9119,7 +9119,7 @@ textarea {
   .filter-panel-pills button {
     font-size: 12px;
   }
-  .discover-filter-panel select {
+  .discover-filter-panel .sliva-select-trigger {
     font-size: 14px !important;
   }
   .discover-filter-panel > footer > * {
@@ -9570,7 +9570,7 @@ dd {
   line-height: 1.4;
 }
 .page-content input,
-.page-content select,
+.page-content .sliva-select-trigger,
 .page-content textarea {
   font-size: var(--type-control);
   font-weight: 450;
@@ -9627,7 +9627,7 @@ dd {
     font-size: var(--type-card-title);
   }
   .page-content input,
-  .page-content select,
+  .page-content .sliva-select-trigger,
   .page-content textarea,
   .petowner-login .login-form input {
     font-size: 16px !important;
@@ -9739,7 +9739,7 @@ body {
 
 button,
 input,
-select,
+.sliva-select-trigger,
 textarea {
   font-family: inherit;
 }

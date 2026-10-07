@@ -5,6 +5,9 @@ import "./mobile-responsive.css";
 import "./marketplace.css";
 import "./seo.css";
 import "./genz-revamp.css";
+import "./promo-tickets.css";
+import "./adoption-passport.css";
+import "./sliva-select.css";
 import { SEO, absoluteUrl } from "./lib/seo-config";
 
 export const metadata: Metadata = {

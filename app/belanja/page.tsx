@@ -4,6 +4,7 @@ import JsonLd from "../components/seo/JsonLd";
 import { Breadcrumbs, PublicPage } from "../components/seo/PublicSite";
 import { getPublicProducts } from "../lib/public-marketplace";
 import { absoluteUrl, pageMetadata } from "../lib/seo-config";
+import { productCategories } from "../lib/seo-taxonomy";
 
 export const metadata = pageMetadata({
   title: "Belanja Kebutuhan Hewan dari Petshop Terverifikasi",
@@ -76,6 +77,8 @@ export default async function MarketplacePage() {
         </div>
       </section>
       <section className="seo-main-section">
+        <h2>Belanja berdasarkan kebutuhan</h2>
+        <div className="seo-tag-list">{productCategories.map((c) => <Link key={c.slug} href={`/belanja/kategori/${c.slug}`}>{c.name}</Link>)}</div>
         <div className="seo-section-heading">
           <h2>Produk yang tersedia</h2>
           <p>

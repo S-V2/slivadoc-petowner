@@ -192,10 +192,12 @@ export function clearMobileCache() {
 
 export class MobileApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  code: string;
+  constructor(message: string, status: number, code = "") {
     super(message);
     this.name = "MobileApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -275,6 +277,7 @@ async function platformRequest<T>(
       throw new MobileApiError(
         payload.message ?? "Layanan Slivadoc belum tersedia",
         response.status,
+        typeof payload.code === "string" ? payload.code : "",
       );
     if (method === "GET")
       mobileCache.set(key, { expires: Date.now() + 15_000, value: payload });
@@ -386,6 +389,15 @@ export type MobileShipment = {
   estimated_sla: string;
   print_url: string;
   events: MobileShipmentEvent[];
+};
+export type MobileOrderFulfillment = {
+  id: string;
+  business_id: string;
+  business_name: string;
+  status: string;
+  delivered_at?: string | null;
+  return_until?: string | null;
+  return_requested?: boolean;
 };
 export type MobileActivityCenterItem = {
   id: string;
@@ -501,10 +513,13 @@ export type MobileActivityCenterItem = {
   pickup_address?: string;
   destination_address?: string;
   driver_name?: string;
+  cancellable?: boolean;
+  fulfillments?: MobileOrderFulfillment[];
 };
 export type MobileActivityCenterResponse = {
   data: MobileActivityCenterItem[];
   summary: Record<MobileActivityType, number>;
+  next_cursor: string | null;
 };
 
 export type MobileMembership = {
@@ -981,11 +996,18 @@ const activityCenterPath =
   "/api/v1/petowner/activities?view=center&type=all&state=all&limit=100";
 
 // Aktivitas changes the moment a payment settles, so it skips the 15 s GET cache.
-export const getMobileActivityCenter = () => {
+export const getMobileActivityCenter = (cursor?: string) => {
+  const path = cursor
+    ? `${activityCenterPath}&cursor=${encodeURIComponent(cursor)}`
+    : activityCenterPath;
   for (const key of mobileCache.keys())
-    if (key.startsWith(`${activityCenterPath}:`)) mobileCache.delete(key);
-  return platformRequest<MobileActivityCenterResponse>(activityCenterPath).then(
-    (result) => ({ ...result, data: uniqueById(result.data) }),
+    if (key.startsWith(`${path}:`)) mobileCache.delete(key);
+  return platformRequest<MobileActivityCenterResponse>(path).then(
+    (result) => ({
+      ...result,
+      data: uniqueById(result.data),
+      next_cursor: result.next_cursor ?? null,
+    }),
   );
 };
 
@@ -1072,6 +1094,9 @@ export const getMobileProductReviews = (productId: string) =>
     data: uniqueById(result.data),
   }));
 
+export const REVIEW_HIDDEN_MESSAGE =
+  "Ulasanmu disembunyikan moderator dan tidak bisa diubah. Hubungi dukungan jika ada keberatan.";
+
 export const saveMobileProductReview = (
   productId: string,
   input: { rating: number; comment: string },
@@ -1079,6 +1104,64 @@ export const saveMobileProductReview = (
   platformRequest<{ id: string; message: string }>(
     `/api/v1/petowner/products/${productId}/reviews`,
     { method: "POST", body: JSON.stringify(input) },
+  ).catch((cause: unknown) => {
+    if (cause instanceof MobileApiError && cause.code === "review_hidden")
+      throw new MobileApiError(REVIEW_HIDDEN_MESSAGE, cause.status, cause.code);
+    throw cause;
+  });
+
+export const cancelMobileOrder = (orderId: string) =>
+  platformRequest<{ id: string; status: string; refund_queued: boolean }>(
+    `/api/v1/petowner/orders/${encodeURIComponent(orderId)}/cancel`,
+    { method: "POST" },
+  );
+
+export const requestMobileOrderReturn = (
+  orderId: string,
+  fulfillmentId: string,
+  reason: string,
+) =>
+  platformRequest<{ id: string; ticket_number: string; status: string }>(
+    `/api/v1/petowner/orders/${encodeURIComponent(orderId)}/fulfillments/${encodeURIComponent(fulfillmentId)}/return-request`,
+    { method: "POST", body: JSON.stringify({ reason }) },
+  );
+
+export type MobileInvoice = {
+  id: string;
+  invoice_number: string;
+  business_name: string;
+  branch_name: string;
+  status: "pending" | "paid" | "void" | "refunded" | "partially_refunded";
+  subtotal: number;
+  discount_amount: number;
+  tax_amount: number;
+  total_amount: number;
+  paid_amount: number;
+  refunded_amount: number;
+  issued_at: string | null;
+  paid_at: string | null;
+};
+export type MobileInvoiceDetail = MobileInvoice & {
+  items: Array<{
+    item_type: "product" | "service" | "fee";
+    description: string;
+    quantity: number;
+    unit_price: number;
+    discount_amount: number;
+    line_total: number;
+  }>;
+};
+
+export const getMobileInvoices = (limit = 50) =>
+  platformRequest<{ data: MobileInvoice[]; count: number }>(
+    `/api/v1/petowner/invoices?limit=${limit}`,
+    { cache: "no-store" },
+  );
+
+export const getMobileInvoice = (invoiceId: string) =>
+  platformRequest<MobileInvoiceDetail>(
+    `/api/v1/petowner/invoices/${encodeURIComponent(invoiceId)}`,
+    { cache: "no-store" },
   );
 
 function normalizeMobileRegionOptions(payload: unknown): MobileRegionOption[] {
@@ -1412,6 +1495,10 @@ export const updateMobileCommunityGroupMember = (
 
 export type WorldItem = {
   id: string;
+  media_urls?: string[];
+  view_count?: number;
+  liked?: boolean;
+  saved?: boolean;
   title?: string;
   name?: string;
   description?: string;
@@ -1440,6 +1527,8 @@ export type WorldItem = {
   sex?: string;
   species?: string;
   age_months?: number;
+  adoption_fee?: number;
+  submitted_by_name?: string;
   health_status?: string;
   health_score?: number;
   health_valid_until?: string;
@@ -1915,6 +2004,8 @@ export const applyMobileAdoption = (
     `/api/v1/adoptions/${listingId}/applications`,
     { method: "POST", body: JSON.stringify(input) },
   );
+export const createMobileAdoptionListing = (input: { pet_id: string; city: string; description: string; personality: string[]; health_status: string; vaccinated: boolean; sterilized: boolean; photo_urls: string[]; adoption_fee: number }) =>
+  platformRequest<{ id: string; status: string }>("/api/v1/petowner/adoptions", { method: "POST", body: JSON.stringify(input) });
 export type MobileAdoptionApplicationStatus =
   | "submitted"
   | "screening"
@@ -2032,7 +2123,7 @@ export type MobilePetHubComment = {
   created_at: string;
 };
 export const getMobilePetHubComments = (postId: string) =>
-  platformRequest<{ data: MobilePetHubComment[] }>(
+  platformRequest<{ data: MobilePetHubComment[]; count: number }>(
     `/api/v1/pethub/posts/${postId}/comments`,
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 export const enrollMobileAcademy = (
@@ -2091,6 +2182,7 @@ export const createMobilePetHubPost = (content: string, authorName: string) =>
 export const createMobilePetHubMediaPost = (input: {
   content: string;
   media_url: string;
+  media_urls?: string[];
   post_type: "photo" | "video";
 }) =>
   platformRequest<{ id: string; message: string }>("/api/v1/pethub/posts", {
@@ -2115,10 +2207,14 @@ export const createMobilePetHubStory = (input: {
     },
   );
 export const reactMobilePetHubPost = (postId: string) =>
-  platformRequest<{ liked: boolean }>(
+  platformRequest<{ liked: boolean; like_count: number }>(
     `/api/v1/pethub/posts/${postId}/reactions`,
     { method: "POST" },
   );
+export const likeMobilePetHubPost = (postId: string) =>
+  platformRequest<{ liked: boolean; like_count: number }>(`/api/v1/pethub/posts/${postId}/like`, { method: "PUT" });
+export const saveMobilePetHubPost = (postId: string) => platformRequest<{ saved: boolean }>(`/api/v1/pethub/posts/${postId}/save`, { method: "POST" });
+export const viewMobilePetHubStory = (storyId: string) => platformRequest<{ view_count: number }>(`/api/v1/pethub/stories/${storyId}/views`, { method: "POST" });
 
 export function askSlivaCare(
   message: string,

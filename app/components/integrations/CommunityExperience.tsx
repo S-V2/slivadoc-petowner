@@ -1,5 +1,6 @@
 "use client";
 
+import { SlivaSelect } from "../SlivaSelect";
 import NextImage from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -426,11 +427,11 @@ function PostComposer({
         </button>
         <span className="section-eyebrow">SLIVADOC COMMUNITY</span>
         <h2>Buat posting baru</h2>
-        <select value={tag} onChange={(event) => setTag(event.target.value)}>
+        <SlivaSelect aria-label="Kategori postingan" value={tag} onChange={(event) => setTag(event.target.value)}>
           {Object.keys(categoryMap).map((item) => (
             <option key={item}>{item}</option>
           ))}
-        </select>
+        </SlivaSelect>
         <textarea
           value={body}
           onChange={(event) => setBody(event.target.value)}
@@ -663,7 +664,7 @@ function GroupComposer({
           </label>
           <label>
             <span>Kategori</span>
-            <select name="category" required>
+            <SlivaSelect aria-label="Kategori" name="category" required>
               <option value="breed">Ras & karakter</option>
               <option value="health">Kesehatan</option>
               <option value="nutrition">Nutrisi</option>
@@ -671,7 +672,7 @@ function GroupComposer({
               <option value="rescue">Rescue & adopsi</option>
               <option value="local">Komunitas area</option>
               <option value="other">Lainnya</option>
-            </select>
+            </SlivaSelect>
           </label>
           <label>
             <span>Kota</span>
@@ -679,10 +680,10 @@ function GroupComposer({
           </label>
           <label>
             <span>Visibilitas</span>
-            <select name="visibility">
+            <SlivaSelect aria-label="Visibilitas" name="visibility">
               <option value="public">Publik · langsung bergabung</option>
               <option value="private">Privat · perlu persetujuan</option>
-            </select>
+            </SlivaSelect>
           </label>
           <button className="primary-button full" disabled={busy}>
             {busy ? "Membuat…" : "Buat grup"}

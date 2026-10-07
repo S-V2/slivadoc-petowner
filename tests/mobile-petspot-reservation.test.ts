@@ -18,9 +18,10 @@ test("mobile PetSpot requires resource selection and mandatory DP payment", () =
   assert.match(screen, /createMobilePaymentIntent\(\s*"petspot_reservation"/);
 });
 
-test("mobile PetSpot renders an availability legend and positioned resources", () => {
+test("mobile PetSpot renders available resources in a grid without a table map", () => {
   assert.match(screen, /Tersedia/);
-  assert.match(screen, /Sudah direservasi/);
-  assert.match(screen, /x_percent/);
-  assert.match(screen, /y_percent/);
+  assert.match(screen, /Tidak tersedia/);
+  assert.match(screen, /styles\.petSpotChoiceGrid/);
+  assert.match(screen, /disabled=\{!resource\.available\}/);
+  assert.doesNotMatch(screen, /resource\.x_percent|resource\.y_percent/);
 });

@@ -67,7 +67,7 @@ body::before {
 button,
 a,
 input,
-select,
+.sliva-select-trigger,
 textarea {
   -webkit-tap-highlight-color: transparent;
 }
@@ -85,7 +85,7 @@ a {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
-select:focus-visible,
+.sliva-select-trigger:focus-visible,
 textarea:focus-visible {
   outline: 3px solid rgba(37, 184, 255, 0.27);
   outline-offset: 3px;
@@ -590,7 +590,7 @@ textarea:focus-visible {
 }
 
 input:not([type="checkbox"]):not([type="radio"]),
-select,
+.sliva-select-trigger,
 textarea {
   border-radius: 15px !important;
 }
@@ -599,7 +599,7 @@ textarea {
 .app-shell :where(.page-content, .modal, .drawer, .cart-drawer, .notification-drawer, .chat-drawer)
   input:not([type="checkbox"]):not([type="radio"]),
 .app-shell :where(.page-content, .modal, .drawer, .cart-drawer, .notification-drawer, .chat-drawer)
-  select,
+  .sliva-select-trigger,
 .app-shell :where(.page-content, .modal, .drawer, .cart-drawer, .notification-drawer, .chat-drawer)
   textarea,
 .petowner-login .login-form input:not([type="checkbox"]) {

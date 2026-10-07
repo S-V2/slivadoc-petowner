@@ -1,5 +1,6 @@
 "use client";
 
+import { SlivaSelect } from "../SlivaSelect";
 import NextImage from "next/image";
 import {
   useEffect,
@@ -10,12 +11,18 @@ import {
   type ReactNode,
 } from "react";
 import { Icon } from "../Icon";
+import { DiscountBadge } from "../DiscountBadge";
 import { PetSpotDetail } from "./PetSpotDetail";
+import { PetHubComposer } from "./PetHubComposer";
+import { PetHubStoryView } from "./PetHubStoryView";
+import { petHubPhotos, petHubVideoPoster } from "../../lib/pethub-media";
+import {
+  petHubContentLink,
+  PET_HUB_DOUBLE_TAP_MS,
+} from "../../lib/pethub-interactions";
 import { petSpotCategory } from "../../lib/petspot-booking";
 import {
-  createPetHubPost,
   createPetHubComment,
-  createPetHubStory,
   createPaymentIntent,
   enrollAcademy,
   getAcademyProgram,
@@ -31,6 +38,8 @@ import {
   getPetHubStreams,
   getPetSpots,
   reactPetHubPost,
+  likePetHubPost,
+  savePetHubPost,
   togglePetHubChannel,
   isPetOwnerAuthenticated,
   registerEvent,
@@ -116,7 +125,6 @@ function AcademyPrice({
       <strong>
         {program.price > 0 ? money.format(program.price) : "Gratis"}
       </strong>
-      {discounted ? <em>Hemat {program.discount_percent}%</em> : null}
     </span>
   );
 }
@@ -127,31 +135,44 @@ function WorldImageGallery({
   fallback,
   tag,
   className = "",
+  onDoubleTap,
 }: {
   images: Array<string | undefined>;
   alt: string;
   fallback: string;
   tag: string;
   className?: string;
+  onDoubleTap?: () => void;
 }) {
   const gallery = [
     ...new Set(images.filter((url): url is string => Boolean(url?.trim()))),
   ];
   const [active, setActive] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (tapTimer.current) clearTimeout(tapTimer.current);
+    },
+    [],
+  );
   useEffect(() => {
-    if (gallery.length < 2) return;
+    if (gallery.length < 2 || expanded) return;
     const timer = window.setInterval(
       () => setActive((current) => (current + 1) % gallery.length),
       1_000,
     );
     return () => window.clearInterval(timer);
-  }, [gallery.length]);
+  }, [gallery.length, expanded]);
   if (!gallery.length)
     return (
       <div className={`modal-world-cover ${className}`}>
         <span>{fallback}</span>
-        {className.includes("petspot") ? <small className="petspot-photo-empty">Foto tempat belum diunggah</small> : null}
+        {className.includes("petspot") ? (
+          <small className="petspot-photo-empty">
+            Foto tempat belum diunggah
+          </small>
+        ) : null}
         <i>{tag}</i>
       </div>
     );
@@ -165,7 +186,25 @@ function WorldImageGallery({
         <button
           type="button"
           className="world-image-open"
-          onClick={() => setExpanded(true)}
+          onClick={(event) => {
+            if (!onDoubleTap) {
+              setExpanded(true);
+              return;
+            }
+            if (tapTimer.current) clearTimeout(tapTimer.current);
+            if (event.detail < 2)
+              tapTimer.current = setTimeout(
+                () => setExpanded(true),
+                PET_HUB_DOUBLE_TAP_MS,
+              );
+          }}
+          onDoubleClick={(event) => {
+            if (!onDoubleTap) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (tapTimer.current) clearTimeout(tapTimer.current);
+            onDoubleTap();
+          }}
           aria-label={`Buka galeri ${alt}`}
         >
           <NextImage
@@ -296,14 +335,28 @@ export default function PlatformDiscovery({
   const [composer, setComposer] = useState(false);
   const [storyComposer, setStoryComposer] = useState(false);
   const [stories, setStories] = useState<PetHubStory[]>([]);
+  const [viewStory, setViewStory] = useState<PetHubStory | null>(null);
   const [commentPost, setCommentPost] = useState<PetHubPost | null>(null);
   const [filter, setFilter] = useState("all");
-  const [liked, setLiked] = useState<string[]>([]);
   const [renderedAt] = useState(() => Date.now());
   const [spotSearch, setSpotSearch] = useState("");
   const [maxDistance, setMaxDistance] = useState(25);
   const [hubTab, setHubTab] = useState("Untuk Kamu");
+  const [sharedPostID, setSharedPostID] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : new URL(window.location.href).searchParams.get("post") || "",
+  );
+  const [heartBurst, setHeartBurst] = useState("");
+  const heartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (heartTimer.current) clearTimeout(heartTimer.current);
+    },
+    [],
+  );
   const pendingLikes = useRef(new Set<string>());
+  const pendingSaves = useRef(new Set<string>());
   const speciesRailRef = useRef<HTMLDivElement>(null);
   const trainerRailRef = useRef<HTMLDivElement>(null);
   const advanceRail = (node: HTMLDivElement | null) => {
@@ -375,12 +428,15 @@ export default function PlatformDiscovery({
   }, [selectedProgram]);
   useEffect(() => {
     if (mode !== "pethub") return;
+    let active = true;
     const type =
       hubTab === "Reels" ? "video" : hubTab === "Thread" ? "thread" : "";
     const tab = hubTab === "Mengikuti" ? "following" : "for_you";
     void Promise.resolve().then(() => setLoading(true));
-    void getPetHubFeed({ tab, type })
-      .then((response) => setPosts(response.data))
+    void getPetHubFeed(sharedPostID ? { post_id: sharedPostID } : { tab, type })
+      .then((response) => {
+        if (active) setPosts(response.data);
+      })
       .catch((error) =>
         notify(
           error instanceof Error
@@ -388,8 +444,13 @@ export default function PlatformDiscovery({
             : "Feed PetHub belum dapat dimuat",
         ),
       )
-      .finally(() => setLoading(false));
-  }, [hubTab, mode, notify]);
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [hubTab, mode, notify, ownerEmail, sharedPostID]);
   const categorySpots = useMemo(
     () =>
       spots.filter(
@@ -439,36 +500,35 @@ export default function PlatformDiscovery({
       { enableHighAccuracy: true, timeout: 12000 },
     );
   }
-  async function like(post: PetHubPost) {
+  async function like(post: PetHubPost, ensureLiked = false) {
+    if (!isPetOwnerAuthenticated()) {
+      loginRequired();
+      return;
+    }
+    const burst = () => {
+      setHeartBurst(post.id);
+      if (heartTimer.current) clearTimeout(heartTimer.current);
+      heartTimer.current = setTimeout(() => setHeartBurst(""), 900);
+    };
+    if (ensureLiked && post.liked) {
+      burst();
+      return;
+    }
     if (pendingLikes.current.has(post.id)) return;
     pendingLikes.current.add(post.id);
-    const active = liked.includes(post.id);
-    setLiked((current) =>
-      active ? current.filter((id) => id !== post.id) : [...current, post.id],
-    );
-    setPosts((current) =>
-      current.map((item) =>
-        item.id === post.id
-          ? {
-              ...item,
-              like_count: Math.max(0, item.like_count + (active ? -1 : 1)),
-            }
-          : item,
-      ),
-    );
     try {
-      await reactPetHubPost(post.id);
-    } catch (error) {
-      setLiked((current) =>
-        active
-          ? [...new Set([...current, post.id])]
-          : current.filter((id) => id !== post.id),
-      );
+      const result = await (ensureLiked
+        ? likePetHubPost(post.id)
+        : reactPetHubPost(post.id));
+      if (ensureLiked) burst();
       setPosts((current) =>
         current.map((item) =>
-          item.id === post.id ? { ...item, like_count: post.like_count } : item,
+          item.id === post.id
+            ? { ...item, liked: result.liked, like_count: result.like_count }
+            : item,
         ),
       );
+    } catch (error) {
       notify(
         error instanceof Error ? error.message : "Reaksi belum dapat disimpan",
       );
@@ -479,10 +539,14 @@ export default function PlatformDiscovery({
   async function sharePost(post: PetHubPost) {
     try {
       if (navigator.share)
-        await navigator.share({ title: "PetHub", text: post.content });
+        await navigator.share({
+          title: "PetHub · Slivadoc",
+          text: post.content,
+          url: petHubContentLink(post.id),
+        });
       else {
-        await navigator.clipboard.writeText(post.content);
-        notify("Konten disalin");
+        await navigator.clipboard.writeText(petHubContentLink(post.id));
+        notify("Tautan konten Slivadoc disalin");
       }
     } catch (cause) {
       if (!(cause instanceof Error && cause.name === "AbortError"))
@@ -519,6 +583,31 @@ export default function PlatformDiscovery({
   function loginRequired() {
     notify("Silakan login terlebih dahulu untuk melanjutkan.");
     window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
+  }
+  async function savePost(post: PetHubPost) {
+    if (!isPetOwnerAuthenticated()) {
+      loginRequired();
+      return;
+    }
+    if (pendingSaves.current.has(post.id)) return;
+    pendingSaves.current.add(post.id);
+    try {
+      const result = await savePetHubPost(post.id);
+      setPosts((current) =>
+        current.map((item) =>
+          item.id === post.id ? { ...item, saved: result.saved } : item,
+        ),
+      );
+      notify(
+        result.saved ? "Posting disimpan" : "Posting dihapus dari koleksi",
+      );
+    } catch (cause) {
+      notify(
+        cause instanceof Error ? cause.message : "Posting belum dapat disimpan",
+      );
+    } finally {
+      pendingSaves.current.delete(post.id);
+    }
   }
 
   if (mode === "academy")
@@ -702,7 +791,7 @@ export default function PlatformDiscovery({
                         <b>{item.level}</b>
                       )}
                       {item.discount_percent > 0 ? (
-                        <em>-{item.discount_percent}%</em>
+                        <DiscountBadge percent={item.discount_percent} />
                       ) : null}
                     </span>
                     <span className="academy-media-bottomline">
@@ -847,13 +936,6 @@ export default function PlatformDiscovery({
             <span>EVENT MENDATANG</span>
             <h2>Isi kalender pet-mu</h2>
           </div>
-          <button
-            onClick={() =>
-              notify("Kalender event Slivadoc ditambahkan ke perangkat")
-            }
-          >
-            ＋ Tambah ke kalender
-          </button>
         </div>
         <div className="event-grid">
           {events.map((item, index) => {
@@ -999,7 +1081,7 @@ export default function PlatformDiscovery({
           </label>
           <label className="petspot-radius">
             <span>Radius pencarian</span>
-            <select
+            <SlivaSelect aria-label="Radius pencarian"
               value={maxDistance}
               onChange={(event) => setMaxDistance(Number(event.target.value))}
             >
@@ -1008,7 +1090,7 @@ export default function PlatformDiscovery({
               <option value="10">10 km</option>
               <option value="25">25 km</option>
               <option value="100">100 km</option>
-            </select>
+            </SlivaSelect>
           </label>
           <button onClick={() => void locate()}>
             <Icon name="map" size={16} /> Cari dari posisi saya
@@ -1051,9 +1133,11 @@ export default function PlatformDiscovery({
                   alt={item.name}
                   fallback="⌖"
                   tag={
-                    item.verified
-                      ? "✓ Verified"
-                      : petSpotCategory(item.category)
+                    item.id.startsWith("92000000-")
+                      ? "Demo · Foto ilustrasi"
+                      : item.verified
+                        ? "✓ Verified"
+                        : petSpotCategory(item.category)
                   }
                   className="petspot-card-gallery"
                 />
@@ -1134,7 +1218,7 @@ export default function PlatformDiscovery({
             isPetOwnerAuthenticated() ? setComposer(true) : loginRequired()
           }
         >
-          ＋ Buat pet thread
+          ＋ Buat posting
         </button>
       </section>
       <div className="story-strip">
@@ -1150,14 +1234,22 @@ export default function PlatformDiscovery({
         {stories.map((story) => (
           <button key={story.id} onClick={() => setViewStory(story)}>
             <span>
-              {story.photo_url ? (
+              {story.photo_url &&
+              (story.media_type !== "video" ||
+                petHubVideoPoster(story.media_url || story.photo_url)) ? (
                 <NextImage
-                  src={story.photo_url}
+                  src={
+                    story.media_type === "video"
+                      ? petHubVideoPoster(story.media_url || story.photo_url)
+                      : story.photo_url
+                  }
                   alt=""
                   width={128}
                   height={128}
                   unoptimized
                 />
+              ) : story.media_type === "video" ? (
+                "▶"
               ) : (
                 story.author_name.slice(0, 1)
               )}
@@ -1199,6 +1291,21 @@ export default function PlatformDiscovery({
       </div>
       <div className="pethub-layout">
         <section className="hub-feed">
+          {sharedPostID ? (
+            <div className="hub-shared-post">
+              <b>Posting yang dibagikan</b>
+              <button
+                onClick={() => {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete("post");
+                  window.history.replaceState({}, "", url);
+                  setSharedPostID("");
+                }}
+              >
+                Lihat semua posting
+              </button>
+            </div>
+          ) : null}
           <div className="hub-tabs">
             {["Untuk Kamu", "Mengikuti", "Reels", "Thread"].map((item) => (
               <button
@@ -1238,36 +1345,54 @@ export default function PlatformDiscovery({
                       {relative(post.created_at)}
                     </small>
                   </p>
-                  <button onClick={() => notify("Posting disimpan ke koleksi")}>
-                    •••
+                  <button
+                    aria-label="Simpan posting"
+                    aria-pressed={Boolean(post.saved)}
+                    onClick={() => void savePost(post)}
+                  >
+                    {post.saved ? "✓" : "＋"}
                   </button>
                 </header>
-                {post.media_url &&
-                  (post.post_type === "video" ||
-                  /\.(mp4|mov|webm)(\?|$)/i.test(post.media_url) ? (
-                    <video
-                      className="hub-media"
-                      src={post.media_url}
-                      controls
-                      playsInline
-                      preload="metadata"
-                      aria-label={`Video ${post.author_name}`}
-                    />
-                  ) : (
-                    <NextImage
-                      className="hub-media"
-                      src={post.media_url}
-                      alt="Media PetHub"
-                      width={960}
-                      height={640}
-                      unoptimized
-                    />
-                  ))}
+                <div
+                  className="hub-like-surface"
+                  onDoubleClick={(event) => {
+                    if ((event.target as HTMLElement).closest("button")) return;
+                    void like(post, true);
+                  }}
+                >
+                  {post.media_url &&
+                    (post.post_type === "video" ||
+                    /\.(mp4|mov|webm)(\?|$)/i.test(post.media_url) ? (
+                      <video
+                        className="hub-media"
+                        src={post.media_url}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        aria-label={`Video ${post.author_name}`}
+                      />
+                    ) : (
+                      <WorldImageGallery
+                        images={petHubPhotos(post)}
+                        alt={`Album ${post.author_name}`}
+                        fallback="🐾"
+                        tag=""
+                        className="hub-photo-gallery"
+                        onDoubleTap={() => void like(post, true)}
+                      />
+                    ))}
+                  {heartBurst === post.id ? (
+                    <span className="hub-like-burst" aria-hidden="true">
+                      ♥
+                    </span>
+                  ) : null}
+                </div>
                 <p className="hub-caption">{post.content}</p>
                 <footer>
                   <button
                     aria-label="Sukai konten"
-                    className={liked.includes(post.id) ? "liked" : ""}
+                    className={post.liked ? "liked" : ""}
+                    aria-pressed={Boolean(post.liked)}
                     onClick={() =>
                       isPetOwnerAuthenticated()
                         ? void like(post)
@@ -1295,7 +1420,11 @@ export default function PlatformDiscovery({
           ) : (
             <div className="empty-state">
               <span>▶</span>
-              <h3>Feed ini masih kosong</h3>
+              <h3>
+                {sharedPostID
+                  ? "Posting tidak tersedia"
+                  : "Feed ini masih kosong"}
+              </h3>
               <p>Ikuti channel atau terbitkan thread pertama.</p>
             </div>
           )}
@@ -1350,24 +1479,35 @@ export default function PlatformDiscovery({
         />
       )}{" "}
       {composer && (
-        <ThreadComposer
-          close={() => setComposer(false)}
-          onCreated={(post) => setPosts((current) => [post, ...current])}
-          notify={notify}
-          ownerName={ownerName}
-        />
+        <Modal close={() => setComposer(false)} className="world-modal">
+          <PetHubComposer
+            mode={hubTab === "Reels" ? "reel" : "feed"}
+            close={() => setComposer(false)}
+            notify={notify}
+            onCreated={async () => {
+              const result = await getPetHubFeed({
+                type:
+                  hubTab === "Reels"
+                    ? "video"
+                    : hubTab === "Thread"
+                      ? "thread"
+                      : "",
+              });
+              setPosts(result.data);
+            }}
+          />
+        </Modal>
       )}{" "}
       {commentPost && (
         <CommentsModal
           post={commentPost}
           close={() => setCommentPost(null)}
           notify={notify}
-          ownerName={ownerName}
-          onCount={() =>
+          onCount={(count) =>
             setPosts((current) =>
               current.map((item) =>
                 item.id === commentPost.id
-                  ? { ...item, comment_count: item.comment_count + 1 }
+                  ? { ...item, comment_count: count }
                   : item,
               ),
             )
@@ -1375,13 +1515,40 @@ export default function PlatformDiscovery({
         />
       )}{" "}
       {storyComposer && (
-        <StoryComposer
-          close={() => setStoryComposer(false)}
-          notify={notify}
-          ownerName={ownerName}
-          onCreated={(story) => setStories((current) => [story, ...current])}
-        />
+        <Modal close={() => setStoryComposer(false)} className="world-modal">
+          <PetHubComposer
+            mode="story"
+            close={() => setStoryComposer(false)}
+            notify={notify}
+            onCreated={async () => setStories((await getPetHubStories()).data)}
+          />
+        </Modal>
       )}
+      {viewStory ? (
+        <Modal close={() => setViewStory(null)} className="story-modal">
+          <PetHubStoryView
+            key={viewStory.id}
+            story={viewStory}
+            notify={notify}
+            next={() => {
+              const index = stories.findIndex(
+                (item) => item.id === viewStory.id,
+              );
+              setViewStory(stories[index + 1] || null);
+            }}
+            previous={
+              stories.findIndex((item) => item.id === viewStory.id) > 0
+                ? () => {
+                    const index = stories.findIndex(
+                      (item) => item.id === viewStory.id,
+                    );
+                    setViewStory(stories[index - 1]);
+                  }
+                : undefined
+            }
+          />
+        </Modal>
+      ) : null}
     </>
   );
 }
@@ -1582,13 +1749,16 @@ function ProgramModal({
   }
   return (
     <Modal close={close} className="world-modal">
-      <WorldImageGallery
-        images={[program.cover_url, ...(program.image_urls ?? [])]}
-        alt={program.title}
-        fallback="🎓"
-        tag={program.academy_name}
-        className="academy-modal-cover"
-      />
+      <div className="promo-media">
+        <WorldImageGallery
+          images={[program.cover_url, ...(program.image_urls ?? [])]}
+          alt={program.title}
+          fallback="🎓"
+          tag={program.academy_name}
+          className="academy-modal-cover"
+        />
+        <DiscountBadge percent={program.discount_percent} />
+      </div>
       <div className="modal-world-body">
         {done ? (
           <Success
@@ -1606,9 +1776,6 @@ function ProgramModal({
             </small>
             <div className="academy-detail-heading-row">
               <h2>{program.title}</h2>
-              {program.discount_percent > 0 ? (
-                <span>Hemat {program.discount_percent}%</span>
-              ) : null}
             </div>
             <p>{program.description}</p>
             <div className="academy-social-summary">
@@ -1812,7 +1979,7 @@ function ProgramModal({
             </label>
             <label>
               <span>Pet yang akan mengikuti kelas</span>
-              <select
+              <SlivaSelect aria-label="Pet yang akan mengikuti kelas"
                 value={selectedPetID}
                 onChange={(event) => setSelectedPetID(event.target.value)}
                 required
@@ -1822,11 +1989,11 @@ function ProgramModal({
                     {candidate.name} · {candidate.breed}
                   </option>
                 ))}
-              </select>
+              </SlivaSelect>
             </label>
             <label>
               <span>Mulai ikut kelas</span>
-              <select
+              <SlivaSelect aria-label="Mulai ikut kelas"
                 value={selectedScheduleID}
                 onChange={(event) => setSelectedScheduleID(event.target.value)}
                 required
@@ -1841,7 +2008,7 @@ function ProgramModal({
                     {schedule.remaining_capacity} kursi
                   </option>
                 ))}
-              </select>
+              </SlivaSelect>
             </label>
             <div className="checkout-line">
               <span>Total program</span>
@@ -2098,12 +2265,12 @@ function EventModal({
             ) : (
               <label>
                 <span>Jumlah tiket</span>
-                <select name="ticket_quantity" defaultValue="1">
+                <SlivaSelect aria-label="Jumlah tiket" name="ticket_quantity" defaultValue="1">
                   <option>1</option>
                   <option>2</option>
                   <option>3</option>
                   <option>4</option>
-                </select>
+                </SlivaSelect>
               </label>
             )}
             <div className="checkout-line">
@@ -2364,145 +2531,81 @@ function StreamModal({
     </Modal>
   );
 }
-function ThreadComposer({
-  close,
-  onCreated,
-  notify,
-  ownerName,
-}: {
-  close: () => void;
-  onCreated: (post: PetHubPost) => void;
-  notify: (message: string) => void;
-  ownerName: string;
-}) {
-  const [content, setContent] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function submit() {
-    if (content.trim().length < 3 || !isPetOwnerAuthenticated()) return;
-    setBusy(true);
-    try {
-      const id = (
-        await createPetHubPost({
-          author_name: ownerName,
-          content: content.trim(),
-          post_type: "thread",
-        })
-      ).id;
-      onCreated({
-        id,
-        author_name: ownerName,
-        content: content.trim(),
-        media_url: "",
-        post_type: "thread",
-        like_count: 0,
-        comment_count: 0,
-        repost_count: 0,
-        created_at: new Date().toISOString(),
-        channel_name: ownerName,
-        channel_handle: "@petowner",
-        channel_avatar_url: "",
-        verified: false,
-      });
-      notify("Pet thread berhasil diterbitkan");
-      close();
-    } catch (error) {
-      notify(
-        error instanceof Error
-          ? error.message
-          : "Thread belum dapat diterbitkan",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Modal close={close} className="world-modal">
-      <div className="modal-world-body">
-        <small className="world-kicker">
-          BUAT PET THREAD · LOGIN TERVERIFIKASI
-        </small>
-        <h2>Apa yang sedang kamu pikirkan?</h2>
-        <textarea
-          className="thread-input"
-          value={content}
-          onChange={(event) => setContent(event.target.value)}
-          maxLength={5000}
-          placeholder="Bagikan insight, cerita, atau pertanyaan tentang pet…"
-          autoFocus
-        />
-        <div className="composer-bottom">
-          <span>{content.length}/5000</span>
-          <button
-            className="primary-button"
-            disabled={content.trim().length < 3 || busy}
-            onClick={submit}
-          >
-            {busy ? "Menerbitkan…" : "Terbitkan thread"}
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
 function CommentsModal({
   post,
   close,
   notify,
-  ownerName,
   onCount,
 }: {
   post: PetHubPost;
   close: () => void;
-  notify: (m: string) => void;
-  ownerName: string;
-  onCount: () => void;
+  notify: (message: string) => void;
+  onCount: (count: number) => void;
 }) {
   const [comments, setComments] = useState<PetHubComment[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const pending = useRef(false);
   useEffect(() => {
-    getPetHubComments(post.id)
-      .then((r) => setComments(r.data))
-      .catch(() => setComments([]))
-      .finally(() => setBusy(false));
+    let active = true;
+    void getPetHubComments(post.id)
+      .then((result) => {
+        if (active) setComments(result.data);
+      })
+      .catch((cause) => {
+        if (active)
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Komentar belum dapat dimuat",
+          );
+      })
+      .finally(() => {
+        if (active) setBusy(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [post.id]);
   async function send() {
-    if (!text.trim()) return;
+    if (pending.current || !text.trim()) return;
     if (!isPetOwnerAuthenticated()) {
       notify("Login diperlukan untuk berkomentar");
       window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
       return;
     }
+    pending.current = true;
+    setSending(true);
     try {
-      const result = await createPetHubComment(post.id, text.trim());
-      setComments((v) => [
-        ...v,
-        {
-          id: result.id,
-          user_id: "me",
-          author_name: ownerName,
-          content: text.trim(),
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      await createPetHubComment(post.id, text.trim());
       setText("");
-      onCount();
-    } catch (error) {
+      const result = await getPetHubComments(post.id);
+      setComments(result.data);
+      setError("");
+      onCount(result.count);
+    } catch (cause) {
       notify(
-        error instanceof Error ? error.message : "Komentar belum dapat dikirim",
+        cause instanceof Error ? cause.message : "Komentar belum dapat dikirim",
       );
+    } finally {
+      pending.current = false;
+      setSending(false);
     }
   }
   return (
     <Modal close={close} className="comments-modal">
       <div className="comments-head">
-        <small>PET THREAD</small>
-        <h2>Diskusi</h2>
+        <small>PETHUB DISCUSSION</small>
+        <h2>Komentar ({comments.length})</h2>
         <p>{post.content}</p>
       </div>
       <div className="comments-list">
         {busy ? (
-          <span>Memuat komentar…</span>
+          <span role="status">Memuat komentar…</span>
+        ) : error ? (
+          <span role="alert">{error}</span>
         ) : comments.length ? (
           comments.map((item) => (
             <div key={item.id}>
@@ -2520,116 +2623,20 @@ function CommentsModal({
       </div>
       <footer>
         <input
+          aria-label="Komentar PetHub"
           value={text}
+          maxLength={2000}
+          disabled={sending}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") void send();
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) void send();
           }}
-          placeholder={
-            isPetOwnerAuthenticated()
-              ? "Tulis komentar yang suportif…"
-              : "Login untuk ikut berdiskusi"
-          }
+          placeholder="Tulis komentar yang suportif…"
         />
-        <button
-          onClick={() => void send()}
-          disabled={isPetOwnerAuthenticated() && !text.trim()}
-        >
-          Kirim
+        <button onClick={() => void send()} disabled={sending || !text.trim()}>
+          {sending ? "Mengirim…" : "Kirim"}
         </button>
       </footer>
-    </Modal>
-  );
-}
-function StoryComposer({
-  close,
-  notify,
-  ownerName,
-  onCreated,
-}: {
-  close: () => void;
-  notify: (m: string) => void;
-  ownerName: string;
-  onCreated: (story: PetHubStory) => void;
-}) {
-  const [photo, setPhoto] = useState("");
-  const [caption, setCaption] = useState("");
-  const [busy, setBusy] = useState(false);
-  function choose(file?: File) {
-    if (!file) return;
-    if (file.size > 650000) {
-      notify("Foto maksimal 650 KB untuk story");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setPhoto(String(reader.result));
-    reader.readAsDataURL(file);
-  }
-  async function submit() {
-    if (!photo || !isPetOwnerAuthenticated()) return;
-    setBusy(true);
-    try {
-      const result = await createPetHubStory(photo, caption);
-      onCreated({
-        id: result.id,
-        user_id: "me",
-        author_name: ownerName,
-        photo_url: photo,
-        caption,
-        view_count: 0,
-        expires_at: new Date(Date.now() + 86400000).toISOString(),
-        created_at: new Date().toISOString(),
-      });
-      notify("Story foto aktif selama 24 jam");
-      close();
-    } catch (error) {
-      notify(
-        error instanceof Error
-          ? error.message
-          : "Story belum dapat diterbitkan",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Modal close={close} className="story-modal">
-      <div className="story-preview">
-        {photo ? (
-          <NextImage
-            src={photo}
-            alt="Preview story"
-            width={720}
-            height={1280}
-            unoptimized
-          />
-        ) : (
-          <label>
-            <span>📷</span>
-            <b>Pilih foto story</b>
-            <small>Story saat ini hanya mendukung foto · maks. 650 KB</small>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => choose(e.target.files?.[0])}
-            />
-          </label>
-        )}
-      </div>
-      <input
-        className="story-caption"
-        value={caption}
-        onChange={(e) => setCaption(e.target.value)}
-        maxLength={300}
-        placeholder="Tambahkan caption…"
-      />
-      <button
-        className="primary-button full"
-        disabled={!photo || busy}
-        onClick={() => void submit()}
-      >
-        {busy ? "Menerbitkan…" : "Bagikan story 24 jam"}
-      </button>
     </Modal>
   );
 }
@@ -2651,7 +2658,12 @@ function Modal({
         aria-label="Detail Slivadoc"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button type="button" className="modal-close" aria-label="Tutup detail" onClick={close}>
+        <button
+          type="button"
+          className="modal-close"
+          aria-label="Tutup detail"
+          onClick={close}
+        >
           <Icon name="close" />
         </button>
         {children}

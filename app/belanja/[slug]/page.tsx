@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { validGtin } from "../../lib/product-discovery";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -71,13 +72,13 @@ export default async function ProductPage({ params }: PageProps) {
     name: product.name,
     ...(product.description ? { description: product.description } : {}),
     sku: product.sku,
-    ...(product.barcode ? { gtin: product.barcode } : {}),
+    ...(validGtin(product.barcode) ? { gtin: product.barcode } : {}),
     ...(product.imageUrl ? { image: [socialImage(product.imageUrl)] } : {}),
     category: product.category,
-    brand: {
+    ...(product.brandName ? { brand: {
       "@type": "Brand",
-      name: product.brandName || product.businessName,
-    },
+      name: product.brandName,
+    } } : {}),
     offers: {
       "@type": "Offer",
       url: productUrl,
@@ -89,7 +90,7 @@ export default async function ProductPage({ params }: PageProps) {
       itemCondition: "https://schema.org/NewCondition",
       seller: { "@type": "Organization", name: product.businessName },
     },
-    ...(product.reviewCount > 0
+    ...(product.reviewCount > 0 && product.rating >= 1
       ? {
           aggregateRating: {
             "@type": "AggregateRating",

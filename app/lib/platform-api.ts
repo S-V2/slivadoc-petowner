@@ -161,6 +161,16 @@ export type ActivityShipment = {
   events: ActivityShipmentEvent[];
 };
 
+export type ActivityFulfillment = {
+  id: string;
+  business_id: string;
+  business_name: string;
+  status: string;
+  delivered_at?: string | null;
+  return_until?: string | null;
+  return_requested: boolean;
+};
+
 export type PetOwnerActivityCenterItem = {
   id: string;
   type: ActivityType;
@@ -278,6 +288,9 @@ export type PetOwnerActivityCenterItem = {
   cancellable_until?: string;
   cancellation_cutoff_hours?: number;
   cancellation_policy?: string;
+  // order cancel and return (Pet Shop orders)
+  cancellable?: boolean;
+  fulfillments?: ActivityFulfillment[];
   // home_service
   job_code?: string;
   service_type?: string;
@@ -289,7 +302,35 @@ export type PetOwnerActivityCenterItem = {
 export type PetOwnerActivityCenterResponse =
   PlatformList<PetOwnerActivityCenterItem> & {
     summary: Record<ActivityType, number>;
+    next_cursor: string | null;
   };
+
+export type PetOwnerInvoice = {
+  id: string;
+  invoice_number: string;
+  business_name: string;
+  branch_name: string;
+  status: "pending" | "paid" | "void" | "refunded" | "partially_refunded";
+  subtotal: number;
+  discount_amount: number;
+  tax_amount: number;
+  total_amount: number;
+  paid_amount: number;
+  refunded_amount: number;
+  issued_at: string | null;
+  paid_at: string | null;
+};
+
+export type PetOwnerInvoiceDetail = PetOwnerInvoice & {
+  items: Array<{
+    item_type: "product" | "service" | "fee";
+    description: string;
+    quantity: number;
+    unit_price: number;
+    discount_amount: number;
+    line_total: number;
+  }>;
+};
 
 export type FavoriteItem = {
   entity_type: string;
@@ -970,6 +1011,9 @@ export type PetHubPost = {
   author_name: string;
   content: string;
   media_url: string;
+  media_urls?: string[];
+  liked?: boolean;
+  saved?: boolean;
   post_type: string;
   like_count: number;
   comment_count: number;
@@ -1241,6 +1285,8 @@ export type PetHubStory = {
   user_id: string;
   author_name: string;
   photo_url: string;
+  media_url?: string;
+  media_type?: "image" | "video";
   caption: string;
   view_count: number;
   expires_at: string;
@@ -1486,6 +1532,7 @@ export const getPetHubFeed = async (options?: {
   tab?: string;
   type?: string;
   search?: string;
+  post_id?: string;
 }) => {
   const query = new URLSearchParams();
   Object.entries(options ?? {}).forEach(([key, value]) => {
@@ -1507,6 +1554,7 @@ export const createPetHubPost = (input: {
   content: string;
   post_type: string;
   media_url?: string;
+  media_urls?: string[];
 }) =>
   request<{ id: string; message: string }>("/api/v1/pethub/posts", {
     method: "POST",
@@ -1514,9 +1562,12 @@ export const createPetHubPost = (input: {
   });
 
 export const reactPetHubPost = (postId: string) =>
-  request<{ liked: boolean }>(`/api/v1/pethub/posts/${postId}/reactions`, {
+  request<{ liked: boolean; like_count: number }>(`/api/v1/pethub/posts/${postId}/reactions`, {
     method: "POST",
   });
+export const savePetHubPost = (postId: string) => request<{ saved: boolean }>(`/api/v1/pethub/posts/${postId}/save`, { method: "POST" });
+export const likePetHubPost = (postId: string) => request<{ liked: boolean; like_count: number }>(`/api/v1/pethub/posts/${postId}/like`, { method: "PUT" });
+export const viewPetHubStory = (storyId: string) => request<{ view_count: number }>(`/api/v1/pethub/stories/${storyId}/views`, { method: "POST" });
 
 export const togglePetHubChannel = (channelId: string) =>
   request<{ channel_id: string; following: boolean }>(
@@ -1884,10 +1935,10 @@ export const createPetHubComment = (postId: string, content: string) =>
 export const getPetHubStories = () =>
   request<PlatformList<PetHubStory>>("/api/v1/public/pethub/stories");
 
-export const createPetHubStory = (photoUrl: string, caption: string) =>
+export const createPetHubStory = (photoUrl: string, caption: string, mediaType: "image" | "video" = "image") =>
   request<{ id: string; expires_in: number }>("/api/v1/pethub/stories", {
     method: "POST",
-    body: JSON.stringify({ photo_url: photoUrl, caption }),
+    body: JSON.stringify({ photo_url: photoUrl, media_url: photoUrl, media_type: mediaType, caption }),
   });
 
 export const getPawDatingProfiles = (query = "") =>
@@ -2155,6 +2206,11 @@ export const readAllNotifications = (category = "") =>
     { method: "PATCH" },
   );
 
+export const getPetOwnerFavorites = () =>
+  request<PlatformList<FavoriteItem>>("/api/v1/petowner/favorites", {
+    cache: "no-store",
+  });
+
 export const togglePetOwnerFavorite = (
   entity_type: string,
   entity_id: string,
@@ -2164,9 +2220,23 @@ export const togglePetOwnerFavorite = (
     body: JSON.stringify({ entity_type, entity_id }),
   });
 
-export const getPetOwnerActivityCenter = () =>
+export const getPetOwnerActivityCenter = (cursor = "") =>
   request<PetOwnerActivityCenterResponse>(
-    "/api/v1/petowner/activities?view=center&type=all&state=all&limit=100",
+    `/api/v1/petowner/activities?view=center&type=all&state=all&limit=100${
+      cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""
+    }`,
+    { cache: "no-store" },
+  );
+
+export const getPetOwnerInvoices = (limit = 50) =>
+  request<PlatformList<PetOwnerInvoice>>(
+    `/api/v1/petowner/invoices?limit=${limit}`,
+    { cache: "no-store" },
+  );
+
+export const getPetOwnerInvoice = (invoiceId: string) =>
+  request<PetOwnerInvoiceDetail>(
+    `/api/v1/petowner/invoices/${encodeURIComponent(invoiceId)}`,
     { cache: "no-store" },
   );
 
@@ -2343,6 +2413,22 @@ export const cancelPetOwnerBooking = (id: string, reason?: string) =>
   request<{ id: string; status: string; refund_queued: boolean }>(
     `/api/v1/petowner/bookings/${id}/cancel`,
     { method: "POST", body: JSON.stringify(reason ? { reason } : {}) },
+  );
+
+export const cancelPetOwnerOrder = (orderId: string) =>
+  request<{ id: string; status: string; refund_queued: boolean }>(
+    `/api/v1/petowner/orders/${orderId}/cancel`,
+    { method: "POST" },
+  );
+
+export const requestPetOwnerShopReturn = (
+  orderId: string,
+  fulfillmentId: string,
+  reason: string,
+) =>
+  request<{ id: string; ticket_number: string; status: string }>(
+    `/api/v1/petowner/orders/${orderId}/fulfillments/${fulfillmentId}/return-request`,
+    { method: "POST", body: JSON.stringify({ reason }) },
   );
 
 export type SupportMessage = {

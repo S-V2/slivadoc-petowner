@@ -376,7 +376,7 @@
   font-weight: 700;
 }
 
-.market-catalog-filters select {
+.market-catalog-filters .sliva-select-trigger {
   min-width: 150px;
   min-height: 43px;
   padding: 0 36px 0 12px;
@@ -390,7 +390,7 @@
   font-weight: 650;
 }
 
-.market-catalog-filters select:focus {
+.market-catalog-filters .sliva-select-trigger:focus {
   border-color: var(--sky-500);
   box-shadow: 0 0 0 3px rgba(36, 167, 215, 0.12);
 }
@@ -1907,7 +1907,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .market-catalog-filters select {
+  .market-catalog-filters .sliva-select-trigger {
     width: 100%;
     min-width: 0;
     min-height: 44px;

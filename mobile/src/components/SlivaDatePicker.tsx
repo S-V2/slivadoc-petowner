@@ -2,7 +2,7 @@ import { LocalizedPressable as Pressable } from "./LocalizedPressable";
 import { useState } from "react";
 import {  ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { calendarValue, dateKey, monthDays, parseCalendarDate, withinDateBounds, type CalendarKind } from "../../../shared/calendar";
+import { calendarValue, dateKey, monthDays, parseCalendarDate, withinDateBounds, validCalendarValue, type CalendarKind } from "../../../shared/calendar";
 import { LocalizedText as Text, useI18n } from "../i18n";
 import { BoundedBottomSheet } from "./ui";
 import { colors } from "../theme";
@@ -17,7 +17,8 @@ export function SlivaDatePicker({ value = "", onChangeText, kind = "date", label
   const [time, setTime] = useState("09:00");
   const [yearsOpen, setYearsOpen] = useState(false);
   const launch = () => { const date = parseCalendarDate(value) ?? new Date(); setMonth(date); setDay(dateKey(date)); setTime(kind === "time" ? value || "09:00" : value.slice(11, 16) || "09:00"); setYearsOpen(false); setOpen(true); };
-  const commit = (next: string) => { onChangeText?.(next); setOpen(false); };
+  const validDraft = validCalendarValue(calendarValue(day,time,kind),kind,min?.replace(" ","T"),max?.replace(" ","T"));
+  const commit = (next: string) => { if (next && !validCalendarValue(next.replace(" ","T"),kind,min?.replace(" ","T"),max?.replace(" ","T"))) return; onChangeText?.(next); setOpen(false); };
   return <>
     <Pressable disabled={disabled} accessibilityRole="button" accessibilityLabel={t(label)} onPress={launch} style={[styles.field, style]}><Text style={styles.value}>{value ? kind === "time" ? value : new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(parseCalendarDate(value) ?? new Date()) + (kind === "datetime-local" ? ` · ${value.slice(11, 16)}` : "") : label}</Text><Ionicons name={kind === "time" ? "time-outline" : "calendar-outline"} size={20} color={colors.sky600}/></Pressable>
     <BoundedBottomSheet visible={open} onClose={() => setOpen(false)} maxHeight="90%">
@@ -31,7 +32,8 @@ export function SlivaDatePicker({ value = "", onChangeText, kind = "date", label
           </View>}
         </>}
         {kind !== "date" && <><Text style={styles.title}>Pilih jam</Text>{[24,60].map((count,index) => <View key={count}><Text>{index === 0 ? "Jam" : "Menit"}</Text><ScrollView horizontal showsHorizontalScrollIndicator={false}>{Array.from({length:count},(_,n) => { const val=String(n).padStart(2,"0");const selected=time.split(":")[index]===val;return <Pressable key={n} accessibilityRole="button" accessibilityLabel={`${t(index===0?"Jam":"Menit")} ${val}`} accessibilityState={{selected}} style={[styles.control,selected&&styles.selected]} onPress={()=>setTime(index===0?`${val}:${time.split(":")[1]}`:`${time.split(":")[0]}:${val}`)}><Text style={selected?styles.selectedText:styles.value}>{val}</Text></Pressable>; })}</ScrollView></View>)}</>}
-        <View style={styles.actions}><Pressable style={styles.control} onPress={() => setOpen(false)}><Text>Batal</Text></Pressable><Pressable style={[styles.control,styles.selected]} disabled={kind !== "time" && !withinDateBounds(day,min,max)} onPress={() => commit(calendarValue(day,time,kind," "))}><Text style={styles.selectedText}>Selesai</Text></Pressable></View>
+        {!validDraft && <Text accessibilityRole="alert">Pilih tanggal/jam yang valid sesuai batas jadwal.</Text>}
+        <View style={styles.actions}><Pressable style={styles.control} onPress={() => commit("")}><Text>Kosongkan</Text></Pressable><Pressable style={styles.control} onPress={() => setOpen(false)}><Text>Batal</Text></Pressable><Pressable style={[styles.control,styles.selected,!validDraft&&styles.outside]} disabled={!validDraft} onPress={() => commit(calendarValue(day,time,kind," "))}><Text style={styles.selectedText}>Selesai</Text></Pressable></View>
       </ScrollView>
     </BoundedBottomSheet>
   </>;

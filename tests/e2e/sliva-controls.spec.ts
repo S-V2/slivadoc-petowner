@@ -50,3 +50,22 @@ for (const viewport of [{ width: 320, height: 640 }, { width: 768, height: 1024 
     await expect(page.getByRole("status", { name: "Submitted payload" })).toContainText("2024-02-29");
   });
 }
+
+
+test("custom time controls enforce schedule bounds and keep HH:mm payloads", async ({ page }) => {
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await page.getByRole("button", { name: "Choose a time", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Slivadoc Calendar", exact: true });
+  await dialog.getByRole("combobox", { name: "Hour", exact: true }).click();
+  await page.getByRole("option", { name: "07", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Done", exact: true })).toBeDisabled();
+  await expect(dialog.getByRole("status")).toContainText("schedule limits");
+  await dialog.getByRole("combobox", { name: "Hour", exact: true }).click();
+  await page.getByRole("option", { name: "10", exact: true }).click();
+  await dialog.getByRole("combobox", { name: "Minute", exact: true }).click();
+  await page.getByRole("option", { name: "30", exact: true }).click();
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Time", exact: true })).toHaveValue("10:30");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Submitted payload" })).toHaveText('{"birth_date":"2024-02-28","time":"10:30"}');
+});

@@ -24,6 +24,7 @@ export function SlivaDatePicker({ type = "date", value, defaultValue, onChange, 
   useEffect(() => {
     inputRef.current?.setCustomValidity(current && !validCalendarValue(current, type, minimum, maximum) ? t("Pilih tanggal/jam yang valid sesuai batas jadwal.") : "");
   }, [current, type, minimum, maximum, t]);
+  const validDraft = validCalendarValue(calendarValue(draftDay, draftTime, type), type, minimum, maximum);
   const close = () => { setOpen(false); inputRef.current?.focus(); };
   useEffect(() => {
     if (!open) return;
@@ -90,7 +91,8 @@ export function SlivaDatePicker({ type = "date", value, defaultValue, onChange, 
           <SlivaSelect aria-label={t("Jam")} value={draftTime.split(":")[0]} onChange={(event) => setDraftTime(`${event.target.value}:${draftTime.split(":")[1]}`)}>{Array.from({ length: 24 }, (_, n) => <option key={n} value={String(n).padStart(2, "0")}>{String(n).padStart(2, "0")}</option>)}</SlivaSelect><span><LocalizedCopy>{":"}</LocalizedCopy></span>
           <SlivaSelect aria-label={t("Menit")} value={draftTime.split(":")[1]} onChange={(event) => setDraftTime(`${draftTime.split(":")[0]}:${event.target.value}`)}>{Array.from({ length: 60 }, (_, n) => <option key={n} value={String(n).padStart(2, "0")}>{String(n).padStart(2, "0")}</option>)}</SlivaSelect>
         </div>}</LocalizedCopy>
-        <footer><LocalizedCopy>{!props.required && <LocalizedButton type="button" onClick={() => commit("")}><LocalizedCopy>{t("Kosongkan")}</LocalizedCopy></LocalizedButton>}</LocalizedCopy><LocalizedButton type="button" onClick={close}><LocalizedCopy>{t("Batal")}</LocalizedCopy></LocalizedButton><LocalizedButton type="button" className="primary-button" disabled={type !== "time" && !withinDateBounds(draftDay, min === undefined ? undefined : String(min), max === undefined ? undefined : String(max))} onClick={() => commit(calendarValue(draftDay, draftTime, type))}><LocalizedCopy>{t("Selesai")}</LocalizedCopy></LocalizedButton></footer>
+        {!validDraft && <small role="status">{t("Pilih tanggal/jam yang valid sesuai batas jadwal.")}</small>}
+        <footer><LocalizedCopy>{!props.required && <LocalizedButton type="button" onClick={() => commit("")}><LocalizedCopy>{t("Kosongkan")}</LocalizedCopy></LocalizedButton>}</LocalizedCopy><LocalizedButton type="button" onClick={close}><LocalizedCopy>{t("Batal")}</LocalizedCopy></LocalizedButton><LocalizedButton type="button" className="primary-button" disabled={!validDraft} onClick={() => commit(calendarValue(draftDay, draftTime, type))}><LocalizedCopy>{t("Selesai")}</LocalizedCopy></LocalizedButton></footer>
       </div>
     </div>, document.body)}</LocalizedCopy>
     {invalid && <small className="sliva-date-error" role="alert">{t("Pilih tanggal/jam yang valid sesuai batas jadwal.")}</small>}

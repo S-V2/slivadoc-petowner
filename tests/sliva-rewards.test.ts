@@ -275,6 +275,7 @@ test("bootstrap and points expose reward settings as a structured formula", asyn
     assert.equal(bootstrap.points.formula.min_redemption_points, 1);
     assert.equal(bootstrap.points.formula.settlement_hold_days, 7);
     assert.equal(bootstrap.points.pending, 50);
+    assert.ok(bootstrap.points.membership);
     assert.equal(bootstrap.points.membership.id, "playful_pup");
   } finally {
     transport.restore();
@@ -315,6 +316,7 @@ test("bootstrap and points expose reward settings as a structured formula", asyn
     // The hold has to be visible per row, not just as a global setting.
     assert.equal(summary.transactions[0].available_at, "2026-09-08T00:00:00Z");
     assert.equal(summary.transactions[0].points, 17);
+    assert.ok(summary.membership);
     assert.equal(summary.membership.name, "Playful Pup");
   } finally {
     points.restore();

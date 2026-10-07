@@ -338,7 +338,7 @@ app.post(
   "/api/uploads/media",
   requirePlatformUser,
   mediaUpload.single("file"),
-  async (request, response, next) => {
+  async (request, response) => {
     try {
       if (!request.file)
         return response.status(400).json({

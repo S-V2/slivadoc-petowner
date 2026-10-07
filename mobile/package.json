@@ -12,10 +12,11 @@
     "android": "node ./scripts/start-expo.mjs android",
     "preios": "node ./scripts/ensure-dependencies.mjs",
     "ios": "node ./scripts/start-expo.mjs ios",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
     "doctor": "npx expo-doctor",
     "validate:production-env": "node ./scripts/validate-production-env.mjs",
-    "eas-build-pre-install": "node ./scripts/validate-production-env.mjs"
+    "eas-build-pre-install": "node ./scripts/validate-production-env.mjs",
+    "test": "node --experimental-strip-types --test tests/*.test.mts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
@@ -39,6 +40,7 @@
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
+    "@types/node": "22.19.19",
     "@types/react": "~19.2.0",
     "typescript": "~6.0.3"
   },

@@ -133,7 +133,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
-      - run: npx tsc -p tsconfig.app.json
+      - run: npm run typecheck
       - run: npm test
 
   # Mirrors the `petowner-api` job of ci.yml.

@@ -26,7 +26,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run lint
-      - run: npx tsc -p tsconfig.app.json
+      - run: npm run typecheck
       - run: npm run test:coverage
       # Ratchet against .github/coverage-baseline.json; a PR that raises the
       # number updates the baseline in the same change.
@@ -69,7 +69,7 @@ jobs:
       - run: npm test
 
   mobile:
-    name: Mobile typecheck
+    name: Mobile typecheck and tests
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 15
     defaults:
@@ -84,3 +84,4 @@ jobs:
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - run: npm test

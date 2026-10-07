@@ -20,7 +20,8 @@
     "api:install": "npm --prefix services/petowner-api install",
     "api:dev": "npm --prefix services/petowner-api run dev",
     "api:start": "npm --prefix services/petowner-api start",
-    "api:test": "npm --prefix services/petowner-api test"
+    "api:test": "npm --prefix services/petowner-api test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -32,6 +33,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.54.1",
+    "@cloudflare/workers-types": "5.20261007.1",
     "@playwright/test": "^1.61.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
@@ -51,5 +53,8 @@
     "yaml": "^2.9.1"
   },
   "type": "module",
-  "displayName": "Slivadoc Pet Owner"
+  "displayName": "Slivadoc Pet Owner",
+  "overrides": {
+    "sharp": "0.35.5"
+  }
 }

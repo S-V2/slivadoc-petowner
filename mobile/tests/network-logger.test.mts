@@ -9,9 +9,9 @@ import {
   redactNetworkHeaders,
   redactNetworkURL,
   type NetworkLoggerAction,
-} from "../mobile/src/debug/network-redaction.ts";
+} from "../src/debug/network-redaction.ts";
 
-const mobileRequire = createRequire(new URL("../mobile/package.json", import.meta.url));
+const mobileRequire = createRequire(new URL("../package.json", import.meta.url));
 // Load only the pure interceptor in Node; the package's UI requires a native runtime.
 const inspectorRoot = dirname(mobileRequire.resolve("react-native-network-inspector-devtools"));
 const { installFetchInterceptor } = mobileRequire(join(inspectorRoot, "utils/fetchInterceptor.js"));

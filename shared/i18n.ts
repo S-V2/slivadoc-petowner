@@ -28,7 +28,7 @@ export function translateText(value: string, language: SlivaLanguage, forceConte
   let translated: string | undefined = exact;
   if (!translated) {
     const patterns: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
-      [/^(\d+) bintang$/i, m => `${m[1]} stars`],
+      [/^(\d+) bintang$/i, m => `${m[1]} ${m[1] === "1" ? "star" : "stars"}`],
       [/^(\d+) tersedia$/i, m => `${m[1]} available`],
       [/^(\d+) (produk|layanan) ditemukan$/i, m => `${m[1]} ${m[2]?.toLowerCase() === "produk" ? "products" : "services"} found`],
       [/^(\d+) (toko|terjual|komentar|suka|aktivitas|item|menit|tiket|kursi|ulasan|hari|minggu|tahun)$/i, m => `${m[1]} ${({toko:"stores",terjual:"sold",komentar:"comments",suka:"likes",aktivitas:"activities",item:"items",menit:"minutes",tiket:"tickets",kursi:"seats",ulasan:"reviews",hari:"days",minggu:"weeks",tahun:"years"} as Record<string,string>)[m[2]!.toLowerCase()]}`],

@@ -1,3 +1,4 @@
+import { featureSearchShortcuts } from "../../../shared/petowner-flow";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -59,17 +60,7 @@ const searchSuggestions = [
   "Pet hotel",
 ];
 
-const featureSearchItems: MobileGlobalSearchResult[] = [
-  { category: "feature", id: "booking", title: "Buat Booking", subtitle: "Jadwalkan layanan untuk pet", route: "discover" },
-  { category: "feature", id: "consult", title: "Tanya Dokter", subtitle: "Konsultasi kesehatan hewan", route: "consult" },
-  { category: "feature", id: "health", title: "Kesehatan Pet", subtitle: "Lihat health score dan rekam medis", route: "health" },
-  { category: "feature", id: "activity", title: "Aktivitas", subtitle: "Booking, transaksi, dan jadwal pet", route: "bookings" },
-  { category: "feature", id: "community", title: "Komunitas", subtitle: "Cerita dan diskusi pet parent", route: "community" },
-  { category: "feature", id: "academy", title: "Pet Academy", subtitle: "Kelas dan trainer terverifikasi", route: "academy" },
-  { category: "feature", id: "events", title: "Pet Event", subtitle: "Event dan aktivitas di kotamu", route: "events" },
-  { category: "feature", id: "petspot", title: "PetSpot", subtitle: "Tempat seru yang pet friendly", route: "petspot" },
-  { category: "feature", id: "adoption", title: "Adopsi", subtitle: "Temukan keluarga baru yang tepat", route: "adoption" },
-];
+const featureSearchItems: MobileGlobalSearchResult[] = [...featureSearchShortcuts];
 
 function searchIcon(category: string): keyof typeof Ionicons.glyphMap {
   if (category === "service") return "medical-outline";

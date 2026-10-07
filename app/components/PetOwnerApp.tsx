@@ -1,7 +1,7 @@
 "use client";
 import { PetOwnerFlowProvider, PetRequiredNotice, usePetOwnerFlow } from "./PetOwnerFlow";
 import { WorldNavigation } from "./WorldNavigation";
-import { isWorldMode, worldFeatures, type PetOwnerWorldMode } from "../../shared/petowner-flow";
+import { featureSearchShortcuts, isWorldMode, worldFeatures, type PetOwnerWorldMode } from "../../shared/petowner-flow";
 import { SlivaSelect } from "./SlivaSelect";
 import { DiscountBadge } from "./DiscountBadge";
 
@@ -341,13 +341,13 @@ const titles: Record<AppView, { title: string; subtitle: string }> = {
   },
 };
 
-const featureSearchItems: GlobalSearchResult[] = navItems.map((item) => ({
+const featureSearchItems: GlobalSearchResult[] = [...featureSearchShortcuts, ...navItems.map((item) => ({
   category: "feature",
   id: item.id,
   title: item.label,
   subtitle: titles[item.id].subtitle,
   route: item.id,
-}));
+}))];
 
 const protectedViews: AppView[] = [
   "pets",
@@ -2316,7 +2316,8 @@ function Topbar({
               (item, index) =>
                 combined.findIndex(
                   (value) =>
-                    value.category === item.category && value.id === item.id,
+                    value.category === item.category &&
+                    (item.category === "feature" ? value.route === item.route : value.id === item.id),
                 ) === index,
             ),
           );

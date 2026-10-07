@@ -104,7 +104,10 @@ test("mobile fixed navigation never covers page actions", async ({ page }) => {
   await page.getByRole("button", { name: "SlivaCare", exact: true }).click();
   await expect(page.locator(".petowner-login")).toBeVisible();
   await expect(page.locator(".chat-drawer")).toBeHidden();
+  // The native-style sheet slides in; measure its resting position.
+  await expect(page.locator(".petowner-login")).toHaveCSS("transform", "none");
   const login = await page.locator(".petowner-login").boundingBox();
+  expect(login!.y).toBeGreaterThanOrEqual(0);
   expect(login!.y + login!.height).toBeLessThanOrEqual(812);
 });
 

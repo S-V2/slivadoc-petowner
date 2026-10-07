@@ -36,7 +36,7 @@ async function app(page: Page, options: { authenticated?: boolean; withPet?: boo
     if (path === "/api/v1/petowner/activities") return json(activityCenter());
     if (path === "/api/v1/public/discovery/products") return json({ data: [product], count: 1 });
     if (path === "/api/v1/public/events") return json({ data: [event], count: 1 });
-    if (path === "/api/v1/public/search") return json({ data: [{ id: event.id, category: "event", title: event.title, subtitle: event.venue, route: "events" }], count: 1 });
+    if (path === "/api/v1/public/search") return json(url.searchParams.get("q")?.toLowerCase().includes("meetup") ? { data: [{ id: event.id, category: "event", title: event.title, subtitle: event.venue, route: "events" }], count: 1 } : { data: [], count: 0 });
     if (path === `/api/v1/public/products/${product.id}/reviews`) return json({ data: [], count: 0, rating: 0 });
     if (path === "/api/v1/public/pawdating/standards") return json({ principles: [], levels: [], minimum_age_months: {}, report_validity_days: 180, blocked_conditions: [] });
     if (path === "/api/v1/public/pawdating/profiles") return json({ data: [], count: 0, filters: { species: "", breed: "", sex: "", city: "", min_level: 2, min_health_score: 80 } });
@@ -73,6 +73,10 @@ test("guests browse native destinations and explicitly sign in from activity", a
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await page.locator(".profile-language-setting").getByRole("button", { name: "ID", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "id");
+  await page.getByRole("searchbox", { name: "Cari di seluruh Slivadoc" }).fill("Buat Booking");
+  await page.locator(".owner-search-results").getByRole("button", { name: /Buat Booking/ }).click();
+  await expect(page).toHaveURL(/view=discover/);
+  await expect(page.locator(".petowner-login")).toHaveCount(0);
 });
 
 test("Sliva World provides all eight native features and keeps browser history", async ({ page }) => {

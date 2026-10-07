@@ -449,6 +449,11 @@ jobs:
             set -euo pipefail
             cd /opt/slivadoc
 
+            # All repositories share this VM, .env and the image-pin verification.
+            # Hold one host lock through the update, restart and verification.
+            exec 9>.slivadoc-deploy.lock
+            flock -w 600 9
+
             # 1. Update pins in .env
             sed -i.bak -E "s|^PETOWNER_WEB_REF=.*|PETOWNER_WEB_REF=${WEB_DIGEST}|" .env
             sed -i.bak -E "s|^PETOWNER_API_REF=.*|PETOWNER_API_REF=${API_DIGEST}|" .env

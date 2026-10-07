@@ -23,7 +23,6 @@ export function petOwnerBootstrap() {
       member_since: "2026-01-01T08:00:00Z",
     },
     pets: [],
-    activities: [],
     notifications: [],
     unread_notifications: 0,
     favorites: [],

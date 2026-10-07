@@ -102,6 +102,7 @@ test("home service shortcuts open a filtered catalogue before booking", async ({
     name,
     category: "home_care",
     image_url: `https://example.com/service-${index + 1}-a.jpg`,
+    image_urls: [`https://example.com/service-${index + 1}-a.jpg`],
     duration_minutes: 60,
     price: 250_000 + index * 50_000,
     address: `Jalan Sehat ${index + 1}`,

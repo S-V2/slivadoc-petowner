@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
+import { usePetOwnerI18n } from "./PetOwnerI18n";
 import { Icon } from "./Icon";
 
 type Flow = {
@@ -50,16 +51,17 @@ export function usePetOwnerFlow() {
 
 export function PetRequiredNotice() {
   const { authenticated, hasPet, requirePet } = usePetOwnerFlow();
+  const { t } = usePetOwnerI18n();
   if (!authenticated || hasPet) return null;
   return (
-    <section className="pet-required-notice" aria-label="Mode lihat saja">
+    <section className="pet-required-notice" aria-label={t("Mode lihat saja")}>
       <span className="pet-required-icon"><Icon name="paw" /></span>
       <div>
-        <strong>Mode lihat saja</strong>
-        <p>Tambahkan profil pet agar bisa booking, belanja, dan berinteraksi.</p>
+        <strong>{t("Mode lihat saja")}</strong>
+        <p>{t("Tambahkan profil pet agar bisa booking, belanja, dan berinteraksi.")}</p>
       </div>
       <button type="button" className="primary-button small" onClick={requirePet}>
-        <Icon name="plus" size={16} /> Tambah pet
+        <Icon name="plus" size={16} /> {t("Tambah pet")}
       </button>
     </section>
   );

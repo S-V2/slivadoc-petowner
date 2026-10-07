@@ -46,3 +46,5 @@
   .pet-required-notice { flex-wrap: wrap; }
   .pet-required-notice > button { width: 100%; justify-content: center; }
 }
+
+.profile-guest { display: grid; gap: 16px; max-width: 720px; }

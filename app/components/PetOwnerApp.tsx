@@ -1534,10 +1534,7 @@ export default function PetOwnerApp() {
             <SupportCenter activities={activities} notify={notify} />
           )}
           {featureView === "profile" && !account && (
-            <section className="empty-state" aria-label="Akun Pet Owner">
-              <h2>Masuk ke akun</h2><p>Sinkronkan profil pet, aktivitas, dan membership Slivadoc.</p>
-              <button type="button" className="primary-button" onClick={() => setLoginOpen(true)}>Masuk / Daftar</button>
-            </section>
+            <GuestAccount onLogin={() => setLoginOpen(true)} />
           )}
           {featureView === "profile" && account && (
             <ProfileView
@@ -2198,7 +2195,6 @@ function Sidebar({
               .filter(
                 (item): item is (typeof navItems)[number] => item !== undefined,
               )
-              .filter((item) => authenticated || item.id !== "profile")
               .map((item) => (
                 <button
                   type="button"
@@ -5982,6 +5978,37 @@ function SupportCenter({
   );
 }
 
+function AccountLanguageSetting() {
+  const { language, setLanguage, t } = usePetOwnerI18n();
+  return (
+    <div className="profile-language-setting">
+      <span><Icon name="settings" size={19} /></span>
+      <p><b>{t("Bahasa aplikasi")}</b><small>Indonesia / English</small></p>
+      <div role="group" aria-label={t("Bahasa aplikasi")}>
+        <button className={language === "id" ? "active" : ""} type="button" aria-pressed={language === "id"} onClick={() => setLanguage("id")}>ID</button>
+        <button className={language === "en" ? "active" : ""} type="button" aria-pressed={language === "en"} onClick={() => setLanguage("en")}>EN</button>
+      </div>
+    </div>
+  );
+}
+
+function GuestAccount({ onLogin }: { onLogin: () => void }) {
+  const { t } = usePetOwnerI18n();
+  return (
+    <div className="profile-guest">
+      <section className="empty-state panel" aria-label="Akun Pet Owner">
+        <h2>{t("Masuk ke akun")}</h2>
+        <p>{t("Sinkronkan profil pet, aktivitas, dan membership Slivadoc.")}</p>
+        <button type="button" className="primary-button" onClick={onLogin}>{t("Masuk / Daftar")}</button>
+      </section>
+      <section className="panel profile-native-settings">
+        <header><span>PREFERENSI</span><h3>{t("Pengaturan akun")}</h3></header>
+        <AccountLanguageSetting />
+      </section>
+    </div>
+  );
+}
+
 function ProfileView({
   notify,
   account,
@@ -6011,7 +6038,7 @@ function ProfileView({
   onOpenSupport: () => void;
   onOpenNotifications: (category?: string) => void;
 }) {
-  const { language, locale, setLanguage, t } = usePetOwnerI18n();
+  const { locale, t } = usePetOwnerI18n();
   const initials = account.full_name
     .split(" ")
     .map((value) => value[0])
@@ -6334,14 +6361,7 @@ function ProfileView({
             <span>PREFERENSI</span>
             <h3>{t("Pengaturan akun")}</h3>
           </header>
-          <div className="profile-language-setting">
-            <span><Icon name="settings" size={19} /></span>
-            <p><b>{t("Bahasa aplikasi")}</b><small>Indonesia / English</small></p>
-            <div role="group" aria-label={t("Bahasa aplikasi")}>
-              <button className={language === "id" ? "active" : ""} type="button" onClick={() => setLanguage("id")}>ID</button>
-              <button className={language === "en" ? "active" : ""} type="button" onClick={() => setLanguage("en")}>EN</button>
-            </div>
-          </div>
+          <AccountLanguageSetting />
           <button type="button" onClick={() => setEdit(true)}>
             <span>
               <Icon name="user" size={19} />

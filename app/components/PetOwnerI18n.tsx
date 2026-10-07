@@ -13,6 +13,13 @@ import {
 export type PetOwnerLanguage = "id" | "en";
 
 const english: Record<string, string> = {
+  "Layanan": "Services",
+  "Masuk ke akun": "Sign in",
+  "Masuk / Daftar": "Sign in / Register",
+  "Sinkronkan profil pet, aktivitas, dan membership Slivadoc.": "Sync your pet profiles, activity, and Slivadoc membership.",
+  "Mode lihat saja": "View-only mode",
+  "Tambahkan profil pet agar bisa booking, belanja, dan berinteraksi.": "Add a pet profile to book, shop, and interact.",
+  "Tambah pet": "Add pet",
   "Metode pembayaran": "Payment method",
   "Memuat metode pembayaran…": "Loading payment methods…",
   "Pembayaran QRIS sementara belum tersedia. Coba lagi.": "QRIS payment is temporarily unavailable. Please try again.",

@@ -63,6 +63,13 @@ test("guests browse native destinations and explicitly sign in from activity", a
   const more = page.locator(".mobile-more-sheet");
   await more.getByRole("button", { name: "Masuk ke akun" }).click();
   await expect(page.getByRole("heading", { name: "Masuk ke akun", exact: true })).toBeVisible();
+  await page.locator(".profile-language-setting").getByRole("button", { name: "EN", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await page.locator(".profile-language-setting").getByRole("button", { name: "ID", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "id");
 });
 
 test("Sliva World provides all eight native features and keeps browser history", async ({ page }) => {

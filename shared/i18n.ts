@@ -2,9 +2,10 @@ import { englishGenerated } from "./english-generated.ts";
 import { cachedTranslation, requestTranslation } from "./translation-store.ts";
 import { englishCopy as baseCopy } from "./english-copy.ts";
 import { englishExtra } from "./english-extra.ts";
-const englishCopy = { ...englishGenerated, ...baseCopy, ...englishExtra };
+const reviewedCopy = { ...baseCopy, ...englishExtra };
 export type SlivaLanguage = "id" | "en";
-const folded = new Map([...Object.entries(englishGenerated), ...Object.entries(baseCopy), ...Object.entries(englishExtra)].map(([key, value]) => [key.toLocaleLowerCase("id"), value]));
+const reviewedFolded = new Map(Object.entries(reviewedCopy).map(([key, value]) => [key.toLocaleLowerCase("id"), value]));
+const generatedFolded = new Map(Object.entries(englishGenerated).map(([key, value]) => [key.toLocaleLowerCase("id"), value]));
 const englishOutputs = new Set([...Object.values(baseCopy), ...Object.values(englishExtra)].map(value => value.toLocaleLowerCase("en")));
 export function translateText(value: string, language: SlivaLanguage, forceContent = false): string {
   if (language === "id" || !value.trim()) return value;
@@ -24,10 +25,25 @@ export function translateText(value: string, language: SlivaLanguage, forceConte
   const core = value.trim();
   // Primitives can nest: an English label must never be translated a second time.
   if (englishOutputs.has(core.toLocaleLowerCase("en"))) return value;
-  const exact = Object.prototype.hasOwnProperty.call(englishCopy, core) ? englishCopy[core] : folded.get(core.toLocaleLowerCase("id"));
+  // Preserve reviewed case-specific labels (Menit / menit), then use reviewed
+  // headings before generated copy when their capitalization differs.
+  const exact = (Object.prototype.hasOwnProperty.call(reviewedCopy, core) ? reviewedCopy[core] : undefined)
+    ?? reviewedFolded.get(core.toLocaleLowerCase("id"))
+    ?? (Object.prototype.hasOwnProperty.call(englishGenerated, core) ? englishGenerated[core] : undefined)
+    ?? generatedFolded.get(core.toLocaleLowerCase("id"));
   let translated: string | undefined = exact;
   if (!translated) {
     const patterns: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
+      [/^Hai, (.+)!$/i, m => `Hi, ${m[1]}!`],
+      [/^Kondisi (.+)$/i, m => `${m[1]}'s health`],
+      [/^Kesehatan (.+)$/i, m => `${m[1]}'s health`],
+      [/^Untuk (.+)$/i, m => `For ${m[1]}`],
+      [/^Buka (.+)$/i, m => `Open ${translateText(m[1]!, language)}`],
+      [/^(\d+) th pengalaman · (\d+) konsultasi$/i, m => `${m[1]} ${m[1] === "1" ? "year" : "years"} of experience · ${m[2]} ${m[2] === "1" ? "consultation" : "consultations"}`],
+      [/^Ganti profil pet aktif, saat ini (.+)$/i, m => `Switch active pet, currently ${m[1]}`],
+      [/^(\d+) tahun (\d+) bulan$/i, m => `${m[1]} ${m[1] === "1" ? "year" : "years"} ${m[2]} ${m[2] === "1" ? "month" : "months"}`],
+      [/^(\d+) bulan$/i, m => `${m[1]} ${m[1] === "1" ? "month" : "months"}`],
+      [/^(\d+) catatan$/i, m => `${m[1]} ${m[1] === "1" ? "record" : "records"}`],
       [/^(\d+) bintang$/i, m => `${m[1]} ${m[1] === "1" ? "star" : "stars"}`],
       [/^(\d+) tersedia$/i, m => `${m[1]} available`],
       [/^(\d+) (produk|layanan) ditemukan$/i, m => `${m[1]} ${m[2]?.toLowerCase() === "produk" ? "products" : "services"} found`],

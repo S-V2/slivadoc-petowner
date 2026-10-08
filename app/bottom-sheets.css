@@ -13,3 +13,8 @@
     border-bottom-right-radius: 0;
   }
 }
+/* Match the mobile app's close target, including short landscape panels. */
+.mobile-more-sheet header button {
+  min-width: 44px;
+  min-height: 44px;
+}

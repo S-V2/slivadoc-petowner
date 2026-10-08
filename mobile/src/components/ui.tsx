@@ -14,7 +14,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { BottomSheetSafeArea } from "./BottomSheetSafeArea";
 import { Ionicons } from "@expo/vector-icons";
 import { LocalizedText as Text } from "../i18n";
 import { colors, radius, shadow, spacing, typography } from "../theme";
@@ -233,12 +233,12 @@ export function BoundedBottomSheet({
             onPress={onClose}
             style={StyleSheet.absoluteFill}
           />
-          <View accessible={false} accessibilityViewIsModal style={[styles.sheet, { maxHeight, width: "100%", maxWidth: layout.sheetWidth, alignSelf: "center" }]}>
-            <SafeAreaView edges={["bottom", "left", "right"]} style={styles.sheetSafe}>
+          <BottomSheetSafeArea style={[styles.sheet, { maxHeight, width: "100%", maxWidth: layout.sheetWidth, alignSelf: "center" }]}>
+            <View style={styles.sheetSafe}>
               <View style={styles.sheetHandle} />
               {children}
-            </SafeAreaView>
-          </View>
+            </View>
+          </BottomSheetSafeArea>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     borderColor: colors.sky100,
     backgroundColor: colors.sky25,
   },
-  sheetSafe: { minHeight: 120, flexShrink: 1, backgroundColor: colors.white },
+  sheetSafe: { minHeight: 0, flexShrink: 1, backgroundColor: colors.white },
   sheetHandle: {
     alignSelf: "center",
     width: 42,

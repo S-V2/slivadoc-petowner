@@ -3,6 +3,7 @@ import { petOwnerIntlLocale } from "../lib/petowner-locale";
 import { confirmSlivaDialog } from "./SlivaDialog";
 import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } from "./LocalizedCopy";
 import { SlivaDatePicker } from "./SlivaDatePicker";
+import { useDialogFocus } from "./useDialogFocus";
 import { PetOwnerFlowProvider, PetRequiredNotice, usePetOwnerFlow } from "./PetOwnerFlow";
 import { WorldNavigation } from "./WorldNavigation";
 import { featureSearchShortcuts, isWorldMode, worldFeatures, type PetOwnerWorldMode } from "../../shared/petowner-flow";
@@ -2670,18 +2671,23 @@ function HomeView({
   const { t } = usePetOwnerI18n();
   const [campaign, setCampaign] = useState<PublicCampaign | null>(null);
   const [veterinarians, setVeterinarians] = useState<Veterinarian[]>([]);
+  const [doctorsLoading, setDoctorsLoading] = useState(true);
+  const [doctorsError, setDoctorsError] = useState(false);
+  const [doctorsAttempt, setDoctorsAttempt] = useState(0);
   const [petSwitcherOpen, setPetSwitcherOpen] = useState(false);
   useEffect(() => {
-    void Promise.all([getPublicCampaigns(), getVeterinarians()])
-      .then(([campaigns, doctors]) => {
-        setCampaign(campaigns.data[0] ?? null);
-        setVeterinarians(doctors.data);
-      })
-      .catch(() => {
-        setCampaign(null);
-        setVeterinarians([]);
-      });
+    let active = true;
+    void getPublicCampaigns().then((result) => { if (active) setCampaign(result.data[0] ?? null); }).catch(() => { if (active) setCampaign(null); });
+    return () => { active = false; };
   }, []);
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => { if (active) { setDoctorsLoading(true); setDoctorsError(false); } });
+    void getVeterinarians().then((result) => { if (active) setVeterinarians(result.data); })
+      .catch(() => { if (active) { setVeterinarians([]); setDoctorsError(true); } })
+      .finally(() => { if (active) setDoctorsLoading(false); });
+    return () => { active = false; };
+  }, [doctorsAttempt]);
 
   const firstName = ownerName?.trim().split(/\s+/)[0];
   const featuredActivities = activities
@@ -2976,7 +2982,10 @@ function HomeView({
               </article>
             ))}</LocalizedCopy>
             <LocalizedCopy>{recommendedDoctors.length === 0 ? (
-              <div className="empty-state compact"><LocalizedCopy>{"Dokter terbaik sedang disinkronkan."}</LocalizedCopy></div>
+              <div className="empty-state compact home-doctor-empty" role={doctorsError ? "alert" : "status"}>
+                <LocalizedCopy>{doctorsLoading ? "Memuat dokter…" : doctorsError ? "Dokter belum dapat dimuat." : "Belum ada dokter yang tersedia."}</LocalizedCopy>
+                {doctorsError && <LocalizedButton type="button" className="secondary-button" onClick={() => setDoctorsAttempt((attempt) => attempt + 1)}><LocalizedCopy>{"Coba lagi"}</LocalizedCopy></LocalizedButton>}
+              </div>
             ) : null}</LocalizedCopy>
           </div>
         </section>
@@ -7811,6 +7820,7 @@ function MobileNav({
 }) {
   const { t } = usePetOwnerI18n();
   const [more, setMore] = useState(false);
+  const moreDialog = useDialogFocus<HTMLElement>(more, () => setMore(false));
   const primaryIds: AppView[] = ["home", "shop", "community", "bookings"];
   const worldIds: AppView[] = worldFeatures.map((item) => item.mode);
   const moreIds: AppView[] = ["messages", "discover", "health", "profile"];
@@ -7857,6 +7867,11 @@ function MobileNav({
         >
           <section
             className="mobile-more-sheet"
+            ref={moreDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("Semua fitur Slivadoc")}
+            tabIndex={-1}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <header>

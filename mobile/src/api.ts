@@ -6,6 +6,7 @@ import { uniqueById } from "./collections";
 import { PET_PROFILE_REQUIRED_MESSAGE, petOwnerMutationRequiresPet as mobileMutationRequiresPet } from "../../shared/petowner-flow";
 export { PET_PROFILE_REQUIRED_MESSAGE, petOwnerMutationRequiresPet as mobileMutationRequiresPet } from "../../shared/petowner-flow";
 import { buildMobilePawDatingDiscoveryPath } from "./pawdating";
+import type { PetSpeciesOption } from "../../shared/pet-profile";
 
 export { uniqueById } from "./collections";
 export { buildMobilePawDatingDiscoveryPath } from "./pawdating";
@@ -275,6 +276,9 @@ export type MobilePet = {
   id: string;
   name: string;
   species: string;
+  species_group?: string;
+  species_common_name?: string;
+  emoji?: string;
   breed: string;
   age_months: number;
   weight_kg: number;
@@ -939,6 +943,13 @@ export const getMobileBootstrap = async () => {
     notifications: uniqueById(result.notifications),
   };
 };
+export const getMobilePetSpecies = () => platformRequest<{ data: PetSpeciesOption[]; count: number }>("/api/v1/public/pet-species");
+export async function createMobilePet(input: ReturnType<typeof import("../../shared/pet-profile").petProfilePayload>) {
+  const result = await platformRequest<{ id: string; species: string; species_group: string; message: string }>("/api/v1/petowner/pets", { method: "POST", body: JSON.stringify(input) });
+  mobileOwnerHasPet = true;
+  clearMobileCache();
+  return result;
+}
 export const updateMobilePetOwnerProfile = (input: {
   full_name: string;
   phone: string;

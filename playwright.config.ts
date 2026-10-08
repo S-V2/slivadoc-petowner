@@ -3,6 +3,9 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
+  // Compiling the first app route in the dev server is shared by every worker.
+  // Avoid a CPU-sized burst of browsers starving that compile on local audits.
+  workers: process.env.CI ? 1 : 2,
   timeout: 30_000,
   reporter: "line",
   use: {

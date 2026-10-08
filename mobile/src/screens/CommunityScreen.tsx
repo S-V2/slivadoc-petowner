@@ -2,7 +2,6 @@ import { LocalizedPressable as Pressable } from "../components/LocalizedPressabl
 import { useEffect, useState } from "react";
 import {
   Image,
-  Modal,
 
   RefreshControl,
   ScrollView,
@@ -340,33 +339,13 @@ export function CommunityScreen({
         }}
         onAction={onAction}
       />
-      <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
-        visible={Boolean(selected)}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSelected(undefined)}
-      >
-        <Pressable
-          style={{
-            flex: 1,
-            justifyContent: "flex-end",
-            backgroundColor: "rgba(14,32,55,.38)",
-          }}
-          onPress={() => setSelected(undefined)}
-        >
-          <SafeAreaView
-            style={{
-              maxHeight: "85%",
-              padding: 18,
-              borderTopLeftRadius: 26,
-              borderTopRightRadius: 26,
-              backgroundColor: colors.white,
-            }}
-          >
-            <Pressable onPress={(event) => event.stopPropagation()}>
+      <BoundedBottomSheet visible={Boolean(selected)} onClose={() => setSelected(undefined)} maxHeight="85%">
+            <View style={{ flexShrink: 1, minHeight: 0, padding: 18 }}>
               <View style={styles.composerHeader}>
                 <Text style={styles.composerTitle}>Komentar</Text>
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Tutup komentar"
                   onPress={() => setSelected(undefined)}
                   style={styles.close}
                 >
@@ -435,10 +414,8 @@ export function CommunityScreen({
                   />
                 </Pressable>
               </View>
-            </Pressable>
-          </SafeAreaView>
-        </Pressable>
-      </Modal>
+            </View>
+      </BoundedBottomSheet>
     </View>
   );
 }

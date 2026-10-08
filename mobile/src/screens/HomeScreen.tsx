@@ -182,8 +182,8 @@ function HomeSearchModal({
 
   return (
     <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.searchBackdrop} onPress={onClose}>
-        <Pressable style={styles.searchSheet} onPress={(event) => event.stopPropagation()}>
+      <Pressable accessible={false} style={styles.searchBackdrop} onPress={onClose}>
+        <Pressable accessible={false} accessibilityViewIsModal style={styles.searchSheet} onPress={(event) => event.stopPropagation()}>
           <SafeAreaView edges={["bottom", "left", "right"]} style={styles.searchSheetSafe}>
             <View style={styles.searchHandle} />
         <View style={styles.searchHeader}>
@@ -300,11 +300,18 @@ export function HomeScreen({
   const [searchOpen, setSearchOpen] = useState(false);
   const [petPickerOpen, setPetPickerOpen] = useState(false);
   const [veterinarians, setVeterinarians] = useState<WorldItem[]>([]);
+  const [doctorsLoading, setDoctorsLoading] = useState(true);
+  const [doctorsError, setDoctorsError] = useState(false);
+  const [doctorsAttempt, setDoctorsAttempt] = useState(0);
   useEffect(() => {
+    let active = true;
+    queueMicrotask(() => { if (active) { setDoctorsLoading(true); setDoctorsError(false); } });
     void getMobileVeterinarians()
-      .then((result) => setVeterinarians(result.data))
-      .catch(() => setVeterinarians([]));
-  }, []);
+      .then((result) => { if (active) setVeterinarians(result.data); })
+      .catch(() => { if (active) { setVeterinarians([]); setDoctorsError(true); } })
+      .finally(() => { if (active) setDoctorsLoading(false); });
+    return () => { active = false; };
+  }, [doctorsAttempt]);
   const petView = pet ?? { id: "", name: "pet kamu", breed: "Login untuk melihat profil", age: "—", weight: "—", icon: "", score: 0, allergies: "" };
   const featuredActivities = activities
     .filter((item) => item.state !== "history")
@@ -460,7 +467,7 @@ export function HomeScreen({
                 </View>
                 <View style={styles.metric}>
                   <View style={[styles.metricIcon, styles.metricIconViolet]}><Ionicons name="pulse-outline" size={14} color="#6655C7" /></View>
-                  <View style={styles.metricCopy}><Text style={styles.metricLabel}>Aktivitas</Text><Text style={styles.metricValue}>{activities.length} catatan</Text></View>
+                  <View style={styles.metricCopy}><Text style={styles.metricLabel}>Aktivitas</Text><Text style={styles.metricValue}>{`${activities.length} catatan`}</Text></View>
                 </View>
               </View>
             </View>
@@ -544,6 +551,10 @@ export function HomeScreen({
 
         <View style={styles.sectionBlock}>
           <HomeSectionHeader icon="medkit" eyebrow="DOKTER TERBAIK" title={`Untuk ${petView.name}`} note="Terverifikasi, berpengalaman, dan ber-rating tinggi" action="Semua" onAction={() => onOpenConsultation()} tone="mint" />
+          {!recommendedDoctors.length && <View style={styles.doctorEmpty} accessibilityLiveRegion="polite">
+            <Text style={styles.doctorEmptyText}>{doctorsLoading ? "Memuat dokter…" : doctorsError ? "Dokter belum dapat dimuat." : "Belum ada dokter yang tersedia."}</Text>
+            {doctorsError && <Pressable onPress={() => setDoctorsAttempt((attempt) => attempt + 1)} style={styles.doctorRetry}><Text style={styles.doctorRetryText}>Coba lagi</Text></Pressable>}
+          </View>}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.doctorScroll}>
             {recommendedDoctors.map((doctor) => (
               <Pressable key={doctor.id} onPress={() => onOpenConsultation(doctor.id)} style={({ pressed }) => [styles.doctorCard, pressed && styles.pressed]}>
@@ -556,7 +567,7 @@ export function HomeScreen({
                 </View>
                 <Text numberOfLines={1} style={styles.doctorName}>{doctor.full_name ?? doctor.doctor_name ?? "Dokter hewan"}</Text>
                 <Text numberOfLines={2} style={styles.doctorSpecialty}>{doctor.specialties?.join(" · ") || "Dokter hewan umum"}</Text>
-                <Text style={styles.doctorMeta}>{doctor.experience_years ?? 0} th pengalaman · {doctor.consultation_count ?? 0} konsultasi</Text>
+                <Text style={styles.doctorMeta}>{`${doctor.experience_years ?? 0} th pengalaman · ${doctor.consultation_count ?? 0} konsultasi`}</Text>
                 <View style={styles.doctorAction}><Text style={styles.doctorActionText}>Konsultasi</Text><Ionicons name="arrow-forward" size={13} color={colors.white} /></View>
               </Pressable>
             ))}
@@ -565,13 +576,19 @@ export function HomeScreen({
       </Screen>
       <HomeSearchModal visible={searchOpen} onClose={() => setSearchOpen(false)} onChoose={onSearchResult} />
       <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible={petPickerOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setPetPickerOpen(false)}>
-        <Pressable style={styles.petPickerBackdrop} onPress={() => setPetPickerOpen(false)}>
+        <Pressable accessible={false} style={styles.petPickerBackdrop} onPress={() => setPetPickerOpen(false)}>
           <BottomSheetSafeArea style={styles.petPickerSafe}>
-            <Pressable style={styles.petPickerSheet} onPress={(event) => event.stopPropagation()}>
+            <Pressable accessible={false} style={styles.petPickerSheet} onPress={(event) => event.stopPropagation()}>
               <View style={styles.petPickerHandle} />
               <Text style={styles.petPickerEyebrow}>PET AKTIF</Text>
-              <Text style={styles.petPickerTitle}>Pilih temanmu</Text>
+              <View style={styles.petPickerHeader}>
+                <Text style={styles.petPickerTitle}>Pilih temanmu</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="Tutup" onPress={() => setPetPickerOpen(false)} style={styles.petPickerClose}>
+                  <Ionicons name="close" size={22} color={colors.navy} />
+                </Pressable>
+              </View>
               <Text style={styles.petPickerNote}>Rekomendasi, kesehatan, dan booking akan mengikuti pet yang dipilih.</Text>
+              <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 8 }}>
               {pets.map((item) => {
                 const active = item.id === pet?.id;
                 return <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => { onSelectPet(item.id); setPetPickerOpen(false); }} style={[styles.petPickerItem, active && styles.petPickerItemActive]}>
@@ -580,6 +597,7 @@ export function HomeScreen({
                   <Ionicons name={active ? "checkmark-circle" : "chevron-forward"} size={20} color={active ? colors.sky600 : colors.muted} />
                 </Pressable>;
               })}
+              </ScrollView>
             </Pressable>
           </BottomSheetSafeArea>
         </Pressable>
@@ -589,6 +607,10 @@ export function HomeScreen({
 }
 
 const styles = StyleSheet.create({
+  doctorEmpty: { padding: 18, gap: 10, borderRadius: 18, backgroundColor: colors.white },
+  doctorEmptyText: { color: colors.muted, fontSize: 13, textAlign: "center" },
+  doctorRetry: { minHeight: 44, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", alignSelf: "center", borderRadius: 14, backgroundColor: colors.sky50 },
+  doctorRetryText: { color: colors.sky600, fontSize: 13, fontWeight: "600" },
   screenContent: { paddingTop: spacing.sm },
   homeHeader: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 10 },
   searchLauncher: { minWidth: 0, flex: 1, height: 46, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 13, borderWidth: 1, borderColor: colors.sky100, borderRadius: radius.md, backgroundColor: colors.white, ...shadow },
@@ -769,11 +791,13 @@ const styles = StyleSheet.create({
   doctorAction: { minHeight: 36, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 10, borderRadius: 12, backgroundColor: colors.sky600 },
   doctorActionText: { color: colors.white, fontSize: 10, fontWeight: "700" },
   petPickerBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(14,32,55,.46)" },
-  petPickerSafe: { justifyContent: "flex-end" },
-  petPickerSheet: { gap: 8, paddingHorizontal: 16, paddingTop: 9, paddingBottom: 18, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.white },
+  petPickerSafe: { maxHeight: "88%", justifyContent: "flex-end" },
+  petPickerSheet: { flexShrink: 1, minHeight: 0, gap: 8, paddingHorizontal: 16, paddingTop: 9, paddingBottom: 18, borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.white },
+  petPickerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  petPickerClose: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.sky50 },
   petPickerHandle: { width: 42, height: 5, alignSelf: "center", marginBottom: 6, borderRadius: 3, backgroundColor: colors.line },
   petPickerEyebrow: { color: colors.sky600, fontSize: 9, fontWeight: "700", letterSpacing: .8 },
-  petPickerTitle: { color: colors.navy, fontSize: 20, fontWeight: "700" },
+  petPickerTitle: { flex: 1, color: colors.navy, fontSize: 20, fontWeight: "700" },
   petPickerNote: { marginBottom: 6, color: colors.muted, fontSize: 11, lineHeight: 17 },
   petPickerItem: { minHeight: 66, flexDirection: "row", alignItems: "center", gap: 10, padding: 9, borderWidth: 1, borderColor: colors.line, borderRadius: 17, backgroundColor: colors.white },
   petPickerItemActive: { borderColor: colors.sky600, backgroundColor: colors.sky50 },

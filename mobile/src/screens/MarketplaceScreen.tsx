@@ -2244,9 +2244,10 @@ function StorefrontSheet({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.storefrontBackdrop} onPress={onClose}>
+      <Pressable accessible={false} style={styles.storefrontBackdrop} onPress={onClose}>
         <Pressable
-          accessibilityRole="none"
+          accessible={false}
+          accessibilityViewIsModal
           onPress={(event) => event.stopPropagation()}
           style={[
             styles.storefrontSheet,

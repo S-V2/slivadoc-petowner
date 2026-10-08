@@ -38,6 +38,7 @@ import {
 import { ActivityScreen } from "./src/screens/ActivityScreen";
 import { HealthScreen } from "./src/screens/HealthScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
+import { AddPetSheet } from "./src/components/AddPetSheet";
 import { CommunityScreen } from "./src/screens/CommunityScreen";
 import { WorldScreen, type WorldMode } from "./src/screens/WorldScreen";
 import { ChatInboxScreen } from "./src/screens/ChatInboxScreen";
@@ -325,6 +326,7 @@ function MobileApp() {
   const [selectedService, setSelectedService] = useState<Service>();
   const [selectedPetId, setSelectedPetId] = useState("");
   const [bootstrap, setBootstrap] = useState<MobileBootstrap>();
+  const [addPetOpen, setAddPetOpen] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [records, setRecords] = useState<MobileMedicalRecord[]>([]);
@@ -434,12 +436,12 @@ function MobileApp() {
         ? `${Math.floor(item.age_months / 12)} tahun ${item.age_months % 12} bulan`
         : `${item.age_months} bulan`,
     weight: `${item.weight_kg || 0} kg`,
-    icon:
+    icon: item.emoji || (
       item.species.toLowerCase() === "cat"
         ? "🐈"
         : item.species.toLowerCase() === "rabbit"
           ? "🐇"
-          : "🐕",
+          : item.species.toLowerCase() === "dog" ? "🐕" : "🐾"),
     score: item.health_score,
     allergies: item.allergies,
     lastUpdated: item.last_medical_record_at,
@@ -823,6 +825,8 @@ function MobileApp() {
       "Tambahkan profil pet terlebih dahulu. Akunmu sedang dalam mode lihat saja.",
     );
     navigateTo("profile");
+    // Let an open checkout/detail sheet dismiss before presenting the pet form on iOS.
+    setTimeout(() => setAddPetOpen(true), 400);
     return false;
   };
   const openSupportChat = () => {
@@ -1326,6 +1330,8 @@ function MobileApp() {
                   onAction={notify}
                   onOpenNotifications={openNotifications}
                   onOpenSupport={openSupportChat}
+                  onAddPet={() => { if (requireLogin()) setAddPetOpen(true); }}
+                  onOpenPet={(id) => { selectPet(id); navigateTo("health"); }}
                   owner={bootstrap?.user}
                   pets={bootstrap?.pets ?? []}
                   petCount={pets.length}
@@ -1430,6 +1436,12 @@ function MobileApp() {
           setMoreOpen(false);
         }}
       />
+      {addPetOpen && <AddPetSheet onClose={() => setAddPetOpen(false)} onSaved={async (id) => {
+        await refreshAccount();
+        selectPet(id);
+        setRefreshVersion((version) => version + 1);
+        notify("Profil hewan berhasil disimpan");
+      }} />}
       <NotificationModal
         key={`${notificationsOpen}:${notificationCategory}`}
         visible={notificationsOpen}
@@ -1775,10 +1787,10 @@ function MoreModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+      <Pressable accessible={false} style={styles.modalBackdrop} onPress={onClose}>
         <BottomSheetSafeArea style={styles.moreSheetWrap}>
           <Pressable
-            style={styles.moreSheet}
+            accessible={false} style={styles.moreSheet}
             onPress={(event) => event.stopPropagation()}
           >
             <View style={styles.sheetHandle} />
@@ -1899,10 +1911,10 @@ function NotificationModal({
       animationType="slide"
       onRequestClose={close}
     >
-      <Pressable style={styles.modalBackdrop} onPress={close}>
+      <Pressable accessible={false} style={styles.modalBackdrop} onPress={close}>
         <BottomSheetSafeArea style={styles.notificationSheetWrap}>
           <Pressable
-            style={styles.notificationSheet}
+            accessible={false} style={styles.notificationSheet}
             onPress={(event) => event.stopPropagation()}
           >
             <View style={styles.sheetHandle} />
@@ -2035,10 +2047,10 @@ function LoginModal({
         animationType="slide"
         onRequestClose={onClose}
       >
-        <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable accessible={false} style={styles.modalBackdrop} onPress={onClose}>
           <BottomSheetSafeArea style={styles.loginSheetWrap}>
             <Pressable
-              style={styles.loginSheet}
+              accessible={false} style={styles.loginSheet}
               onPress={(event) => event.stopPropagation()}
             >
               <View style={styles.sheetHandle} />
@@ -2286,12 +2298,12 @@ function LoginModal({
           onRequestClose={() => setPolicy(null)}
         >
           <Pressable
-            style={styles.modalBackdrop}
+            accessible={false} style={styles.modalBackdrop}
             onPress={() => setPolicy(null)}
           >
             <BottomSheetSafeArea style={styles.legalSheetWrap}>
               <Pressable
-                style={styles.legalSheet}
+                accessible={false} style={styles.legalSheet}
                 onPress={(event) => event.stopPropagation()}
               >
                 <View style={styles.sheetHandle} />
@@ -2491,7 +2503,7 @@ function BookingModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.modalBackdrop}>
+      <View accessible={false} style={styles.modalBackdrop}>
         <BottomSheetSafeArea style={styles.bookingWrap}>
           <View style={styles.bookingSheet}>
             <View style={styles.sheetHandle} />

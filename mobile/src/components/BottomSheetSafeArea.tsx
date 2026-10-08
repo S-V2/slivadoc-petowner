@@ -6,6 +6,8 @@ import { colors } from "../theme";
 // Top safety comes from the sheet's height bound, not an inset above its header.
 export function BottomSheetSafeArea({
   style,
+  accessible = false,
+  accessibilityViewIsModal = true,
   ...props
 }: ViewProps) {
   const insets = useSafeAreaInsets();
@@ -16,6 +18,8 @@ export function BottomSheetSafeArea({
   return (
     <View
       {...props}
+      accessible={accessible}
+      accessibilityViewIsModal={accessibilityViewIsModal}
       style={[
         styles.surface,
         style,

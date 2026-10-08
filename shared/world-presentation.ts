@@ -1,4 +1,5 @@
 const facilityLabels: Record<string, string> = {
+  festival: "Festival", workshop: "Workshop", charity_run: "Charity run",
   busy: "Sibuk", offline: "Offline", online: "Online", away: "Tidak aktif",
   beginner: "Pemula", intermediate: "Menengah", advanced: "Lanjutan", all_levels: "Semua level",
   indoor: "Indoor", outdoor: "Outdoor", semi_outdoor: "Semi outdoor",

@@ -1,3 +1,4 @@
+import { TabRail } from "../components/TabRail";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { Image, Modal,  ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -49,9 +50,9 @@ export function DiscoverScreen({ onBook, onOpenNotifications,services,favorites,
       <Text style={styles.subtitle}>Temukan layanan terverifikasi di dekatmu.</Text>
       <View style={styles.searchBox}><Ionicons name="search" size={18} color={colors.muted} /><TextInput placeholder="Cari klinik atau layanan" placeholderTextColor={colors.muted} value={query} onChangeText={setQuery} style={styles.searchInput} /></View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories}>
+      <TabRail horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories}>
         {categories.map((item) => <Pressable key={item} onPress={() => setCategory(item)} style={[styles.category, item === category && styles.activeCategory]}><Text style={[styles.categoryText, item === category && styles.activeCategoryText]}>{item}</Text></Pressable>)}
-      </ScrollView>
+      </TabRail>
 
       <View style={styles.resultHeader}><Text style={styles.resultCount}><Text style={styles.resultStrong}>{results.length} layanan</Text> ditemukan</Text></View>
       <View style={styles.results}>

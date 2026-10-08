@@ -9,6 +9,7 @@ const icons: Record<WorldCollectionMode, IconName> = { academy: "sparkle", event
 
 export function WorldCollectionHeader({ mode, children }: { mode: WorldCollectionMode; children?: ReactNode }) {
   const copy = worldCollections[mode];
+  if (mode === "events") return <header className="world-event-banner"><div><small>SLIVA WORLD · PET EVENT</small><h2><LocalizedCopy>{"Momen seru, bareng pet-mu."}</LocalizedCopy></h2><p><LocalizedCopy>{"Temukan agenda dan pengalaman baru di kotamu."}</LocalizedCopy></p></div><span className="world-event-ticket" aria-hidden="true"><Icon name="ticket" size={44}/><i/></span></header>;
   return <header className={`world-collection-header world-collection-header--${mode}`}>
     <span className="world-collection-symbol" aria-hidden="true"><Icon name={icons[mode]} size={25}/></span>
     <div className="world-collection-intro"><small><LocalizedCopy>{copy.label}</LocalizedCopy></small><h2><LocalizedCopy>{copy.title}</LocalizedCopy></h2><p><LocalizedCopy>{copy.note}</LocalizedCopy></p></div>

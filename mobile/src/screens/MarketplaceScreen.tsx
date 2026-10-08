@@ -1,3 +1,5 @@
+import { PetBrandMarquee } from "../components/PetBrandMarquee";
+import { TabRail } from "../components/TabRail";
 import { BottomSheetSafeArea } from "../components/BottomSheetSafeArea";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { useResponsiveLayout } from "../responsive";
@@ -756,24 +758,6 @@ export function MarketplaceScreen({
     ],
     [catalogProducts],
   );
-  const stores = useMemo(
-    () =>
-      Array.from(
-        new Map(
-          catalogProducts.map((item) => [
-            item.business_id,
-            {
-              id: item.business_id,
-              name: item.business_name,
-              city: item.city,
-              logo: item.store_logo_url,
-              online: item.store_is_online,
-            },
-          ]),
-        ).values(),
-      ),
-    [catalogProducts],
-  );
   const visibleProducts = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const result = catalogProducts.filter(
@@ -1411,66 +1395,9 @@ export function MarketplaceScreen({
           </View>
         </LinearGradient>
 
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionEyebrow}>TOKO TERHUBUNG</Text>
-            <Text style={styles.sectionTitle}>
-              Belanja dari petshop favorit
-            </Text>
-          </View>
-          <Text style={styles.sectionCount}>
-            {stores.length} toko
-          </Text>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.storeRow}
-        >
-          {stores.map((item) => {
-            const active = store === item.id;
-            return (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={`${item.name}${item.city ? `, ${item.city}` : ""}`}
-                key={item.id}
-                onPress={() =>
-                  setStore((current) => (current === item.id ? "" : item.id))
-                }
-                style={[styles.storeChip, active && styles.storeChipActive]}
-              >
-                <StoreAvatar
-                  name={item.name}
-                  logo={item.logo}
-                  online={item.online}
-                />
-                <View style={styles.storeChipCopy}>
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.storeChipName,
-                      active && styles.storeChipNameActive,
-                    ]}
-                  >
-                    {item.name}
-                  </Text>
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.storeChipCity,
-                      active && styles.storeChipCityActive,
-                    ]}
-                  >
-                    {item.city || "Toko resmi"}
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <PetBrandMarquee/>
 
-        <ScrollView
+        <TabRail
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoryRow}
@@ -1497,7 +1424,7 @@ export function MarketplaceScreen({
               </Pressable>
             );
           })}
-        </ScrollView>
+        </TabRail>
 
         <View style={styles.catalogHeader}>
           <View>
@@ -1507,7 +1434,7 @@ export function MarketplaceScreen({
             </Text>
           </View>
         </View>
-        <ScrollView
+        <TabRail
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.sortRow}
@@ -1534,7 +1461,7 @@ export function MarketplaceScreen({
               </Text>
             </Pressable>
           ))}
-        </ScrollView>
+        </TabRail>
 
         {loading ? (
           <View style={styles.loadingState}>
@@ -2383,7 +2310,7 @@ function StorefrontSheet({
 
           {section === "products" ? (
             <>
-              <ScrollView
+              <TabRail
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.storefrontSortRow}
@@ -2417,8 +2344,8 @@ function StorefrontSheet({
                     </Text>
                   </Pressable>
                 ))}
-              </ScrollView>
-              <ScrollView
+              </TabRail>
+              <TabRail
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.categoryRow}
@@ -2444,7 +2371,7 @@ function StorefrontSheet({
                     </Pressable>
                   ),
                 )}
-              </ScrollView>
+              </TabRail>
               <View style={styles.productGrid}>
                 {visibleProducts.map((product) => (
                   <ProductCard

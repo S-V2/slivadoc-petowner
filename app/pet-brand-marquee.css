@@ -1,0 +1,14 @@
+.pet-brand-marquee{margin:24px 0;min-width:0}
+.pet-brand-marquee header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.pet-brand-marquee small{font-size:10px;font-weight:750;letter-spacing:.1em;color:var(--muted)}
+.pet-brand-marquee h2{margin:5px 0 0;font-size:19px;color:var(--navy)}
+.pet-brand-pause{height:44px;width:44px;border:0;border-radius:12px;background:transparent;color:var(--muted);font-size:18px}
+.pet-brand-window{overflow:hidden;border:1px solid var(--line);border-radius:18px;background:#fff;mask-image:linear-gradient(to right,transparent,#000 20px,#000 calc(100% - 20px),transparent)}
+.pet-brand-track{display:flex;width:max-content;animation:pet-brands-drift 24s linear infinite}
+.pet-brand-group{display:flex;flex:none;width:432px}
+.pet-brand-group>span{width:144px;height:76px;display:grid;place-items:center}
+.pet-brand-group img{width:112px;height:40px;object-fit:contain}
+.pet-brand-track.is-paused,.pet-brand-window:hover .pet-brand-track{animation-play-state:paused}
+@keyframes pet-brands-drift{to{transform:translateX(-432px)}}
+@media(prefers-reduced-motion:reduce){.pet-brand-track{animation:none}.pet-brand-group:not(:first-child),.pet-brand-pause{display:none}.pet-brand-group{width:100%}.pet-brand-group>span{width:33.33%;min-width:0}.pet-brand-track{width:100%}.pet-brand-group img{max-width:85%}}
+@media(max-width:580px){.pet-brand-marquee h2{font-size:16px}.pet-brand-marquee{margin:18px 0}}

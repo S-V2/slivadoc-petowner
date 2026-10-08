@@ -11,7 +11,7 @@ export function WorldExplorer({ children, onNotification }: PropsWithChildren<{ 
   </View>;
 }
 const styles = StyleSheet.create({
-  panel: { padding: 16, gap: 16, borderWidth: 1, borderColor: colors.sky100, borderRadius: 24, backgroundColor: "#F2FAFF" },
+  panel: { padding: 12, gap: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: 24, backgroundColor: "#F2FAFF" },
   mark: { width: 44, height: 44, borderRadius: 16, backgroundColor: "#DFF3FF", alignItems: "center", justifyContent: "center" },
   orbit: { position: "absolute", width: 49, height: 36, borderRadius: 30, borderWidth: 1, borderColor: "#69BBD7", transform: [{ rotate: "-28deg" }] },
   dot: { position: "absolute", top: 0, right: 1, width: 9, height: 9, borderRadius: 5, backgroundColor: "#27C2AB", borderWidth: 2, borderColor: colors.white },

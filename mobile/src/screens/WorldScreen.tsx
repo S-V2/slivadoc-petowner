@@ -109,6 +109,10 @@ import { DiscountBadge } from "../components/DiscountBadge";
 import { worldCardWidth, worldGridColumns } from "../../../shared/world-collections";
 import { WorldCatalogCard } from "../components/WorldCatalogCard";
 import { WorldCollectionHeader } from "../components/WorldCollectionHeader";
+import { EventDiscovery } from "../components/EventDiscovery";
+import { matchesWorldEvent } from "../../../shared/world-discovery";
+import { ScheduleSlot } from "../components/ScheduleSlot";
+import { TabRail } from "../components/TabRail";
 import { WorldExplorer } from "../components/WorldExplorer";
 import { SlivaOptionPicker } from "../components/SlivaOptionPicker";
 import { worldLabel } from "../../../shared/world-presentation";
@@ -722,6 +726,9 @@ export function WorldScreen({
     () => [["all", "Semua spesialisasi"], ...consultSpecialties],
     [consultSpecialties],
   );
+  const [eventQuery, setEventQuery] = useState("");
+  const [eventCategory, setEventCategory] = useState("all");
+  const eventCategories = [...new Set(items.events.map(item => item.category).filter((value): value is string => Boolean(value)))];
   const visibleItems = useMemo(
     () =>
       mode === "consult"
@@ -745,14 +752,14 @@ export function WorldScreen({
                 `${item.name} ${item.city ?? ""} ${item.address ?? ""} ${worldLabel(item.category ?? "")}`.toLocaleLowerCase().includes(spotSearch.trim().toLocaleLowerCase()) &&
                 (typeof item.distance_km !== "number" || item.distance_km <= Number(spotRadius)),
             )
-          : items[mode],
+          : mode === "events" ? items.events.filter(item => matchesWorldEvent(item, eventQuery, eventCategory)) : items[mode],
     [
       consultProvider,
       consultSpecialty,
       focusedVeterinarianId,
       items,
       mode,
-      spotCategoryFilter, spotSearch, spotRadius,
+      spotCategoryFilter, spotSearch, spotRadius, eventQuery, eventCategory,
     ],
   );
   const chooseConsultProvider = (provider: ConsultProviderFilter) => {
@@ -1595,14 +1602,11 @@ export function WorldScreen({
     return (
       <Screen>
         <WorldExplorer onNotification={onOpenNotifications}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.modeRow}
-        >
+        <TabRail activeKey={mode} contentContainerStyle={styles.modeRow}>
           {modes.map((item) => (
             <Pressable
               key={item.id}
+              accessibilityState={{ selected: mode === item.id }}
               onPress={() => {
                 setMode(item.id);
                 if (item.id !== "consult") setFocusedVeterinarianId("");
@@ -1611,7 +1615,7 @@ export function WorldScreen({
             >
               <Ionicons
                 name={item.icon}
-                size={20}
+                size={16}
                 color={mode === item.id ? colors.white : colors.muted}
               />
               <Text
@@ -1624,7 +1628,7 @@ export function WorldScreen({
               </Text>
             </Pressable>
           ))}
-        </ScrollView>
+        </TabRail>
         </WorldExplorer>
         {!hasPet && owner ? <PetRequiredNotice onAddPet={onRequirePet} /> : null}
         {mode === "adoption" ? <AdoptionExperience owner={owner} pets={pets} onLogin={onLogin} onRequirePet={onRequirePet} onAction={onAction} refreshVersion={refreshVersion} /> : <PetHubExperience
@@ -1642,14 +1646,11 @@ export function WorldScreen({
     <>
       <Screen>
         <WorldExplorer onNotification={onOpenNotifications}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.modeRow}
-        >
+        <TabRail activeKey={mode} contentContainerStyle={styles.modeRow}>
           {modes.map((item) => (
             <Pressable
               key={item.id}
+              accessibilityState={{ selected: mode === item.id }}
               onPress={() => {
                 setMode(item.id);
                 if (item.id !== "consult") setFocusedVeterinarianId("");
@@ -1658,7 +1659,7 @@ export function WorldScreen({
             >
               <Ionicons
                 name={item.icon}
-                size={20}
+                size={16}
                 color={mode === item.id ? colors.white : colors.muted}
               />
               <Text
@@ -1671,8 +1672,10 @@ export function WorldScreen({
               </Text>
             </Pressable>
           ))}
-        </ScrollView>
+        </TabRail>
         {mode === "petspot" && <View style={styles.worldSpotSearch}>
+          <Text style={styles.worldSpotHeading}>Ke mana bersama pet-mu?</Text>
+          <Text style={styles.worldSearchHint}>Tempat tujuan</Text>
           <View style={styles.worldSearchField}><Ionicons name="search-outline" size={19} color={colors.muted}/><TextInput accessibilityLabel="Cari tempat ramah pet" placeholder="Cari cafe, kosan, apartemen, mall…" value={spotSearch} onChangeText={setSpotSearch} style={styles.worldSearchInput}/></View>
           <View style={styles.worldSearchActions}>
             <View style={styles.worldRadius}><Text style={styles.worldRadiusLabel}>Radius pencarian</Text><SlivaOptionPicker label="Radius pencarian" value={spotRadius} options={[3, 5, 10, 25, 100].map(value => ({ value: String(value), label: `${value} km` }))} onChange={setSpotRadius}/></View>
@@ -1681,8 +1684,8 @@ export function WorldScreen({
         </View>}
         </WorldExplorer>
         {!hasPet && owner ? <PetRequiredNotice onAddPet={onRequirePet} /> : null}
-        {["academy", "events", "consult", "documents"].includes(mode) ? <WorldCollectionHeader mode={mode as "academy" | "events" | "consult" | "documents"}/> : mode !== "pawdating" && mode !== "petspot" ? (
-          <View style={[styles.hero, mode === "events" && styles.eventHero]}>
+        {mode === "events" ? <EventDiscovery query={eventQuery} onQuery={setEventQuery} categories={eventCategories} category={eventCategory} onCategory={setEventCategory}/> : ["academy", "consult", "documents"].includes(mode) ? <WorldCollectionHeader mode={mode as "academy" | "events" | "consult" | "documents"}/> : mode !== "pawdating" && mode !== "petspot" ? (
+          <View style={styles.hero}>
             <Text style={styles.heroKicker}>{heroCopy[mode].kicker}</Text>
             <Text style={styles.heroTitle}>{heroCopy[mode].title}</Text>
             <Text style={styles.heroNote}>{heroCopy[mode].note}</Text>
@@ -1724,11 +1727,7 @@ export function WorldScreen({
               </View>
             ) : null}
             <Text style={styles.consultFilterLabel}>Jenis provider</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.consultFilterRow}
-            >
+            <TabRail contentContainerStyle={styles.consultFilterRow}>
               {(
                 [
                   ["all", "Semua"],
@@ -1757,13 +1756,9 @@ export function WorldScreen({
                   </Text>
                 </Pressable>
               ))}
-            </ScrollView>
+            </TabRail>
             <Text style={styles.consultFilterLabel}>Spesialisasi</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.consultFilterRow}
-            >
+            <TabRail contentContainerStyle={styles.consultFilterRow}>
               {consultSpecialtyOptions.map(([value, label]) => (
                 <Pressable
                   key={value}
@@ -1792,7 +1787,7 @@ export function WorldScreen({
                   </Text>
                 </Pressable>
               ))}
-            </ScrollView>
+            </TabRail>
           </View>
         ) : null}
         {loading ? (
@@ -1811,11 +1806,11 @@ export function WorldScreen({
         ) : null}
         <View style={styles.sectionHead}>
           <View>
-            <Text style={styles.eyebrow}>{mode.toUpperCase()}</Text>
+            {mode !== "events" && <Text style={styles.eyebrow}>{mode.toUpperCase()}</Text>}
             <Text style={styles.sectionTitle}>
               {mode === "pawdating"
                 ? "Verified matches"
-                : mode === "petspot"
+                : mode === "events" ? "Event mendatang" : mode === "petspot"
                   ? "Di sekitar kamu"
                   : "Pilihan untukmu"}
             </Text>
@@ -2070,11 +2065,7 @@ export function WorldScreen({
           </View>
         ) : null}
         {mode === "petspot" ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.choiceRow}
-          >
+          <TabRail contentContainerStyle={styles.choiceRow}>
             {[
               ["all", "Semua"],
               ["cafe", "Cafe"],
@@ -2104,7 +2095,7 @@ export function WorldScreen({
                 </Text>
               </Pressable>
             ))}
-          </ScrollView>
+          </TabRail>
         ) : null}
         {mode === "pawdating" && items.pawdating.length > 0 ? (
           <MobilePawDatingDeck
@@ -2888,28 +2879,7 @@ export function WorldScreen({
                       ) : (
                         <View style={styles.trainerSlotGrid}>
                           {trainerSlots.slice(0, 16).map((slot) => (
-                            <Pressable
-                              key={slot.starts_at}
-                              onPress={() =>
-                                setSelectedTrainerSlot(slot.starts_at)
-                              }
-                              style={[
-                                styles.trainerSlot,
-                                selectedTrainerSlot === slot.starts_at &&
-                                  styles.choiceActive,
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.choiceText,
-                                  selectedTrainerSlot === slot.starts_at &&
-                                    styles.choiceTextActive,
-                                ]}
-                              >
-                                {when(slot.starts_at)} · {slot.duration_minutes}{" "}
-                                mnt
-                              </Text>
-                            </Pressable>
+                            <ScheduleSlot key={slot.starts_at} startsAt={slot.starts_at} timezone={trainerTimezone} minutes={slot.duration_minutes} selected={selectedTrainerSlot === slot.starts_at} onPress={() => setSelectedTrainerSlot(slot.starts_at)}/>
                           ))}
                         </View>
                       )}
@@ -4228,7 +4198,9 @@ function PawDatingCreateModal({
 }
 
 const styles = StyleSheet.create({
-  worldSpotSearch: { gap: 12, paddingTop: 2 },
+  worldSpotSearch: { gap: 8, padding: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: 18, backgroundColor: colors.white },
+  worldSpotHeading: { color: colors.navy, fontSize: 17, fontWeight: "700", marginBottom: 3 },
+  worldSearchHint: { color: colors.muted, fontSize: 9, fontWeight: "600" },
   worldSearchField: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: 14, backgroundColor: colors.white },
   worldSearchInput: { flex: 1, minWidth: 0, paddingVertical: 12, color: colors.navy, fontSize: 13 },
   worldSearchActions: { flexDirection: "row", alignItems: "flex-end", gap: 10 },
@@ -4247,11 +4219,12 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     backgroundColor: colors.white,
   },
-  modeRow: { gap: 6, paddingVertical: 9, paddingRight: 14 },
+  modeRow: { gap: 8, paddingVertical: 2, paddingRight: 4 },
   mode: {
-    minWidth: 92,
+    minWidth: 0,
     paddingHorizontal: 10,
-    minHeight: 58,
+    minHeight: 44,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 5,

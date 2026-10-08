@@ -12,6 +12,7 @@
     "noEmit": true
   },
   "include": [
+    "assets.d.ts",
     "tests/**/*.mts",
     "tests/ui/**/*.ts",
     "tests/ui/**/*.tsx"

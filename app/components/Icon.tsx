@@ -5,6 +5,7 @@ export type IconName =
   | "paw"
   | "search"
   | "calendar"
+  | "ticket"
   | "heart"
   | "bag"
   | "users"
@@ -39,6 +40,7 @@ const paths: Record<IconName, React.ReactNode> = {
   paw: <><circle cx="7.2" cy="8" r="2.2"/><circle cx="16.8" cy="8" r="2.2"/><circle cx="4.5" cy="13" r="1.9"/><circle cx="19.5" cy="13" r="1.9"/><path d="M8 18c0-2.6 1.8-4.5 4-4.5s4 1.9 4 4.5c0 1.7-1.3 3-4 3s-4-1.3-4-3Z"/></>,
   search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4m8-4v4M3 10h18"/></>,
+  ticket: <><path d="M3 5h18v5a2 2 0 0 0 0 4v5H3v-5a2 2 0 0 0 0-4V5Z"/><path d="M15 5v2m0 3v4m0 3v2"/></>,
   heart: <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"/>,
   bag: <><path d="M6 7h12l1 14H5L6 7Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></>,
   users: <><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M16 4a4 4 0 0 1 0 8m1 3a7 7 0 0 1 5 6"/></>,

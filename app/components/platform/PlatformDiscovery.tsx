@@ -5,6 +5,7 @@ import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } fro
 
 import { usePetOwnerFlow } from "../PetOwnerFlow";
 import { SlivaSelect } from "../SlivaSelect";
+import { useDialogFocus } from "../useDialogFocus";
 import NextImage from "next/image";
 import {
   useEffect,
@@ -111,6 +112,17 @@ const academySpecies = [
   { id: "bird", label: "Burung", icon: "🦜" },
   { id: "small_mammal", label: "Small pet", icon: "🐹" },
 ] as const;
+
+function CatalogStatus({ loading, error, empty, title, note, onRetry }: {
+  loading: boolean; error: boolean; empty: boolean; title: string; note: string; onRetry: () => void;
+}) {
+  if (!loading && !error && !empty) return null;
+  return <div className="empty-state world-catalog-status" role={error ? "alert" : "status"} aria-live="polite">
+    <h3><LocalizedCopy>{loading ? "Memuat informasi terbaru…" : error ? "Informasi belum dapat dimuat" : title}</LocalizedCopy></h3>
+    {!loading && <p><LocalizedCopy>{error ? "Periksa koneksi internet lalu coba lagi." : note}</LocalizedCopy></p>}
+    {!loading && <LocalizedButton type="button" className="secondary-button" onClick={onRetry}><LocalizedCopy>{error ? "Coba lagi" : "Muat ulang"}</LocalizedCopy></LocalizedButton>}
+  </div>;
+}
 
 function AcademyPrice({
   program,
@@ -317,6 +329,11 @@ export default function PlatformDiscovery({
   const [streams, setStreams] = useState<PetHubStream[]>([]);
   const [posts, setPosts] = useState<PetHubPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [feedLoading, setFeedLoading] = useState(true);
+  const [feedError, setFeedError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const retryCatalog = () => setLoadAttempt((attempt) => attempt + 1);
   const [selectedProgram, setSelectedProgram] = useState<AcademyProgram | null>(
     null,
   );
@@ -375,8 +392,13 @@ export default function PlatformDiscovery({
     node.scrollTo({ left: reachedEnd ? 0 : nextLeft, behavior: "smooth" });
   };
   useEffect(() => {
-    void Promise.resolve().then(() => setLoading(true));
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) { setLoading(true); setLoadError(false); }
+    });
     const failed = (label: string) => (error: unknown) => {
+      if (!active) return;
+      setLoadError(true);
       notify(
         error instanceof Error ? error.message : `${label} belum dapat dimuat`,
       );
@@ -389,35 +411,38 @@ export default function PlatformDiscovery({
         ),
       ])
         .then(([programValue, trainerValue]) => {
+          if (!active) return;
           setPrograms(programValue.data);
           setAcademyTrainers(trainerValue.data);
         })
         .catch(failed("Program academy"))
-        .finally(() => setLoading(false));
-      return;
+        .finally(() => { if (active) setLoading(false); });
+      return () => { active = false; };
     }
     if (mode === "events") {
       void getPetEvents()
-        .then((value) => setEvents(value.data))
+        .then((value) => { if (active) setEvents(value.data); })
         .catch(failed("Pet event"))
-        .finally(() => setLoading(false));
-      return;
+        .finally(() => { if (active) setLoading(false); });
+      return () => { active = false; };
     }
     if (mode === "petspot") {
       void getPetSpots()
-        .then((value) => setSpots(value.data))
+        .then((value) => { if (active) setSpots(value.data); })
         .catch(failed("PetSpot"))
-        .finally(() => setLoading(false));
-      return;
+        .finally(() => { if (active) setLoading(false); });
+      return () => { active = false; };
     }
     void Promise.all([getPetHubStreams(), getPetHubStories()])
       .then(([stream, story]) => {
+        if (!active) return;
         setStreams(stream.data);
         setStories(story.data);
       })
       .catch(failed("PetHub"))
-      .finally(() => setLoading(false));
-  }, [mode, notify, trainerSpecies]);
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [mode, notify, trainerSpecies, loadAttempt]);
 
   async function openTrainer(trainer: AcademyTrainer) {
     setSelectedTrainer(trainer);
@@ -441,25 +466,27 @@ export default function PlatformDiscovery({
     const type =
       hubTab === "Reels" ? "video" : hubTab === "Thread" ? "thread" : "";
     const tab = hubTab === "Mengikuti" ? "following" : "for_you";
-    void Promise.resolve().then(() => setLoading(true));
+    void Promise.resolve().then(() => { if (active) { setFeedLoading(true); setFeedError(false); } });
     void getPetHubFeed(sharedPostID ? { post_id: sharedPostID } : { tab, type })
       .then((response) => {
         if (active) setPosts(response.data);
       })
-      .catch((error) =>
+      .catch((error) => {
+        if (!active) return;
+        setFeedError(true);
         notify(
           error instanceof Error
             ? error.message
             : "Feed PetHub belum dapat dimuat",
-        ),
-      )
+        );
+      })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active) setFeedLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [hubTab, mode, notify, ownerEmail, sharedPostID]);
+  }, [hubTab, mode, notify, ownerEmail, sharedPostID, loadAttempt]);
   const categorySpots = useMemo(
     () =>
       spots.filter(
@@ -735,7 +762,8 @@ export default function PlatformDiscovery({
           </span>
         </div>
         <div id="academy-catalog" className="academy-grid">
-          <LocalizedCopy>{programs
+          <CatalogStatus loading={loading} error={loadError} empty={!programs.some((item) => filter === "all" || item.category === filter)} title="Belum ada program pada kategori ini" note="Pilih kategori lain atau kembali lagi untuk melihat program terbaru." onRetry={retryCatalog} />
+          <LocalizedCopy>{(loading || loadError ? [] : programs)
             .filter((item) => filter === "all" || item.category === filter)
             .map((item, index) => {
               const participantCount = item.participant_count ?? 0;
@@ -856,7 +884,7 @@ export default function PlatformDiscovery({
     const featured = events.find((item) => item.featured) || events[0];
     return (
       <>
-        {featured && (
+        {!loading && !loadError && featured && (
           <section
             className={`event-banner ${featured.banner_url ? "has-media" : ""}`}
           >
@@ -920,7 +948,8 @@ export default function PlatformDiscovery({
           </div>
         </div>
         <div className="event-grid">
-          <LocalizedCopy>{events.map((item, index) => {
+          <CatalogStatus loading={loading} error={loadError} empty={!events.length} title="Belum ada event mendatang" note="Event yang tersedia akan muncul di sini. Cek kembali untuk kegiatan bersama pet-mu." onRetry={retryCatalog} />
+          <LocalizedCopy>{(loading || loadError ? [] : events).map((item, index) => {
             const eventImages = [
               ...new Set(
                 [item.banner_url, ...(item.image_urls ?? [])].filter(Boolean),
@@ -1095,9 +1124,8 @@ export default function PlatformDiscovery({
           <span><LocalizedCopy>{categorySpots.length}</LocalizedCopy><LocalizedCopy>{" tempat ditemukan"}</LocalizedCopy></span>
         </div>
         <div className="petspot-grid" aria-label="Daftar tempat ramah pet">
-          <LocalizedCopy>{loading ? (
-            <div role="status" className="petspot-loading"><LocalizedCopy>{"Memuat tempat dari API…"}</LocalizedCopy></div>
-          ) : (
+          <CatalogStatus loading={loading} error={loadError} empty={!categorySpots.length} title="Tempat belum ditemukan" note="Ubah kata kunci, kategori, atau radius." onRetry={retryCatalog} />
+          <LocalizedCopy>{loading || loadError ? null : (
             categorySpots.map((item) => (
               <article className="petspot-card" key={item.id}>
                 <WorldImageGallery
@@ -1150,13 +1178,6 @@ export default function PlatformDiscovery({
               </article>
             ))
           )}</LocalizedCopy>
-          <LocalizedCopy>{!loading && !categorySpots.length ? (
-            <div className="empty-state">
-              <span><LocalizedCopy>{"⌖"}</LocalizedCopy></span>
-              <h3><LocalizedCopy>{"Tempat belum ditemukan"}</LocalizedCopy></h3>
-              <p><LocalizedCopy>{"Ubah kata kunci, kategori, atau radius."}</LocalizedCopy></p>
-            </div>
-          ) : null}</LocalizedCopy>
         </div>
         {selectedSpot && (
           <SpotModal
@@ -1285,8 +1306,8 @@ export default function PlatformDiscovery({
               </LocalizedButton>
             ))}</LocalizedCopy>
           </div>
-          <LocalizedCopy>{loading ? (
-            <div className="empty-state compact"><LocalizedCopy>{"Memuat feed PetHub…"}</LocalizedCopy></div>
+          <LocalizedCopy>{feedLoading || feedError ? (
+            <CatalogStatus loading={feedLoading} error={feedError} empty={false} title="Feed ini masih kosong" note="Ikuti channel atau terbitkan thread pertama." onRetry={retryCatalog} />
           ) : posts.length ? (
             posts.map((post) => (
               <article
@@ -2536,10 +2557,13 @@ function Modal({
   close: () => void;
   className: string;
 }) {
+  const dialog = useDialogFocus<HTMLElement>(true, close);
   return (
     <div className="modal-overlay" onMouseDown={close}>
       <section
         className={`modal ${className}`}
+        ref={dialog}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Detail Slivadoc"

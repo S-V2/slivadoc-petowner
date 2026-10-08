@@ -21,7 +21,11 @@ The app's tabs are Beranda, Belanja, Komunitas and Aktivitas, plus Layanan, Sliv
 | Veterinary consultation with QRIS | MOB-06, MOB-07 | Beranda's second quick action, "Tanya Dokter" (`src/screens/HomeScreen.tsx:319`), and Aktivitas' "Konsultasi" both open it (`App.tsx:493-496,708-710`). It is the paid flow the web catalog marks critical (slivadoc-frontend `docs/e2e-test-cases.md` CON-01 to CON-09). |
 | Shop checkout with Lion Parcel shipping and QRIS | MOB-08, MOB-09 | The Belanja tab is a bottom tab and the app's largest screen (`src/screens/MarketplaceScreen.tsx`). The flow moves money and stock: payment commits the stock reservation (slivadoc-backend `internal/modules/operations/payments.go:458-469`). |
 
-**Adding a pet is not one of the four.** The mobile app has no add-pet screen. "Tambah pet" (`src/components/ui.tsx:159-183`) and every pet-required prompt call `requirePet`, which only shows a toast and opens Akun (`App.tsx:449-457`). Akun has no pet form (`src/screens/ProfileScreen.tsx:63-131`), and `src/api.ts` has no call to `POST /api/v1/petowner/pets`. The backend route exists (slivadoc-backend `internal/modules/operations/handler.go:340`), and the web app calls it (`app/lib/platform-api.ts:1530` at the repository root). An owner who registers in the app can only browse until they add a pet on the web. MOB-03 records this outcome, and [Automation blockers and gaps](#automation-blockers-and-gaps) lists it.
+**Adding a pet is part of registration readiness.** `src/components/AddPetSheet.tsx` now opens from Akun and the pet-required prompts. It loads the live species catalogue, uses Slivadoc's searchable picker and calendar, validates identity/weight/birthday, calls `createMobilePet` (`POST /api/v1/petowner/pets`), and refreshes bootstrap before selecting the new pet. If creation succeeds but bootstrap refresh fails, its retry only refreshes the profile and does not create another pet. MOB-03 exercises this prerequisite before a new owner can transact.
+
+## Current component automation
+
+`npm run test:ui` uses the Expo Jest preset and React Native Testing Library. It covers native form validation, species loading/error/retry, English labels and searchable choices, leap-day selection and date bounds, QR expiry, and the first-pet authenticated HTTP request plus bootstrap cache refresh. Pet Owner CI runs it after the existing mobile typecheck/network tests. These tests mock native services and HTTP responses; they do not establish the Maestro/database outcomes below. Browser automation separately checks 66 web cases, including responsive controls and loading/error/empty recovery.
 
 ## Shared test data
 
@@ -88,8 +92,7 @@ No workflow file exists yet. The planned job:
 2. Enter a wrong 6-digit code and tap "Verifikasi & aktifkan akun". **Expected:** `POST /api/v1/auth/register/verify-otp` (`src/api.ts:726-731`; backend `auth.go:107,275`) fails with an error toast, and the sheet stays in verification (`App.tsx:1024-1036,1588-1595`).
 3. Read the code from the single Mailpit message sent to this run's address, enter it and submit. **Expected:** Verification succeeds and the toast shows the backend's message. The sheet returns to "Masuk" with the email kept and the password cleared (`App.tsx:1590-1594`).
 4. Enter the password and sign in. **Expected:** Akun shows the new name and Hewan 0. Belanja shows "Mode lihat saja" with "Tambah pet" (`src/components/ui.tsx:159-183`; `src/screens/MarketplaceScreen.tsx:1010`).
-5. Tap "Tambah pet". **Expected:** The owner can create a first pet and then transact.
-   **Known gap:** the app shows the toast "Tambahkan profil pet terlebih dahulu…" and opens Akun, which has no pet form (`App.tsx:449-457`). This step fails until the app gains an add-pet screen.
+5. Tap "Tambah pet". **Expected:** "Tambah profil hewan" opens. Enter a name, choose a species from the live catalogue, and save. `POST /api/v1/petowner/pets` returns 201 and bootstrap reloads; the new pet is selected, listed in Akun, and the browsing-only notice disappears. A failed save stays in the form with feedback. If saving succeeded but reloading failed, "Muat ulang profil" retries the reload without a second create request.
 
 ## Clinic service booking with QRIS (critical)
 
@@ -179,7 +182,7 @@ These were found while writing the cases. All are in `mobile/` unless prefixed. 
 
 **Product gaps the cases record as failures:**
 
-10. There is no add-pet flow, so a newly registered owner can only browse (MOB-03 step 5; `App.tsx:449-457`, `src/screens/ProfileScreen.tsx:63-131`).
+10. The native add-pet form is implemented; MOB-03 still needs the isolated emulator/stack run to establish end-to-end coverage. Component and HTTP-client tests cover validation, taxonomy selection, create/bootstrap, and retry without duplicate creation.
 11. A vet consultation is created without the pet (MOB-06 step 4; `src/api.ts:1568-1580`).
 12. The active pet is always the first one returned (`App.tsx:262`). "Ganti profil pet aktif" only shows a toast (`src/screens/HomeScreen.tsx:415`), so a multi-pet owner cannot book or consult for their second pet.
 13. A paid consultation cannot be attended in the app, because there is no consultation room ([MOB-07](#mob-07--paying-the-consultation-marks-it-paid-and-lists-it)).

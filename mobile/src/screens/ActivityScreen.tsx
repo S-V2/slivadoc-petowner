@@ -653,12 +653,12 @@ function ActivityDetailSheet({
   const place = [item.address, item.city].filter(Boolean).join(", ");
   return <>
     <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
+      <Pressable accessible={false} style={styles.backdrop} onPress={onClose}>
         <BottomSheetSafeArea
           style={styles.sheetSafeArea}
         >
           <Pressable
-            style={styles.sheet}
+            accessible={false} style={styles.sheet}
             onPress={(event) => event.stopPropagation()}
           >
             <View style={styles.sheetHandle} />

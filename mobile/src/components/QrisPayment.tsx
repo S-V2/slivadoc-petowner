@@ -5,7 +5,7 @@ import {
   ActivityIndicator,
   Image,
   Modal,
-
+  ScrollView,
   StyleSheet,
   View,
 } from "react-native";
@@ -183,6 +183,7 @@ function MobileQrisModalState({
             >
               <Ionicons name="close" size={21} color={colors.text} />
             </Pressable>
+            <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
             {current.status === "paid" ? (
               <View style={styles.center}>
                 <View style={styles.success}>
@@ -256,6 +257,7 @@ function MobileQrisModalState({
                 </Text>
               </View>
             )}
+            </ScrollView>
           </View>
         </BottomSheetSafeArea>
       </View>
@@ -317,7 +319,8 @@ const styles = StyleSheet.create({
   wrap: { maxHeight: "88%" },
   sheet: {
     position: "relative",
-    minHeight: 430,
+    flexShrink: 1,
+    minHeight: 0,
     padding: 18,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -327,6 +330,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     ...shadow,
   },
+  scroll: { flexShrink: 1 },
+  content: { paddingBottom: 8 },
   handle: {
     alignSelf: "center",
     width: 42,

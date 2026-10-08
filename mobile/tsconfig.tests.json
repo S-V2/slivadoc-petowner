@@ -12,7 +12,9 @@
     "noEmit": true
   },
   "include": [
-    "tests/**/*.mts"
+    "tests/**/*.mts",
+    "tests/ui/**/*.ts",
+    "tests/ui/**/*.tsx"
   ],
   "exclude": [
     "node_modules"

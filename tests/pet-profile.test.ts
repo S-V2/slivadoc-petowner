@@ -28,6 +28,8 @@ test("English pet headings preserve names and correctly translate age and home c
   assert.equal(translateText("Untuk Milo", "en"), "For Milo");
   assert.equal(translateText("AKUN & PERAWATAN", "en"), "ACCOUNT & CARE");
   assert.equal(translateText("ANGGOTA KELUARGA BARU", "en"), "NEW FAMILY MEMBER");
+  assert.equal(translateText("Menit", "en"), "Minute");
+  assert.equal(translateText("menit", "en"), "minutes");
   assert.equal(translateText("Buka kesehatan Nala", "en"), "Open Nala's health");
   for (const [source, translated] of [["Marmut", "Guinea pig"], ["Mencit", "Mouse"], ["Kura-kura air", "Turtle"], ["Kalajengking", "Scorpion"], ["Spesies lain", "Other species"]]) assert.equal(translateText(source!, "en"), translated);
   assert.equal(translateText("Buka PetSpot", "en"), "Open PetSpot");

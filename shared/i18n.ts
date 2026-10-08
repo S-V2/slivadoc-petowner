@@ -2,9 +2,10 @@ import { englishGenerated } from "./english-generated.ts";
 import { cachedTranslation, requestTranslation } from "./translation-store.ts";
 import { englishCopy as baseCopy } from "./english-copy.ts";
 import { englishExtra } from "./english-extra.ts";
-const englishCopy = { ...englishGenerated, ...baseCopy, ...englishExtra };
+const reviewedCopy = { ...baseCopy, ...englishExtra };
 export type SlivaLanguage = "id" | "en";
-const folded = new Map([...Object.entries(englishGenerated), ...Object.entries(baseCopy), ...Object.entries(englishExtra)].map(([key, value]) => [key.toLocaleLowerCase("id"), value]));
+const reviewedFolded = new Map(Object.entries(reviewedCopy).map(([key, value]) => [key.toLocaleLowerCase("id"), value]));
+const generatedFolded = new Map(Object.entries(englishGenerated).map(([key, value]) => [key.toLocaleLowerCase("id"), value]));
 const englishOutputs = new Set([...Object.values(baseCopy), ...Object.values(englishExtra)].map(value => value.toLocaleLowerCase("en")));
 export function translateText(value: string, language: SlivaLanguage, forceContent = false): string {
   if (language === "id" || !value.trim()) return value;
@@ -24,8 +25,12 @@ export function translateText(value: string, language: SlivaLanguage, forceConte
   const core = value.trim();
   // Primitives can nest: an English label must never be translated a second time.
   if (englishOutputs.has(core.toLocaleLowerCase("en"))) return value;
-  // Reviewed copy wins over generated text even when a heading is uppercase.
-  const exact = folded.get(core.toLocaleLowerCase("id")) ?? (Object.prototype.hasOwnProperty.call(englishCopy, core) ? englishCopy[core] : undefined);
+  // Preserve reviewed case-specific labels (Menit / menit), then use reviewed
+  // headings before generated copy when their capitalization differs.
+  const exact = (Object.prototype.hasOwnProperty.call(reviewedCopy, core) ? reviewedCopy[core] : undefined)
+    ?? reviewedFolded.get(core.toLocaleLowerCase("id"))
+    ?? (Object.prototype.hasOwnProperty.call(englishGenerated, core) ? englishGenerated[core] : undefined)
+    ?? generatedFolded.get(core.toLocaleLowerCase("id"));
   let translated: string | undefined = exact;
   if (!translated) {
     const patterns: Array<[RegExp, (match: RegExpMatchArray) => string]> = [

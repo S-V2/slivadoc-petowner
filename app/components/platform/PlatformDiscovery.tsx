@@ -41,6 +41,8 @@ import {
   getPetHubStories,
   getPetHubStreams,
   getPetSpots,
+  getPetshipPlaces,
+  getPublicLostPets,
   reactPetHubPost,
   likePetHubPost,
   savePetHubPost,
@@ -57,10 +59,13 @@ import {
   type PetHubStory,
   type PetHubStream,
   type PetSpot,
+  type PetshipPlace,
+  type PublicLostPet,
   type PaymentIntent,
   type ActivityType,
 } from "../../lib/platform-api";
 import { QrisPaymentPanel, PaymentMethodPicker } from "../payments/QrisPayment";
+import GeoMap, { type GeoCircle, type GeoMarker, type GeoPoint } from "./GeoMap";
 import "../../event-checkout.css";
 import "../../petspot-experience.css";
 
@@ -351,6 +356,11 @@ export default function PlatformDiscovery({
   const [spotSearch, setSpotSearch] = useState("");
   const [maxDistance, setMaxDistance] = useState(25);
   const [hubTab, setHubTab] = useState("Untuk Kamu");
+  const [nearMe, setNearMe] = useState<GeoPoint | null>(null);
+  const [petshipPlaces, setPetshipPlaces] = useState<PetshipPlace[]>([]);
+  const [lostPets, setLostPets] = useState<PublicLostPet[]>([]);
+  const [showPetship, setShowPetship] = useState(false);
+  const [showLostPets, setShowLostPets] = useState(false);
   const [sharedPostID, setSharedPostID] = useState(() =>
     typeof window === "undefined"
       ? ""
@@ -432,6 +442,13 @@ export default function PlatformDiscovery({
     }
   }
   useEffect(() => {
+    if (mode !== "petspot") return;
+    const failed = (label: string) => (error: unknown) =>
+      notify(error instanceof Error ? error.message : `${label} belum dapat dimuat`);
+    void getPetshipPlaces().then((value) => setPetshipPlaces(value.data)).catch(failed("Lokasi Petship"));
+    void getPublicLostPets().then((value) => setLostPets(value.data)).catch(failed("Laporan hewan hilang"));
+  }, [mode, notify]);
+  useEffect(() => {
     if (selectedProgram)
       void trackAcademyProgramClick(selectedProgram.id).catch(() => undefined);
   }, [selectedProgram]);
@@ -471,6 +488,59 @@ export default function PlatformDiscovery({
       ),
     [spots, filter, spotSearch, maxDistance],
   );
+  const geoMarkers = useMemo<GeoMarker[]>(
+    () => [
+      ...categorySpots.map((item) => ({
+        id: `spot-${item.id}`,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        label: item.name,
+        onClick: () => setSelectedSpot(item),
+      })),
+      ...(nearMe ? [{ id: "near-me", ...nearMe, label: "Posisimu", color: "#1d4ed8" }] : []),
+      ...(showPetship
+        ? petshipPlaces.map((item) => ({
+            id: `petship-${item.id}`,
+            latitude: item.latitude,
+            longitude: item.longitude,
+            label: `${item.name} · Petship`,
+            color: "#8b5cf6",
+          }))
+        : []),
+      ...(showLostPets
+        ? lostPets.map((item) => ({
+            id: `lost-${item.id}`,
+            latitude: item.latitude,
+            longitude: item.longitude,
+            label: `${item.name} (${item.species}) hilang di ${item.last_seen_location}`,
+            color: "#e8504a",
+          }))
+        : []),
+    ],
+    [categorySpots, nearMe, showPetship, petshipPlaces, showLostPets, lostPets],
+  );
+  const geoCircles = useMemo<GeoCircle[]>(
+    () => [
+      ...(showPetship
+        ? petshipPlaces.map((item) => ({
+            id: `petship-${item.id}`,
+            latitude: item.latitude,
+            longitude: item.longitude,
+            radiusM: item.geofence_radius_m,
+            color: "#8b5cf6",
+          }))
+        : []),
+      ...(showLostPets
+        ? lostPets.map((item) => ({
+            id: `lost-${item.id}`,
+            latitude: item.latitude,
+            longitude: item.longitude,
+            radiusM: item.radius_km * 1000,
+          }))
+        : []),
+    ],
+    [showPetship, petshipPlaces, showLostPets, lostPets],
+  );
   const relative = (value: string) => {
     const minutes = Math.max(
       1,
@@ -495,6 +565,7 @@ export default function PlatformDiscovery({
             category: filter === "all" ? undefined : filter,
             max_distance_km: maxDistance,
           });
+          setNearMe({ latitude: position.coords.latitude, longitude: position.coords.longitude });
           setSpots(response.data);
           notify("PetSpot diurutkan berdasarkan koordinat perangkat");
         } catch (error) {
@@ -1157,6 +1228,19 @@ export default function PlatformDiscovery({
               <p><LocalizedCopy>{"Ubah kata kunci, kategori, atau radius."}</LocalizedCopy></p>
             </div>
           ) : null}</LocalizedCopy>
+          <div className="spot-map-panel">
+            <div className="spot-map-layers">
+              <label>
+                <input type="checkbox" checked={showPetship} onChange={(event) => setShowPetship(event.target.checked)} />
+                <LocalizedCopy>{`Lokasi Petship (${petshipPlaces.length})`}</LocalizedCopy>
+              </label>
+              <label>
+                <input type="checkbox" checked={showLostPets} onChange={(event) => setShowLostPets(event.target.checked)} />
+                <LocalizedCopy>{`Hewan hilang (${lostPets.length})`}</LocalizedCopy>
+              </label>
+            </div>
+            <GeoMap className="spot-map" markers={geoMarkers} circles={geoCircles} />
+          </div>
         </div>
         {selectedSpot && (
           <SpotModal

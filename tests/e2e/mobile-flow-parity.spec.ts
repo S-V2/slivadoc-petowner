@@ -50,6 +50,7 @@ async function app(page: Page, options: { authenticated?: boolean; withPet?: boo
       }
       return json({ ticket_id: messages.length ? messages[0].ticket_id : null, messages });
     }
+    if (path === "/api/v1/public/petship/places") return json({ data: [], count: 0, privacy: "Petship hanya membagikan lokasi tempat, bukan koordinat pengguna." });
     if (path === "/api/v1/petowner/marketplace/chats" || path.startsWith("/api/v1/public/")) return json({ data: [], count: 0 });
     return route.fulfill({ status: 404, body: "Unmocked API route" });
   });

@@ -27,6 +27,20 @@ for (const width of [320, 390]) test(`World selection stays at the left edge at 
     expect(await page.evaluate(() => scrollY)).toBe(0);
   }
 });
+test("World tabs reset when expanding to desktop and restore the selected tab on mobile", async ({ page }) => {
+  await catalog(page); await page.setViewportSize({ width: 320, height: 900 }); await page.goto("/?view=documents");
+  const nav = page.locator(".petowner-world-nav");
+  const selected = nav.getByRole("button", { name: "PAW Dating", exact: true });
+  await selected.click();
+  await expect.poll(() => nav.evaluate(node => node.scrollLeft)).toBeGreaterThan(0);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect.poll(() => nav.evaluate(node => node.scrollLeft)).toBe(0);
+  await expect(nav.getByRole("button", { name: "Pet Academy", exact: true })).toBeInViewport({ ratio: 1 });
+  await expect(selected).toHaveAttribute("aria-current", "page");
+  await page.setViewportSize({ width: 390, height: 900 });
+  await expect.poll(() => selected.evaluate(node => node.getBoundingClientRect().left - node.parentElement!.getBoundingClientRect().left)).toBeLessThan(10);
+  await expect(selected).toBeInViewport({ ratio: 1 });
+});
 test("Event search and categories filter the catalog and recover from no matches", async ({ page }) => {
   await catalog(page); await page.setViewportSize({ width: 390, height: 900 }); await page.goto("/?view=events");
   await expect(page.locator(".event-card")).toHaveCount(2);

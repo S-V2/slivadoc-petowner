@@ -36,6 +36,10 @@ for (const viewport of [{ width: 320, height: 700 }, { width: 812, height: 375 }
     await trigger.click();
     const dialog = page.getByRole("dialog", { name: "Semua fitur Slivadoc", exact: true });
     const buttons = dialog.getByRole("button");
+    const labelSizes = await dialog.locator(".mobile-more-grid b").evaluateAll((labels) => labels.map((label) => parseFloat(getComputedStyle(label).fontSize)));
+    expect(labelSizes.length).toBeGreaterThan(0);
+    expect(Math.min(...labelSizes)).toBeGreaterThanOrEqual(13);
+    expect(await dialog.locator("header span").evaluate((label) => parseFloat(getComputedStyle(label).fontSize))).toBeGreaterThanOrEqual(10);
     await expect(buttons.first()).toBeFocused();
     await buttons.first().press("Shift+Tab");
     await expect(buttons.last()).toBeFocused();

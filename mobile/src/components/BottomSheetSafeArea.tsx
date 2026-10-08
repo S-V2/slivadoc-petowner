@@ -1,5 +1,5 @@
-import { StyleSheet } from "react-native";
-import { SafeAreaView, type SafeAreaViewProps } from "react-native-safe-area-context";
+import { StyleSheet, View, type ViewProps } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../theme";
 
 // The sheet paints its safe-area padding so the page never shows below it.
@@ -7,12 +7,20 @@ import { colors } from "../theme";
 export function BottomSheetSafeArea({
   style,
   ...props
-}: Omit<SafeAreaViewProps, "edges">) {
+}: ViewProps) {
+  const insets = useSafeAreaInsets();
   return (
-    <SafeAreaView
+    <View
       {...props}
-      edges={["bottom", "left", "right"]}
-      style={[styles.surface, style]}
+      style={[
+        styles.surface,
+        style,
+        {
+          paddingBottom: insets.bottom,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      ]}
     />
   );
 }

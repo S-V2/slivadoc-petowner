@@ -3275,6 +3275,8 @@ const styles = StyleSheet.create({
   notificationDetailInfoText: { flex: 1, color: colors.muted, fontSize: 9, lineHeight: 14 },
   loginSheetWrap: { maxHeight: "88%", width: "100%", maxWidth: 720, alignSelf: "center",  },
   loginSheet: {
+    flexShrink: 1,
+    minHeight: 0,
     maxHeight: "100%",
     paddingHorizontal: 16,
     paddingBottom: 20,
@@ -3356,6 +3358,8 @@ const styles = StyleSheet.create({
   },
   legalSheetWrap: {width: "100%", maxWidth: 720, alignSelf: "center",  maxHeight: "82%" },
   legalSheet: {
+    flexShrink: 1,
+    minHeight: 0,
     maxHeight: "100%",
     gap: 16,
     paddingHorizontal: 16,
@@ -3545,6 +3549,8 @@ const styles = StyleSheet.create({
   },
   bookingWrap: { maxHeight: "88%", width: "100%", maxWidth: 720, alignSelf: "center",  },
   bookingSheet: {
+    flexShrink: 1,
+    minHeight: 0,
     maxHeight: "100%",
     paddingHorizontal: 16,
     borderTopLeftRadius: 24,

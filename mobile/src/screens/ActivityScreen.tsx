@@ -2292,6 +2292,8 @@ const styles = StyleSheet.create({
   invoiceClose: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.white },
   invoiceWebView: { flex: 1, backgroundColor: colors.white },
   sheet: {
+    flexShrink: 1,
+    minHeight: 0,
     overflow: "hidden",
     maxHeight: "100%",
     borderTopLeftRadius: 28,

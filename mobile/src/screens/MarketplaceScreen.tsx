@@ -3785,6 +3785,8 @@ const styles = StyleSheet.create({
   sheetSafeArea: {maxWidth: 720, alignSelf: "center",  width: "100%", maxHeight: "88%" },
   sheetSafeAreaFill: { height: "88%" },
   sheet: {
+    flexShrink: 1,
+    minHeight: 0,
     overflow: "hidden",
     maxHeight: "100%",
     borderTopLeftRadius: 28,

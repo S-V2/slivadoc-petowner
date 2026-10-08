@@ -7662,7 +7662,8 @@ button:disabled,
 }
 .mobile-more-sheet header span {
   color: var(--sky-600);
-  font-size: 7px;
+  font-size: 10px;
+  line-height: 1.4;
   font-weight: 900;
   letter-spacing: 0.1em;
 }
@@ -7708,7 +7709,9 @@ button:disabled,
   background: #e8f7ff;
 }
 .mobile-more-sheet b {
-  font-size: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
   text-align: center;
 }
 .mobile-more-sheet em {

@@ -64,3 +64,13 @@ test("brand logos are non-interactive, animated with pause, and static with redu
   expect(await section.locator(".pet-brand-track").evaluate(node => getComputedStyle(node).animationName)).toBe("none");
   await expect(section.getByRole("img", { name: "Royal Canin", exact: true })).toBeVisible();
 });
+test("the brand marquee covers a wide viewport throughout the complete animation loop", async ({ page }) => {
+  await catalog(page); await page.setViewportSize({ width: 1920, height: 1000 }); await page.goto("/?view=shop");
+  const remaining = await page.locator(".pet-brand-window").evaluate(node => {
+    const track = node.querySelector(".pet-brand-track")!, group = node.querySelector(".pet-brand-group")!;
+    return track.getBoundingClientRect().width - group.getBoundingClientRect().width - node.clientWidth;
+  });
+  expect(remaining).toBeGreaterThanOrEqual(0);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(page.getByRole("img", { name: "Kucingku", exact: true })).toBeInViewport({ ratio: 1 });
+});

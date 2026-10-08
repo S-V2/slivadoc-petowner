@@ -4,6 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import type * as MapLibre from "maplibre-gl";
 import type { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+// MapLibre v6 fetches its tile-decode worker relative to its own chunk URL, which
+// bundlers do not emit. `?url` ships the file through the bundler so the URL is
+// version-locked to the installed maplibre-gl.
+import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 
 export type GeoMarker = {
   id: string;
@@ -74,6 +78,7 @@ export default function GeoMap({ markers = [], circles = [], pin = null, onPinCh
       ]);
       if (cancelled || !box.current) return;
       if (!protocolReady) {
+        lib.setWorkerUrl(maplibreWorkerUrl);
         lib.addProtocol("pmtiles", new Protocol().tile);
         protocolReady = true;
       }

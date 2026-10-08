@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, expect, jest, test } from "@jest/globals";
 import { act, cleanup, fireEvent, render, screen, userEvent, waitFor } from "@testing-library/react-native";
-import { AccessibilityInfo, AppState, ScrollView } from "react-native";
+import { AccessibilityInfo, AppState, Dimensions, ScrollView, StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { ReactNode } from "react";
 import * as SecureStore from "expo-secure-store";
@@ -124,4 +124,16 @@ test("reduced-motion brand discovery is static and brand logos are not buttons",
   await render(<PetBrandMarquee/>, { wrapper: Providers });
   expect(screen.getByLabelText("Brand pet: Perro, Royal Canin, Kucingku")).toBeOnTheScreen();
   expect(screen.queryAllByRole("button")).toHaveLength(0);
+});
+test("the native brand marquee has enough trailing logos for a tablet throughout its loop", async () => {
+  const previous = { window: Dimensions.get("window"), screen: Dimensions.get("screen") };
+  const tablet = { width: 1280, height: 800, scale: 2, fontScale: 1 };
+  await act(() => Dimensions.set({ window: tablet, screen: tablet }));
+  try {
+    await render(<PetBrandMarquee/>, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Jeda animasi brand" })).toBeOnTheScreen());
+    const track = StyleSheet.flatten(screen.getByTestId("pet-brand-track", { includeHiddenElements: true }).props.style);
+    const group = StyleSheet.flatten(screen.getByTestId("pet-brand-group-0", { includeHiddenElements: true }).props.style);
+    expect(Number(track.width) - Number(group.width)).toBeGreaterThanOrEqual(tablet.width);
+  } finally { await act(() => Dimensions.set(previous)); }
 });

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, AppState, Easing, Image, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, Animated, AppState, Easing, Image, StyleSheet, View, useWindowDimensions } from "react-native";
 import { SvgXml } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import { royalCaninSvg } from "../../../shared/pet-brand-logos";
@@ -11,6 +11,8 @@ import { colors } from "../theme";
 
 export function PetBrandMarquee() {
   const { t } = useI18n();
+  const { width } = useWindowDimensions();
+  const copies = Math.max(2, Math.ceil(width / 384) + 1);
   const [offset] = useState(() => new Animated.Value(0));
   const phase = useRef(0);
   const [paused, setPaused] = useState(false), [reduced, setReduced] = useState(true), [foreground, setForeground] = useState(AppState.currentState === "active");
@@ -37,8 +39,8 @@ export function PetBrandMarquee() {
   return <View style={styles.section}>
     <View style={styles.heading}><View><Text style={styles.kicker}>DUNIA BRAND PET</Text><Text style={styles.title}>Kenali brand favoritmu.</Text></View>{!reduced && <Pressable accessibilityLabel={paused ? "Putar animasi brand" : "Jeda animasi brand"} onPress={() => setPaused(value => !value)} style={styles.pause}><Ionicons name={paused ? "play-outline" : "pause-outline"} size={17} color={colors.muted}/></Pressable>}</View>
     <View style={styles.window} accessible accessibilityLabel={`${t("Brand pet")}: Perro, Royal Canin, Kucingku`}>
-      <Animated.View style={[styles.track, reduced && { width: "100%" }, { transform: [{ translateX: reduced ? 0 : offset }] }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        {(reduced ? [0] : [0, 1]).map(copy => <View key={copy} style={[styles.group, reduced && { width: "100%" }]}>
+      <Animated.View testID="pet-brand-track" style={[styles.track, { width: copies * 384 }, reduced && { width: "100%" }, { transform: [{ translateX: reduced ? 0 : offset }] }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        {Array.from({ length: reduced ? 1 : copies }, (_, copy) => <View key={copy} testID={`pet-brand-group-${copy}`} style={[styles.group, reduced && { width: "100%" }]}>
           <View style={[styles.logo, reduced && { width: "33.33%" }]}><Image alt="" source={perroLogo} style={styles.image} resizeMode="contain"/></View>
           <View style={[styles.logo, reduced && { width: "33.33%" }]}><SvgXml xml={royalCaninSvg} width="85%" height={38}/></View>
           <View style={[styles.logo, reduced && { width: "33.33%" }]}><Image alt="" source={kucingkuLogo} style={styles.image} resizeMode="contain"/></View>

@@ -5,7 +5,8 @@ import { SlivaDatePicker } from "../SlivaDatePicker";
 
 import { usePetOwnerFlow } from "../PetOwnerFlow";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import GeoMap, { type GeoCircle, type GeoMarker } from "./GeoMap";
 import type { Pet } from "../../lib/petowner-domain";
 import {
   checkInPetship,
@@ -49,6 +50,24 @@ export function PetshipView({
   const { requirePet } = usePetOwnerFlow();
   const [places, setPlaces] = useState<PetshipPlace[]>([]);
   const [selected, setSelected] = useState<PetshipPlace | null>(null);
+  const placeMarkers = useMemo<GeoMarker[]>(() => places.map((place) => ({
+    id: `petship-${place.id}`,
+    latitude: place.latitude,
+    longitude: place.longitude,
+    label: `${place.name} · ${place.active_petowners} online`,
+    color: "#8b5cf6",
+    onClick: () => {
+      setSelected(place);
+      document.querySelector(`[data-place-card="${place.id}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    },
+  })), [places]);
+  const placeCircles = useMemo<GeoCircle[]>(() => places.map((place) => ({
+    id: `petship-${place.id}`,
+    latitude: place.latitude,
+    longitude: place.longitude,
+    radiusM: place.geofence_radius_m,
+    color: "#8b5cf6",
+  })), [places]);
   const [pawrents, setPawrents] = useState<PetshipPresence[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -166,11 +185,9 @@ export function PetshipView({
             <LocalizedButton className="secondary-button" onClick={() => void load()}><LocalizedCopy>{"↻ Update live"}</LocalizedCopy></LocalizedButton>
           </div>
         </div>
-        <span className="petship-radar"><LocalizedCopy>{"🐾"}</LocalizedCopy><i />
-          <b />
-        </span>
       </section>
-      <div className="petship-layout">
+      <div className="world-split">
+        <div className="world-split-list">
         <section className="panel">
           <div className="panel-heading">
             <div>
@@ -186,6 +203,7 @@ export function PetshipView({
                 <LocalizedButton
                   className={selected?.id === place.id ? "active" : ""}
                   key={place.id}
+                  data-place-card={place.id}
                   onClick={() => setSelected(place)}
                 >
                   <span>
@@ -238,6 +256,16 @@ export function PetshipView({
             )}</LocalizedCopy>
           </div>
         </section>
+        </div>
+        <div className="world-split-map">
+          <GeoMap
+            className="spot-map"
+            markers={placeMarkers}
+            circles={placeCircles}
+            activeId={selected ? `petship-${selected.id}` : null}
+            focus={selected ? { latitude: selected.latitude, longitude: selected.longitude } : null}
+          />
+        </div>
       </div>
     </div>
   );

@@ -32,6 +32,10 @@ type Props = {
   /** Draggable pin; click on map / drag emits coordinates through onPinChange. */
   pin?: GeoPoint | null;
   onPinChange?: (point: GeoPoint) => void;
+  /** Emphasizes one marker (hovered card) without recreating the others. */
+  activeId?: string | null;
+  /** Eases the camera to this point when it changes (clicked card / place). */
+  focus?: GeoPoint | null;
   className?: string;
 };
 
@@ -53,11 +57,13 @@ const ring = ({ longitude, latitude, radiusM }: GeoCircle) => {
   return [points];
 };
 
-export default function GeoMap({ markers = [], circles = [], pin = null, onPinChange, className }: Props) {
+export default function GeoMap({ markers = [], circles = [], pin = null, onPinChange, activeId = null, focus = null, className }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const libRef = useRef<typeof MapLibre | null>(null);
   const pinMarker = useRef<Marker | null>(null);
+  const markerRefs = useRef<Map<string, Marker>>(new Map());
+  const lastFocus = useRef<GeoPoint | null>(null);
   const pinChange = useRef(onPinChange);
   const [ready, setReady] = useState(false);
   const configured = Boolean(STYLE_URL && PMTILES_URL);
@@ -119,14 +125,35 @@ export default function GeoMap({ markers = [], circles = [], pin = null, onPinCh
     const map = mapRef.current;
     const lib = libRef.current;
     if (!ready || !map || !lib) return;
+    const registry = markerRefs.current;
+    registry.clear();
     const added = markers.map((item) => {
       const marker = new lib.Marker({ color: item.color ?? "#159de8" }).setLngLat([item.longitude, item.latitude]);
       if (item.label) marker.setPopup(new lib.Popup({ offset: 24 }).setText(item.label));
       if (item.onClick) marker.getElement().addEventListener("click", item.onClick);
+      registry.set(item.id, marker);
       return marker.addTo(map);
     });
-    return () => added.forEach((marker) => marker.remove());
+    return () => {
+      added.forEach((marker) => marker.remove());
+      registry.clear();
+    };
   }, [ready, markers]);
+
+  useEffect(() => {
+    if (!ready) return;
+    for (const [id, marker] of markerRefs.current) {
+      marker.getElement().classList.toggle("geo-marker-active", id === activeId);
+    }
+  }, [ready, activeId, markers]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || !focus) return;
+    if (lastFocus.current?.latitude === focus.latitude && lastFocus.current?.longitude === focus.longitude) return;
+    lastFocus.current = focus;
+    map.easeTo({ center: [focus.longitude, focus.latitude], zoom: Math.max(map.getZoom(), 15), duration: 500 });
+  }, [ready, focus]);
 
   useEffect(() => {
     const map = mapRef.current;

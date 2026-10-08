@@ -472,7 +472,7 @@ export function AdoptionExperience({
             ) : (
               <>
                 {!!selected.photo_urls?.length && (
-                  <PetHubPhotos
+                  <PetHubPhotos detail
                     urls={selected.photo_urls}
                     author={selected.name || "Pet"}
                   />

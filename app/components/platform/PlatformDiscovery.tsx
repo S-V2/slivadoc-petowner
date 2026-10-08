@@ -18,6 +18,8 @@ import {
 import { Icon } from "../Icon";
 import { DiscountBadge } from "../DiscountBadge";
 import { PetSpotDetail } from "./PetSpotDetail";
+import { WorldExplorer } from "../WorldExplorer";
+import { FacilityTicker } from "../FacilityTicker";
 import { PetHubComposer } from "./PetHubComposer";
 import { PetHubStoryView } from "./PetHubStoryView";
 import { petHubPhotos, petHubVideoPoster } from "../../lib/pethub-media";
@@ -85,6 +87,7 @@ type Props = {
   ownerName?: string;
   ownerEmail?: string;
   notify: (message: string) => void;
+  navigation?: ReactNode;
 };
 
 const money = new Intl.NumberFormat(petOwnerIntlLocale(), {
@@ -157,6 +160,8 @@ function WorldImageGallery({
   tag,
   className = "",
   onDoubleTap,
+  detail = false,
+  onOpen,
 }: {
   images: Array<string | undefined>;
   alt: string;
@@ -164,6 +169,8 @@ function WorldImageGallery({
   tag: string;
   className?: string;
   onDoubleTap?: () => void;
+  detail?: boolean;
+  onOpen?: () => void;
 }) {
   const gallery = [
     ...new Set(images.filter((url): url is string => Boolean(url?.trim()))),
@@ -178,13 +185,13 @@ function WorldImageGallery({
     [],
   );
   useEffect(() => {
-    if (gallery.length < 2 || expanded) return;
+    if (!detail || gallery.length < 2 || expanded) return;
     const timer = window.setInterval(
       () => setActive((current) => (current + 1) % gallery.length),
       1_000,
     );
     return () => window.clearInterval(timer);
-  }, [gallery.length, expanded]);
+  }, [gallery.length, expanded, detail]);
   if (!gallery.length)
     return (
       <div className={`modal-world-cover ${className}`}>
@@ -206,6 +213,7 @@ function WorldImageGallery({
           type="button"
           className="world-image-open"
           onClick={(event) => {
+            if (onOpen) { onOpen(); return; }
             if (!onDoubleTap) {
               setExpanded(true);
               return;
@@ -224,18 +232,18 @@ function WorldImageGallery({
             if (tapTimer.current) clearTimeout(tapTimer.current);
             onDoubleTap();
           }}
-          aria-label={`Buka galeri ${alt}`}
+          aria-label={onOpen ? `Buka detail ${alt}` : `Buka galeri ${alt}`}
         >
           <NextImage
-            src={gallery[active % gallery.length]}
-            alt={`${alt} ${(active % gallery.length) + 1}`}
+            src={gallery[detail ? active % gallery.length : 0]}
+            alt={alt}
             fill
             sizes="(max-width: 720px) 100vw, 680px"
             unoptimized
           />
         </LocalizedButton>
         <i><LocalizedCopy>{tag}</LocalizedCopy></i>
-        <LocalizedCopy>{gallery.length > 1 ? (
+        <LocalizedCopy>{detail && gallery.length > 1 ? (
           <div className="world-image-controls">
             <LocalizedButton
               type="button"
@@ -319,6 +327,7 @@ export default function PlatformDiscovery({
   ownerName = "Pet Parent",
   ownerEmail = "",
   notify,
+  navigation,
 }: Props) {
   const { requirePet } = usePetOwnerFlow();
   const [programs, setPrograms] = useState<AcademyProgram[]>([]);
@@ -852,9 +861,6 @@ export default function PlatformDiscovery({
                   (participantCount / Math.max(1, item.capacity)) * 100,
                 ),
               );
-              const galleryCount = new Set(
-                [item.cover_url, ...(item.image_urls ?? [])].filter(Boolean),
-              ).size;
               return (
                 <article
                   className="academy-card academy-card--experience"
@@ -866,9 +872,9 @@ export default function PlatformDiscovery({
                     onClick={() => setSelectedProgram(item)}
                     aria-label={`Lihat detail ${item.title}`}
                   >
-                    <LocalizedCopy>{item.cover_url ? (
+                    <LocalizedCopy>{(item.cover_url || item.image_urls?.[0]) ? (
                       <NextImage
-                        src={item.cover_url}
+                        src={(item.cover_url || item.image_urls?.[0])!}
                         alt={`Kelas ${item.title}`}
                         fill
                         sizes="(max-width: 720px) 100vw, 33vw"
@@ -892,7 +898,6 @@ export default function PlatformDiscovery({
                     </span>
                     <span className="academy-media-bottomline">
                       <small><LocalizedCopy>{item.academy_name}</LocalizedCopy></small>
-                      <LocalizedCopy>{galleryCount > 1 ? <i><LocalizedCopy>{"▧ "}</LocalizedCopy><LocalizedCopy>{galleryCount}</LocalizedCopy><LocalizedCopy>{" foto"}</LocalizedCopy></i> : null}</LocalizedCopy>
                     </span>
                   </LocalizedButton>
                   <div className="academy-card-body">
@@ -1028,11 +1033,6 @@ export default function PlatformDiscovery({
         <div className="event-grid">
           <CatalogStatus loading={loading} error={loadError} empty={!events.length} title="Belum ada event mendatang" note="Event yang tersedia akan muncul di sini. Cek kembali untuk kegiatan bersama pet-mu." onRetry={retryCatalog} />
           <LocalizedCopy>{(loading || loadError ? [] : events).map((item, index) => {
-            const eventImages = [
-              ...new Set(
-                [item.banner_url, ...(item.image_urls ?? [])].filter(Boolean),
-              ),
-            ];
             const remaining = Math.max(
               0,
               item.capacity - item.registered_count,
@@ -1051,9 +1051,9 @@ export default function PlatformDiscovery({
                 onClick={() => setSelectedEvent(item)}
               >
                 <div className={`event-art event-art-${index % 3}`}>
-                  <LocalizedCopy>{item.banner_url ? (
+                  <LocalizedCopy>{(item.banner_url || item.image_urls?.[0]) ? (
                     <NextImage
-                      src={item.banner_url}
+                      src={(item.banner_url || item.image_urls?.[0])!}
                       alt={`Event ${item.title}`}
                       fill
                       sizes="(max-width: 720px) 100vw, 33vw"
@@ -1081,9 +1081,7 @@ export default function PlatformDiscovery({
                       }).format(new Date(item.starts_at))}</LocalizedCopy>
                     </small>
                   </span>
-                  <LocalizedCopy>{eventImages.length > 1 ? (
-                    <em><LocalizedCopy>{"▧ "}</LocalizedCopy><LocalizedCopy>{eventImages.length}</LocalizedCopy><LocalizedCopy>{" foto"}</LocalizedCopy></em>
-                  ) : null}</LocalizedCopy>
+
                 </div>
                 <div>
                   <small><LocalizedCopy>{when(item.starts_at)}</LocalizedCopy></small>
@@ -1143,15 +1141,8 @@ export default function PlatformDiscovery({
   if (mode === "petspot")
     return (
       <>
-        <section className="petspot-head">
-          <div>
-            <span><LocalizedCopy>{"PET FRIENDLY DISCOVERY"}</LocalizedCopy></span>
-            <h2><LocalizedCopy>{"Ke mana hari ini bersama "}</LocalizedCopy><LocalizedCopy>{petName}</LocalizedCopy><LocalizedCopy>{"?"}</LocalizedCopy></h2>
-            <p><LocalizedCopy>{"Temukan pilihan ramah pet dari berbagai kota dan hitung jaraknya dari posisimu."}</LocalizedCopy></p>
-          </div>
-          <LocalizedButton type="button" onClick={() => void locate()}>
-            <Icon name="map" size={18} /><LocalizedCopy>{" Gunakan lokasi saya"}</LocalizedCopy></LocalizedButton>
-        </section>
+        <WorldExplorer>
+        {navigation}
         <div className="petspot-search">
           <label className="petspot-query">
             <Icon name="search" />
@@ -1177,6 +1168,7 @@ export default function PlatformDiscovery({
           <LocalizedButton onClick={() => void locate()}>
             <Icon name="map" size={16} /><LocalizedCopy>{" Cari dari posisi saya"}</LocalizedCopy></LocalizedButton>
         </div>
+        </WorldExplorer>
         <div className="world-toolbar spot-filter">
           <div>
             <LocalizedCopy>{[
@@ -1227,6 +1219,7 @@ export default function PlatformDiscovery({
                         : petSpotCategory(item.category)
                   }
                   className="petspot-card-gallery"
+                  onOpen={() => { setSelectedSpot(item); setMapFocus({ latitude: item.latitude, longitude: item.longitude }); }}
                 />
                 <LocalizedButton
                   type="button"
@@ -1248,16 +1241,12 @@ export default function PlatformDiscovery({
                   </p>
                   <p className="petspot-card-location">
                     <Icon name="map" size={13} />
-                    <LocalizedCopy>{item.city}</LocalizedCopy>
+                    <span><LocalizedCopy>{item.city}</LocalizedCopy>
                     <LocalizedCopy>{typeof item.distance_km === "number"
                       ? ` · ${item.distance_km.toFixed(1)} km`
-                      : ""}</LocalizedCopy>
+                      : ""}</LocalizedCopy></span>
                   </p>
-                  <div className="petspot-card-facilities">
-                    <LocalizedCopy>{(item.pet_facilities ?? []).slice(0, 2).map((facility) => (
-                      <span key={facility}><LocalizedCopy>{facility}</LocalizedCopy></span>
-                    ))}</LocalizedCopy>
-                  </div>
+                  <FacilityTicker facilities={item.facility_details?.length ? item.facility_details : item.pet_facilities ?? []}/>
                   <footer>
                     <b>
                       <LocalizedCopy>{item.reservable ? "Reservasi tersedia" : "Lihat tempat"}</LocalizedCopy>
@@ -1794,6 +1783,7 @@ function ProgramModal({
     <Modal close={close} className="world-modal">
       <div className="promo-media">
         <WorldImageGallery
+          detail
           images={[program.cover_url, ...(program.image_urls ?? [])]}
           alt={program.title}
           fallback="🎓"
@@ -2226,6 +2216,7 @@ function EventModal({
   return (
     <Modal close={close} className="world-modal">
       <WorldImageGallery
+        detail
         images={[item.banner_url, ...(item.image_urls ?? [])]}
         alt={item.title}
         fallback="🎪"
@@ -2473,6 +2464,7 @@ function SpotModal({
         notify={notify}
         gallery={(spot) => (
           <WorldImageGallery
+            detail
             images={[spot.cover_url, ...(spot.image_urls ?? [])]}
             alt={spot.name}
             fallback="⌖"

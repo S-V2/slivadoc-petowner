@@ -1,0 +1,27 @@
+.world-explorer{position:relative;isolation:isolate;margin:0 0 24px;padding:28px;border:1px solid #cce6f4;border-radius:28px;background:radial-gradient(ellipse at 95% 0,#daf7f4 0,transparent 44%),linear-gradient(130deg,#eff9ff,#fff 68%);box-shadow:0 12px 36px rgba(28,108,151,.06)}
+.world-explorer-identity{display:flex;align-items:center;gap:18px;margin-bottom:24px;color:var(--navy)}
+.world-explorer-kicker{font-size:10px;line-height:1.5;font-weight:800;letter-spacing:.14em;color:var(--sky-600)}
+.world-explorer-identity h1{margin:4px 0 6px;font-size:clamp(28px,3vw,38px);line-height:1.1;letter-spacing:-.04em;color:var(--navy)}
+.world-explorer-identity h1>span{color:var(--sky-600)}
+.world-explorer-identity p{margin:0;max-width:580px;font-size:14px;line-height:1.5;color:var(--muted)}
+.world-orbit-mark{position:relative;flex:0 0 64px;width:64px;height:64px;display:grid;place-items:center;border-radius:22px;background:#dff3ff;color:var(--sky-600)}
+.world-orbit-mark>i{position:absolute;inset:6px -3px;border:1.5px solid #69bbd7;border-radius:50%;transform:rotate(-28deg)}
+.world-orbit-mark>b{position:absolute;top:3px;right:4px;width:10px;height:10px;border:3px solid #fff;border-radius:50%;background:#27c2ab;box-shadow:0 0 0 3px #def9f4}
+.world-explorer .petowner-world-nav{margin:0;padding:0 0 18px;gap:8px;scrollbar-width:none}
+.world-explorer .petowner-world-nav button{min-height:48px;padding:12px 17px;border:1px solid #d9ebf5;border-radius:15px;background:rgba(255,255,255,.88);font-size:13px;font-weight:750;white-space:nowrap;color:var(--text)}
+.world-explorer .petowner-world-nav button.active{color:#fff;background:var(--sky-600);border-color:var(--sky-600);box-shadow:0 5px 12px rgba(0,109,164,.14)}
+.world-explorer .petspot-search{margin:0;padding:16px;grid-template-columns:minmax(0,1fr) 130px auto;align-items:end;border:1px solid #d7eaf5;border-radius:20px;background:#fff;box-shadow:0 6px 18px rgba(29,101,145,.05)}
+.world-explorer .petspot-query{height:52px;background:#f8fcff;font-size:14px}
+.world-explorer .petspot-query svg{flex:0 0 20px}
+.world-explorer .petspot-radius span{font-size:11px;line-height:1.5}
+.world-explorer .petspot-radius .sliva-select-trigger,.world-explorer .petspot-search>button{min-height:52px;height:auto;font-size:13px}
+.world-explorer .petspot-search>button{gap:8px;padding:12px 18px;border-radius:14px}
+.facility-ticker{display:flex;align-items:center;gap:8px;min-width:0;min-height:30px}
+.facility-ticker>small{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--muted)}
+.facility-ticker-window{display:grid;flex:1;min-width:0;min-height:30px;overflow:hidden}
+.facility-ticker-chip{display:block;width:max-content;max-width:100%;padding:5px 10px;border:1px solid #dceaf1;border-radius:9px;background:#f3f9fc;font-size:12px;line-height:18px;font-weight:650;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;animation:facility-arrive .22s ease-out both}
+.facility-ticker-more{flex:0 0 auto;padding:5px 8px;border-radius:9px;background:#e5f4ff;color:var(--sky-600);font-size:11px;line-height:18px}
+@keyframes facility-arrive{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:1100px){.world-explorer .petspot-search{grid-template-columns:minmax(0,1fr) 120px}.world-explorer .petspot-query{grid-column:1/-1}.world-explorer .petspot-search>button{grid-column:1;grid-row:2}.world-explorer .petspot-radius{grid-column:2;grid-row:2}}
+@media(max-width:580px){.world-explorer{padding:20px 16px;border-radius:24px;margin-bottom:18px}.world-explorer-identity{gap:13px;margin-bottom:20px;align-items:flex-start}.world-orbit-mark{flex-basis:48px;width:48px;height:48px;border-radius:17px}.world-explorer-kicker{font-size:9px;letter-spacing:.08em}.world-explorer-identity h1{font-size:27px}.world-explorer-identity p{font-size:12px}.world-explorer .petowner-world-nav{margin:0 -16px;padding:0 16px 16px;overflow:auto}.world-explorer .petowner-world-nav button{min-height:46px;padding:10px 13px;font-size:12px}.world-explorer .petspot-search{grid-template-columns:minmax(0,1fr) 90px;padding:12px;gap:10px}.world-explorer .petspot-query{height:48px;padding:0 10px;font-size:13px}.world-explorer .petspot-search>button{min-height:48px;padding:10px;font-size:12px}.world-explorer .petspot-radius .sliva-select-trigger{min-height:48px;min-width:0;padding:0 10px;font-size:12px}}
+@media(prefers-reduced-motion:reduce){.facility-ticker-chip{animation:none}}

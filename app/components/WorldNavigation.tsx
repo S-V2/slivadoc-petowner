@@ -3,13 +3,15 @@ import { LocalizedCopy, LocalizedButton } from "./LocalizedCopy";
 
 import { worldFeatures, type PetOwnerWorldMode } from "../../shared/petowner-flow";
 import { usePetOwnerI18n } from "./PetOwnerI18n";
+import { WorldExplorer } from "./WorldExplorer";
 
-export function WorldNavigation({ active, onSelect }: {
+export function WorldNavigation({ active, onSelect, embedded = false }: {
   active: PetOwnerWorldMode;
   onSelect: (mode: PetOwnerWorldMode) => void;
+  embedded?: boolean;
 }) {
   const { t } = usePetOwnerI18n();
-  return (
+  const navigation = (
     <nav className="petowner-world-nav" aria-label="Sliva World">
       <LocalizedCopy>{worldFeatures.map((feature) => (
         <LocalizedButton type="button" key={feature.mode}
@@ -21,4 +23,5 @@ export function WorldNavigation({ active, onSelect }: {
       ))}</LocalizedCopy>
     </nav>
   );
+  return embedded ? navigation : <WorldExplorer>{navigation}</WorldExplorer>;
 }

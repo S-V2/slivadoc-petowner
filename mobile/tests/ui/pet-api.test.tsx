@@ -1,5 +1,5 @@
 import { expect, jest, test } from "@jest/globals";
-import { clearMobileSession, createMobilePet, getMobileBootstrap, setPlatformAccessToken } from "../../src/api";
+import { clearMobileSession, createMobilePet, getMobileBootstrap, getMobilePetSpots, setPlatformAccessToken } from "../../src/api";
 import { petProfilePayload } from "../../../shared/pet-profile";
 
 test("an owner without pets can create their first pet with an authenticated request and refresh the cached bootstrap", async () => {
@@ -23,4 +23,13 @@ test("an owner without pets can create their first pet with an authenticated req
     expect(requests.filter((request) => request.path.endsWith("bootstrap"))).toHaveLength(2);
     expect(requests.find((request) => request.method === "POST")).toEqual({ path: "/api/v1/petowner/pets", method: "POST", body: input, authorization: "Bearer native-ui-test-token" });
   } finally { fetch.mockRestore(); await clearMobileSession(); }
+});
+test("nearby venue search sends coordinates and radius through the native API client", async () => {
+  const fetch = jest.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: [], count: 0 }), { status: 200 }));
+  try {
+    await getMobilePetSpots({ latitude: -6.2, longitude: 106.8, max_distance_km: 5 });
+    const url = new URL(String(fetch.mock.calls[0]![0]));
+    expect(url.pathname).toBe("/api/v1/public/petspots");
+    expect(Object.fromEntries(url.searchParams)).toEqual({ latitude: "-6.2", longitude: "106.8", max_distance_km: "5" });
+  } finally { fetch.mockRestore(); }
 });

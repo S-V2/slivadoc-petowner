@@ -1,4 +1,5 @@
 "use client";
+import { worldLabel } from "../../../shared/world-presentation";
 import { petOwnerIntlLocale } from "../../lib/petowner-locale";
 import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } from "../LocalizedCopy";
 import { SlivaDatePicker } from "../SlivaDatePicker";
@@ -183,7 +184,7 @@ export function PetSpotDetail({
                     key={
                       typeof facility === "string" ? facility : facility.name
                     }
-                  ><LocalizedCopy>{"✓ "}</LocalizedCopy><LocalizedCopy>{typeof facility === "string" ? facility : facility.name}</LocalizedCopy>
+                  ><LocalizedCopy>{"✓ "}</LocalizedCopy><LocalizedCopy>{worldLabel(typeof facility === "string" ? facility : facility.name)}</LocalizedCopy>
                   </span>
                 ))}</LocalizedCopy>
               </div>
@@ -243,7 +244,7 @@ export function PetSpotDetail({
                       <span>
                         <b><LocalizedCopy>{resource.name}</LocalizedCopy></b>
                         <small>
-                          <LocalizedCopy>{resource.floor_name || resource.resource_type}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                          <LocalizedCopy>{resource.floor_name || worldLabel(resource.resource_type)}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
                           <LocalizedCopy>{resource.capacity}</LocalizedCopy><LocalizedCopy>{" tamu"}</LocalizedCopy></small>
                         <strong>
                           <LocalizedCopy>{money.format(resource.base_price)}</LocalizedCopy><LocalizedCopy>{" /"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
@@ -275,9 +276,9 @@ export function PetSpotDetail({
                     <span><LocalizedCopy>{"✓"}</LocalizedCopy></span>
                     <div>
                       <h4>
-                        <LocalizedCopy>{typeof facility === "string"
+                        <LocalizedCopy>{worldLabel(typeof facility === "string"
                           ? facility
-                          : facility.name}</LocalizedCopy>
+                          : facility.name)}</LocalizedCopy>
                       </h4>
                       <LocalizedCopy>{typeof facility !== "string" && facility.description ? (
                         <p><LocalizedCopy>{facility.description}</LocalizedCopy></p>
@@ -719,7 +720,7 @@ function PetSpotBooking({
                       <LocalizedCopy>{unit.code}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{unit.floor_name || "Area"}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
                       <LocalizedCopy>{unit.capacity}</LocalizedCopy><LocalizedCopy>{" tamu"}</LocalizedCopy></small>
                     <LocalizedCopy>{unit.amenities?.length ? (
-                      <small><LocalizedCopy>{unit.amenities.slice(0, 3).join(" · ")}</LocalizedCopy></small>
+                      <small><LocalizedCopy>{unit.amenities.slice(0, 3).map(worldLabel).join(" · ")}</LocalizedCopy></small>
                     ) : null}</LocalizedCopy>
                     <strong>
                       <LocalizedCopy>{money.format(unit.base_price)}</LocalizedCopy><LocalizedCopy>{" /"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>

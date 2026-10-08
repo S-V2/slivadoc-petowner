@@ -1,4 +1,6 @@
 "use client";
+import { SlivaFilePicker } from "../SlivaFilePicker";
+import { LocalizedCopy } from "../LocalizedCopy";
 
 import { useState } from "react";
 import { uploadDocument } from "../../lib/petowner-api";
@@ -55,16 +57,16 @@ export function RequirementUploads({
 
   return (
     <div className="requirement-upload">
-      {requirements.map((requirement) => {
+      <LocalizedCopy>{requirements.map((requirement) => {
         const uploaded = value.find((doc) => doc.requirement === requirement);
         const busy = uploading.includes(requirement);
         const error = errors[requirement];
         return (
           <label key={requirement}>
             <span>
-              {uploaded ? "✓" : "○"} {requirement}
+              <LocalizedCopy>{uploaded ? "✓" : "○"}</LocalizedCopy> <LocalizedCopy>{requirement}</LocalizedCopy>
             </span>
-            <input
+            <SlivaFilePicker
               type="file"
               accept="image/*,.pdf"
               disabled={disabled || uploading.length > 0}
@@ -77,17 +79,17 @@ export function RequirementUploads({
               className={error ? "error" : uploaded ? "done" : undefined}
               role={error ? "alert" : undefined}
             >
-              {busy
+              <LocalizedCopy>{busy
                 ? "Mengunggah…"
                 : error
                   ? error
                   : uploaded
                     ? `Terunggah: ${uploaded.file_name}`
-                    : "PDF, JPG, atau PNG maks. 10 MB"}
+                    : "PDF, JPG, atau PNG maks. 10 MB"}</LocalizedCopy>
             </small>
           </label>
         );
-      })}
+      })}</LocalizedCopy>
     </div>
   );
 }

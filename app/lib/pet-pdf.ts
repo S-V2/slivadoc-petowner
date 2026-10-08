@@ -1,3 +1,5 @@
+import { petOwnerIntlLocale } from "./petowner-locale.ts";
+import { translateText } from "../../shared/i18n.ts";
 import type { MedicalRecord } from "./platform-api";
 
 type PetPDFInput = { name:string;breed:string;weight:string;microchip:string;allergies?:string;notes?:string;healthScore:number };
@@ -7,16 +9,19 @@ function escapePDF(value:string){return clean(value).replace(/([\\()])/g,"\\$1")
 function wrap(value:string,width=82){const words=clean(value).split(" ");const lines:string[]=[];let line="";for(const word of words){if(!word)continue;const next=line?`${line} ${word}`:word;if(next.length>width&&line){lines.push(line);line=word}else line=next}if(line)lines.push(line);return lines.length?lines:["-"]}
 
 export function downloadPetMedicalPDF(pet:PetPDFInput,records:MedicalRecord[]){
+  const locale = petOwnerIntlLocale();
+  const en = locale === "en-US";
+  const t = (value:string) => translateText(value, en ? "en" : "id");
   const pages:string[][]=[];let lines:string[]=[];
   const flush=()=>{if(lines.length){pages.push(lines);lines=[]}};
   const push=(value:string)=>{if(lines.length>=43)flush();lines.push(value)};
-  push("RINGKASAN KESEHATAN PET");push(`Nama: ${pet.name}`);push(`Ras: ${pet.breed}`);push(`Berat: ${pet.weight}   Health score: ${pet.healthScore}/100`);push(`Microchip: ${pet.microchip}`);push(`Alergi: ${pet.allergies||"Tidak tercatat"}`);push(`Catatan khusus: ${pet.notes||"Tidak ada"}`);push("");push(`RIWAYAT MEDIS (${records.length})`);
-  records.forEach((record,index)=>{push("");push(`${index+1}. ${record.title}`);push(`${new Date(record.occurred_at).toLocaleDateString("id-ID")} | ${record.record_type} | ${record.doctor_name||"Dokter belum dicatat"}`);[["Keluhan",record.complaint],["Diagnosis",record.diagnosis],["Perawatan",record.treatment],["Catatan",record.clinical_notes],["Kontrol",record.next_control_at?new Date(record.next_control_at).toLocaleString("id-ID"):""]].forEach(([label,value])=>{if(value)wrap(`${label}: ${value}`).forEach(push)})});flush();
+  push(en ? "PET HEALTH SUMMARY" : "RINGKASAN KESEHATAN PET");push(`${en ? "Name" : "Nama"}: ${pet.name}`);push(`${en ? "Breed" : "Ras"}: ${t(pet.breed)}`);push(`${en ? "Weight" : "Berat"}: ${pet.weight}   Health score: ${pet.healthScore}/100`);push(`Microchip: ${pet.microchip}`);push(`${en ? "Allergies" : "Alergi"}: ${t(pet.allergies||"Tidak tercatat")}`);push(`${en ? "Special notes" : "Catatan khusus"}: ${t(pet.notes||"Tidak ada")}`);push("");push(`${en ? "MEDICAL HISTORY" : "RIWAYAT MEDIS"} (${records.length})`);
+  records.forEach((record,index)=>{push("");push(`${index+1}. ${t(record.title)}`);push(`${new Date(record.occurred_at).toLocaleDateString(locale)} | ${t(record.record_type)} | ${record.doctor_name||(en ? "Doctor not recorded" : "Dokter belum dicatat")}`);[["Keluhan",record.complaint],["Diagnosis",record.diagnosis],["Perawatan",record.treatment],["Catatan",record.clinical_notes],["Kontrol",record.next_control_at?new Date(record.next_control_at).toLocaleString(locale):""]].forEach(([label,value])=>{if(value)wrap(`${t(label)}: ${t(String(value))}`).forEach(push)})});flush();
   const objects:string[]=[];const add=(value:string)=>{objects.push(value);return objects.length};
   const font=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
   const bold=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
   const pageRefs:number[]=[];const contents:number[]=[];
-  pages.forEach((page,pageIndex)=>{let stream="q 0.18 0.62 0.91 rg 0 792 595 50 re f Q\n";stream+=`BT /F2 18 Tf 0.96 0.98 1 rg 42 812 Td (SLIVADOC) Tj ET\n`;stream+=`BT /F1 8 Tf 0.22 0.34 0.46 rg 42 775 Td (Dokumen kesehatan pet - dibuat ${escapePDF(new Date().toLocaleString("id-ID"))}) Tj ET\n`;let y=752;page.forEach((line,index)=>{const heading=index===0||line.startsWith("RIWAYAT MEDIS");stream+=`BT /${heading?"F2":"F1"} ${heading?13:9.5} Tf ${heading?"0.10 0.35 0.56":"0.18 0.24 0.30"} rg 42 ${y} Td (${escapePDF(line)}) Tj ET\n`;y-=heading?22:15});stream+=`BT /F1 8 Tf 0.42 0.50 0.58 rg 42 28 Td (Slivadoc Pet Health  |  Halaman ${pageIndex+1} dari ${pages.length}) Tj ET`;
+  pages.forEach((page,pageIndex)=>{let stream="q 0.18 0.62 0.91 rg 0 792 595 50 re f Q\n";stream+=`BT /F2 18 Tf 0.96 0.98 1 rg 42 812 Td (SLIVADOC) Tj ET\n`;stream+=`BT /F1 8 Tf 0.22 0.34 0.46 rg 42 775 Td (${en ? "Pet health document - created" : "Dokumen kesehatan pet - dibuat"} ${escapePDF(new Date().toLocaleString(locale))}) Tj ET\n`;let y=752;page.forEach((line,index)=>{const heading=index===0||line.startsWith("RIWAYAT MEDIS")||line.startsWith("MEDICAL HISTORY");stream+=`BT /${heading?"F2":"F1"} ${heading?13:9.5} Tf ${heading?"0.10 0.35 0.56":"0.18 0.24 0.30"} rg 42 ${y} Td (${escapePDF(line)}) Tj ET\n`;y-=heading?22:15});stream+=`BT /F1 8 Tf 0.42 0.50 0.58 rg 42 28 Td (Slivadoc Pet Health  |  ${en ? "Page" : "Halaman"} ${pageIndex+1} ${en ? "of" : "dari"} ${pages.length}) Tj ET`;
     contents.push(add(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`));pageRefs.push(0)
   });
   const pagesObject=objects.length+pages.length+1;

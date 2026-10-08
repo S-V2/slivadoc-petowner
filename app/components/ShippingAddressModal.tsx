@@ -1,4 +1,5 @@
 "use client";
+import { LocalizedButton, LocalizedCopy, LocalizedInput, LocalizedTextarea } from "./LocalizedCopy";
 
 import { SlivaSelect } from "./SlivaSelect";
 import { useEffect, useState } from "react";
@@ -212,65 +213,65 @@ export default function ShippingAddressModal({
   return (
     <div className="modal-overlay" onMouseDown={close}>
       <section className="modal form-modal shipping-address-modal" onMouseDown={(event) => event.stopPropagation()}>
-        <button className="modal-close" type="button" onClick={close} aria-label="Tutup alamat pengiriman">
+        <LocalizedButton className="modal-close" type="button" onClick={close} aria-label="Tutup alamat pengiriman">
           <Icon name="close" />
-        </button>
-        <span className="section-eyebrow">ALAMAT PENGIRIMAN</span>
-        <h2>{current ? "Ubah alamat" : "Tambah alamat"}</h2>
-        <p className="shipping-address-help">Alamat ini dipakai cart untuk menghitung cabang terdekat dan ongkir.</p>
+        </LocalizedButton>
+        <span className="section-eyebrow"><LocalizedCopy>{"ALAMAT PENGIRIMAN"}</LocalizedCopy></span>
+        <h2><LocalizedCopy>{current ? "Ubah alamat" : "Tambah alamat"}</LocalizedCopy></h2>
+        <p className="shipping-address-help"><LocalizedCopy>{"Alamat ini dipakai cart untuk menghitung cabang terdekat dan ongkir."}</LocalizedCopy></p>
         <form className="world-form" onSubmit={submit}>
           <label>
-            <span>Label alamat</span>
-            <input value={form.label} onChange={(event) => setForm((value) => ({ ...value, label: event.target.value }))} required placeholder="Rumah, kantor, kos" />
+            <span><LocalizedCopy>{"Label alamat"}</LocalizedCopy></span>
+            <LocalizedInput value={form.label} onChange={(event) => setForm((value) => ({ ...value, label: event.target.value }))} required placeholder="Rumah, kantor, kos" />
           </label>
           <div className="form-row">
             <label>
-              <span>Nama penerima</span>
-              <input value={form.name} onChange={(event) => setForm((value) => ({ ...value, name: event.target.value }))} required />
+              <span><LocalizedCopy>{"Nama penerima"}</LocalizedCopy></span>
+              <LocalizedInput value={form.name} onChange={(event) => setForm((value) => ({ ...value, name: event.target.value }))} required />
             </label>
             <label>
-              <span>No. WhatsApp</span>
-              <input value={form.phone} onChange={(event) => setForm((value) => ({ ...value, phone: event.target.value }))} required />
+              <span><LocalizedCopy>{"No. WhatsApp"}</LocalizedCopy></span>
+              <LocalizedInput value={form.phone} onChange={(event) => setForm((value) => ({ ...value, phone: event.target.value }))} required />
             </label>
           </div>
           <label>
-            <span>Alamat lengkap</span>
-            <textarea value={form.address} onChange={(event) => setForm((value) => ({ ...value, address: event.target.value }))} rows={3} required placeholder="Nama jalan, nomor rumah, RT/RW" />
+            <span><LocalizedCopy>{"Alamat lengkap"}</LocalizedCopy></span>
+            <LocalizedTextarea value={form.address} onChange={(event) => setForm((value) => ({ ...value, address: event.target.value }))} rows={3} required placeholder="Nama jalan, nomor rumah, RT/RW" />
           </label>
           <div className="cart-location-row">
             <span>
-              <small>Koordinat untuk menentukan cabang terdekat</small>
-              <b>{currentLocation?.label ?? (current?.latitude ? "Lokasi tersimpan" : "Belum dipilih")}</b>
+              <small><LocalizedCopy>{"Koordinat untuk menentukan cabang terdekat"}</LocalizedCopy></small>
+              <b><LocalizedCopy>{currentLocation?.label ?? (current?.latitude ? "Lokasi tersimpan" : "Belum dipilih")}</LocalizedCopy></b>
             </span>
-            <button type="button" onClick={onOpenLocation}>{currentLocation ? "Ubah lokasi" : "Pilih lokasi"}</button>
+            <LocalizedButton type="button" onClick={onOpenLocation}><LocalizedCopy>{currentLocation ? "Ubah lokasi" : "Pilih lokasi"}</LocalizedCopy></LocalizedButton>
           </div>
           <div className="form-row">
-            {levels.slice(0, 2).map((level) => (
+            <LocalizedCopy>{levels.slice(0, 2).map((level) => (
               <label key={level}>
-                <span>{level === "province" ? "Provinsi" : "Kabupaten / kota"}</span>
+                <span><LocalizedCopy>{level === "province" ? "Provinsi" : "Kabupaten / kota"}</LocalizedCopy></span>
                 <SlivaSelect aria-label={level === "province" ? "Provinsi" : "Kabupaten / kota"} value={regionIDs[level]} disabled={loadingRegions || (level !== "province" && !regionIDs[levels[levels.indexOf(level) - 1]])} onChange={(event) => selectRegion(level, event.target.value)}>
                   <option value="">Pilih {level === "province" ? "provinsi" : "kabupaten / kota"}</option>
                   {regions[level].map((option) => <option key={option.code} value={option.code}>{option.name}</option>)}
                 </SlivaSelect>
               </label>
-            ))}
+            ))}</LocalizedCopy>
           </div>
           <div className="form-row">
-            {levels.slice(2).map((level) => (
+            <LocalizedCopy>{levels.slice(2).map((level) => (
               <label key={level}>
-                <span>{level === "district" ? "Kecamatan" : "Kelurahan / desa"}</span>
+                <span><LocalizedCopy>{level === "district" ? "Kecamatan" : "Kelurahan / desa"}</LocalizedCopy></span>
                 <SlivaSelect aria-label={level === "district" ? "Kecamatan" : "Kelurahan / desa"} value={regionIDs[level]} disabled={loadingRegions || !regionIDs[levels[levels.indexOf(level) - 1]]} onChange={(event) => selectRegion(level, event.target.value)}>
                   <option value="">Pilih {level === "district" ? "kecamatan" : "kelurahan / desa"}</option>
                   {regions[level].map((option) => <option key={option.code} value={option.code}>{option.name}</option>)}
                 </SlivaSelect>
               </label>
-            ))}
+            ))}</LocalizedCopy>
           </div>
           <label>
-            <span>Kode pos</span>
-            <input inputMode="numeric" value={form.post_code} onChange={(event) => setForm((value) => ({ ...value, post_code: event.target.value.replace(/\D/g, "").slice(0, 5) }))} required placeholder="12345" />
+            <span><LocalizedCopy>{"Kode pos"}</LocalizedCopy></span>
+            <LocalizedInput inputMode="numeric" value={form.post_code} onChange={(event) => setForm((value) => ({ ...value, post_code: event.target.value.replace(/\D/g, "").slice(0, 5) }))} required placeholder="12345" />
           </label>
-          <button className="primary-button full" disabled={busy}>{busy ? "Menyimpan alamat…" : "Simpan alamat utama"}</button>
+          <LocalizedButton className="primary-button full" disabled={busy}><LocalizedCopy>{busy ? "Menyimpan alamat…" : "Simpan alamat utama"}</LocalizedCopy></LocalizedButton>
         </form>
       </section>
     </div>

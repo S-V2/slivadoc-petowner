@@ -1,4 +1,6 @@
 "use client";
+import { petOwnerIntlLocale } from "../../lib/petowner-locale";
+import { LocalizedCopy, LocalizedButton } from "../LocalizedCopy";
 
 import NextImage from "next/image";
 import { QRCodeSVG } from "qrcode.react";
@@ -66,26 +68,26 @@ export function PaymentMethodPicker({
   }
   return (
     <fieldset className="qris-methods" disabled={disabled} aria-busy={loading}>
-      <legend>{t("Metode pembayaran")}</legend>
+      <legend><LocalizedCopy>{t("Metode pembayaran")}</LocalizedCopy></legend>
       <div>
-        <button
+        <LocalizedButton
           type="button"
           disabled={loading || !method}
           aria-pressed={!!method && method.code === value}
           className={method && method.code === value ? "active" : ""}
           onClick={() => method && onChange(method.code)}
         >
-          <span>▦</span>
-          <p><b>QRIS</b><small>{t("Pindai kode QR dengan aplikasi pembayaran pilihan Anda.")}</small></p>
-          <i>{loading ? <span className="button-spinner" aria-hidden="true" /> : method && method.code === value ? "✓" : ""}</i>
-        </button>
+          <span><LocalizedCopy>{"▦"}</LocalizedCopy></span>
+          <p><b><LocalizedCopy>{"QRIS"}</LocalizedCopy></b><small><LocalizedCopy>{t("Pindai kode QR dengan aplikasi pembayaran pilihan Anda.")}</LocalizedCopy></small></p>
+          <i><LocalizedCopy>{loading ? <span className="button-spinner" aria-hidden="true" /> : method && method.code === value ? "✓" : ""}</LocalizedCopy></i>
+        </LocalizedButton>
       </div>
-      {loading ? <p className="qris-method-message" role="status">{t("Memuat metode pembayaran…")}</p> : message ? (
+      <LocalizedCopy>{loading ? <p className="qris-method-message" role="status"><LocalizedCopy>{t("Memuat metode pembayaran…")}</LocalizedCopy></p> : message ? (
         <div className="qris-method-feedback" role="alert">
-          <p>{t(message)}</p>
-          <button type="button" onClick={retry}>{t("Coba lagi")}</button>
+          <p><LocalizedCopy>{t(message)}</LocalizedCopy></p>
+          <LocalizedButton type="button" onClick={retry}><LocalizedCopy>{t("Coba lagi")}</LocalizedCopy></LocalizedButton>
         </div>
-      ) : null}
+      ) : null}</LocalizedCopy>
     </fieldset>
   );
 }
@@ -152,48 +154,39 @@ function QrisPaymentState({
   if (current.status === "paid")
     return (
       <section className="qris-result paid">
-        <span>✓</span>
-        <h3>Pembayaran berhasil</h3>
-        <p>Transaksi sudah tercatat dan layanan sedang diproses.</p>
-        {onOpenActivity && (
-          <button
+        <span><LocalizedCopy>{"✓"}</LocalizedCopy></span>
+        <h3><LocalizedCopy>{"Pembayaran berhasil"}</LocalizedCopy></h3>
+        <p><LocalizedCopy>{"Transaksi sudah tercatat dan layanan sedang diproses."}</LocalizedCopy></p>
+        <LocalizedCopy>{onOpenActivity && (
+          <LocalizedButton
             type="button"
             className="primary-button full"
             onClick={onOpenActivity}
-          >
-            Lihat di Aktivitas
-          </button>
-        )}
-        {onClose && (
-          <button
+          ><LocalizedCopy>{"Lihat di Aktivitas"}</LocalizedCopy></LocalizedButton>
+        )}</LocalizedCopy>
+        <LocalizedCopy>{onClose && (
+          <LocalizedButton
             type="button"
             className="primary-button full"
             onClick={onClose}
-          >
-            Selesai
-          </button>
-        )}
+          ><LocalizedCopy>{"Selesai"}</LocalizedCopy></LocalizedButton>
+        )}</LocalizedCopy>
       </section>
     );
   if (current.status === "refund_pending")
     return (
       <section className="qris-result pending" role="status">
-        <h3>Menunggu pengembalian dana</h3>
-        <p>
-          Pembayaran diterima setelah transaksi ditutup. Dana akan
-          dikembalikan setelah diverifikasi.
-        </p>
-        <p>{current.order_id}</p>
-        {message && <p className="form-message">{message}</p>}
-        {onClose && (
-          <button
+        <h3><LocalizedCopy>{"Menunggu pengembalian dana"}</LocalizedCopy></h3>
+        <p><LocalizedCopy>{"Pembayaran diterima setelah transaksi ditutup. Dana akan dikembalikan setelah diverifikasi."}</LocalizedCopy></p>
+        <p><LocalizedCopy>{current.order_id}</LocalizedCopy></p>
+        <LocalizedCopy>{message && <p className="form-message"><LocalizedCopy>{message}</LocalizedCopy></p>}</LocalizedCopy>
+        <LocalizedCopy>{onClose && (
+          <LocalizedButton
             type="button"
             className="secondary-button full"
             onClick={onClose}
-          >
-            Tutup
-          </button>
-        )}
+          ><LocalizedCopy>{"Tutup"}</LocalizedCopy></LocalizedButton>
+        )}</LocalizedCopy>
       </section>
     );
   if (
@@ -203,44 +196,42 @@ function QrisPaymentState({
   )
     return (
       <section className="qris-result failed">
-        <span>!</span>
+        <span><LocalizedCopy>{"!"}</LocalizedCopy></span>
         <h3>
-          {current.status === "refunded"
+          <LocalizedCopy>{current.status === "refunded"
             ? "Dana sudah dikembalikan"
             : current.status === "expired"
               ? "QR kedaluwarsa"
-              : "Pembayaran gagal"}
+              : "Pembayaran gagal"}</LocalizedCopy>
         </h3>
         <p>
-          {current.status === "refunded"
+          <LocalizedCopy>{current.status === "refunded"
             ? "Dana sudah dikembalikan."
             : current.status === "expired"
               ? "QR kedaluwarsa. Buat pembayaran baru dari Aktivitas."
-              : "Pembayaran gagal."}
+              : "Pembayaran gagal."}</LocalizedCopy>
         </p>
-        {onClose && (
-          <button
+        <LocalizedCopy>{onClose && (
+          <LocalizedButton
             type="button"
             className="secondary-button full"
             onClick={onClose}
-          >
-            Tutup
-          </button>
-        )}
+          ><LocalizedCopy>{"Tutup"}</LocalizedCopy></LocalizedButton>
+        )}</LocalizedCopy>
       </section>
     );
   const copyable = current.qr_string || current.qr_url || "";
   return (
     <section className="qris-result pending">
-      <small>PEMBAYARAN · QRIS</small>
-      <h3>Scan QR untuk membayar</h3>
+      <small><LocalizedCopy>{"PEMBAYARAN · QRIS"}</LocalizedCopy></small>
+      <h3><LocalizedCopy>{"Scan QR untuk membayar"}</LocalizedCopy></h3>
       <p>
-        {current.order_id} ·{" "}
-        {current.expires_at
-          ? `berlaku hingga ${new Date(current.expires_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`
-          : "selesaikan dalam 15 menit"}
+        <LocalizedCopy>{current.order_id}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+        <LocalizedCopy>{current.expires_at
+          ? `berlaku hingga ${new Date(current.expires_at).toLocaleTimeString(petOwnerIntlLocale(), { hour: "2-digit", minute: "2-digit" })}`
+          : "selesaikan dalam 15 menit"}</LocalizedCopy>
       </p>
-      {current.qr_string ? (
+      <LocalizedCopy>{current.qr_string ? (
         <div className="qris-code">
           <QRCodeSVG
             value={current.qr_string}
@@ -260,28 +251,25 @@ function QrisPaymentState({
           unoptimized
         />
       ) : (
-        <div className="qris-code-placeholder">QR</div>
-      )}
+        <div className="qris-code-placeholder"><LocalizedCopy>{"QR"}</LocalizedCopy></div>
+      )}</LocalizedCopy>
       <strong>
-        {new Intl.NumberFormat("id-ID", {
+        <LocalizedCopy>{new Intl.NumberFormat(petOwnerIntlLocale(), {
           style: "currency",
           currency: "IDR",
           maximumFractionDigits: 0,
-        }).format(current.amount)}
+        }).format(current.amount)}</LocalizedCopy>
       </strong>
       <em>
-        <i /> Menunggu konfirmasi pembayaran…
-      </em>
-      {copyable && (
-        <button
+        <i /><LocalizedCopy>{" Menunggu konfirmasi pembayaran…"}</LocalizedCopy></em>
+      <LocalizedCopy>{copyable && (
+        <LocalizedButton
           type="button"
           className="secondary-button"
           onClick={() => void copy(copyable, "Kode QRIS")}
-        >
-          Salin kode QRIS
-        </button>
-      )}
-      {message && <p className="form-message">{message}</p>}
+        ><LocalizedCopy>{"Salin kode QRIS"}</LocalizedCopy></LocalizedButton>
+      )}</LocalizedCopy>
+      <LocalizedCopy>{message && <p className="form-message"><LocalizedCopy>{message}</LocalizedCopy></p>}</LocalizedCopy>
     </section>
   );
 }

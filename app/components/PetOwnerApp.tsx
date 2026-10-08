@@ -1,12 +1,16 @@
 "use client";
+import { petOwnerIntlLocale } from "../lib/petowner-locale";
+import { confirmSlivaDialog } from "./SlivaDialog";
+import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } from "./LocalizedCopy";
+import { SlivaDatePicker } from "./SlivaDatePicker";
 import { PetOwnerFlowProvider, PetRequiredNotice, usePetOwnerFlow } from "./PetOwnerFlow";
 import { WorldNavigation } from "./WorldNavigation";
 import { featureSearchShortcuts, isWorldMode, worldFeatures, type PetOwnerWorldMode } from "../../shared/petowner-flow";
 import { SlivaSelect } from "./SlivaSelect";
 import { DiscountBadge } from "./DiscountBadge";
 
-import Image from "next/image";
-import Link from "next/link";
+import { LocalizedImage as Image } from "./LocalizedCopy";
+import { LocalizedLink as Link } from "./LocalizedCopy";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
@@ -155,8 +159,8 @@ function MarketplaceLoading() {
     >
       <span className="loading-spinner" aria-hidden="true" />
       <div>
-        <b>Menyiapkan pengalaman terbaik…</b>
-        <small>Katalog dan jadwal dimuat saat dibutuhkan.</small>
+        <b><LocalizedCopy>{"Menyiapkan pengalaman terbaik…"}</LocalizedCopy></b>
+        <small><LocalizedCopy>{"Katalog dan jadwal dimuat saat dibutuhkan."}</LocalizedCopy></small>
       </div>
     </section>
   );
@@ -184,9 +188,9 @@ function rewardFormulaText(formula: RewardFormula) {
   if (!formula.enabled) return "SlivaRewards sedang tidak aktif.";
   const methods = (formula.payment_methods ?? []).map((method) => {
     if (method.mode === "fixed")
-      return `${method.label}: ${method.fixed_points.toLocaleString("id-ID")} poin per transaksi`;
+      return `${method.label}: ${method.fixed_points.toLocaleString(petOwnerIntlLocale())} poin per transaksi`;
     if (method.mode === "transaction_divisor")
-      return `${method.label}: ${method.points_per_unit.toLocaleString("id-ID")} poin per ${formatRupiah(method.divisor)}`;
+      return `${method.label}: ${method.points_per_unit.toLocaleString(petOwnerIntlLocale())} poin per ${formatRupiah(method.divisor)}`;
     return `${method.label}: tanpa base poin`;
   });
   // Without a per-method table the earn rate is the flat divisor from
@@ -392,7 +396,7 @@ function apiPetToView(pet: PetOwnerBootstrap["pets"][number]): Pet {
     birthDate: pet.birth_date,
     healthScore: Number(pet.health_score || 0),
     nextCare: pet.last_medical_record_at
-      ? `Update medis ${new Date(pet.last_medical_record_at).toLocaleDateString("id-ID")}`
+      ? `Update medis ${new Date(pet.last_medical_record_at).toLocaleDateString(petOwnerIntlLocale())}`
       : "Belum ada jadwal",
     microchip: pet.microchip_number || "Belum terdaftar",
     notes: pet.medical_notes,
@@ -405,6 +409,7 @@ function apiPetToView(pet: PetOwnerBootstrap["pets"][number]): Pet {
 const checkoutSuccessStorageKey = "slivadoc.checkout-success";
 
 export default function PetOwnerApp() {
+  const { language } = usePetOwnerI18n();
   const router = useRouter();
   const [activeView, setActiveView] = useState<AppView>("home");
   const [navigationVersion, setNavigationVersion] = useState(0);
@@ -561,7 +566,7 @@ export default function PetOwnerApp() {
           typeof item.available === "boolean"
             ? item.available
             : (finiteNumber(item.stock) ?? 0) > 0,
-        sold: `${Math.max(0, finiteNumber(item.sold_count) ?? 0).toLocaleString("id-ID")} terjual`,
+        sold: `${Math.max(0, finiteNumber(item.sold_count) ?? 0).toLocaleString(petOwnerIntlLocale())} terjual`,
         emoji: item.category.toLowerCase().includes("food") ? "🥣" : "🛍️",
         imageUrl: item.image_url || undefined,
         imageUrls: item.image_urls?.length ? item.image_urls : item.image_url ? [item.image_url] : [],
@@ -1291,7 +1296,7 @@ export default function PetOwnerApp() {
 
   return (
     <PetOwnerFlowProvider authenticated={authenticated} hasPet={petProfiles.length > 0} onLogin={() => setLoginOpen(true)} onAddPet={openPetSetup}>
-    <div className="app-shell">
+    <div className="app-shell" lang={language}>
       <Sidebar
         activeView={activeView}
         setActiveView={navigate}
@@ -1333,9 +1338,9 @@ export default function PetOwnerApp() {
             selectedPet={selectedPet}
             account={account}
           />
-          {isWorldMode(featureView) ? <WorldNavigation active={featureView} onSelect={openWorld} /> : null}
+          <LocalizedCopy>{isWorldMode(featureView) ? <WorldNavigation active={featureView} onSelect={openWorld} /> : null}</LocalizedCopy>
           <PetRequiredNotice />
-          {featureView === "home" && (
+          <LocalizedCopy>{featureView === "home" && (
             <HomeView
               selectedPet={selectedPet}
               petProfiles={petProfiles}
@@ -1351,8 +1356,8 @@ export default function PetOwnerApp() {
               openActivity={openActivity}
               ownerName={account?.full_name}
             />
-          )}
-          {featureView === "pets" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "pets" && (
             <PetsView
               petProfiles={petProfiles}
               selectedPetId={selectedPetId}
@@ -1362,8 +1367,8 @@ export default function PetOwnerApp() {
               notify={notify}
               onChanged={loadBootstrap}
             />
-          )}
-          {featureView === "discover" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "discover" && (
             <DiscoverView
               favorites={favoriteIds}
               toggleFavorite={(id) => void toggleFavorite("service", id)}
@@ -1371,15 +1376,15 @@ export default function PetOwnerApp() {
               notify={notify}
               serviceCatalog={serviceCatalog}
             />
-          )}
-          {!authenticated && (featureView === "bookings" || featureView === "messages") && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{!authenticated && (featureView === "bookings" || featureView === "messages") && (
             <section className="empty-state panel">
-              <h2>{featureView === "bookings" ? "Masuk untuk melihat aktivitas" : "Masuk untuk melihat chat"}</h2>
-              <p>Booking, belanja, dan konsultasi tersimpan aman di akunmu.</p>
-              <button type="button" className="primary-button" onClick={() => setLoginOpen(true)}>Masuk ke akun</button>
+              <h2><LocalizedCopy>{featureView === "bookings" ? "Masuk untuk melihat aktivitas" : "Masuk untuk melihat chat"}</LocalizedCopy></h2>
+              <p><LocalizedCopy>{"Booking, belanja, dan konsultasi tersimpan aman di akunmu."}</LocalizedCopy></p>
+              <LocalizedButton type="button" className="primary-button" onClick={() => setLoginOpen(true)}><LocalizedCopy>{"Masuk ke akun"}</LocalizedCopy></LocalizedButton>
             </section>
-          )}
-          {featureView === "bookings" && authenticated && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "bookings" && authenticated && (
             <BookingsView
               openBooking={openBooking}
               setActiveView={navigate}
@@ -1396,11 +1401,11 @@ export default function PetOwnerApp() {
               loadingMoreActivities={activityLoadingMore}
               onLoadMore={() => void loadMoreActivities()}
             />
-          )}
-          {featureView === "health" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "health" && (
             <HealthView pet={selectedPet} notify={notify} />
-          )}
-          {featureView === "shop" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "shop" && (
             <ShopMarketplace
               addToCart={addToCart}
               buyNow={buyNow}
@@ -1416,14 +1421,14 @@ export default function PetOwnerApp() {
               onRequireLogin={() => setLoginOpen(true)}
               toggleFavorite={(id) => void toggleFavorite("product", id)}
             />
-          )}
-          {featureView === "community" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "community" && (
             <CommunityExperience
               notify={notify}
               onOpenLocation={() => setLocationOpen(true)}
             />
-          )}
-          {(["academy", "events", "petspot", "pethub"] as AppView[]).includes(
+          )}</LocalizedCopy>
+          <LocalizedCopy>{(["academy", "events", "petspot", "pethub"] as AppView[]).includes(
             featureView,
           ) && (
             <PlatformDiscovery
@@ -1442,8 +1447,8 @@ export default function PetOwnerApp() {
               notify={notify}
               initialItemId={typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("world_item") ?? undefined : undefined}
             />
-          )}
-          {(["consult", "adoption", "documents"] as AppView[]).includes(
+          )}</LocalizedCopy>
+          <LocalizedCopy>{(["consult", "adoption", "documents"] as AppView[]).includes(
             featureView,
           ) && (
             <CareMarketplace
@@ -1458,11 +1463,11 @@ export default function PetOwnerApp() {
                   : undefined
               }
             />
-          )}
-          {featureView === "pawdating" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "pawdating" && (
             <PawDatingExperience pet={selectedPet} notify={notify} />
-          )}
-          {featureView === "petship" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "petship" && (
             <PetshipView
               pet={selectedPet}
               authenticated={authenticated}
@@ -1470,16 +1475,16 @@ export default function PetOwnerApp() {
               notify={notify}
               onLogin={() => setLoginOpen(true)}
             />
-          )}
-          {featureView === "fundraising" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "fundraising" && (
             <FundraisingView
               pet={selectedPet}
               authenticated={authenticated}
               notify={notify}
               onLogin={() => setLoginOpen(true)}
             />
-          )}
-          {featureView === "favorites" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "favorites" && (
             <FavoritesView
               services={serviceCatalog.filter((item) =>
                 favoriteIds.includes(item.id),
@@ -1491,8 +1496,8 @@ export default function PetOwnerApp() {
               addToCart={addToCart}
               remove={(type, id) => toggleFavorite(type, id)}
             />
-          )}
-          {featureView === "notifications" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "notifications" && (
             <NotificationCenter
               items={notifications}
               setItems={setNotifications}
@@ -1501,8 +1506,8 @@ export default function PetOwnerApp() {
               notify={notify}
               onOpen={openNotificationTarget}
             />
-          )}
-          {featureView === "messages" && authenticated && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "messages" && authenticated && (
             <>
               <ChatInboxView
                 activities={activities}
@@ -1529,14 +1534,14 @@ export default function PetOwnerApp() {
                 />
               )}
             </>
-          )}
-          {featureView === "support" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "support" && (
             <SupportCenter activities={activities} notify={notify} />
-          )}
-          {featureView === "profile" && !account && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "profile" && !account && (
             <GuestAccount onLogin={() => setLoginOpen(true)} />
-          )}
-          {featureView === "profile" && account && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "profile" && account && (
             <ProfileView
               notify={notify}
               account={account}
@@ -1556,7 +1561,7 @@ export default function PetOwnerApp() {
                 navigate("home");
               }}
             />
-          )}
+          )}</LocalizedCopy>
         </div>
       </main>
 
@@ -1568,18 +1573,18 @@ export default function PetOwnerApp() {
         onOpenChat={() => { if (requireLogin()) setChatOpen(true); }}
       />
 
-      <button
+      <LocalizedButton
         className="floating-chat"
         type="button"
         onClick={() => { if (requireLogin()) setChatOpen(true); }}
         aria-label="Buka chat SlivaCare"
       >
         <Icon name="chat" size={22} />
-        <span>SlivaCare</span>
+        <span><LocalizedCopy>{"SlivaCare"}</LocalizedCopy></span>
         <i />
-      </button>
+      </LocalizedButton>
 
-      {notificationOpen && (
+      <LocalizedCopy>{notificationOpen && (
         <NotificationDrawer
           onClose={() => setNotificationOpen(false)}
           initialCategory={notificationCategory}
@@ -1592,8 +1597,8 @@ export default function PetOwnerApp() {
             navigate("notifications");
           }}
         />
-      )}
-      {chatOpen && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{chatOpen && (
         <SlivaCareDrawer
           key={chatMode}
           pet={selectedPet}
@@ -1605,8 +1610,8 @@ export default function PetOwnerApp() {
           }}
           notify={notify}
         />
-      )}
-      {cartOpen && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{cartOpen && (
         <CartDrawer
           cart={checkoutCart}
           setCart={setCheckoutCart}
@@ -1626,8 +1631,8 @@ export default function PetOwnerApp() {
           onCheckoutSuccess={completeCheckout}
           onRewardChanged={loadBootstrap}
         />
-      )}
-      {addPetOpen && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{addPetOpen && (
         <AddPetExperience
           onClose={() => setAddPetOpen(false)}
           notify={notify}
@@ -1637,8 +1642,8 @@ export default function PetOwnerApp() {
             void loadBootstrap();
           }}
         />
-      )}
-      {locationOpen && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{locationOpen && (
         <LocationModal
           current={currentLocation}
           onClose={() => setLocationOpen(false)}
@@ -1652,8 +1657,8 @@ export default function PetOwnerApp() {
             notify("Lokasi layanan berhasil diperbarui");
           }}
         />
-      )}
-      {bookingOpen && selectedService && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{bookingOpen && selectedService && (
         <BookingModal
           service={selectedService}
           pets={petProfiles}
@@ -1667,15 +1672,15 @@ export default function PetOwnerApp() {
             notify("Booking berhasil. Jadwal dan status pembayaran tersedia di Aktivitas.");
           }}
         />
-      )}
-      {loginOpen && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{loginOpen && (
         <PetOwnerLogin
           close={() => setLoginOpen(false)}
           notify={notify}
           onSuccess={loadBootstrap}
         />
-      )}
-      {checkoutSuccess && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{checkoutSuccess && (
         <div className="modal-overlay">
           <div
             className="modal success-modal"
@@ -1683,47 +1688,45 @@ export default function PetOwnerApp() {
             aria-modal="true"
             aria-labelledby="checkout-success-title"
           >
-            <button
+            <LocalizedButton
               className="modal-close"
               type="button"
               aria-label="Tutup"
               onClick={dismissCheckoutSuccess}
             >
               <Icon name="close" />
-            </button>
+            </LocalizedButton>
             <span className="success-animation">
               <Icon name="check" size={34} />
             </span>
-            <small>SLIVA PET SHOP</small>
-            <h2 id="checkout-success-title">Pembayaran berhasil</h2>
-            <p>Transaksi sudah tercatat dan pesanan sedang diproses.</p>
-            <button
+            <small><LocalizedCopy>{"SLIVA PET SHOP"}</LocalizedCopy></small>
+            <h2 id="checkout-success-title"><LocalizedCopy>{"Pembayaran berhasil"}</LocalizedCopy></h2>
+            <p><LocalizedCopy>{"Transaksi sudah tercatat dan pesanan sedang diproses."}</LocalizedCopy></p>
+            <LocalizedButton
               className="primary-button full"
               type="button"
               onClick={dismissCheckoutSuccess}
-            >
-              Selesai
-            </button>
+            ><LocalizedCopy>{"Selesai"}</LocalizedCopy></LocalizedButton>
           </div>
         </div>
-      )}
+      )}</LocalizedCopy>
 
-      {toast && (
+      <LocalizedCopy>{toast && (
         <div className="toast" role="status">
           <span className="toast-check">
             <Icon name="check" size={15} />
           </span>
-          {toast}
+          <LocalizedCopy>{toast}</LocalizedCopy>
         </div>
-      )}
-      {cartAddedOpen && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{cartAddedOpen && (
         <div className="cart-added-notice" role="status" aria-live="polite">
           <span>
             <Icon name="check" size={28} />
           </span>
-          <strong>Ditambahkan ke keranjang</strong>
+          <strong><LocalizedCopy>{"Ditambahkan ke keranjang"}</LocalizedCopy></strong>
         </div>
-      )}
+      )}</LocalizedCopy>
     </div>
     </PetOwnerFlowProvider>
   );
@@ -1879,25 +1882,22 @@ function PetOwnerLogin({
           className="modal petowner-login"
           onMouseDown={(event) => event.stopPropagation()}
         >
-          <button className="modal-close" onClick={close} aria-label="Tutup">
+          <LocalizedButton className="modal-close" onClick={close} aria-label="Tutup">
             <Icon name="close" />
-          </button>
+          </LocalizedButton>
           <div className="login-brand">
             <Logo />
-            <span>Pet Owner</span>
+            <span><LocalizedCopy>{"Pet Owner"}</LocalizedCopy></span>
           </div>
-          <span className="world-kicker">AKUN PET FAMILY</span>
+          <span className="world-kicker"><LocalizedCopy>{"AKUN PET FAMILY"}</LocalizedCopy></span>
           <h2>
-            {mode === "login"
+            <LocalizedCopy>{mode === "login"
               ? "Senang melihatmu kembali"
               : mode === "register"
                 ? "Mulai perjalanan pet parent"
-                : "Verifikasi email kamu"}
+                : "Verifikasi email kamu"}</LocalizedCopy>
           </h2>
-          <p>
-            Profil pet, rekam medis, booking, komunitas, dan benefit tersinkron
-            aman dalam satu akun.
-          </p>
+          <p><LocalizedCopy>{"Profil pet, rekam medis, booking, komunitas, dan benefit tersinkron aman dalam satu akun."}</LocalizedCopy></p>
           <form
             className="world-form login-form"
             onSubmit={submit}
@@ -1905,15 +1905,13 @@ function PetOwnerLogin({
               setFormValid(event.currentTarget.checkValidity())
             }
           >
-            {mode === "verify" ? (
+            <LocalizedCopy>{mode === "verify" ? (
               <>
-                <div className="access-warning">
-                  Masukkan 6 digit OTP yang dikirim ke{" "}
-                  <b>{registrationEmail}</b>.
-                </div>
+                <div className="access-warning"><LocalizedCopy>{"Masukkan 6 digit OTP yang dikirim ke"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                  <b><LocalizedCopy>{registrationEmail}</LocalizedCopy></b><LocalizedCopy>{"."}</LocalizedCopy></div>
                 <label>
-                  <span>Kode OTP</span>
-                  <input
+                  <span><LocalizedCopy>{"Kode OTP"}</LocalizedCopy></span>
+                  <LocalizedInput
                     name="otp"
                     value={otp}
                     onChange={(event) =>
@@ -1934,8 +1932,8 @@ function PetOwnerLogin({
               mode === "register" && (
                 <>
                   <label>
-                    <span>Nama lengkap</span>
-                    <input
+                    <span><LocalizedCopy>{"Nama lengkap"}</LocalizedCopy></span>
+                    <LocalizedInput
                       name="full_name"
                       minLength={3}
                       placeholder="Nama sesuai identitas"
@@ -1943,8 +1941,8 @@ function PetOwnerLogin({
                     />
                   </label>
                   <label>
-                    <span>WhatsApp</span>
-                    <input
+                    <span><LocalizedCopy>{"WhatsApp"}</LocalizedCopy></span>
+                    <LocalizedInput
                       name="phone"
                       type="tel"
                       inputMode="numeric"
@@ -1961,17 +1959,15 @@ function PetOwnerLogin({
                       placeholder="08xxxxxxxxxx"
                       required
                     />
-                    <small>
-                      Harus diawali angka 0, tanpa spasi atau simbol.
-                    </small>
+                    <small><LocalizedCopy>{"Harus diawali angka 0, tanpa spasi atau simbol."}</LocalizedCopy></small>
                   </label>
                 </>
               )
-            )}
-            {mode !== "verify" && (
+            )}</LocalizedCopy>
+            <LocalizedCopy>{mode !== "verify" && (
               <label>
-                <span>Email</span>
-                <input
+                <span><LocalizedCopy>{"Email"}</LocalizedCopy></span>
+                <LocalizedInput
                   name="email"
                   type="email"
                   defaultValue={
@@ -1982,12 +1978,12 @@ function PetOwnerLogin({
                   required
                 />
               </label>
-            )}
-            {mode !== "verify" && (
+            )}</LocalizedCopy>
+            <LocalizedCopy>{mode !== "verify" && (
               <label>
-                <span>Password</span>
+                <span><LocalizedCopy>{"Password"}</LocalizedCopy></span>
                 <span className="password-input">
-                  <input
+                  <LocalizedInput
                     name="password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
@@ -2001,55 +1997,49 @@ function PetOwnerLogin({
                     title="Wajib berisi huruf, angka, dan simbol"
                     required
                   />
-                  <button
+                  <LocalizedButton
                     type="button"
                     onClick={() => setVisible((value) => !value)}
                     aria-label={
                       visible ? "Sembunyikan password" : "Tampilkan password"
                     }
                   >
-                    {visible ? "◉" : "◎"}
-                  </button>
+                    <LocalizedCopy>{visible ? "◉" : "◎"}</LocalizedCopy>
+                  </LocalizedButton>
                 </span>
-                <small>Gunakan kombinasi huruf, angka, dan simbol.</small>
+                <small><LocalizedCopy>{"Gunakan kombinasi huruf, angka, dan simbol."}</LocalizedCopy></small>
               </label>
-            )}
-            {mode === "register" && (
+            )}</LocalizedCopy>
+            <LocalizedCopy>{mode === "register" && (
               <div className="legal-consents">
                 <label>
-                  <input
+                  <LocalizedInput
                     type="checkbox"
                     checked={terms}
                     onChange={(event) => setTerms(event.target.checked)}
                     required
                   />
-                  <span>
-                    Saya menyetujui{" "}
-                    <button type="button" onClick={() => setPolicy("terms")}>
-                      <b>Syarat dan Ketentuan</b>
-                    </button>
-                    .
-                  </span>
+                  <span><LocalizedCopy>{"Saya menyetujui"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                    <LocalizedButton type="button" onClick={() => setPolicy("terms")}>
+                      <b><LocalizedCopy>{"Syarat dan Ketentuan"}</LocalizedCopy></b>
+                    </LocalizedButton><LocalizedCopy>{"."}</LocalizedCopy></span>
                 </label>
                 <label>
-                  <input
+                  <LocalizedInput
                     type="checkbox"
                     checked={privacy}
                     onChange={(event) => setPrivacy(event.target.checked)}
                     required
                   />
-                  <span>
-                    Saya menyetujui{" "}
-                    <button type="button" onClick={() => setPolicy("privacy")}>
-                      <b>Kebijakan Privasi</b>
-                    </button>
-                    .
-                  </span>
+                  <span><LocalizedCopy>{"Saya menyetujui"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                    <LocalizedButton type="button" onClick={() => setPolicy("privacy")}>
+                      <b><LocalizedCopy>{"Kebijakan Privasi"}</LocalizedCopy></b>
+                    </LocalizedButton><LocalizedCopy>{"."}</LocalizedCopy></span>
                 </label>
               </div>
-            )}
-            {message && <div className="form-message">{message}</div>}
-            <button
+            )}</LocalizedCopy>
+            <LocalizedCopy>{message && <div className="form-message"><LocalizedCopy>{message}</LocalizedCopy></div>}</LocalizedCopy>
+            <LocalizedButton
               className="primary-button full"
               disabled={
                 busy ||
@@ -2058,7 +2048,7 @@ function PetOwnerLogin({
                   : !passwordValid || !formValid || !registrationConsent)
               }
             >
-              {busy ? (
+              <LocalizedCopy>{busy ? (
                 <>
                   <span className="button-spinner" /> Memproses…
                 </>
@@ -2068,20 +2058,18 @@ function PetOwnerLogin({
                 "Verifikasi & aktifkan akun"
               ) : (
                 "Daftar & kirim OTP"
-              )}
-            </button>
+              )}</LocalizedCopy>
+            </LocalizedButton>
           </form>
-          {mode === "verify" && (
-            <button
+          <LocalizedCopy>{mode === "verify" && (
+            <LocalizedButton
               type="button"
               className="text-button login-switch"
               disabled={busy}
               onClick={() => void resendOTP()}
-            >
-              Kirim ulang OTP
-            </button>
-          )}
-          <button
+            ><LocalizedCopy>{"Kirim ulang OTP"}</LocalizedCopy></LocalizedButton>
+          )}</LocalizedCopy>
+          <LocalizedButton
             className="text-button login-switch"
             onClick={() => {
               setMode(mode === "login" ? "register" : "login");
@@ -2093,12 +2081,12 @@ function PetOwnerLogin({
               setFormValid(false);
             }}
           >
-            {mode === "login"
+            <LocalizedCopy>{mode === "login"
               ? "Belum punya akun? Daftar gratis"
               : mode === "verify"
                 ? "Kembali ke login"
-                : "Sudah punya akun? Login"}
-          </button>
+                : "Sudah punya akun? Login"}</LocalizedCopy>
+          </LocalizedButton>
         </section>
       </div>
       {policy && (
@@ -2110,37 +2098,35 @@ function PetOwnerLogin({
             className="modal legal-modal"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <button
+            <LocalizedButton
               className="modal-close"
               onClick={() => setPolicy(null)}
               aria-label="Tutup"
             >
               <Icon name="close" />
-            </button>
-            <span className="section-eyebrow">LEGAL · SLIVADOC PET OWNER</span>
-            <h2>{legalCopy[policy].title}</h2>
-            <p>Berlaku sejak 26 Agustus 2026</p>
+            </LocalizedButton>
+            <span className="section-eyebrow"><LocalizedCopy>{"LEGAL · SLIVADOC PET OWNER"}</LocalizedCopy></span>
+            <h2><LocalizedCopy>{legalCopy[policy].title}</LocalizedCopy></h2>
+            <p><LocalizedCopy>{"Berlaku sejak 26 Agustus 2026"}</LocalizedCopy></p>
             <div>
-              {legalCopy[policy].sections.map((section, index) => (
+              <LocalizedCopy>{legalCopy[policy].sections.map((section, index) => (
                 <article key={section}>
                   <b>
-                    {index + 1}.{" "}
-                    {index === 0
+                    <LocalizedCopy>{index + 1}</LocalizedCopy><LocalizedCopy>{"."}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                    <LocalizedCopy>{index === 0
                       ? "Ruang lingkup"
                       : index === 1
                         ? "Penggunaan yang bertanggung jawab"
-                        : "Data dan layanan"}
+                        : "Data dan layanan"}</LocalizedCopy>
                   </b>
-                  <p>{section}</p>
+                  <p><LocalizedCopy>{section}</LocalizedCopy></p>
                 </article>
-              ))}
+              ))}</LocalizedCopy>
             </div>
-            <button
+            <LocalizedButton
               className="primary-button full"
               onClick={() => setPolicy(null)}
-            >
-              Saya mengerti
-            </button>
+            ><LocalizedCopy>{"Saya mengerti"}</LocalizedCopy></LocalizedButton>
           </section>
         </div>
       )}
@@ -2169,84 +2155,80 @@ function Sidebar({
   return (
     <aside className="sidebar">
       <Logo />
-      {selectedPet && (
-        <button
+      <LocalizedCopy>{selectedPet && (
+        <LocalizedButton
           type="button"
           className="sidebar-pet-badge"
           onClick={() => setActiveView("health")}
           aria-label={`Profil kesehatan ${selectedPet.name}`}
         >
-          <span className="sidebar-pet-avatar">{selectedPet.avatar}</span>
+          <span className="sidebar-pet-avatar"><LocalizedCopy>{selectedPet.avatar}</LocalizedCopy></span>
           <div className="sidebar-pet-meta">
-            <b>{selectedPet.name}</b>
-            <small>{selectedPet.breed}</small>
+            <b><LocalizedCopy>{selectedPet.name}</LocalizedCopy></b>
+            <small><LocalizedCopy>{selectedPet.breed}</LocalizedCopy></small>
           </div>
           <span className="sidebar-pet-score">
-            <Icon name="heart" size={11} /> {selectedPet.healthScore}
+            <Icon name="heart" size={11} /> <LocalizedCopy>{selectedPet.healthScore}</LocalizedCopy>
           </span>
-        </button>
-      )}
+        </LocalizedButton>
+      )}</LocalizedCopy>
       <nav className="side-nav" aria-label="Navigasi utama">
-        {navGroups.map((group) => (
+        <LocalizedCopy>{navGroups.map((group) => (
           <div className="side-nav-group" key={group.label}>
-            <p className="nav-eyebrow">{group.label}</p>
-            {group.items
+            <p className="nav-eyebrow"><LocalizedCopy>{group.label}</LocalizedCopy></p>
+            <LocalizedCopy>{group.items
               .map((id) => navItems.find((item) => item.id === id))
               .filter(
                 (item): item is (typeof navItems)[number] => item !== undefined,
               )
               .map((item) => (
-                <button
+                <LocalizedButton
                   type="button"
                   key={item.id}
                   className={activeView === item.id || (item.id === "world" && isWorldMode(activeView)) ? "active" : ""}
                   onClick={() => setActiveView(item.id)}
                 >
                   <Icon name={item.icon} size={19} />
-                  <span>{t(item.label)}</span>
-                  {item.id === "bookings" && needsActionCount > 0 && (
-                    <em>{needsActionCount > 9 ? "9+" : needsActionCount}</em>
-                  )}
-                </button>
-              ))}
+                  <span><LocalizedCopy>{t(item.label)}</LocalizedCopy></span>
+                  <LocalizedCopy>{item.id === "bookings" && needsActionCount > 0 && (
+                    <em><LocalizedCopy>{needsActionCount > 9 ? "9+" : needsActionCount}</LocalizedCopy></em>
+                  )}</LocalizedCopy>
+                </LocalizedButton>
+              ))}</LocalizedCopy>
           </div>
-        ))}
+        ))}</LocalizedCopy>
       </nav>
       <div className="side-spacer" />
-      <button
+      <LocalizedButton
         className="side-help"
         type="button"
         onClick={() => setActiveView("support")}
       >
-        <span>?</span> Pusat Bantuan
-      </button>
-      {authenticated && account ? (
-        <button
+        <span><LocalizedCopy>{"?"}</LocalizedCopy></span><LocalizedCopy>{" Pusat Bantuan"}</LocalizedCopy></LocalizedButton>
+      <LocalizedCopy>{authenticated && account ? (
+        <LocalizedButton
           className="side-profile"
           type="button"
           onClick={() => setActiveView("profile")}
         >
           <div className="avatar avatar-blue">
-            {account.full_name
+            <LocalizedCopy>{account.full_name
               .split(" ")
               .map((value) => value[0])
               .slice(0, 2)
-              .join("")}
+              .join("")}</LocalizedCopy>
           </div>
           <span>
-            <b>{account.full_name}</b>
-            <small>Pet Parent • Akun aktif</small>
+            <b><LocalizedCopy preserve>{account.full_name}</LocalizedCopy></b>
+            <small><LocalizedCopy>{"Pet Parent • Akun aktif"}</LocalizedCopy></small>
           </span>
           <Icon name="chevron" />
-        </button>
+        </LocalizedButton>
       ) : (
-        <button className="side-login-button" type="button" onClick={onLogin}>
-          <Icon name="user" /> Masuk ke akun
-        </button>
-      )}
-      <Link href="/brand" className="side-login-button">
-        Official Brand workspace →
-      </Link>
+        <LocalizedButton className="side-login-button" type="button" onClick={onLogin}>
+          <Icon name="user" /><LocalizedCopy>{" Masuk ke akun"}</LocalizedCopy></LocalizedButton>
+      )}</LocalizedCopy>
+      <Link href="/brand" className="side-login-button"><LocalizedCopy>{"Official Brand workspace →"}</LocalizedCopy></Link>
     </aside>
   );
 }
@@ -2290,6 +2272,7 @@ function Topbar({
   onSearchResult: (result: GlobalSearchResult) => void;
   onLogin: () => void;
 }) {
+  const { t } = usePetOwnerI18n();
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
@@ -2302,7 +2285,7 @@ function Topbar({
       const featureResults =
         category === "" || category === "feature"
           ? featureSearchItems.filter((item) =>
-              `${item.title} ${item.subtitle}`
+              `${item.title} ${item.subtitle} ${t(item.title)} ${t(item.subtitle)}`
                 .toLowerCase()
                 .includes(normalized),
             )
@@ -2326,7 +2309,7 @@ function Topbar({
         .finally(() => setBusy(false));
     }, 280);
     return () => window.clearTimeout(timer);
-  }, [query, category]);
+  }, [query, category, t]);
   function choose(result: GlobalSearchResult) {
     onSearchResult(result);
     setSearchOpen(false);
@@ -2337,7 +2320,7 @@ function Topbar({
       <div className="mobile-brand">
         <Logo />
       </div>
-      <button
+      <LocalizedButton
         className="location-picker"
         type="button"
         onClick={onOpenLocation}
@@ -2346,14 +2329,14 @@ function Topbar({
           <Icon name="map" size={18} />
         </span>
         <span>
-          <small>Lokasi kamu</small>
-          <b>{locationLabel}</b>
+          <small><LocalizedCopy>{"Lokasi kamu"}</LocalizedCopy></small>
+          <b><LocalizedCopy>{locationLabel}</LocalizedCopy></b>
         </span>
         <Icon name="chevron" size={15} />
-      </button>
+      </LocalizedButton>
       <label className={`global-search ${searchOpen ? "open" : ""}`}>
         <Icon name="search" size={18} />
-        <input
+        <LocalizedInput
           type="search"
           aria-label="Cari di seluruh Slivadoc"
           value={query}
@@ -2365,17 +2348,15 @@ function Topbar({
             if (event.currentTarget.value.trim().length < 2) setResults([]);
           }}
         />
-        <kbd>⌘ K</kbd>
-        {searchOpen && (
+        <kbd><LocalizedCopy>{"⌘ K"}</LocalizedCopy></kbd>
+        <LocalizedCopy>{searchOpen && (
           <div className="owner-search-results">
             <header>
-              <b>Cari di seluruh Slivadoc</b>
-              <button type="button" onClick={() => setSearchOpen(false)}>
-                Tutup
-              </button>
+              <b><LocalizedCopy>{"Cari di seluruh Slivadoc"}</LocalizedCopy></b>
+              <LocalizedButton type="button" onClick={() => setSearchOpen(false)}><LocalizedCopy>{"Tutup"}</LocalizedCopy></LocalizedButton>
             </header>
             <div className="owner-search-tabs">
-              {[
+              <LocalizedCopy>{[
                 ["", "Semua"],
                 ["feature", "Fitur"],
                 ["service", "Layanan"],
@@ -2385,56 +2366,56 @@ function Topbar({
                 ["academy", "Academy"],
                 ["veterinarian", "Dokter"],
               ].map(([value, label]) => (
-                <button
+                <LocalizedButton
                   type="button"
                   className={category === value ? "active" : ""}
                   key={value || "all"}
                   onClick={() => setCategory(value)}
                 >
-                  {label}
-                </button>
-              ))}
+                  <LocalizedCopy>{label}</LocalizedCopy>
+                </LocalizedButton>
+              ))}</LocalizedCopy>
             </div>
-            {busy ? (
-              <p>Memuat hasil…</p>
+            <LocalizedCopy>{busy ? (
+              <p><LocalizedCopy>{"Memuat hasil…"}</LocalizedCopy></p>
             ) : query.trim().length < 2 ? (
-              <p>Ketik minimal 2 karakter untuk mulai mencari.</p>
+              <p><LocalizedCopy>{"Ketik minimal 2 karakter untuk mulai mencari."}</LocalizedCopy></p>
             ) : results.length ? (
               results.map((item) => (
-                <button
+                <LocalizedButton
                   type="button"
                   key={`${item.category}-${item.id}`}
                   onClick={() => choose(item)}
                 >
-                  <span>{item.category.slice(0, 1).toUpperCase()}</span>
+                  <span><LocalizedCopy>{item.category.slice(0, 1).toUpperCase()}</LocalizedCopy></span>
                   <div>
-                    <b>{item.title}</b>
+                    <b><LocalizedCopy>{item.title}</LocalizedCopy></b>
                     <small>
-                      {item.category} · {item.subtitle}
+                      <LocalizedCopy>{item.category}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{item.subtitle}</LocalizedCopy>
                     </small>
                   </div>
                   <Icon name="chevron" />
-                </button>
+                </LocalizedButton>
               ))
             ) : (
-              <p>Tidak ada hasil yang cocok.</p>
-            )}
+              <p><LocalizedCopy>{"Tidak ada hasil yang cocok."}</LocalizedCopy></p>
+            )}</LocalizedCopy>
           </div>
-        )}
+        )}</LocalizedCopy>
       </label>
       <div className="top-actions">
-        <button
+        <LocalizedButton
           className="point-pill"
           type="button"
           onClick={() => (authenticated ? navigate("bookings") : onLogin())}
         >
-          <span>✦</span>
-          <b>{points.toLocaleString("id-ID")}</b>
-          <small>pts</small>
-        </button>
-        {authenticated && petProfiles.length > 0 && (
+          <span><LocalizedCopy>{"✦"}</LocalizedCopy></span>
+          <b><LocalizedCopy>{points.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy></b>
+          <small><LocalizedCopy>{"pts"}</LocalizedCopy></small>
+        </LocalizedButton>
+        <LocalizedCopy>{authenticated && petProfiles.length > 0 && (
           <label className="pet-switcher compact-select">
-            <span className="pet-mini">{selectedPet.avatar}</span>
+            <span className="pet-mini"><LocalizedCopy>{selectedPet.avatar}</LocalizedCopy></span>
             <SlivaSelect
               aria-label="Pilih hewan"
               value={selectedPetId}
@@ -2447,56 +2428,54 @@ function Topbar({
               ))}
             </SlivaSelect>
           </label>
-        )}
-        <button
+        )}</LocalizedCopy>
+        <LocalizedButton
           className="icon-button chat-header-button"
           type="button"
           onClick={authenticated ? onOpenMessages : onLogin}
           aria-label="Buka daftar chat"
         >
           <Icon name="chat" />
-          {authenticated && chatUnread > 0 && (
+          <LocalizedCopy>{authenticated && chatUnread > 0 && (
             <span className="counter">
-              {chatUnread > 99 ? "99+" : chatUnread}
+              <LocalizedCopy>{chatUnread > 99 ? "99+" : chatUnread}</LocalizedCopy>
             </span>
-          )}
-        </button>
-        <button
+          )}</LocalizedCopy>
+        </LocalizedButton>
+        <LocalizedButton
           className="icon-button cart-header-button"
           type="button"
           onClick={onOpenCart}
           aria-label="Keranjang"
         >
           <Icon name="cart" />
-          {cartCount > 0 && <span className="counter">{cartCount}</span>}
-        </button>
-        <button
+          <LocalizedCopy>{cartCount > 0 && <span className="counter"><LocalizedCopy>{cartCount}</LocalizedCopy></span>}</LocalizedCopy>
+        </LocalizedButton>
+        <LocalizedButton
           className="icon-button notification-header-button"
           type="button"
           onClick={authenticated ? onOpenNotifications : onLogin}
           aria-label="Notifikasi"
         >
           <Icon name="bell" />
-          {authenticated && unread > 0 && <span className="notif-dot" />}
-        </button>
-        {!authenticated && (
-          <button className="top-login" type="button" onClick={onLogin}>
-            Masuk
-          </button>
-        )}
-        {authenticated && account && (
-          <button
+          <LocalizedCopy>{authenticated && unread > 0 && <span className="notif-dot" />}</LocalizedCopy>
+        </LocalizedButton>
+        <LocalizedCopy>{!authenticated && (
+          <LocalizedButton className="top-login" type="button" onClick={onLogin}><LocalizedCopy>{"Masuk"}</LocalizedCopy></LocalizedButton>
+        )}</LocalizedCopy>
+        <LocalizedCopy>{authenticated && account && (
+          <LocalizedButton
             className="top-account"
             type="button"
             onClick={() => navigate("profile")}
           >
-            {account.full_name
+            <LocalizedCopy>{account.full_name
               .split(" ")
               .map((value) => value[0])
               .slice(0, 2)
-              .join("")}
-          </button>
-        )}
+              .join("")}</LocalizedCopy>
+          </LocalizedButton>
+        )}</LocalizedCopy>
       </div>
     </header>
   );
@@ -2527,28 +2506,28 @@ function PageHeading({
       <div>
         <div className="heading-kicker">
           <span className="live-dot" />
-          {date}
+          <LocalizedCopy>{date}</LocalizedCopy>
         </div>
         <h1>
-          {activeView === "home" && account
+          <LocalizedCopy>{activeView === "home" && account
             ? `Selamat datang, ${account.full_name.split(" ")[0]}!`
-            : t(item.title)}
+            : t(item.title)}</LocalizedCopy>
         </h1>
         <p>
-          {activeView === "health"
+          <LocalizedCopy>{activeView === "health"
             ? `Riwayat lengkap dan jadwal perawatan ${selectedPet.name}.`
-            : t(item.subtitle)}
+            : t(item.subtitle)}</LocalizedCopy>
         </p>
       </div>
-      {activeView !== "home" && (
-        <button
+      <LocalizedCopy>{activeView !== "home" && (
+        <LocalizedButton
           className="secondary-button heading-action"
           type="button"
           onClick={() => downloadViewSummary(activeView)}
         >
-          <Icon name="download" size={17} /> {t("Unduh ringkasan")}
-        </button>
-      )}
+          <Icon name="download" size={17} /> <LocalizedCopy>{t("Unduh ringkasan")}</LocalizedCopy>
+        </LocalizedButton>
+      )}</LocalizedCopy>
     </div>
   );
 }
@@ -2616,47 +2595,45 @@ function ChatInboxView({
     <section className="chat-inbox" aria-busy={loading}>
       <div className="chat-inbox-toolbar">
         <div className="chat-inbox-tabs" role="tablist" aria-label="Kategori chat">
-          <button type="button" role="tab" aria-selected={category === "store"} className={category === "store" ? "active" : ""} onClick={() => { setCategory("store"); setQuery(""); }}>
-            <Icon name="bag" size={17} /> Toko
-            {threads.reduce((total, thread) => total + thread.unread_count, 0) > 0 ? <span>{threads.reduce((total, thread) => total + thread.unread_count, 0)}</span> : null}
-          </button>
-          <button type="button" role="tab" aria-selected={category === "veterinarian"} className={category === "veterinarian" ? "active" : ""} onClick={() => { setCategory("veterinarian"); setQuery(""); }}>
-            <Icon name="heart" size={17} /> Dokter Hewan
-          </button>
+          <LocalizedButton type="button" role="tab" aria-selected={category === "store"} className={category === "store" ? "active" : ""} onClick={() => { setCategory("store"); setQuery(""); }}>
+            <Icon name="bag" size={17} /><LocalizedCopy>{" Toko"}</LocalizedCopy><LocalizedCopy>{threads.reduce((total, thread) => total + thread.unread_count, 0) > 0 ? <span><LocalizedCopy>{threads.reduce((total, thread) => total + thread.unread_count, 0)}</LocalizedCopy></span> : null}</LocalizedCopy>
+          </LocalizedButton>
+          <LocalizedButton type="button" role="tab" aria-selected={category === "veterinarian"} className={category === "veterinarian" ? "active" : ""} onClick={() => { setCategory("veterinarian"); setQuery(""); }}>
+            <Icon name="heart" size={17} /><LocalizedCopy>{" Dokter Hewan"}</LocalizedCopy></LocalizedButton>
         </div>
         <label className="chat-inbox-search">
           <Icon name="search" size={18} />
-          <input type="search" aria-label={category === "store" ? "Cari nama toko" : "Cari nama dokter"} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={category === "store" ? "Cari nama toko…" : "Cari nama dokter…"} />
+          <LocalizedInput type="search" aria-label={category === "store" ? "Cari nama toko" : "Cari nama dokter"} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={category === "store" ? "Cari nama toko…" : "Cari nama dokter…"} />
         </label>
       </div>
 
-      {loading && category === "store" ? (
-        <div className="chat-inbox-loading" role="status"><span className="loading-spinner" /><div><b>Memuat percakapan…</b><small>Menyinkronkan pesan dan status toko terbaru.</small></div></div>
+      <LocalizedCopy>{loading && category === "store" ? (
+        <div className="chat-inbox-loading" role="status"><span className="loading-spinner" /><div><b><LocalizedCopy>{"Memuat percakapan…"}</LocalizedCopy></b><small><LocalizedCopy>{"Menyinkronkan pesan dan status toko terbaru."}</LocalizedCopy></small></div></div>
       ) : error && category === "store" ? (
-        <div className="chat-inbox-empty"><Icon name="chat" size={27} /><b>Chat belum dapat dimuat</b><p>{error}</p><button type="button" onClick={() => void loadThreads()}>Coba lagi</button></div>
+        <div className="chat-inbox-empty"><Icon name="chat" size={27} /><b><LocalizedCopy>{"Chat belum dapat dimuat"}</LocalizedCopy></b><p><LocalizedCopy>{error}</LocalizedCopy></p><LocalizedButton type="button" onClick={() => void loadThreads()}><LocalizedCopy>{"Coba lagi"}</LocalizedCopy></LocalizedButton></div>
       ) : category === "store" && storeThreads.length ? (
         <div className="chat-inbox-list">
-          {storeThreads.map((thread) => (
-            <button type="button" key={thread.id} className="chat-inbox-row" onClick={() => onOpenStore(thread)}>
-              <span className="chat-inbox-avatar">{thread.business_name.slice(0, 1).toUpperCase()}<i data-online={thread.store_is_online} /></span>
-              <span className="chat-inbox-copy"><span><b>{thread.business_name}</b><time>{thread.last_message_created_at ? new Date(thread.last_message_created_at).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Baru"}</time></span><small>{thread.last_message || `Mulai chat tentang ${thread.product_name || "produk toko"}`}</small></span>
-              {thread.unread_count > 0 ? <em>{thread.unread_count}</em> : <Icon name="chevron" size={17} />}
-            </button>
-          ))}
+          <LocalizedCopy>{storeThreads.map((thread) => (
+            <LocalizedButton type="button" key={thread.id} className="chat-inbox-row" onClick={() => onOpenStore(thread)}>
+              <span className="chat-inbox-avatar"><LocalizedCopy>{thread.business_name.slice(0, 1).toUpperCase()}</LocalizedCopy><i data-online={thread.store_is_online} /></span>
+              <span className="chat-inbox-copy"><span><b><LocalizedCopy>{thread.business_name}</LocalizedCopy></b><time><LocalizedCopy>{thread.last_message_created_at ? new Date(thread.last_message_created_at).toLocaleString(petOwnerIntlLocale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Baru"}</LocalizedCopy></time></span><small><LocalizedCopy>{thread.last_message || `Mulai chat tentang ${thread.product_name || "produk toko"}`}</LocalizedCopy></small></span>
+              <LocalizedCopy>{thread.unread_count > 0 ? <em><LocalizedCopy>{thread.unread_count}</LocalizedCopy></em> : <Icon name="chevron" size={17} />}</LocalizedCopy>
+            </LocalizedButton>
+          ))}</LocalizedCopy>
         </div>
       ) : category === "veterinarian" && doctorThreads.length ? (
         <div className="chat-inbox-list">
-          {doctorThreads.map((item) => (
-            <button type="button" key={item.id} className="chat-inbox-row" onClick={() => onOpenDoctor(item)}>
+          <LocalizedCopy>{doctorThreads.map((item) => (
+            <LocalizedButton type="button" key={item.id} className="chat-inbox-row" onClick={() => onOpenDoctor(item)}>
               <span className="chat-inbox-avatar is-doctor"><Icon name="heart" size={20} /></span>
-              <span className="chat-inbox-copy"><span><b>{item.provider_name || item.doctor_name || item.title}</b><time>{item.status}</time></span><small>{item.plan_name || item.subtitle} · {item.pet_name || "Pet-mu"}</small></span>
+              <span className="chat-inbox-copy"><span><b><LocalizedCopy>{item.provider_name || item.doctor_name || item.title}</LocalizedCopy></b><time><LocalizedCopy>{item.status}</LocalizedCopy></time></span><small><LocalizedCopy>{item.plan_name || item.subtitle}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{item.pet_name || "Pet-mu"}</LocalizedCopy></small></span>
               <Icon name="chevron" size={17} />
-            </button>
-          ))}
+            </LocalizedButton>
+          ))}</LocalizedCopy>
         </div>
       ) : (
-        <div className="chat-inbox-empty"><Icon name="chat" size={27} /><b>{query ? "Percakapan tidak ditemukan" : "Belum ada percakapan"}</b><p>{category === "store" ? "Chat dengan toko akan tersimpan di sini." : "Chat dokter muncul setelah kamu membuat konsultasi."}</p></div>
-      )}
+        <div className="chat-inbox-empty"><Icon name="chat" size={27} /><b><LocalizedCopy>{query ? "Percakapan tidak ditemukan" : "Belum ada percakapan"}</LocalizedCopy></b><p><LocalizedCopy>{category === "store" ? "Chat dengan toko akan tersimpan di sini." : "Chat dokter muncul setelah kamu membuat konsultasi."}</LocalizedCopy></p></div>
+      )}</LocalizedCopy>
     </section>
   );
 }
@@ -2838,11 +2815,11 @@ function HomeView({
       <div className="home-main-col">
         <section className="home-greeting" aria-label="Sapaan">
           <div>
-            <h2>{firstName ? `Hai, ${firstName}! 🐾` : "Hai, Pet Parent! 🐾"}</h2>
+            <h2><LocalizedCopy>{firstName ? `Hai, ${firstName}! 🐾` : "Hai, Pet Parent! 🐾"}</LocalizedCopy></h2>
             <p>
-              {firstName
+              <LocalizedCopy>{firstName
                 ? `Yuk, bikin hari ${selectedPet.name} makin sehat dan happy.`
-                : "Satu tempat buat semua momen sehat dan happy bareng pet."}
+                : "Satu tempat buat semua momen sehat dan happy bareng pet."}</LocalizedCopy>
             </p>
           </div>
           <span className="home-greeting-sparkle" aria-hidden="true">
@@ -2853,16 +2830,15 @@ function HomeView({
         <section className="home-quick-panel" aria-labelledby="quick-title">
           <header className="home-section-heading">
             <div>
-              <h2 id="quick-title">{t("Layanan cepat")}</h2>
-              <p>{t("Semua yang pet-mu butuhkan, sekali tap")}</p>
+              <h2 id="quick-title"><LocalizedCopy>{t("Layanan cepat")}</LocalizedCopy></h2>
+              <p><LocalizedCopy>{t("Semua yang pet-mu butuhkan, sekali tap")}</LocalizedCopy></p>
             </div>
             <span className="home-quick-count">
-              <Icon name="sparkle" size={12} /> 6 pilihan
-            </span>
+              <Icon name="sparkle" size={12} /><LocalizedCopy>{" 6 pilihan"}</LocalizedCopy></span>
           </header>
           <div className="home-quick-feature-row">
-            {featuredActions.map((item) => (
-              <button
+            <LocalizedCopy>{featuredActions.map((item) => (
+              <LocalizedButton
                 className={`home-quick-feature home-quick-feature--${item.tone}`}
                 type="button"
                 key={item.label}
@@ -2874,14 +2850,14 @@ function HomeView({
                 <span className="home-quick-feature-arrow">
                   <Icon name="arrow" size={13} />
                 </span>
-                <b>{item.label}</b>
-                <small>{item.note}</small>
-              </button>
-            ))}
+                <b><LocalizedCopy>{item.label}</LocalizedCopy></b>
+                <small><LocalizedCopy>{item.note}</LocalizedCopy></small>
+              </LocalizedButton>
+            ))}</LocalizedCopy>
           </div>
           <div className="home-quick-mini-grid">
-            {miniActions.map((item) => (
-              <button
+            <LocalizedCopy>{miniActions.map((item) => (
+              <LocalizedButton
                 className="home-quick-mini"
                 type="button"
                 key={item.label}
@@ -2892,26 +2868,25 @@ function HomeView({
                 >
                   <Icon name={item.icon} size={20} />
                 </span>
-                <b>{item.label}</b>
-                <small>{item.note}</small>
-              </button>
-            ))}
+                <b><LocalizedCopy>{item.label}</LocalizedCopy></b>
+                <small><LocalizedCopy>{item.note}</LocalizedCopy></small>
+              </LocalizedButton>
+            ))}</LocalizedCopy>
           </div>
         </section>
 
         <section className="home-services-section">
           <header className="home-section-heading home-section-heading--action">
             <div>
-              <span className="home-section-eyebrow">REKOMENDASI</span>
-              <h2>Pet clinic & petshop terdekat</h2>
-              <p>Diurutkan dari titik lokasi yang kamu pilih</p>
+              <span className="home-section-eyebrow"><LocalizedCopy>{"REKOMENDASI"}</LocalizedCopy></span>
+              <h2><LocalizedCopy>{"Pet clinic & petshop terdekat"}</LocalizedCopy></h2>
+              <p><LocalizedCopy>{"Diurutkan dari titik lokasi yang kamu pilih"}</LocalizedCopy></p>
             </div>
-            <button type="button" onClick={() => openServiceCatalog()}>
-              Jelajahi <Icon name="arrow" size={14} />
-            </button>
+            <LocalizedButton type="button" onClick={() => openServiceCatalog()}><LocalizedCopy>{"Jelajahi "}</LocalizedCopy><Icon name="arrow" size={14} />
+            </LocalizedButton>
           </header>
           <div className="home-service-row">
-            {nearestPartners.map((partner) => {
+            <LocalizedCopy>{nearestPartners.map((partner) => {
               const service = partner.service;
               const typeLabel = partner.types.size > 1
                 ? "Pet Clinic & Shop"
@@ -2923,11 +2898,11 @@ function HomeView({
                 onClick={() => openPartnerProfile(partner.id)}
               >
                 <div className={`home-service-visual ${service.accent}`}>
-                  <span>{typeLabel}</span>
-                  <button type="button" aria-label={`Simpan ${partner.name}`} onClick={(event) => event.stopPropagation()}>
+                  <span><LocalizedCopy>{typeLabel}</LocalizedCopy></span>
+                  <LocalizedButton type="button" aria-label={`Simpan ${partner.name}`} onClick={(event) => event.stopPropagation()}>
                     <Icon name="heart" size={14} />
-                  </button>
-                  {service.imageUrl ? (
+                  </LocalizedButton>
+                  <LocalizedCopy>{service.imageUrl ? (
                     <Image
                       className="catalog-cover-image"
                       src={service.imageUrl}
@@ -2937,84 +2912,76 @@ function HomeView({
                       unoptimized
                     />
                   ) : (
-                    <i>{service.emoji}</i>
-                  )}
+                    <i><LocalizedCopy>{service.emoji}</LocalizedCopy></i>
+                  )}</LocalizedCopy>
                 </div>
                 <div>
-                  <b>{partner.name}</b>
+                  <b><LocalizedCopy>{partner.name}</LocalizedCopy></b>
                   <small>
-                    <Icon name="map" size={11} /> {service.branchName || service.address}
+                    <Icon name="map" size={11} /> <LocalizedCopy>{service.branchName || service.address}</LocalizedCopy>
                   </small>
                   <p>
                     <span>
-                      <Icon name="bag" size={10} /> {partner.serviceCount} layanan
-                    </span>
-                    · {service.distance}
+                      <Icon name="bag" size={10} /> <LocalizedCopy>{partner.serviceCount}</LocalizedCopy><LocalizedCopy>{" layanan"}</LocalizedCopy></span><LocalizedCopy>{"· "}</LocalizedCopy><LocalizedCopy>{service.distance}</LocalizedCopy>
                   </p>
                   <footer>
-                    <strong>{service.city || service.price}</strong>
-                    <button
+                    <strong><LocalizedCopy>{service.city || service.price}</LocalizedCopy></strong>
+                    <LocalizedButton
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
                         openPartnerProfile(partner.id);
                       }}
-                    >
-                      Lihat profil <Icon name="arrow" size={12} />
-                    </button>
+                    ><LocalizedCopy>{"Lihat profil "}</LocalizedCopy><Icon name="arrow" size={12} />
+                    </LocalizedButton>
                   </footer>
                 </div>
               </article>
               );
-            })}
-            {nearestPartners.length === 0 && (
-              <div className="empty-state compact">
-                Belum ada pet clinic atau petshop di titik lokasi ini.
-              </div>
-            )}
+            })}</LocalizedCopy>
+            <LocalizedCopy>{nearestPartners.length === 0 && (
+              <div className="empty-state compact"><LocalizedCopy>{"Belum ada pet clinic atau petshop di titik lokasi ini."}</LocalizedCopy></div>
+            )}</LocalizedCopy>
           </div>
         </section>
 
         <section className="home-doctors-section">
           <header className="home-section-heading home-section-heading--action">
             <div>
-              <span className="home-section-eyebrow">DOKTER TERBAIK</span>
-              <h2>Teman konsultasi untuk {selectedPet.name}</h2>
-              <p>Dokter terverifikasi dengan rating dan konsultasi terbaik</p>
+              <span className="home-section-eyebrow"><LocalizedCopy>{"DOKTER TERBAIK"}</LocalizedCopy></span>
+              <h2><LocalizedCopy>{"Teman konsultasi untuk "}</LocalizedCopy><LocalizedCopy>{selectedPet.name}</LocalizedCopy></h2>
+              <p><LocalizedCopy>{"Dokter terverifikasi dengan rating dan konsultasi terbaik"}</LocalizedCopy></p>
             </div>
-            <button type="button" onClick={() => openConsultation()}>
-              Lihat dokter <Icon name="arrow" size={14} />
-            </button>
+            <LocalizedButton type="button" onClick={() => openConsultation()}><LocalizedCopy>{"Lihat dokter "}</LocalizedCopy><Icon name="arrow" size={14} />
+            </LocalizedButton>
           </header>
           <div className="home-doctor-row">
-            {recommendedDoctors.map((doctor) => (
+            <LocalizedCopy>{recommendedDoctors.map((doctor) => (
               <article className="home-doctor-card" key={doctor.id}>
                 <span className="home-doctor-avatar">
-                  {doctor.photo_url ? (
+                  <LocalizedCopy>{doctor.photo_url ? (
                     <Image src={doctor.photo_url} alt={doctor.full_name} fill sizes="58px" unoptimized />
                   ) : (
                     <Icon name="user" size={24} />
-                  )}
+                  )}</LocalizedCopy>
                   <i />
                 </span>
                 <div>
-                  <small>{doctor.availability_status === "online" ? "ONLINE" : "DOKTER TERVERIFIKASI"}</small>
-                  <b>{doctor.full_name}</b>
-                  <p>{doctor.specialties.join(" · ") || "Dokter hewan umum"}</p>
-                  <span><Icon name="star" size={11} /> {doctor.rating.toFixed(1)} · {doctor.consultation_count.toLocaleString("id-ID")} konsultasi</span>
+                  <small><LocalizedCopy>{doctor.availability_status === "online" ? "ONLINE" : "DOKTER TERVERIFIKASI"}</LocalizedCopy></small>
+                  <b><LocalizedCopy preserve>{doctor.full_name}</LocalizedCopy></b>
+                  <p><LocalizedCopy>{doctor.specialties.join(" · ") || "Dokter hewan umum"}</LocalizedCopy></p>
+                  <span><Icon name="star" size={11} /> <LocalizedCopy>{doctor.rating.toFixed(1)}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{doctor.consultation_count.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" konsultasi"}</LocalizedCopy></span>
                 </div>
-                <button type="button" onClick={() => openConsultation(doctor.id)}>
-                  Konsultasi
-                </button>
+                <LocalizedButton type="button" onClick={() => openConsultation(doctor.id)}><LocalizedCopy>{"Konsultasi"}</LocalizedCopy></LocalizedButton>
               </article>
-            ))}
-            {recommendedDoctors.length === 0 ? (
-              <div className="empty-state compact">Dokter terbaik sedang disinkronkan.</div>
-            ) : null}
+            ))}</LocalizedCopy>
+            <LocalizedCopy>{recommendedDoctors.length === 0 ? (
+              <div className="empty-state compact"><LocalizedCopy>{"Dokter terbaik sedang disinkronkan."}</LocalizedCopy></div>
+            ) : null}</LocalizedCopy>
           </div>
         </section>
 
-        {campaign && (
+        <LocalizedCopy>{campaign && (
           <section
             className="public-campaign-banner home-campaign"
             style={{
@@ -3022,10 +2989,10 @@ function HomeView({
             }}
           >
             <div>
-              <span>REKOMENDASI SLIVADOC</span>
-              <h2>{campaign.name}</h2>
-              <p>{campaign.objective}</p>
-              <button
+              <span><LocalizedCopy>{"REKOMENDASI SLIVADOC"}</LocalizedCopy></span>
+              <h2><LocalizedCopy>{campaign.name}</LocalizedCopy></h2>
+              <p><LocalizedCopy>{campaign.objective}</LocalizedCopy></p>
+              <LocalizedButton
                 type="button"
                 onClick={() =>
                   setActiveView(
@@ -3040,12 +3007,11 @@ function HomeView({
                     )[campaign.placement] ?? "discover",
                   )
                 }
-              >
-                Lihat selengkapnya <Icon name="chevron" size={15} />
-              </button>
+              ><LocalizedCopy>{"Lihat selengkapnya "}</LocalizedCopy><Icon name="chevron" size={15} />
+              </LocalizedButton>
             </div>
           </section>
-        )}
+        )}</LocalizedCopy>
       </div>
 
       <aside
@@ -3055,13 +3021,12 @@ function HomeView({
         <section className="home-health-section">
           <header className="home-section-heading home-section-heading--action">
             <div>
-              <span className="home-section-eyebrow">HEALTH SNAPSHOT</span>
-              <h2>Kondisi {selectedPet.name}</h2>
-              <p>Pantau kesehatan tanpa ribet</p>
+              <span className="home-section-eyebrow"><LocalizedCopy>{"HEALTH SNAPSHOT"}</LocalizedCopy></span>
+              <h2><LocalizedCopy>{"Kondisi "}</LocalizedCopy><LocalizedCopy>{selectedPet.name}</LocalizedCopy></h2>
+              <p><LocalizedCopy>{"Pantau kesehatan tanpa ribet"}</LocalizedCopy></p>
             </div>
-            <button type="button" onClick={() => setActiveView("health")}>
-              Detail <Icon name="arrow" size={14} />
-            </button>
+            <LocalizedButton type="button" onClick={() => setActiveView("health")}><LocalizedCopy>{"Detail "}</LocalizedCopy><Icon name="arrow" size={14} />
+            </LocalizedButton>
           </header>
           <div className="home-health-card">
             <span
@@ -3074,21 +3039,20 @@ function HomeView({
             />
             <div className="home-health-top">
               <span className="home-health-avatar">
-                {selectedPet.avatar}
+                <LocalizedCopy>{selectedPet.avatar}</LocalizedCopy>
                 <i>
                   <Icon name="check" size={10} />
                 </i>
               </span>
               <div className="home-health-pet">
                 <small>
-                  <i /> PET AKTIF
-                </small>
-                <b>{selectedPet.name}</b>
+                  <i /><LocalizedCopy>{" PET AKTIF"}</LocalizedCopy></small>
+                <b><LocalizedCopy>{selectedPet.name}</LocalizedCopy></b>
                 <span>
-                  {selectedPet.breed} • {selectedPet.age}
+                  <LocalizedCopy>{selectedPet.breed}</LocalizedCopy><LocalizedCopy>{" • "}</LocalizedCopy><LocalizedCopy>{selectedPet.age}</LocalizedCopy>
                 </span>
               </div>
-              <button
+              <LocalizedButton
                 type="button"
                 className="home-pet-switch"
                 aria-expanded={petSwitcherOpen}
@@ -3097,15 +3061,14 @@ function HomeView({
                     ? setPetSwitcherOpen((current) => !current)
                     : setActiveView("pets")
                 }
-              >
-                Ganti <Icon name="arrow" size={12} />
-              </button>
+              ><LocalizedCopy>{"Ganti "}</LocalizedCopy><Icon name="arrow" size={12} />
+              </LocalizedButton>
             </div>
-            {petSwitcherOpen ? (
+            <LocalizedCopy>{petSwitcherOpen ? (
               <div className="home-pet-switcher" role="dialog" aria-label="Pilih pet aktif">
-                <header><b>Ganti pet aktif</b><small>Ringkasan homepage akan langsung menyesuaikan.</small></header>
-                {petProfiles.map((pet) => (
-                  <button
+                <header><b><LocalizedCopy>{"Ganti pet aktif"}</LocalizedCopy></b><small><LocalizedCopy>{"Ringkasan homepage akan langsung menyesuaikan."}</LocalizedCopy></small></header>
+                <LocalizedCopy>{petProfiles.map((pet) => (
+                  <LocalizedButton
                     type="button"
                     key={pet.id}
                     className={pet.id === selectedPetId ? "active" : ""}
@@ -3114,41 +3077,39 @@ function HomeView({
                       setPetSwitcherOpen(false);
                     }}
                   >
-                    <span>{pet.avatar}</span>
-                    <div><b>{pet.name}</b><small>{pet.breed} · {pet.age}</small></div>
-                    <i>{pet.id === selectedPetId ? "✓" : ""}</i>
-                  </button>
-                ))}
-                <button type="button" className="manage" onClick={() => setActiveView("pets")}>Kelola semua profil pet</button>
+                    <span><LocalizedCopy>{pet.avatar}</LocalizedCopy></span>
+                    <div><b><LocalizedCopy preserve>{pet.name}</LocalizedCopy></b><small><LocalizedCopy>{pet.breed}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{pet.age}</LocalizedCopy></small></div>
+                    <i><LocalizedCopy>{pet.id === selectedPetId ? "✓" : ""}</LocalizedCopy></i>
+                  </LocalizedButton>
+                ))}</LocalizedCopy>
+                <LocalizedButton type="button" className="manage" onClick={() => setActiveView("pets")}><LocalizedCopy>{"Kelola semua profil pet"}</LocalizedCopy></LocalizedButton>
               </div>
-            ) : null}
+            ) : null}</LocalizedCopy>
             <div className="home-health-overview">
               <div className="home-health-score">
                 <div>
-                  <b>{selectedPet.healthScore}</b>
-                  <small>/ 100</small>
+                  <b><LocalizedCopy>{selectedPet.healthScore}</LocalizedCopy></b>
+                  <small><LocalizedCopy>{"/ 100"}</LocalizedCopy></small>
                 </div>
-                <strong>{healthStatus}</strong>
-                <span>{selectedPet.nextCare || "Belum ada rekam medis"}</span>
+                <strong><LocalizedCopy>{healthStatus}</LocalizedCopy></strong>
+                <span><LocalizedCopy>{selectedPet.nextCare || "Belum ada rekam medis"}</LocalizedCopy></span>
               </div>
               <div className="home-health-metrics">
                 <div>
-                  <span className="home-health-metric-icon home-health-metric-icon--mint">
-                    ⚖
-                  </span>
-                  <small>Berat badan</small>
-                  <b>{selectedPet.weight}</b>
+                  <span className="home-health-metric-icon home-health-metric-icon--mint"><LocalizedCopy>{"⚖"}</LocalizedCopy></span>
+                  <small><LocalizedCopy>{"Berat badan"}</LocalizedCopy></small>
+                  <b><LocalizedCopy>{selectedPet.weight}</LocalizedCopy></b>
                 </div>
                 <div>
                   <span className="home-health-metric-icon home-health-metric-icon--violet">
                     <Icon name="heart" size={14} />
                   </span>
-                  <small>Aktivitas</small>
-                  <b>{activities.length} catatan</b>
+                  <small><LocalizedCopy>{"Aktivitas"}</LocalizedCopy></small>
+                  <b><LocalizedCopy>{activities.length}</LocalizedCopy><LocalizedCopy>{" catatan"}</LocalizedCopy></b>
                 </div>
               </div>
             </div>
-            <button
+            <LocalizedButton
               className="home-health-insight"
               type="button"
               onClick={() => setActiveView("bookings")}
@@ -3157,35 +3118,34 @@ function HomeView({
                 <Icon name="sparkle" size={16} />
               </span>
               <div>
-                <b>Insight untuk {selectedPet.name}</b>
+                <b><LocalizedCopy>{"Insight untuk "}</LocalizedCopy><LocalizedCopy>{selectedPet.name}</LocalizedCopy></b>
                 <small>
-                  {featuredActivities[0]?.subtitle ||
-                    "Belum ada aktivitas kesehatan terjadwal."}
+                  <LocalizedCopy>{featuredActivities[0]?.subtitle ||
+                    "Belum ada aktivitas kesehatan terjadwal."}</LocalizedCopy>
                 </small>
               </div>
               <i>
                 <Icon name="arrow" size={14} />
               </i>
-            </button>
+            </LocalizedButton>
           </div>
         </section>
 
         <section className="home-care-section">
           <header className="home-section-heading home-section-heading--action">
             <div>
-              <span className="home-section-eyebrow">CARE PLAN</span>
-              <h2>Perawatan terdekat</h2>
-              <p>Biar jadwal nggak kelewat</p>
+              <span className="home-section-eyebrow"><LocalizedCopy>{"CARE PLAN"}</LocalizedCopy></span>
+              <h2><LocalizedCopy>{"Perawatan terdekat"}</LocalizedCopy></h2>
+              <p><LocalizedCopy>{"Biar jadwal nggak kelewat"}</LocalizedCopy></p>
             </div>
-            <button type="button" onClick={() => setActiveView("bookings")}>
-              Semua <Icon name="arrow" size={14} />
-            </button>
+            <LocalizedButton type="button" onClick={() => setActiveView("bookings")}><LocalizedCopy>{"Semua "}</LocalizedCopy><Icon name="arrow" size={14} />
+            </LocalizedButton>
           </header>
           <div className="home-care-card">
-            {featuredActivities.length ? (
+            <LocalizedCopy>{featuredActivities.length ? (
               featuredActivities.map((care, index) => {
                 const meta = getActivityTypeMeta(care.type);
-                return <button
+                return <LocalizedButton
                   className="home-care-row"
                   type="button"
                   key={`${care.type}-${care.id}`}
@@ -3201,23 +3161,23 @@ function HomeView({
                     >
                       <Icon name={meta.icon} size={18} />
                     </i>
-                    {index < featuredActivities.length - 1 && <em />}
+                    <LocalizedCopy>{index < featuredActivities.length - 1 && <em />}</LocalizedCopy>
                   </span>
                   <span className="home-care-copy">
                     <small>
                       <Icon name="clock" size={11} />
-                      {new Date(
+                      <LocalizedCopy>{new Date(
                         care.scheduled_at || care.occurred_at,
-                      ).toLocaleDateString("id-ID", {
+                      ).toLocaleDateString(petOwnerIntlLocale(), {
                         day: "numeric",
                         month: "short",
-                      })}
+                      })}</LocalizedCopy>
                     </small>
-                    <b>{care.title}</b>
-                    <span>{care.subtitle}</span>
+                    <b><LocalizedCopy>{care.title}</LocalizedCopy></b>
+                    <span><LocalizedCopy>{care.subtitle}</LocalizedCopy></span>
                   </span>
                   <Icon name="chevron" size={15} />
-                </button>;
+                </LocalizedButton>;
               })
             ) : (
               <div className="empty-state compact home-care-empty">
@@ -3225,12 +3185,12 @@ function HomeView({
                   <Icon name="calendar" size={25} />
                 </span>
                 <div>
-                  <b>Jadwal masih santai</b>
-                  <p>Booking perawatan pertama dan kami bantu ingatkan.</p>
+                  <b><LocalizedCopy>{"Jadwal masih santai"}</LocalizedCopy></b>
+                  <p><LocalizedCopy>{"Booking perawatan pertama dan kami bantu ingatkan."}</LocalizedCopy></p>
                 </div>
               </div>
-            )}
-            <button
+            )}</LocalizedCopy>
+            <LocalizedButton
               className="home-care-cta"
               type="button"
               onClick={() =>
@@ -3244,21 +3204,21 @@ function HomeView({
               </span>
               <div>
                 <b>
-                  {featuredActivities.length
+                  <LocalizedCopy>{featuredActivities.length
                     ? "Lihat semua aktivitas"
-                    : "Buat care plan pertama"}
+                    : "Buat care plan pertama"}</LocalizedCopy>
                 </b>
-                <small>Semua jadwal pet dalam satu tempat</small>
+                <small><LocalizedCopy>{"Semua jadwal pet dalam satu tempat"}</LocalizedCopy></small>
               </div>
               <i>
                 <Icon name="arrow" size={14} />
               </i>
-            </button>
+            </LocalizedButton>
           </div>
         </section>
 
         <div className="home-rail-dock">
-          <button
+          <LocalizedButton
             type="button"
             className="home-rail-dock-action"
             onClick={() => setChatOpen(true)}
@@ -3267,11 +3227,11 @@ function HomeView({
               <Icon name="chat" size={18} />
             </span>
             <div>
-              <b>Tanya Dokter Hewan 24/7</b>
-              <small>Konsultasi online cepat dan ramah</small>
+              <b><LocalizedCopy>{"Tanya Dokter Hewan 24/7"}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Konsultasi online cepat dan ramah"}</LocalizedCopy></small>
             </div>
             <Icon name="arrow" size={14} />
-          </button>
+          </LocalizedButton>
         </div>
       </aside>
     </div>
@@ -3308,23 +3268,18 @@ function PetsView({
   if (!pet)
     return (
       <div className="empty-state">
-        <span>🐾</span>
-        <h3>Belum ada pet di akunmu</h3>
-        <p>
-          Tambahkan profil pertama untuk mulai menyimpan identitas dan
-          kesehatan.
-        </p>
-        <button className="primary-button" onClick={() => setAddPetOpen(true)}>
-          Tambah pet
-        </button>
+        <span><LocalizedCopy>{"🐾"}</LocalizedCopy></span>
+        <h3><LocalizedCopy>{"Belum ada pet di akunmu"}</LocalizedCopy></h3>
+        <p><LocalizedCopy>{"Tambahkan profil pertama untuk mulai menyimpan identitas dan kesehatan."}</LocalizedCopy></p>
+        <LocalizedButton className="primary-button" onClick={() => setAddPetOpen(true)}><LocalizedCopy>{"Tambah pet"}</LocalizedCopy></LocalizedButton>
       </div>
     );
   return (
     <div className="two-column-page">
       <section>
         <div className="pet-card-grid">
-          {petProfiles.map((item) => (
-            <button
+          <LocalizedCopy>{petProfiles.map((item) => (
+            <LocalizedButton
               className={`pet-profile-card ${selectedPetId === item.id ? "selected" : ""}`}
               type="button"
               key={item.id}
@@ -3334,7 +3289,7 @@ function PetsView({
                 className="pet-profile-avatar"
                 style={{ background: `${item.color}24` }}
               >
-                {item.photoUrl ? (
+                <LocalizedCopy>{item.photoUrl ? (
                   <Image
                     src={item.photoUrl}
                     alt={item.name}
@@ -3344,28 +3299,28 @@ function PetsView({
                   />
                 ) : (
                   item.avatar
-                )}
+                )}</LocalizedCopy>
                 <i>
                   <Icon name="check" size={11} />
                 </i>
               </span>
               <span className="pet-profile-copy">
-                <b>{item.name}</b>
-                <small>{item.breed}</small>
+                <b><LocalizedCopy>{item.name}</LocalizedCopy></b>
+                <small><LocalizedCopy>{item.breed}</LocalizedCopy></small>
                 <em>
-                  {item.gender} • {item.age}
-                  {item.accessRole && item.accessRole !== "owner" && (
-                    <span className="shared-pet-badge"> · Dibagikan</span>
-                  )}
+                  <LocalizedCopy>{item.gender}</LocalizedCopy><LocalizedCopy>{" • "}</LocalizedCopy><LocalizedCopy>{item.age}</LocalizedCopy>
+                  <LocalizedCopy>{item.accessRole && item.accessRole !== "owner" && (
+                    <span className="shared-pet-badge"><LocalizedCopy>{" · Dibagikan"}</LocalizedCopy></span>
+                  )}</LocalizedCopy>
                 </em>
               </span>
               <span className="pet-score-small">
-                <b>{item.healthScore}</b>
-                <small>Health</small>
+                <b><LocalizedCopy>{item.healthScore}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"Health"}</LocalizedCopy></small>
               </span>
-            </button>
-          ))}
-          <button
+            </LocalizedButton>
+          ))}</LocalizedCopy>
+          <LocalizedButton
             className="add-pet-card"
             type="button"
             onClick={() => setAddPetOpen(true)}
@@ -3373,43 +3328,41 @@ function PetsView({
             <span>
               <Icon name="plus" size={25} />
             </span>
-            <b>Tambah hewan</b>
-            <small>Buat profil untuk anggota keluarga baru</small>
-          </button>
+            <b><LocalizedCopy>{"Tambah hewan"}</LocalizedCopy></b>
+            <small><LocalizedCopy>{"Buat profil untuk anggota keluarga baru"}</LocalizedCopy></small>
+          </LocalizedButton>
         </div>
 
         <section className="panel pet-detail-panel">
           <div className="panel-heading">
             <div>
-              <span className="section-eyebrow">PET IDENTITY</span>
-              <h3>Profil {pet.name}</h3>
+              <span className="section-eyebrow"><LocalizedCopy>{"PET IDENTITY"}</LocalizedCopy></span>
+              <h3><LocalizedCopy>{"Profil "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy></h3>
             </div>
-            {can("profile") && (
-              <button
+            <LocalizedCopy>{can("profile") && (
+              <LocalizedButton
                 className="secondary-button small"
                 type="button"
                 onClick={() => setModal("edit")}
               >
-                <Icon name="edit" size={15} /> Edit profil
-              </button>
-            )}
+                <Icon name="edit" size={15} /><LocalizedCopy>{" Edit profil"}</LocalizedCopy></LocalizedButton>
+            )}</LocalizedCopy>
           </div>
           <div className="pet-identity-banner">
-            <div className="pet-id-avatar">{pet.avatar}</div>
+            <div className="pet-id-avatar"><LocalizedCopy>{pet.avatar}</LocalizedCopy></div>
             <div>
               <span className="verified-badge">
-                <Icon name="shield" size={13} /> Identitas terverifikasi
-              </span>
-              <h2>{pet.name}</h2>
+                <Icon name="shield" size={13} /><LocalizedCopy>{" Identitas terverifikasi"}</LocalizedCopy></span>
+              <h2><LocalizedCopy preserve>{pet.name}</LocalizedCopy></h2>
               <p>
-                {pet.breed} • {pet.gender}
+                <LocalizedCopy>{pet.breed}</LocalizedCopy><LocalizedCopy>{" • "}</LocalizedCopy><LocalizedCopy>{pet.gender}</LocalizedCopy>
               </p>
-              <small>Microchip: {pet.microchip}</small>
+              <small><LocalizedCopy>{"Microchip: "}</LocalizedCopy><LocalizedCopy>{pet.microchip}</LocalizedCopy></small>
             </div>
-            <button type="button" onClick={() => setModal("id")}>
-              <span>▦</span>
-              <small>Tampilkan Pet ID</small>
-            </button>
+            <LocalizedButton type="button" onClick={() => setModal("id")}>
+              <span><LocalizedCopy>{"▦"}</LocalizedCopy></span>
+              <small><LocalizedCopy>{"Tampilkan Pet ID"}</LocalizedCopy></small>
+            </LocalizedButton>
           </div>
           <div className="info-grid">
             <Info label="Tanggal lahir" value="21 Juni 2023" />
@@ -3426,105 +3379,94 @@ function PetsView({
             />
           </div>
           <div className="pet-notes">
-            <span>📝</span>
+            <span><LocalizedCopy>{"📝"}</LocalizedCopy></span>
             <div>
-              <b>Catatan khusus</b>
+              <b><LocalizedCopy>{"Catatan khusus"}</LocalizedCopy></b>
               <p>
-                {pet.notes || "Belum ada catatan khusus."}
-                {pet.allergies ? ` · Alergi: ${pet.allergies}` : ""}
+                <LocalizedCopy>{pet.notes || "Belum ada catatan khusus."}</LocalizedCopy>
+                <LocalizedCopy>{pet.allergies ? ` · Alergi: ${pet.allergies}` : ""}</LocalizedCopy>
               </p>
             </div>
-            {can("profile") && (
-              <button type="button" onClick={() => setModal("notes")}>
+            <LocalizedCopy>{can("profile") && (
+              <LocalizedButton type="button" onClick={() => setModal("notes")}>
                 <Icon name="edit" size={16} />
-              </button>
-            )}
+              </LocalizedButton>
+            )}</LocalizedCopy>
           </div>
         </section>
       </section>
       <aside className="right-stack">
         <section className="panel compact-panel">
           <div className="panel-heading">
-            <h3>Ringkasan perawatan</h3>
-            <span className="score-chip">{pet.healthScore}/100</span>
+            <h3><LocalizedCopy>{"Ringkasan perawatan"}</LocalizedCopy></h3>
+            <span className="score-chip"><LocalizedCopy>{pet.healthScore}</LocalizedCopy><LocalizedCopy>{"/100"}</LocalizedCopy></span>
           </div>
           <Progress label="Profil kesehatan" value={100} />
           <Progress label="Vaksin wajib" value={80} />
           <Progress label="Preventive care" value={75} />
-          <button
+          <LocalizedButton
             className="full-soft-button"
             type="button"
             onClick={() => setActiveView("health")}
-          >
-            Buka pusat kesehatan <Icon name="arrow" size={15} />
-          </button>
+          ><LocalizedCopy>{"Buka pusat kesehatan "}</LocalizedCopy><Icon name="arrow" size={15} />
+          </LocalizedButton>
         </section>
         <section className="panel compact-panel">
           <div className="panel-heading">
-            <h3>Akses keluarga</h3>
-            {can("family") && (
-              <button
+            <h3><LocalizedCopy>{"Akses keluarga"}</LocalizedCopy></h3>
+            <LocalizedCopy>{can("family") && (
+              <LocalizedButton
                 className="round-button"
                 type="button"
                 onClick={() => setModal("family")}
               >
                 <Icon name="plus" size={16} />
-              </button>
-            )}
+              </LocalizedButton>
+            )}</LocalizedCopy>
           </div>
-          <p className="muted-copy">
-            Undang co-parent, caregiver, dokter, atau viewer dengan izin
-            terperinci.
-          </p>
-          {can("family") && (
-            <button
+          <p className="muted-copy"><LocalizedCopy>{"Undang co-parent, caregiver, dokter, atau viewer dengan izin terperinci."}</LocalizedCopy></p>
+          <LocalizedCopy>{can("family") && (
+            <LocalizedButton
               className="full-soft-button"
               type="button"
               onClick={() => setModal("family")}
-            >
-              Kelola akses keluarga
-            </button>
-          )}
+            ><LocalizedCopy>{"Kelola akses keluarga"}</LocalizedCopy></LocalizedButton>
+          )}</LocalizedCopy>
         </section>
-        {can("lost_mode") && (
+        <LocalizedCopy>{can("lost_mode") && (
           <section className="lost-mode-card">
-            <span>📍</span>
+            <span><LocalizedCopy>{"📍"}</LocalizedCopy></span>
             <div>
-              <b>Lost Pet Mode</b>
-              <p>
-                Aktifkan peringatan dan bagikan profil {pet.name} ke komunitas
-                sekitar.
-              </p>
-              <button type="button" onClick={() => setModal("lost")}>
-                Kelola Lost Pet Mode
-              </button>
+              <b><LocalizedCopy>{"Lost Pet Mode"}</LocalizedCopy></b>
+              <p><LocalizedCopy>{"Aktifkan peringatan dan bagikan profil "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy><LocalizedCopy>{" ke komunitas sekitar."}</LocalizedCopy></p>
+              <LocalizedButton type="button" onClick={() => setModal("lost")}><LocalizedCopy>{"Kelola Lost Pet Mode"}</LocalizedCopy></LocalizedButton>
             </div>
           </section>
-        )}
+        )}</LocalizedCopy>
       </aside>
-      {modal === "id" && <PetIDModal pet={pet} close={() => setModal(null)} />}{" "}
-      {modal === "edit" && (
+      <LocalizedCopy>{modal === "id" && <PetIDModal pet={pet} close={() => setModal(null)} />}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
+      <LocalizedCopy>{modal === "edit" && (
         <PetEditModal
           pet={pet}
           close={() => setModal(null)}
           changed={onChanged}
           notify={notify}
         />
-      )}{" "}
-      {modal === "notes" && (
+      )}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
+      <LocalizedCopy>{modal === "notes" && (
         <PetNotesModal
           pet={pet}
           close={() => setModal(null)}
           changed={onChanged}
           notify={notify}
         />
-      )}{" "}
-      {modal === "family" && (
+      )}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
+      <LocalizedCopy>{modal === "family" && (
         <FamilyModal pet={pet} close={() => setModal(null)} notify={notify} />
-      )}{" "}
-      {modal === "lost" && (
+      )}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
+      <LocalizedCopy>{modal === "lost" && (
         <LostModeModal pet={pet} close={() => setModal(null)} notify={notify} />
-      )}
+      )}</LocalizedCopy>
     </div>
   );
 }
@@ -3536,15 +3478,15 @@ function PetIDModal({ pet, close }: { pet: Pet; close: () => void }) {
         className="modal pet-id-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <LocalizedButton className="modal-close" onClick={close}>
           <Icon name="close" />
-        </button>
+        </LocalizedButton>
         <div className="pet-id-card">
           <span className="pet-id-logo">
             <Logo />
           </span>
           <div className="pet-id-photo">
-            {pet.photoUrl ? (
+            <LocalizedCopy>{pet.photoUrl ? (
               <Image
                 src={pet.photoUrl}
                 alt={pet.name}
@@ -3554,14 +3496,13 @@ function PetIDModal({ pet, close }: { pet: Pet; close: () => void }) {
               />
             ) : (
               pet.avatar
-            )}
+            )}</LocalizedCopy>
           </div>
           <span className="verified-badge">
-            <Icon name="shield" size={13} /> Slivadoc Pet ID
-          </span>
-          <h2>{pet.name}</h2>
+            <Icon name="shield" size={13} /><LocalizedCopy>{" Slivadoc Pet ID"}</LocalizedCopy></span>
+          <h2><LocalizedCopy preserve>{pet.name}</LocalizedCopy></h2>
           <p>
-            {pet.breed} · {pet.gender}
+            <LocalizedCopy>{pet.breed}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{pet.gender}</LocalizedCopy>
           </p>
           <div className="pet-id-qr" aria-label={`Kode Pet ID ${pet.id}`}>
             <i />
@@ -3574,20 +3515,18 @@ function PetIDModal({ pet, close }: { pet: Pet; close: () => void }) {
             <i />
             <i />
           </div>
-          <code>{pet.id}</code>
+          <code><LocalizedCopy>{pet.id}</LocalizedCopy></code>
           <dl>
             <div>
-              <dt>Microchip</dt>
-              <dd>{pet.microchip}</dd>
+              <dt><LocalizedCopy>{"Microchip"}</LocalizedCopy></dt>
+              <dd><LocalizedCopy>{pet.microchip}</LocalizedCopy></dd>
             </div>
             <div>
-              <dt>Health score</dt>
-              <dd>{pet.healthScore}/100</dd>
+              <dt><LocalizedCopy>{"Health score"}</LocalizedCopy></dt>
+              <dd><LocalizedCopy>{pet.healthScore}</LocalizedCopy><LocalizedCopy>{"/100"}</LocalizedCopy></dd>
             </div>
           </dl>
-          <small>
-            Pindai untuk membuka identitas darurat terverifikasi Slivadoc.
-          </small>
+          <small><LocalizedCopy>{"Pindai untuk membuka identitas darurat terverifikasi Slivadoc."}</LocalizedCopy></small>
         </div>
       </section>
     </div>
@@ -3643,23 +3582,23 @@ function PetEditModal({
         className="modal form-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <LocalizedButton className="modal-close" onClick={close}>
           <Icon name="close" />
-        </button>
-        <span className="section-eyebrow">PET IDENTITY</span>
-        <h2>Edit profil {pet.name}</h2>
+        </LocalizedButton>
+        <span className="section-eyebrow"><LocalizedCopy>{"PET IDENTITY"}</LocalizedCopy></span>
+        <h2><LocalizedCopy>{"Edit profil "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy></h2>
         <form className="world-form" onSubmit={submit}>
           <label>
-            <span>Nama</span>
-            <input name="name" defaultValue={pet.name} minLength={2} required />
+            <span><LocalizedCopy>{"Nama"}</LocalizedCopy></span>
+            <LocalizedInput name="name" defaultValue={pet.name} minLength={2} required />
           </label>
           <label>
-            <span>Ras</span>
-            <input name="breed" defaultValue={pet.breed} />
+            <span><LocalizedCopy>{"Ras"}</LocalizedCopy></span>
+            <LocalizedInput name="breed" defaultValue={pet.breed} />
           </label>
           <div className="form-row">
             <label>
-              <span>Jenis kelamin</span>
+              <span><LocalizedCopy>{"Jenis kelamin"}</LocalizedCopy></span>
               <SlivaSelect aria-label="Jenis kelamin"
                 name="sex"
                 defaultValue={pet.gender === "Betina" ? "female" : "male"}
@@ -3669,8 +3608,8 @@ function PetEditModal({
               </SlivaSelect>
             </label>
             <label>
-              <span>Tanggal lahir</span>
-              <input
+              <span><LocalizedCopy>{"Tanggal lahir"}</LocalizedCopy></span>
+              <SlivaDatePicker
                 name="birth_date"
                 type="date"
                 defaultValue={pet.birthDate?.slice(0, 10)}
@@ -3679,8 +3618,8 @@ function PetEditModal({
           </div>
           <div className="form-row">
             <label>
-              <span>Berat (kg)</span>
-              <input
+              <span><LocalizedCopy>{"Berat (kg)"}</LocalizedCopy></span>
+              <LocalizedInput
                 name="weight_kg"
                 type="number"
                 step="0.1"
@@ -3688,22 +3627,22 @@ function PetEditModal({
               />
             </label>
             <label>
-              <span>Warna</span>
-              <input name="color" defaultValue={pet.color} />
+              <span><LocalizedCopy>{"Warna"}</LocalizedCopy></span>
+              <LocalizedInput name="color" defaultValue={pet.color} />
             </label>
           </div>
           <label>
-            <span>Nomor microchip</span>
-            <input
+            <span><LocalizedCopy>{"Nomor microchip"}</LocalizedCopy></span>
+            <LocalizedInput
               name="microchip_number"
               defaultValue={
                 pet.microchip === "Belum terdaftar" ? "" : pet.microchip
               }
             />
           </label>
-          <button className="primary-button full" disabled={busy}>
-            {busy ? "Menyimpan…" : "Simpan perubahan"}
-          </button>
+          <LocalizedButton className="primary-button full" disabled={busy}>
+            <LocalizedCopy>{busy ? "Menyimpan…" : "Simpan perubahan"}</LocalizedCopy>
+          </LocalizedButton>
         </form>
       </section>
     </div>
@@ -3758,32 +3697,32 @@ function PetNotesModal({
         className="modal form-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <LocalizedButton className="modal-close" onClick={close}>
           <Icon name="close" />
-        </button>
-        <span className="section-eyebrow">CATATAN KHUSUS</span>
-        <h2>Kebutuhan penting {pet.name}</h2>
+        </LocalizedButton>
+        <span className="section-eyebrow"><LocalizedCopy>{"CATATAN KHUSUS"}</LocalizedCopy></span>
+        <h2><LocalizedCopy>{"Kebutuhan penting "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy></h2>
         <form className="world-form" onSubmit={submit}>
           <label>
-            <span>Alergi</span>
-            <textarea
+            <span><LocalizedCopy>{"Alergi"}</LocalizedCopy></span>
+            <LocalizedTextarea
               name="allergies"
               defaultValue={pet.allergies}
               placeholder="Contoh: protein ayam"
             />
           </label>
           <label>
-            <span>Perilaku, preferensi, dan catatan medis</span>
-            <textarea
+            <span><LocalizedCopy>{"Perilaku, preferensi, dan catatan medis"}</LocalizedCopy></span>
+            <LocalizedTextarea
               name="medical_notes"
               defaultValue={pet.notes}
               placeholder="Tuliskan hal yang perlu diketahui dokter, groomer, atau caregiver"
               rows={5}
             />
           </label>
-          <button className="primary-button full" disabled={busy}>
-            {busy ? "Menyimpan…" : "Simpan catatan"}
-          </button>
+          <LocalizedButton className="primary-button full" disabled={busy}>
+            <LocalizedCopy>{busy ? "Menyimpan…" : "Simpan catatan"}</LocalizedCopy>
+          </LocalizedButton>
         </form>
       </section>
     </div>
@@ -3877,51 +3816,50 @@ function FamilyModal({
         className="modal family-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <LocalizedButton className="modal-close" onClick={close}>
           <Icon name="close" />
-        </button>
-        <span className="section-eyebrow">
-          AKSES KELUARGA · {pet.name.toUpperCase()}
+        </LocalizedButton>
+        <span className="section-eyebrow"><LocalizedCopy>{"AKSES KELUARGA · "}</LocalizedCopy><LocalizedCopy>{pet.name.toUpperCase()}</LocalizedCopy>
         </span>
-        <h2>Orang yang dipercaya</h2>
+        <h2><LocalizedCopy>{"Orang yang dipercaya"}</LocalizedCopy></h2>
         <div className="family-access-list">
-          {loading ? (
-            <p>Memuat akses…</p>
+          <LocalizedCopy>{loading ? (
+            <p><LocalizedCopy>{"Memuat akses…"}</LocalizedCopy></p>
           ) : (
             items.map((item) => (
               <div key={item.id}>
                 <span>
-                  {item.full_name
+                  <LocalizedCopy>{item.full_name
                     .split(" ")
                     .map((value) => value[0])
                     .slice(0, 2)
-                    .join("")}
+                    .join("")}</LocalizedCopy>
                 </span>
                 <p>
-                  <b>{item.full_name}</b>
+                  <b><LocalizedCopy preserve>{item.full_name}</LocalizedCopy></b>
                   <small>
-                    {item.email} · {item.role} · {item.status}
+                    <LocalizedCopy>{item.email}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{item.role}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{item.status}</LocalizedCopy>
                   </small>
                 </p>
-                {item.role !== "owner" && (
-                  <button onClick={() => void revoke(item.id)}>Cabut</button>
-                )}
+                <LocalizedCopy>{item.role !== "owner" && (
+                  <LocalizedButton onClick={() => void revoke(item.id)}><LocalizedCopy>{"Cabut"}</LocalizedCopy></LocalizedButton>
+                )}</LocalizedCopy>
               </div>
             ))
-          )}
+          )}</LocalizedCopy>
         </div>
         <form className="world-form family-invite" onSubmit={invite}>
-          <h3>Undang anggota</h3>
+          <h3><LocalizedCopy>{"Undang anggota"}</LocalizedCopy></h3>
           <label>
-            <span>Nama lengkap</span>
-            <input name="full_name" required />
+            <span><LocalizedCopy>{"Nama lengkap"}</LocalizedCopy></span>
+            <LocalizedInput name="full_name" required />
           </label>
           <label>
-            <span>Email</span>
-            <input name="email" type="email" required />
+            <span><LocalizedCopy>{"Email"}</LocalizedCopy></span>
+            <LocalizedInput name="email" type="email" required />
           </label>
           <label>
-            <span>Role akses</span>
+            <span><LocalizedCopy>{"Role akses"}</LocalizedCopy></span>
             <SlivaSelect aria-label="Role akses" name="role">
               <option value="co_parent">Co-parent</option>
               <option value="caregiver">Caregiver</option>
@@ -3929,9 +3867,9 @@ function FamilyModal({
               <option value="viewer">Viewer</option>
             </SlivaSelect>
           </label>
-          <button className="primary-button full" disabled={busy}>
-            {busy ? "Mengirim…" : "Kirim undangan"}
-          </button>
+          <LocalizedButton className="primary-button full" disabled={busy}>
+            <LocalizedCopy>{busy ? "Mengirim…" : "Kirim undangan"}</LocalizedCopy>
+          </LocalizedButton>
         </form>
       </section>
     </div>
@@ -4003,40 +3941,38 @@ function LostModeModal({
         className="modal lost-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <LocalizedButton className="modal-close" onClick={close}>
           <Icon name="close" />
-        </button>
-        <span className="section-eyebrow">LOST PET EMERGENCY</span>
+        </LocalizedButton>
+        <span className="section-eyebrow"><LocalizedCopy>{"LOST PET EMERGENCY"}</LocalizedCopy></span>
         <h2>
-          {mode?.active
+          <LocalizedCopy>{mode?.active
             ? `Pencarian ${pet.name} sedang aktif`
-            : `Aktifkan Lost Pet Mode`}
+            : `Aktifkan Lost Pet Mode`}</LocalizedCopy>
         </h2>
-        {mode?.active ? (
+        <LocalizedCopy>{mode?.active ? (
           <div className="lost-active">
-            <span>📡</span>
-            <p>
-              Komunitas radius {mode.radius_km} km sudah menerima laporan dari{" "}
-              {mode.last_seen_location}.
-            </p>
-            <code>{mode.public_token}</code>
-            <button
+            <span><LocalizedCopy>{"📡"}</LocalizedCopy></span>
+            <p><LocalizedCopy>{"Komunitas radius "}</LocalizedCopy><LocalizedCopy>{mode.radius_km}</LocalizedCopy><LocalizedCopy>{" km sudah menerima laporan dari"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+              <LocalizedCopy>{mode.last_seen_location}</LocalizedCopy><LocalizedCopy>{"."}</LocalizedCopy></p>
+            <code><LocalizedCopy>{mode.public_token}</LocalizedCopy></code>
+            <LocalizedButton
               className="primary-button full"
               disabled={busy}
               onClick={() => void found()}
             >
-              {busy ? "Memproses…" : `${pet.name} sudah ditemukan`}
-            </button>
+              <LocalizedCopy>{busy ? "Memproses…" : `${pet.name} sudah ditemukan`}</LocalizedCopy>
+            </LocalizedButton>
           </div>
         ) : (
           <form className="world-form" onSubmit={submit}>
             <label>
-              <span>Terakhir terlihat</span>
-              <input name="last_seen_at" type="datetime-local" required />
+              <span><LocalizedCopy>{"Terakhir terlihat"}</LocalizedCopy></span>
+              <SlivaDatePicker name="last_seen_at" type="datetime-local" required />
             </label>
             <label>
-              <span>Lokasi terakhir</span>
-              <input
+              <span><LocalizedCopy>{"Lokasi terakhir"}</LocalizedCopy></span>
+              <LocalizedInput
                 name="last_seen_location"
                 placeholder="Nama tempat / alamat lengkap"
                 required
@@ -4044,16 +3980,16 @@ function LostModeModal({
             </label>
             <div className="form-row">
               <label>
-                <span>Latitude</span>
-                <input name="latitude" type="number" step="any" />
+                <span><LocalizedCopy>{"Latitude"}</LocalizedCopy></span>
+                <LocalizedInput name="latitude" type="number" step="any" />
               </label>
               <label>
-                <span>Longitude</span>
-                <input name="longitude" type="number" step="any" />
+                <span><LocalizedCopy>{"Longitude"}</LocalizedCopy></span>
+                <LocalizedInput name="longitude" type="number" step="any" />
               </label>
             </div>
             <label>
-              <span>Radius notifikasi</span>
+              <span><LocalizedCopy>{"Radius notifikasi"}</LocalizedCopy></span>
               <SlivaSelect aria-label="Radius notifikasi" name="radius_km" defaultValue="10">
                 <option value="3">3 km</option>
                 <option value="5">5 km</option>
@@ -4062,24 +3998,24 @@ function LostModeModal({
               </SlivaSelect>
             </label>
             <label>
-              <span>Kronologi & ciri khusus</span>
-              <textarea name="description" required />
+              <span><LocalizedCopy>{"Kronologi & ciri khusus"}</LocalizedCopy></span>
+              <LocalizedTextarea name="description" required />
             </label>
             <label>
-              <span>Nomor kontak</span>
-              <input name="contact_phone" required />
+              <span><LocalizedCopy>{"Nomor kontak"}</LocalizedCopy></span>
+              <LocalizedInput name="contact_phone" required />
             </label>
             <label>
-              <span>Imbalan (opsional)</span>
-              <input name="reward_amount" type="number" min="0" />
+              <span><LocalizedCopy>{"Imbalan (opsional)"}</LocalizedCopy></span>
+              <LocalizedInput name="reward_amount" type="number" min="0" />
             </label>
-            <button className="primary-button full" disabled={busy}>
-              {busy
+            <LocalizedButton className="primary-button full" disabled={busy}>
+              <LocalizedCopy>{busy
                 ? "Mengaktifkan jaringan…"
-                : "Aktifkan peringatan komunitas"}
-            </button>
+                : "Aktifkan peringatan komunitas"}</LocalizedCopy>
+            </LocalizedButton>
           </form>
-        )}
+        )}</LocalizedCopy>
       </section>
     </div>
   );
@@ -4189,18 +4125,15 @@ function DiscoverView({
     <div className="discover-native">
       <header className="native-screen-header">
         <div>
-          <span>JELAJAHI LAYANAN</span>
-          <h2>Mau manjain pet-mu dengan apa? ✨</h2>
-          <p>
-            Bandingkan detail layanan, status izin mitra, dan slot aktual di
-            dekatmu.
-          </p>
+          <span><LocalizedCopy>{"JELAJAHI LAYANAN"}</LocalizedCopy></span>
+          <h2><LocalizedCopy>{"Mau manjain pet-mu dengan apa? ✨"}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Bandingkan detail layanan, status izin mitra, dan slot aktual di dekatmu."}</LocalizedCopy></p>
         </div>
       </header>
       <section className="discover-search-card">
         <label>
           <Icon name="search" />
-          <input
+          <LocalizedInput
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Cari klinik atau layanan"
@@ -4209,29 +4142,27 @@ function DiscoverView({
       </section>
       <div className="filter-bar">
         <div className="filter-pills">
-          {filters.map((item) => (
-            <button
+          <LocalizedCopy>{filters.map((item) => (
+            <LocalizedButton
               type="button"
               key={item}
               className={filter === item ? "active" : ""}
               onClick={() => chooseFilter(item)}
             >
-              {item}
-            </button>
-          ))}
+              <LocalizedCopy>{item}</LocalizedCopy>
+            </LocalizedButton>
+          ))}</LocalizedCopy>
         </div>
-        <button
+        <LocalizedButton
           className="secondary-button small discover-filter-button"
           type="button"
           onClick={() => setFilterOpen(true)}
         >
-          <Icon name="filter" size={16} /> Filter
-        </button>
+          <Icon name="filter" size={16} /><LocalizedCopy>{" Filter"}</LocalizedCopy></LocalizedButton>
       </div>
       <div className="discover-result-head">
         <p>
-          <b>{result.length} layanan</b> dari seluruh area layanan Slivadoc
-        </p>
+          <b><LocalizedCopy>{result.length}</LocalizedCopy><LocalizedCopy>{" layanan"}</LocalizedCopy></b><LocalizedCopy>{" dari seluruh area layanan Slivadoc"}</LocalizedCopy></p>
         <SlivaSelect
           aria-label="Urutkan layanan"
           value={sort}
@@ -4244,13 +4175,13 @@ function DiscoverView({
         </SlivaSelect>
       </div>
       <div className="service-list-grid">
-        {result.map((service) => (
+        <LocalizedCopy catalogue>{result.map((service) => (
           <article
             className="service-result-card"
             key={`${service.id}:${service.branchId}`}
           >
             <div className={`service-result-cover ${service.accent}`}>
-              {service.imageUrl ? (
+              <LocalizedCopy catalogue>{service.imageUrl ? (
                 <Image
                   className="catalog-cover-image"
                   src={service.imageUrl}
@@ -4260,97 +4191,90 @@ function DiscoverView({
                   unoptimized
                 />
               ) : (
-                <span>{service.emoji}</span>
-              )}
-              <em>{service.type}</em>
-              {service.discountPercent && service.discountPercent > 0 ? (
+                <span><LocalizedCopy>{service.emoji}</LocalizedCopy></span>
+              )}</LocalizedCopy>
+              <em><LocalizedCopy>{service.type}</LocalizedCopy></em>
+              <LocalizedCopy>{service.discountPercent && service.discountPercent > 0 ? (
                 <DiscountBadge percent={service.discountPercent} />
-              ) : null}
-              <button
+              ) : null}</LocalizedCopy>
+              <LocalizedButton
                 type="button"
                 aria-label="Favorit"
                 className={favorites.includes(service.id) ? "favorite" : ""}
                 onClick={() => toggleFavorite(service.id)}
               >
                 <Icon name="heart" size={18} />
-              </button>
+              </LocalizedButton>
             </div>
             <div className="service-result-body">
               <div className="service-name-row">
                 <div>
-                  <h3>{service.name}</h3>
+                  <h3><LocalizedCopy catalogue>{service.name}</LocalizedCopy></h3>
                   <p>
-                    <Icon name="map" size={14} /> {service.distance} •{" "}
-                    {service.address}
+                    <Icon name="map" size={14} /> <LocalizedCopy>{service.distance}</LocalizedCopy><LocalizedCopy>{" •"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                    <LocalizedCopy>{service.address}</LocalizedCopy>
                   </p>
                 </div>
                 <span className="rating-box">
                   <span>
                     <Icon name="star" size={12} />
                     <b>
-                      {service.rating > 0 ? service.rating.toFixed(1) : "-"}
+                      <LocalizedCopy>{service.rating > 0 ? service.rating.toFixed(1) : "-"}</LocalizedCopy>
                     </b>
                   </span>
                   <small>
-                    {service.reviews.toLocaleString("id-ID")} ulasan
-                  </small>
+                    <LocalizedCopy>{service.reviews.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" ulasan"}</LocalizedCopy></small>
                 </span>
               </div>
               <div className="tag-row">
-                {service.tags.map((tag) => (
-                  <span key={tag}>{tag}</span>
-                ))}
+                <LocalizedCopy>{service.tags.map((tag) => (
+                  <span key={tag}><LocalizedCopy>{tag}</LocalizedCopy></span>
+                ))}</LocalizedCopy>
               </div>
               <div className="availability">
                 <span className="live-dot" />
-                <b>{service.status}</b>
+                <b><LocalizedCopy>{service.status}</LocalizedCopy></b>
               </div>
               <div className="service-result-footer">
                 <div>
-                  <small>Estimasi harga</small>
-                  {service.originalPrice ? (
+                  <small><LocalizedCopy>{"Estimasi harga"}</LocalizedCopy></small>
+                  <LocalizedCopy>{service.originalPrice ? (
                     <span className="service-promo-price">
-                      <s>{formatRupiah(service.originalPrice)}</s>
-                      <b>{service.price}</b>
+                      <s><LocalizedCopy>{formatRupiah(service.originalPrice)}</LocalizedCopy></s>
+                      <b><LocalizedCopy>{service.price}</LocalizedCopy></b>
                     </span>
                   ) : (
-                    <b>{service.price}</b>
-                  )}
+                    <b><LocalizedCopy>{service.price}</LocalizedCopy></b>
+                  )}</LocalizedCopy>
                 </div>
-                <button
+                <LocalizedButton
                   className="secondary-button small"
                   type="button"
                   onClick={() => openDetail(service.id)}
-                >
-                  Lihat detail
-                </button>
-                <button
+                ><LocalizedCopy>{"Lihat detail"}</LocalizedCopy></LocalizedButton>
+                <LocalizedButton
                   className="primary-button small"
                   type="button"
                   onClick={() => openBooking(service)}
-                >
-                  Booking
-                </button>
+                ><LocalizedCopy>{"Booking"}</LocalizedCopy></LocalizedButton>
               </div>
             </div>
           </article>
-        ))}
+        ))}</LocalizedCopy>
       </div>
-      {result.length === 0 && (
+      <LocalizedCopy>{result.length === 0 && (
         <div className="empty-state">
-          <span>🔎</span>
-          <h3>Layanan belum ditemukan</h3>
-          <p>Coba kata kunci atau kategori lain.</p>
-          <button
+          <span><LocalizedCopy>{"🔎"}</LocalizedCopy></span>
+          <h3><LocalizedCopy>{"Layanan belum ditemukan"}</LocalizedCopy></h3>
+          <p><LocalizedCopy>{"Coba kata kunci atau kategori lain."}</LocalizedCopy></p>
+          <LocalizedButton
             className="primary-button small"
             type="button"
             onClick={reset}
-          >
-            Reset pencarian
-          </button>
+          ><LocalizedCopy>{"Reset pencarian"}</LocalizedCopy></LocalizedButton>
         </div>
-      )}
-      {filterOpen && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{filterOpen && (
         <div
           className="filter-panel-backdrop"
           onMouseDown={() => setFilterOpen(false)}
@@ -4361,34 +4285,34 @@ function DiscoverView({
           >
             <header>
               <div>
-                <span className="section-eyebrow">FILTER JELAJAHI</span>
-                <h2>Temukan layanan yang pas</h2>
+                <span className="section-eyebrow"><LocalizedCopy>{"FILTER JELAJAHI"}</LocalizedCopy></span>
+                <h2><LocalizedCopy>{"Temukan layanan yang pas"}</LocalizedCopy></h2>
               </div>
-              <button
+              <LocalizedButton
                 className="modal-close"
                 onClick={() => setFilterOpen(false)}
                 aria-label="Tutup"
               >
                 <Icon name="close" />
-              </button>
+              </LocalizedButton>
             </header>
             <label>
-              <span>Jenis layanan</span>
+              <span><LocalizedCopy>{"Jenis layanan"}</LocalizedCopy></span>
               <div className="filter-panel-pills">
-                {filters.map((item) => (
-                  <button
+                <LocalizedCopy>{filters.map((item) => (
+                  <LocalizedButton
                     type="button"
                     key={item}
                     className={filter === item ? "active" : ""}
                     onClick={() => chooseFilter(item)}
                   >
-                    {item}
-                  </button>
-                ))}
+                    <LocalizedCopy>{item}</LocalizedCopy>
+                  </LocalizedButton>
+                ))}</LocalizedCopy>
               </div>
             </label>
             <label>
-              <span>Urutkan berdasarkan</span>
+              <span><LocalizedCopy>{"Urutkan berdasarkan"}</LocalizedCopy></span>
               <SlivaSelect aria-label="Urutkan berdasarkan"
                 value={sort}
                 onChange={(event) => setSort(event.target.value as typeof sort)}
@@ -4400,28 +4324,24 @@ function DiscoverView({
               </SlivaSelect>
             </label>
             <footer>
-              <button
+              <LocalizedButton
                 className="secondary-button"
                 type="button"
                 onClick={() => {
                   reset();
                   notify("Filter layanan direset");
                 }}
-              >
-                Reset
-              </button>
-              <button
+              ><LocalizedCopy>{"Reset"}</LocalizedCopy></LocalizedButton>
+              <LocalizedButton
                 className="primary-button"
                 type="button"
                 onClick={() => setFilterOpen(false)}
-              >
-                Tampilkan {result.length} hasil
-              </button>
+              ><LocalizedCopy>{"Tampilkan "}</LocalizedCopy><LocalizedCopy>{result.length}</LocalizedCopy><LocalizedCopy>{" hasil"}</LocalizedCopy></LocalizedButton>
             </footer>
           </section>
         </div>
-      )}
-      {detail && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{detail && (
         <ServiceDetail
           service={detail}
           close={closeDetail}
@@ -4430,7 +4350,7 @@ function DiscoverView({
             openBooking(detail);
           }}
         />
-      )}
+      )}</LocalizedCopy>
     </div>
   );
 }
@@ -4526,18 +4446,18 @@ function BookingsView({
     <div className="activity-native">
       <header className="native-screen-header">
         <div>
-          <h2>Aktivitas</h2>
-          <p>Booking, pesanan, kelas, tiket, reservasi, dan dokumen pet-mu.</p>
+          <h2><LocalizedCopy>{"Aktivitas"}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Booking, pesanan, kelas, tiket, reservasi, dan dokumen pet-mu."}</LocalizedCopy></p>
         </div>
       </header>
 
-      {attention.length > 0 && (
+      <LocalizedCopy>{attention.length > 0 && (
         <section className="activity-attention" aria-label="Perlu tindakan">
           <header>
-            <h3>Perlu tindakan</h3>
-            <span className="activity-tab-count">{attention.length}</span>
+            <h3><LocalizedCopy>{"Perlu tindakan"}</LocalizedCopy></h3>
+            <span className="activity-tab-count"><LocalizedCopy>{attention.length}</LocalizedCopy></span>
           </header>
-          {attention.map((item) => {
+          <LocalizedCopy>{attention.map((item) => {
             const meta = getActivityTypeMeta(item.type);
             return (
               <article key={`${item.type}-${item.id}`}>
@@ -4547,25 +4467,25 @@ function BookingsView({
                   <Icon name={meta.icon} size={18} />
                 </span>
                 <div>
-                  <b>{item.title}</b>
-                  <small>{activityAttentionReason(item)}</small>
+                  <b><LocalizedCopy>{item.title}</LocalizedCopy></b>
+                  <small><LocalizedCopy>{activityAttentionReason(item)}</LocalizedCopy></small>
                 </div>
-                <button
+                <LocalizedButton
                   className="primary-button small"
                   type="button"
                   onClick={() => setDetail({ item, autoPay: item.payable })}
                 >
-                  {item.payable
+                  <LocalizedCopy>{item.payable
                     ? "Bayar"
                     : item.type === "event"
                       ? "Tiket QR"
-                      : "Lihat detail"}
-                </button>
+                      : "Lihat detail"}</LocalizedCopy>
+                </LocalizedButton>
               </article>
             );
-          })}
+          })}</LocalizedCopy>
         </section>
-      )}
+      )}</LocalizedCopy>
 
       <div className="activity-controls">
         <div
@@ -4573,85 +4493,81 @@ function BookingsView({
           role="group"
           aria-label="Status aktivitas"
         >
-          {activityStateTabs.map(([value, label]) => (
-            <button
+          <LocalizedCopy>{activityStateTabs.map(([value, label]) => (
+            <LocalizedButton
               type="button"
               key={value}
               className={tab === value ? "active" : ""}
               aria-pressed={tab === value}
               onClick={() => setTab(value)}
             >
-              <span>{label}</span>
+              <span><LocalizedCopy>{label}</LocalizedCopy></span>
               <span className="activity-tab-count">
-                {activities.filter((item) => item.state === value).length}
+                <LocalizedCopy>{activities.filter((item) => item.state === value).length}</LocalizedCopy>
               </span>
-            </button>
-          ))}
+            </LocalizedButton>
+          ))}</LocalizedCopy>
         </div>
         <div
           className="activity-type-chips"
           role="group"
           aria-label="Jenis aktivitas"
         >
-          <button
+          <LocalizedButton
             type="button"
             aria-pressed={typeFilter === "all"}
             onClick={() => setTypeFilter("all")}
-          >
-            Semua <span className="activity-tab-count">{totalCount}</span>
-          </button>
-          {chips.map((type) => (
-            <button
+          ><LocalizedCopy>{"Semua "}</LocalizedCopy><span className="activity-tab-count"><LocalizedCopy>{totalCount}</LocalizedCopy></span>
+          </LocalizedButton>
+          <LocalizedCopy>{chips.map((type) => (
+            <LocalizedButton
               type="button"
               key={type}
               aria-pressed={typeFilter === type}
               onClick={() => setTypeFilter(type)}
             >
-              {getActivityTypeMeta(type).label}{" "}
-              <span className="activity-tab-count">{typeCount(type)}</span>
-            </button>
-          ))}
+              <LocalizedCopy>{getActivityTypeMeta(type).label}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
+              <span className="activity-tab-count"><LocalizedCopy>{typeCount(type)}</LocalizedCopy></span>
+            </LocalizedButton>
+          ))}</LocalizedCopy>
         </div>
       </div>
 
       <header className="activity-native-toolbar">
         <div className="activity-native-summary">
-          <h3 aria-live="polite">{visible.length} aktivitas</h3>
+          <h3 aria-live="polite"><LocalizedCopy>{visible.length}</LocalizedCopy><LocalizedCopy>{" aktivitas"}</LocalizedCopy></h3>
         </div>
         <div className="activity-native-actions">
-          <button
+          <LocalizedButton
             className="activity-points"
             type="button"
             onClick={() =>
               notify(
                 points
-                  ? `Saldo ${points.toLocaleString("id-ID")} poin. ${rewardFormulaText(rewardFormula)}`
+                  ? `Saldo ${points.toLocaleString(petOwnerIntlLocale())} poin. ${rewardFormulaText(rewardFormula)}`
                   : "Belum ada transaksi terbayar, jadi Sliva Point masih 0.",
               )
             }
           >
             <Icon name="sparkle" size={14} />
-            {points.toLocaleString("id-ID")} poin
-          </button>
-          <button
+            <LocalizedCopy>{points.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" poin"}</LocalizedCopy></LocalizedButton>
+          <LocalizedButton
             className="primary-button small"
             type="button"
             onClick={() => openBooking()}
           >
-            <Icon name="plus" size={15} /> Buat booking
-          </button>
-          <button
+            <Icon name="plus" size={15} /><LocalizedCopy>{" Buat booking"}</LocalizedCopy></LocalizedButton>
+          <LocalizedButton
             className="secondary-button small"
             type="button"
             onClick={() => setInvoicesOpen(true)}
           >
-            <Icon name="download" size={15} /> Invoice
-          </button>
+            <Icon name="download" size={15} /><LocalizedCopy>{" Invoice"}</LocalizedCopy></LocalizedButton>
         </div>
       </header>
 
       <div className="activity-native-list">
-        {visible.length ? (
+        <LocalizedCopy>{visible.length ? (
           visible.map((item) => {
             const meta = getActivityTypeMeta(item.type);
             const repeatLabel = activityRepeatLabels[item.type];
@@ -4660,7 +4576,7 @@ function BookingsView({
                 className="activity-native-card"
                 key={`${item.type}-${item.id}`}
               >
-                <button
+                <LocalizedButton
                   className="activity-native-main"
                   type="button"
                   onClick={() => setDetail({ item, autoPay: false })}
@@ -4672,42 +4588,41 @@ function BookingsView({
                   </span>
                   <span className="activity-native-copy">
                     <span className="activity-native-meta">
-                      <small>{meta.label}</small>
-                      <i>{activityStatusLabel(item)}</i>
+                      <small><LocalizedCopy>{meta.label}</LocalizedCopy></small>
+                      <i><LocalizedCopy>{activityStatusLabel(item)}</LocalizedCopy></i>
                     </span>
-                    <b>{item.title}</b>
-                    <span>{item.subtitle}</span>
+                    <b><LocalizedCopy>{item.title}</LocalizedCopy></b>
+                    <span><LocalizedCopy>{item.subtitle}</LocalizedCopy></span>
                     <small className="activity-native-date">
                       <Icon name="clock" size={13} />
-                      {formatActivityDate(item.scheduled_at || item.occurred_at)}
+                      <LocalizedCopy>{formatActivityDate(item.scheduled_at || item.occurred_at)}</LocalizedCopy>
                     </small>
                   </span>
                   <Icon name="chevron" size={17} />
-                </button>
+                </LocalizedButton>
                 <footer>
                   <span>
                     <Icon
                       name={item.type === "order" ? "bag" : "paw"}
                       size={14}
                     />
-                    {item.type === "order"
+                    <LocalizedCopy>{item.type === "order"
                       ? `${item.item_count ?? 0} produk`
-                      : item.pet_name || "Pet kamu"}
+                      : item.pet_name || "Pet kamu"}</LocalizedCopy>
                   </span>
-                  {item.latitude != null && item.longitude != null ? (
+                  <LocalizedCopy>{item.latitude != null && item.longitude != null ? (
                     <a
                       href={`https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`}
                       target="_blank"
                       rel="noreferrer"
                     >
-                      <Icon name="map" size={14} /> Arah
-                    </a>
-                  ) : null}
-                  {repeatLabel && (
-                    <button type="button" onClick={() => onRepeat(item)}>
-                      <Icon name="arrow" size={14} /> {repeatLabel}
-                    </button>
-                  )}
+                      <Icon name="map" size={14} /><LocalizedCopy>{" Arah"}</LocalizedCopy></a>
+                  ) : null}</LocalizedCopy>
+                  <LocalizedCopy>{repeatLabel && (
+                    <LocalizedButton type="button" onClick={() => onRepeat(item)}>
+                      <Icon name="arrow" size={14} /> <LocalizedCopy>{repeatLabel}</LocalizedCopy>
+                    </LocalizedButton>
+                  )}</LocalizedCopy>
                 </footer>
               </article>
             );
@@ -4725,28 +4640,28 @@ function BookingsView({
               />
             </span>
             <h3>
-              {activities.length
+              <LocalizedCopy>{activities.length
                 ? "Tidak ada aktivitas yang cocok"
-                : "Belum ada aktivitas"}
+                : "Belum ada aktivitas"}</LocalizedCopy>
             </h3>
             <p>
-              {activities.length
+              <LocalizedCopy>{activities.length
                 ? "Ubah status atau jenis aktivitas untuk melihat catatan lainnya."
-                : "Booking, belanja, konsultasi, kelas, tiket, dan reservasi pet-mu akan muncul di sini."}
+                : "Booking, belanja, konsultasi, kelas, tiket, dan reservasi pet-mu akan muncul di sini."}</LocalizedCopy>
             </p>
           </div>
-        )}
+        )}</LocalizedCopy>
       </div>
-      {hasMoreActivities && (
-        <button
+      <LocalizedCopy>{hasMoreActivities && (
+        <LocalizedButton
           className="secondary-button full"
           type="button"
           disabled={loadingMoreActivities}
           onClick={onLoadMore}
         >
-          {loadingMoreActivities ? "Memuat…" : "Muat lebih banyak"}
-        </button>
-      )}
+          <LocalizedCopy>{loadingMoreActivities ? "Memuat…" : "Muat lebih banyak"}</LocalizedCopy>
+        </LocalizedButton>
+      )}</LocalizedCopy>
 
       <section className="activity-native-cta">
         <div>
@@ -4754,22 +4669,17 @@ function BookingsView({
             <Icon name="sparkle" size={17} />
           </span>
           <p>
-            <b>Butuh layanan lain?</b>
-            <small>
-              Booking dokter, grooming, home care, atau hotel dalam beberapa
-              langkah.
-            </small>
+            <b><LocalizedCopy>{"Butuh layanan lain?"}</LocalizedCopy></b>
+            <small><LocalizedCopy>{"Booking dokter, grooming, home care, atau hotel dalam beberapa langkah."}</LocalizedCopy></small>
           </p>
         </div>
-        <button
+        <LocalizedButton
           className="secondary-button"
           type="button"
           onClick={() => setActiveView("discover")}
-        >
-          Jelajahi layanan
-        </button>
+        ><LocalizedCopy>{"Jelajahi layanan"}</LocalizedCopy></LocalizedButton>
       </section>
-      {detailItem && detail && (
+      <LocalizedCopy>{detailItem && detail && (
         <ActivityDetail
           key={`${detailItem.type}-${detailItem.id}`}
           item={detailItem}
@@ -4778,8 +4688,8 @@ function BookingsView({
           onPaid={onPaid}
           onRepeat={onRepeat}
         />
-      )}
-      {invoicesOpen && <InvoicesPanel close={() => setInvoicesOpen(false)} />}
+      )}</LocalizedCopy>
+      <LocalizedCopy>{invoicesOpen && <InvoicesPanel close={() => setInvoicesOpen(false)} />}</LocalizedCopy>
     </div>
   );
 }
@@ -4828,76 +4738,69 @@ function InvoicesPanel({ close }: { close: () => void }) {
         aria-label="Invoice"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close} aria-label="Tutup">
+        <LocalizedButton className="modal-close" onClick={close} aria-label="Tutup">
           <Icon name="close" />
-        </button>
+        </LocalizedButton>
         <header className="activity-detail-hero">
           <span>
             <Icon name="download" size={24} />
           </span>
           <div>
-            <small>INVOICE</small>
-            <h2>Invoice klinik & toko</h2>
+            <small><LocalizedCopy>{"INVOICE"}</LocalizedCopy></small>
+            <h2><LocalizedCopy>{"Invoice klinik & toko"}</LocalizedCopy></h2>
           </div>
         </header>
-        {loading ? (
-          <p className="form-message" role="status">
-            Memuat invoice…
-          </p>
+        <LocalizedCopy>{loading ? (
+          <p className="form-message" role="status"><LocalizedCopy>{"Memuat invoice…"}</LocalizedCopy></p>
         ) : error ? (
           <div className="form-message" role="alert">
-            <p>{error}</p>
-            <button
+            <p><LocalizedCopy>{error}</LocalizedCopy></p>
+            <LocalizedButton
               className="secondary-button"
               type="button"
               onClick={() => void load()}
-            >
-              Coba lagi
-            </button>
+            ><LocalizedCopy>{"Coba lagi"}</LocalizedCopy></LocalizedButton>
           </div>
         ) : invoices.length ? (
           <div className="activity-native-list">
-            {invoices.map((invoice) => (
+            <LocalizedCopy>{invoices.map((invoice) => (
               <article className="activity-native-card" key={invoice.id}>
-                <button
+                <LocalizedButton
                   className="activity-native-main"
                   type="button"
                   onClick={() => setSelectedId(invoice.id)}
                 >
                   <span className="activity-native-copy">
                     <span className="activity-native-meta">
-                      <small>{invoice.invoice_number}</small>
-                      <i>{invoiceStatusLabels[invoice.status]}</i>
+                      <small><LocalizedCopy>{invoice.invoice_number}</LocalizedCopy></small>
+                      <i><LocalizedCopy>{invoiceStatusLabels[invoice.status]}</LocalizedCopy></i>
                     </span>
                     <b>
-                      {[invoice.business_name, invoice.branch_name]
+                      <LocalizedCopy>{[invoice.business_name, invoice.branch_name]
                         .filter(Boolean)
-                        .join(" · ") || "Invoice"}
+                        .join(" · ") || "Invoice"}</LocalizedCopy>
                     </b>
-                    <span>{formatRupiah(invoice.total_amount)}</span>
-                    {(invoice.issued_at ?? invoice.paid_at) && (
+                    <span><LocalizedCopy>{formatRupiah(invoice.total_amount)}</LocalizedCopy></span>
+                    <LocalizedCopy>{(invoice.issued_at ?? invoice.paid_at) && (
                       <small className="activity-native-date">
                         <Icon name="clock" size={13} />
-                        {formatActivityDate(
+                        <LocalizedCopy>{formatActivityDate(
                           (invoice.issued_at ?? invoice.paid_at) as string,
-                        )}
+                        )}</LocalizedCopy>
                       </small>
-                    )}
+                    )}</LocalizedCopy>
                   </span>
                   <Icon name="chevron" size={17} />
-                </button>
+                </LocalizedButton>
               </article>
-            ))}
+            ))}</LocalizedCopy>
           </div>
         ) : (
           <div className="empty-state activity-native-empty">
-            <h3>Belum ada invoice</h3>
-            <p>
-              Belum ada invoice tertaut. Tautkan kode pet owner di klinik agar
-              invoice muncul di sini.
-            </p>
+            <h3><LocalizedCopy>{"Belum ada invoice"}</LocalizedCopy></h3>
+            <p><LocalizedCopy>{"Belum ada invoice tertaut. Tautkan kode pet owner di klinik agar invoice muncul di sini."}</LocalizedCopy></p>
           </div>
-        )}
+        )}</LocalizedCopy>
       </section>
     </div>
   );
@@ -4940,24 +4843,20 @@ function InvoiceDetail({
         aria-label="Detail invoice"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close} aria-label="Tutup">
+        <LocalizedButton className="modal-close" onClick={close} aria-label="Tutup">
           <Icon name="close" />
-        </button>
-        {error ? (
+        </LocalizedButton>
+        <LocalizedCopy>{error ? (
           <div className="form-message" role="alert">
-            <p>{error}</p>
-            <button
+            <p><LocalizedCopy>{error}</LocalizedCopy></p>
+            <LocalizedButton
               className="secondary-button"
               type="button"
               onClick={() => void load()}
-            >
-              Coba lagi
-            </button>
+            ><LocalizedCopy>{"Coba lagi"}</LocalizedCopy></LocalizedButton>
           </div>
         ) : !invoice ? (
-          <p className="form-message" role="status">
-            Memuat invoice…
-          </p>
+          <p className="form-message" role="status"><LocalizedCopy>{"Memuat invoice…"}</LocalizedCopy></p>
         ) : (
           <>
             <header className="activity-detail-hero">
@@ -4965,13 +4864,13 @@ function InvoiceDetail({
                 <Icon name="download" size={24} />
               </span>
               <div>
-                <small>INVOICE</small>
-                <h2>{invoice.invoice_number}</h2>
-                <em>{invoiceStatusLabels[invoice.status]}</em>
+                <small><LocalizedCopy>{"INVOICE"}</LocalizedCopy></small>
+                <h2><LocalizedCopy>{invoice.invoice_number}</LocalizedCopy></h2>
+                <em><LocalizedCopy>{invoiceStatusLabels[invoice.status]}</LocalizedCopy></em>
               </div>
             </header>
             <dl>
-              {(
+              <LocalizedCopy>{(
                 [
                   [
                     "Penerbit",
@@ -5009,32 +4908,30 @@ function InvoiceDetail({
                 .filter(([, value]) => value)
                 .map(([label, value]) => (
                   <div key={label}>
-                    <dt>{label}</dt>
-                    <dd>{value}</dd>
+                    <dt><LocalizedCopy>{label}</LocalizedCopy></dt>
+                    <dd><LocalizedCopy>{value}</LocalizedCopy></dd>
                   </div>
-                ))}
+                ))}</LocalizedCopy>
             </dl>
             <div className="activity-detail-copy">
-              <span className="activity-detail-label">Rincian item</span>
-              {invoice.items.length ? (
+              <span className="activity-detail-label"><LocalizedCopy>{"Rincian item"}</LocalizedCopy></span>
+              <LocalizedCopy>{invoice.items.length ? (
                 <ul>
-                  {invoice.items.map((line, index) => (
+                  <LocalizedCopy>{invoice.items.map((line, index) => (
                     <li key={`${line.description}-${index}`}>
-                      {line.description} × {line.quantity} ·{" "}
-                      {formatRupiah(line.line_total)}
+                      <LocalizedCopy>{line.description}</LocalizedCopy><LocalizedCopy>{" × "}</LocalizedCopy><LocalizedCopy>{line.quantity}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedCopy>{formatRupiah(line.line_total)}</LocalizedCopy>
                     </li>
-                  ))}
+                  ))}</LocalizedCopy>
                 </ul>
               ) : (
-                <p>Tidak ada rincian item.</p>
-              )}
+                <p><LocalizedCopy>{"Tidak ada rincian item."}</LocalizedCopy></p>
+              )}</LocalizedCopy>
             </div>
           </>
-        )}
+        )}</LocalizedCopy>
         <footer>
-          <button className="secondary-button" type="button" onClick={back}>
-            Kembali ke daftar
-          </button>
+          <LocalizedButton className="secondary-button" type="button" onClick={back}><LocalizedCopy>{"Kembali ke daftar"}</LocalizedCopy></LocalizedButton>
         </footer>
       </section>
     </div>
@@ -5104,20 +5001,20 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
     <div className="health-native">
       <header className="native-screen-header">
         <div>
-          <span>PUSAT KESEHATAN</span>
-          <h2>Digital health record</h2>
+          <span><LocalizedCopy>{"PUSAT KESEHATAN"}</LocalizedCopy></span>
+          <h2><LocalizedCopy>{"Digital health record"}</LocalizedCopy></h2>
         </div>
       </header>
 
       <section className="health-hero-panel health-native-hero">
         <span className="health-native-glow" aria-hidden="true" />
         <div className="health-pet">
-          <span>{pet.avatar}</span>
+          <span><LocalizedCopy>{pet.avatar}</LocalizedCopy></span>
           <div>
-            <small>HEALTH PROFILE ✦</small>
-            <h2>{pet.name}</h2>
+            <small><LocalizedCopy>{"HEALTH PROFILE ✦"}</LocalizedCopy></small>
+            <h2><LocalizedCopy preserve>{pet.name}</LocalizedCopy></h2>
             <p>
-              {pet.breed} • {pet.weight}
+              <LocalizedCopy>{pet.breed}</LocalizedCopy><LocalizedCopy>{" • "}</LocalizedCopy><LocalizedCopy>{pet.weight}</LocalizedCopy>
             </p>
           </div>
         </div>
@@ -5130,26 +5027,26 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
             }
           >
             <span>
-              <b>{pet.healthScore}</b>
-              <small>Health</small>
+              <b><LocalizedCopy>{pet.healthScore}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Health"}</LocalizedCopy></small>
             </span>
           </div>
         </div>
         <div className="health-hero-meta">
           <span>
-            <small>Alergi</small>
-            <b>{pet.allergies || "Belum dicatat"}</b>
+            <small><LocalizedCopy>{"Alergi"}</LocalizedCopy></small>
+            <b><LocalizedCopy>{pet.allergies || "Belum dicatat"}</LocalizedCopy></b>
           </span>
           <span>
-            <small>Dokter terakhir</small>
-            <b>{latest?.doctor_name || "Belum ada"}</b>
+            <small><LocalizedCopy>{"Dokter terakhir"}</LocalizedCopy></small>
+            <b><LocalizedCopy>{latest?.doctor_name || "Belum ada"}</LocalizedCopy></b>
           </span>
           <span>
-            <small>Update terakhir</small>
+            <small><LocalizedCopy>{"Update terakhir"}</LocalizedCopy></small>
             <b>
-              {latest
-                ? new Date(latest.occurred_at).toLocaleDateString("id-ID")
-                : "Belum ada record"}
+              <LocalizedCopy>{latest
+                ? new Date(latest.occurred_at).toLocaleDateString(petOwnerIntlLocale())
+                : "Belum ada record"}</LocalizedCopy>
             </b>
           </span>
         </div>
@@ -5160,65 +5057,61 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
         role="tablist"
         aria-label="Halaman kesehatan"
       >
-        <button
+        <LocalizedButton
           type="button"
           role="tab"
           className={screen === "summary" ? "active" : ""}
           aria-selected={screen === "summary"}
           onClick={() => setScreen("summary")}
-        >
-          Ringkasan
-        </button>
-        <button
+        ><LocalizedCopy>{"Ringkasan"}</LocalizedCopy></LocalizedButton>
+        <LocalizedButton
           type="button"
           role="tab"
           className={screen === "records" ? "active" : ""}
           aria-selected={screen === "records"}
           onClick={() => setScreen("records")}
-        >
-          Rekam Medis <span>{records.length}</span>
-        </button>
+        ><LocalizedCopy>{"Rekam Medis "}</LocalizedCopy><span><LocalizedCopy>{records.length}</LocalizedCopy></span>
+        </LocalizedButton>
       </div>
 
-      {screen === "summary" ? (
+      <LocalizedCopy>{screen === "summary" ? (
         <>
           <header className="health-native-section-header">
             <div>
-              <span>RINGKASAN KESEHATAN</span>
-              <h3>Data medis {pet.name}</h3>
+              <span><LocalizedCopy>{"RINGKASAN KESEHATAN"}</LocalizedCopy></span>
+              <h3><LocalizedCopy>{"Data medis "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy></h3>
             </div>
-            <button type="button" onClick={() => requirePet() && setReminderOpen(true)}>
-              <Icon name="plus" size={15} /> Pengingat
-            </button>
+            <LocalizedButton type="button" onClick={() => requirePet() && setReminderOpen(true)}>
+              <Icon name="plus" size={15} /><LocalizedCopy>{" Pengingat"}</LocalizedCopy></LocalizedButton>
           </header>
 
           <section className="health-native-prevention">
             <div className="health-native-progress">
-              <b>{records.length}</b>
-              <small>Record</small>
+              <b><LocalizedCopy>{records.length}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Record"}</LocalizedCopy></small>
             </div>
             <div>
               <p>
                 <span className={records.length ? "done" : ""}>
-                  {records.length ? <Icon name="check" size={12} /> : "!"}
+                  <LocalizedCopy>{records.length ? <Icon name="check" size={12} /> : "!"}</LocalizedCopy>
                 </span>
                 <b>
-                  {records.length
+                  <LocalizedCopy>{records.length
                     ? "Rekam medis tersinkron"
-                    : "Belum ada rekam medis"}
+                    : "Belum ada rekam medis"}</LocalizedCopy>
                 </b>
                 <small>
-                  {latest?.title ||
-                    "Buat booking pemeriksaan untuk memulai record"}
+                  <LocalizedCopy>{latest?.title ||
+                    "Buat booking pemeriksaan untuk memulai record"}</LocalizedCopy>
                 </small>
               </p>
               <p>
                 <span className={pet.healthScore > 0 ? "done" : ""}>
-                  {pet.healthScore > 0 ? <Icon name="check" size={12} /> : "!"}
+                  <LocalizedCopy>{pet.healthScore > 0 ? <Icon name="check" size={12} /> : "!"}</LocalizedCopy>
                 </span>
-                <b>Health score {pet.healthScore || "belum tersedia"}</b>
+                <b><LocalizedCopy>{"Health score "}</LocalizedCopy><LocalizedCopy>{pet.healthScore || "belum tersedia"}</LocalizedCopy></b>
                 <small>
-                  {pet.nextCare || "Lengkapi profil dan aktivitas pet"}
+                  <LocalizedCopy>{pet.nextCare || "Lengkapi profil dan aktivitas pet"}</LocalizedCopy>
                 </small>
               </p>
             </div>
@@ -5229,15 +5122,15 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
               <span>
                 <Icon name="shield" size={17} />
               </span>
-              <small>Microchip</small>
-              <b>{pet.microchip}</b>
+              <small><LocalizedCopy>{"Microchip"}</LocalizedCopy></small>
+              <b><LocalizedCopy>{pet.microchip}</LocalizedCopy></b>
             </article>
             <article>
               <span>
                 <Icon name="heart" size={17} />
               </span>
-              <small>Berat terbaru</small>
-              <b>{latest?.weight_kg ? `${latest.weight_kg} kg` : pet.weight}</b>
+              <small><LocalizedCopy>{"Berat terbaru"}</LocalizedCopy></small>
+              <b><LocalizedCopy>{latest?.weight_kg ? `${latest.weight_kg} kg` : pet.weight}</LocalizedCopy></b>
             </article>
           </section>
 
@@ -5245,14 +5138,13 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
             <>
               <header className="health-native-section-header">
                 <div>
-                  <span>RECORD TERBARU</span>
-                  <h3>{latest.title}</h3>
+                  <span><LocalizedCopy>{"RECORD TERBARU"}</LocalizedCopy></span>
+                  <h3><LocalizedCopy>{latest.title}</LocalizedCopy></h3>
                 </div>
-                <button type="button" onClick={() => setScreen("records")}>
-                  Semua <Icon name="arrow" size={14} />
-                </button>
+                <LocalizedButton type="button" onClick={() => setScreen("records")}><LocalizedCopy>{"Semua "}</LocalizedCopy><Icon name="arrow" size={14} />
+                </LocalizedButton>
               </header>
-              <button
+              <LocalizedButton
                 className="health-native-latest"
                 type="button"
                 onClick={() => setDetail(latest)}
@@ -5262,30 +5154,29 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
                 </span>
                 <p>
                   <small>
-                    {new Date(latest.occurred_at).toLocaleString("id-ID")}
+                    <LocalizedCopy>{new Date(latest.occurred_at).toLocaleString(petOwnerIntlLocale())}</LocalizedCopy>
                   </small>
-                  <b>{latest.diagnosis || latest.complaint || latest.title}</b>
-                  <span>{latest.doctor_name || "Dokter belum dicatat"}</span>
+                  <b><LocalizedCopy>{latest.diagnosis || latest.complaint || latest.title}</LocalizedCopy></b>
+                  <span><LocalizedCopy>{latest.doctor_name || "Dokter belum dicatat"}</LocalizedCopy></span>
                 </p>
                 <i>
                   <Icon name="arrow" size={15} />
                 </i>
-              </button>
+              </LocalizedButton>
             </>
           ) : null}
 
           <section className="panel care-reminder-panel health-native-reminders">
             <header className="health-native-section-header">
               <div>
-                <span>PENGINGAT PERAWATAN</span>
-                <h3>Jadwal penting {pet.name}</h3>
+                <span><LocalizedCopy>{"PENGINGAT PERAWATAN"}</LocalizedCopy></span>
+                <h3><LocalizedCopy>{"Jadwal penting "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy></h3>
               </div>
-              <button type="button" onClick={() => requirePet() && setReminderOpen(true)}>
-                <Icon name="plus" size={15} /> Tambah
-              </button>
+              <LocalizedButton type="button" onClick={() => requirePet() && setReminderOpen(true)}>
+                <Icon name="plus" size={15} /><LocalizedCopy>{" Tambah"}</LocalizedCopy></LocalizedButton>
             </header>
             <div className="care-reminder-list">
-              {reminders.filter((item) =>
+              <LocalizedCopy>{reminders.filter((item) =>
                 ["scheduled", "snoozed"].includes(item.status),
               ).length ? (
                 reminders
@@ -5295,38 +5186,36 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
                   .map((item) => (
                     <article key={item.id}>
                       <span>
-                        {item.reminder_type === "vaccination"
+                        <LocalizedCopy>{item.reminder_type === "vaccination"
                           ? "💉"
                           : item.reminder_type === "medication"
                             ? "💊"
                             : item.reminder_type === "grooming"
                               ? "✂️"
-                              : "🔔"}
+                              : "🔔"}</LocalizedCopy>
                       </span>
                       <div>
-                        <b>{item.title}</b>
+                        <b><LocalizedCopy>{item.title}</LocalizedCopy></b>
                         <small>
-                          {new Date(item.due_at).toLocaleString("id-ID")} ·{" "}
-                          {item.recurrence === "once"
+                          <LocalizedCopy>{new Date(item.due_at).toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                          <LocalizedCopy>{item.recurrence === "once"
                             ? "Satu kali"
-                            : `Berulang ${item.recurrence}`}
+                            : `Berulang ${item.recurrence}`}</LocalizedCopy>
                         </small>
                         <p>
-                          {item.notes || `Pengingat untuk ${item.pet_name}`}
+                          <LocalizedCopy>{item.notes || `Pengingat untuk ${item.pet_name}`}</LocalizedCopy>
                         </p>
                       </div>
                       <div>
-                        <button
+                        <LocalizedButton
                           type="button"
                           onClick={async () => {
                             await snoozeCareReminder(item.id, 1440);
                             await loadReminders();
                             notify("Pengingat ditunda satu hari");
                           }}
-                        >
-                          Tunda
-                        </button>
-                        <button
+                        ><LocalizedCopy>{"Tunda"}</LocalizedCopy></LocalizedButton>
+                        <LocalizedButton
                           className="complete"
                           type="button"
                           onClick={async () => {
@@ -5334,18 +5223,13 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
                             await loadReminders();
                             notify("Perawatan ditandai selesai");
                           }}
-                        >
-                          Selesai
-                        </button>
+                        ><LocalizedCopy>{"Selesai"}</LocalizedCopy></LocalizedButton>
                       </div>
                     </article>
                   ))
               ) : (
-                <div className="empty-state compact health-native-reminder-empty">
-                  Belum ada pengingat. Tambahkan jadwal vaksin, obat, grooming,
-                  atau kontrol berikutnya.
-                </div>
-              )}
+                <div className="empty-state compact health-native-reminder-empty"><LocalizedCopy>{"Belum ada pengingat. Tambahkan jadwal vaksin, obat, grooming, atau kontrol berikutnya."}</LocalizedCopy></div>
+              )}</LocalizedCopy>
             </div>
           </section>
 
@@ -5355,13 +5239,13 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
                 <Icon name="shield" size={18} />
               </span>
               <div>
-                <small>CATATAN KHUSUS</small>
+                <small><LocalizedCopy>{"CATATAN KHUSUS"}</LocalizedCopy></small>
                 <b>
-                  {pet.allergies
+                  <LocalizedCopy>{pet.allergies
                     ? `Alergi: ${pet.allergies}`
-                    : "Catatan kesehatan"}
+                    : "Catatan kesehatan"}</LocalizedCopy>
                 </b>
-                <p>{pet.notes || "Tidak ada catatan medis tambahan."}</p>
+                <p><LocalizedCopy>{pet.notes || "Tidak ada catatan medis tambahan."}</LocalizedCopy></p>
               </div>
             </section>
           )}
@@ -5373,8 +5257,8 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
             role="tablist"
             aria-label="Jenis rekam medis"
           >
-            {categories.map((item) => (
-              <button
+            <LocalizedCopy>{categories.map((item) => (
+              <LocalizedButton
                 type="button"
                 role="tab"
                 className={tab === item.id ? "active" : ""}
@@ -5382,32 +5266,29 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
                 aria-selected={tab === item.id}
                 onClick={() => setTab(item.id)}
               >
-                {item.label}
-              </button>
-            ))}
+                <LocalizedCopy>{item.label}</LocalizedCopy>
+              </LocalizedButton>
+            ))}</LocalizedCopy>
           </div>
           <section className="panel health-record-api health-native-records">
             <header className="health-native-section-header">
               <div>
-                <span>PET MEDICAL RECORD</span>
-                <h3>Riwayat {pet.name}</h3>
+                <span><LocalizedCopy>{"PET MEDICAL RECORD"}</LocalizedCopy></span>
+                <h3><LocalizedCopy>{"Riwayat "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy></h3>
               </div>
-              <button
+              <LocalizedButton
                 type="button"
                 disabled={!records.length}
                 onClick={() => downloadPetMedicalPDF(pet, records)}
               >
-                <Icon name="download" size={15} /> Unduh
-              </button>
+                <Icon name="download" size={15} /><LocalizedCopy>{" Unduh"}</LocalizedCopy></LocalizedButton>
             </header>
-            {loading ? (
-              <div className="empty-state compact health-native-record-empty">
-                Memuat rekam medis {pet.name}…
-              </div>
+            <LocalizedCopy>{loading ? (
+              <div className="empty-state compact health-native-record-empty"><LocalizedCopy>{"Memuat rekam medis "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy><LocalizedCopy>{"…"}</LocalizedCopy></div>
             ) : visible.length ? (
               <div className="health-native-record-list">
-                {visible.map((record) => (
-                  <button
+                <LocalizedCopy>{visible.map((record) => (
+                  <LocalizedButton
                     type="button"
                     key={record.id}
                     onClick={() => setDetail(record)}
@@ -5417,56 +5298,54 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
                     </span>
                     <p>
                       <small>
-                        {record.record_type.toUpperCase()} ·{" "}
-                        {new Date(record.occurred_at).toLocaleString("id-ID")}
+                        <LocalizedCopy>{record.record_type.toUpperCase()}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                        <LocalizedCopy>{new Date(record.occurred_at).toLocaleString(petOwnerIntlLocale())}</LocalizedCopy>
                       </small>
-                      <b>{record.title}</b>
+                      <b><LocalizedCopy>{record.title}</LocalizedCopy></b>
                       <span>
-                        {record.diagnosis ||
+                        <LocalizedCopy>{record.diagnosis ||
                           record.clinical_notes ||
                           record.complaint ||
-                          "Tidak ada keterangan tambahan"}
+                          "Tidak ada keterangan tambahan"}</LocalizedCopy>
                       </span>
                     </p>
                     <Icon name="chevron" size={16} />
-                  </button>
-                ))}
+                  </LocalizedButton>
+                ))}</LocalizedCopy>
               </div>
             ) : (
               <div className="empty-state health-native-record-empty">
                 <span>
                   <Icon name="heart" size={28} />
                 </span>
-                <h3>Belum ada rekam medis</h3>
-                <p>
-                  Record akan muncul setelah pemeriksaan atau konsultasi untuk{" "}
-                  {pet.name}.
-                </p>
+                <h3><LocalizedCopy>{"Belum ada rekam medis"}</LocalizedCopy></h3>
+                <p><LocalizedCopy>{"Record akan muncul setelah pemeriksaan atau konsultasi untuk"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                  <LocalizedCopy preserve>{pet.name}</LocalizedCopy><LocalizedCopy>{"."}</LocalizedCopy></p>
               </div>
-            )}
+            )}</LocalizedCopy>
           </section>
         </>
-      )}
+      )}</LocalizedCopy>
 
-      {detail && (
+      <LocalizedCopy>{detail && (
         <div className="modal-overlay" onMouseDown={() => setDetail(null)}>
           <section
             className="modal medical-record-detail"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <button className="modal-close" onClick={() => setDetail(null)}>
+            <LocalizedButton className="modal-close" onClick={() => setDetail(null)}>
               <Icon name="close" />
-            </button>
+            </LocalizedButton>
             <span className="section-eyebrow">
-              {detail.record_type.toUpperCase()}
+              <LocalizedCopy>{detail.record_type.toUpperCase()}</LocalizedCopy>
             </span>
-            <h2>{detail.title}</h2>
+            <h2><LocalizedCopy>{detail.title}</LocalizedCopy></h2>
             <p>
-              {new Date(detail.occurred_at).toLocaleString("id-ID")} ·{" "}
-              {detail.doctor_name || "Dokter belum dicatat"}
+              <LocalizedCopy>{new Date(detail.occurred_at).toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+              <LocalizedCopy>{detail.doctor_name || "Dokter belum dicatat"}</LocalizedCopy>
             </p>
             <dl>
-              {[
+              <LocalizedCopy>{[
                 ["Keluhan", detail.complaint],
                 ["Diagnosis", detail.diagnosis],
                 ["Perawatan", detail.treatment],
@@ -5474,35 +5353,33 @@ function HealthView({ pet, notify }: { pet: Pet; notify: Notify }) {
                 [
                   "Kontrol berikutnya",
                   detail.next_control_at
-                    ? new Date(detail.next_control_at).toLocaleString("id-ID")
+                    ? new Date(detail.next_control_at).toLocaleString(petOwnerIntlLocale())
                     : "",
                 ],
               ]
                 .filter(([, value]) => value)
                 .map(([label, value]) => (
                   <div key={label}>
-                    <dt>{label}</dt>
-                    <dd>{value}</dd>
+                    <dt><LocalizedCopy>{label}</LocalizedCopy></dt>
+                    <dd><LocalizedCopy>{value}</LocalizedCopy></dd>
                   </div>
-                ))}
+                ))}</LocalizedCopy>
             </dl>
-            <button
+            <LocalizedButton
               className="primary-button full"
               onClick={() => setDetail(null)}
-            >
-              Selesai
-            </button>
+            ><LocalizedCopy>{"Selesai"}</LocalizedCopy></LocalizedButton>
           </section>
         </div>
-      )}
-      {reminderOpen && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{reminderOpen && (
         <ReminderModal
           pet={pet}
           close={() => setReminderOpen(false)}
           notify={notify}
           created={loadReminders}
         />
-      )}
+      )}</LocalizedCopy>
     </div>
   );
 }
@@ -5556,17 +5433,15 @@ function ReminderModal({
         className="modal form-modal reminder-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <LocalizedButton className="modal-close" onClick={close}>
           <Icon name="close" />
-        </button>
-        <span className="section-eyebrow">PENGINGAT PERAWATAN</span>
-        <h2>Jadwalkan untuk {pet.name}</h2>
-        <p className="muted-copy">
-          Notifikasi disiapkan 7 hari, 1 hari, dan 2 jam sebelum jadwal.
-        </p>
+        </LocalizedButton>
+        <span className="section-eyebrow"><LocalizedCopy>{"PENGINGAT PERAWATAN"}</LocalizedCopy></span>
+        <h2><LocalizedCopy>{"Jadwalkan untuk "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy></h2>
+        <p className="muted-copy"><LocalizedCopy>{"Notifikasi disiapkan 7 hari, 1 hari, dan 2 jam sebelum jadwal."}</LocalizedCopy></p>
         <form className="world-form" onSubmit={submit}>
           <label>
-            <span>Jenis perawatan</span>
+            <span><LocalizedCopy>{"Jenis perawatan"}</LocalizedCopy></span>
             <SlivaSelect aria-label="Jenis perawatan" name="reminder_type">
               <option value="vaccination">Vaksinasi</option>
               <option value="medication">Obat</option>
@@ -5579,8 +5454,8 @@ function ReminderModal({
             </SlivaSelect>
           </label>
           <label>
-            <span>Judul</span>
-            <input
+            <span><LocalizedCopy>{"Judul"}</LocalizedCopy></span>
+            <LocalizedInput
               name="title"
               minLength={3}
               placeholder="Contoh: Booster rabies"
@@ -5588,12 +5463,12 @@ function ReminderModal({
             />
           </label>
           <label>
-            <span>Tanggal & waktu</span>
-            <input name="due_at" type="datetime-local" required />
+            <span><LocalizedCopy>{"Tanggal & waktu"}</LocalizedCopy></span>
+            <SlivaDatePicker name="due_at" type="datetime-local" required />
           </label>
           <div className="form-row">
             <label>
-              <span>Pengulangan</span>
+              <span><LocalizedCopy>{"Pengulangan"}</LocalizedCopy></span>
               <SlivaSelect aria-label="Pengulangan" name="recurrence" defaultValue="yearly">
                 <option value="once">Satu kali</option>
                 <option value="daily">Harian</option>
@@ -5605,8 +5480,8 @@ function ReminderModal({
               </SlivaSelect>
             </label>
             <label>
-              <span>Jarak khusus (hari)</span>
-              <input
+              <span><LocalizedCopy>{"Jarak khusus (hari)"}</LocalizedCopy></span>
+              <LocalizedInput
                 name="recurrence_days"
                 type="number"
                 min="1"
@@ -5615,15 +5490,15 @@ function ReminderModal({
             </label>
           </div>
           <label>
-            <span>Catatan</span>
-            <textarea
+            <span><LocalizedCopy>{"Catatan"}</LocalizedCopy></span>
+            <LocalizedTextarea
               name="notes"
               placeholder="Dosis, klinik, atau persiapan khusus"
             />
           </label>
-          <button className="primary-button full" disabled={busy}>
-            {busy ? "Menjadwalkan…" : "Simpan pengingat"}
-          </button>
+          <LocalizedButton className="primary-button full" disabled={busy}>
+            <LocalizedCopy>{busy ? "Menjadwalkan…" : "Simpan pengingat"}</LocalizedCopy>
+          </LocalizedButton>
         </form>
       </section>
     </div>
@@ -5683,49 +5558,47 @@ function SupportTicketThread({
   }
   return (
     <div className="support-thread">
-      <button type="button" onClick={() => setOpen((value) => !value)}>
-        {open ? "Sembunyikan percakapan" : "Percakapan & balas"}
-      </button>
-      {open && (
+      <LocalizedButton type="button" onClick={() => setOpen((value) => !value)}>
+        <LocalizedCopy>{open ? "Sembunyikan percakapan" : "Percakapan & balas"}</LocalizedCopy>
+      </LocalizedButton>
+      <LocalizedCopy>{open && (
         <>
-          {error && <div className="form-message">{error}</div>}
+          {error && <div className="form-message"><LocalizedCopy>{error}</LocalizedCopy></div>}
           <ul>
-            {messages.map((message) => (
+            <LocalizedCopy>{messages.map((message) => (
               <li
                 key={message.id}
                 className={message.sender_role === "support" ? "support" : "owner"}
               >
                 <b>
-                  {message.sender_role === "support"
+                  <LocalizedCopy>{message.sender_role === "support"
                     ? "Tim Slivadoc"
-                    : "Kamu"}
+                    : "Kamu"}</LocalizedCopy>
                 </b>
-                <p>{message.body}</p>
+                <p><LocalizedCopy>{message.body}</LocalizedCopy></p>
                 <time>
-                  {new Date(message.created_at).toLocaleString("id-ID")}
+                  <LocalizedCopy>{new Date(message.created_at).toLocaleString(petOwnerIntlLocale())}</LocalizedCopy>
                 </time>
               </li>
-            ))}
-            {messages.length === 0 && !error && (
-              <li className="empty">Belum ada balasan.</li>
-            )}
+            ))}</LocalizedCopy>
+            <LocalizedCopy>{messages.length === 0 && !error && (
+              <li className="empty"><LocalizedCopy>{"Belum ada balasan."}</LocalizedCopy></li>
+            )}</LocalizedCopy>
           </ul>
           {!closed && (
             <form onSubmit={send}>
-              <input
+              <LocalizedInput
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
                 maxLength={2000}
                 placeholder="Tulis balasan…"
                 aria-label="Balasan ticket"
               />
-              <button className="primary-button" disabled={busy || !body.trim()}>
-                Kirim
-              </button>
+              <LocalizedButton className="primary-button" disabled={busy || !body.trim()}><LocalizedCopy>{"Kirim"}</LocalizedCopy></LocalizedButton>
             </form>
           )}
         </>
-      )}
+      )}</LocalizedCopy>
     </div>
   );
 }
@@ -5813,30 +5686,27 @@ function SupportCenter({
     <div className="support-center">
       <section className="support-hero panel">
         <div>
-          <span className="section-eyebrow">BANTUAN YANG DAPAT DILACAK</span>
-          <h2>Sampaikan kendala tanpa mengulang kronologi.</h2>
-          <p>
-            Kaitkan pengaduan ke pesanan atau booking. Nomor ticket, tenggat
-            respons, status, dan penyelesaian tersimpan di akunmu.
-          </p>
+          <span className="section-eyebrow"><LocalizedCopy>{"BANTUAN YANG DAPAT DILACAK"}</LocalizedCopy></span>
+          <h2><LocalizedCopy>{"Sampaikan kendala tanpa mengulang kronologi."}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Kaitkan pengaduan ke pesanan atau booking. Nomor ticket, tenggat respons, status, dan penyelesaian tersimpan di akunmu."}</LocalizedCopy></p>
         </div>
         <aside>
           <Icon name="shield" size={24} />
-          <b>Target respons</b>
-          <strong>1 hari kerja</strong>
-          <small>Untuk tanggapan pertama tim Slivadoc.</small>
+          <b><LocalizedCopy>{"Target respons"}</LocalizedCopy></b>
+          <strong><LocalizedCopy>{"1 hari kerja"}</LocalizedCopy></strong>
+          <small><LocalizedCopy>{"Untuk tanggapan pertama tim Slivadoc."}</LocalizedCopy></small>
         </aside>
       </section>
 
       <div className="support-layout">
         <section className="panel support-form-card">
           <header>
-            <span>BUAT PENGADUAN</span>
-            <h3>Ceritakan kendalanya</h3>
+            <span><LocalizedCopy>{"BUAT PENGADUAN"}</LocalizedCopy></span>
+            <h3><LocalizedCopy>{"Ceritakan kendalanya"}</LocalizedCopy></h3>
           </header>
           <form className="world-form" onSubmit={submit}>
             <label>
-              <span>Kategori</span>
+              <span><LocalizedCopy>{"Kategori"}</LocalizedCopy></span>
               <SlivaSelect aria-label="Kategori"
                 name="category"
                 value={category}
@@ -5854,8 +5724,7 @@ function SupportCenter({
               </SlivaSelect>
             </label>
             <label>
-              <span>
-                Pesanan atau booking terkait <small>(opsional)</small>
+              <span><LocalizedCopy>{"Pesanan atau booking terkait "}</LocalizedCopy><small><LocalizedCopy>{"(opsional)"}</LocalizedCopy></small>
               </span>
               <SlivaSelect aria-label="Pesanan atau booking terkait (opsional)"
                 value={reference}
@@ -5870,8 +5739,8 @@ function SupportCenter({
               </SlivaSelect>
             </label>
             <label>
-              <span>Subjek</span>
-              <input
+              <span><LocalizedCopy>{"Subjek"}</LocalizedCopy></span>
+              <LocalizedInput
                 name="subject"
                 minLength={5}
                 maxLength={180}
@@ -5880,8 +5749,8 @@ function SupportCenter({
               />
             </label>
             <label>
-              <span>Kronologi dan hasil yang diharapkan</span>
-              <textarea
+              <span><LocalizedCopy>{"Kronologi dan hasil yang diharapkan"}</LocalizedCopy></span>
+              <LocalizedTextarea
                 name="description"
                 minLength={20}
                 maxLength={5000}
@@ -5889,74 +5758,67 @@ function SupportCenter({
                 placeholder="Jelaskan waktu kejadian, kondisi terakhir, dan bantuan yang kamu butuhkan."
               />
             </label>
-            {error && (
+            <LocalizedCopy>{error && (
               <div className="form-message" role="alert">
-                {error}
+                <LocalizedCopy>{error}</LocalizedCopy>
               </div>
-            )}
-            <button className="primary-button full" disabled={submitting}>
-              {submitting
+            )}</LocalizedCopy>
+            <LocalizedButton className="primary-button full" disabled={submitting}>
+              <LocalizedCopy>{submitting
                 ? "Mengirim pengaduan…"
-                : "Kirim & dapatkan nomor ticket"}
-            </button>
+                : "Kirim & dapatkan nomor ticket"}</LocalizedCopy>
+            </LocalizedButton>
           </form>
         </section>
 
         <section className="panel support-history">
           <header>
-            <span>RIWAYAT BANTUAN</span>
-            <h3>Status pengaduanmu</h3>
-            <button
+            <span><LocalizedCopy>{"RIWAYAT BANTUAN"}</LocalizedCopy></span>
+            <h3><LocalizedCopy>{"Status pengaduanmu"}</LocalizedCopy></h3>
+            <LocalizedButton
               type="button"
               onClick={() => void loadTickets()}
               disabled={loading}
-            >
-              Muat ulang
-            </button>
+            ><LocalizedCopy>{"Muat ulang"}</LocalizedCopy></LocalizedButton>
           </header>
-          {loading ? (
-            <div className="support-state" role="status">
-              Memuat ticket…
-            </div>
+          <LocalizedCopy>{loading ? (
+            <div className="support-state" role="status"><LocalizedCopy>{"Memuat ticket…"}</LocalizedCopy></div>
           ) : tickets.length ? (
             <div className="support-ticket-list">
-              {tickets.map((ticket) => (
+              <LocalizedCopy>{tickets.map((ticket) => (
                 <article key={ticket.id}>
                   <div>
-                    <span>{ticket.ticket_number}</span>
+                    <span><LocalizedCopy>{ticket.ticket_number}</LocalizedCopy></span>
                     <em className={`status-badge ${ticket.status}`}>
-                      {ticket.status.replaceAll("_", " ")}
+                      <LocalizedCopy>{ticket.status.replaceAll("_", " ")}</LocalizedCopy>
                     </em>
                   </div>
-                  <h4>{ticket.subject}</h4>
-                  <p>{ticket.description}</p>
-                  {ticket.resolution && (
+                  <h4><LocalizedCopy>{ticket.subject}</LocalizedCopy></h4>
+                  <p><LocalizedCopy>{ticket.description}</LocalizedCopy></p>
+                  <LocalizedCopy>{ticket.resolution && (
                     <blockquote>
-                      <b>Penyelesaian</b>
-                      {ticket.resolution}
+                      <b><LocalizedCopy>{"Penyelesaian"}</LocalizedCopy></b>
+                      <LocalizedCopy>{ticket.resolution}</LocalizedCopy>
                     </blockquote>
-                  )}
+                  )}</LocalizedCopy>
                   <footer>
-                    <span>
-                      Dibuat{" "}
-                      {new Date(ticket.created_at).toLocaleString("id-ID")}
+                    <span><LocalizedCopy>{"Dibuat"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedCopy>{new Date(ticket.created_at).toLocaleString(petOwnerIntlLocale())}</LocalizedCopy>
                     </span>
-                    {ticket.response_due_at && !ticket.first_response_at && (
-                      <span>
-                        Target respons{" "}
-                        {new Date(ticket.response_due_at).toLocaleString(
-                          "id-ID",
-                        )}
+                    <LocalizedCopy>{ticket.response_due_at && !ticket.first_response_at && (
+                      <span><LocalizedCopy>{"Target respons"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                        <LocalizedCopy>{new Date(ticket.response_due_at).toLocaleString(
+                          petOwnerIntlLocale(),
+                        )}</LocalizedCopy>
                       </span>
-                    )}
-                    {ticket.first_response_at && (
-                      <span>
-                        Ditanggapi{" "}
-                        {new Date(ticket.first_response_at).toLocaleString(
-                          "id-ID",
-                        )}
+                    )}</LocalizedCopy>
+                    <LocalizedCopy>{ticket.first_response_at && (
+                      <span><LocalizedCopy>{"Ditanggapi"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                        <LocalizedCopy>{new Date(ticket.first_response_at).toLocaleString(
+                          petOwnerIntlLocale(),
+                        )}</LocalizedCopy>
                       </span>
-                    )}
+                    )}</LocalizedCopy>
                   </footer>
                   <SupportTicketThread
                     ticketId={ticket.id}
@@ -5966,13 +5828,11 @@ function SupportCenter({
                     notify={notify}
                   />
                 </article>
-              ))}
+              ))}</LocalizedCopy>
             </div>
           ) : (
-            <div className="support-state">
-              Belum ada pengaduan. Ticket yang kamu buat akan tampil di sini.
-            </div>
-          )}
+            <div className="support-state"><LocalizedCopy>{"Belum ada pengaduan. Ticket yang kamu buat akan tampil di sini."}</LocalizedCopy></div>
+          )}</LocalizedCopy>
         </section>
       </div>
     </div>
@@ -5984,10 +5844,10 @@ function AccountLanguageSetting() {
   return (
     <div className="profile-language-setting">
       <span><Icon name="settings" size={19} /></span>
-      <p><b>{t("Bahasa aplikasi")}</b><small>Indonesia / English</small></p>
+      <p><b><LocalizedCopy>{t("Bahasa aplikasi")}</LocalizedCopy></b><small><LocalizedCopy>{"Indonesia / English"}</LocalizedCopy></small></p>
       <div role="group" aria-label={t("Bahasa aplikasi")}>
-        <button className={language === "id" ? "active" : ""} type="button" aria-pressed={language === "id"} onClick={() => setLanguage("id")}>ID</button>
-        <button className={language === "en" ? "active" : ""} type="button" aria-pressed={language === "en"} onClick={() => setLanguage("en")}>EN</button>
+        <LocalizedButton className={language === "id" ? "active" : ""} type="button" aria-pressed={language === "id"} onClick={() => setLanguage("id")}><LocalizedCopy>{"ID"}</LocalizedCopy></LocalizedButton>
+        <LocalizedButton className={language === "en" ? "active" : ""} type="button" aria-pressed={language === "en"} onClick={() => setLanguage("en")}><LocalizedCopy>{"EN"}</LocalizedCopy></LocalizedButton>
       </div>
     </div>
   );
@@ -5998,12 +5858,12 @@ function GuestAccount({ onLogin }: { onLogin: () => void }) {
   return (
     <div className="profile-guest">
       <section className="empty-state panel" aria-label="Akun Pet Owner">
-        <h2>{t("Masuk ke akun")}</h2>
-        <p>{t("Sinkronkan profil pet, aktivitas, dan membership Slivadoc.")}</p>
-        <button type="button" className="primary-button" onClick={onLogin}>{t("Masuk / Daftar")}</button>
+        <h2><LocalizedCopy>{t("Masuk ke akun")}</LocalizedCopy></h2>
+        <p><LocalizedCopy>{t("Sinkronkan profil pet, aktivitas, dan membership Slivadoc.")}</LocalizedCopy></p>
+        <LocalizedButton type="button" className="primary-button" onClick={onLogin}><LocalizedCopy>{t("Masuk / Daftar")}</LocalizedCopy></LocalizedButton>
       </section>
       <section className="panel profile-native-settings">
-        <header><span>PREFERENSI</span><h3>{t("Pengaturan akun")}</h3></header>
+        <header><span><LocalizedCopy>{"PREFERENSI"}</LocalizedCopy></span><h3><LocalizedCopy>{t("Pengaturan akun")}</LocalizedCopy></h3></header>
         <AccountLanguageSetting />
       </section>
     </div>
@@ -6120,7 +5980,7 @@ function ProfileView({
     }
   }
   async function removeAddress(address: PetOwnerShippingAddress) {
-    if (!window.confirm(`Hapus alamat ${address.label}?`)) return;
+    if (!(await confirmSlivaDialog(`Hapus alamat ${address.label}?`))) return;
     try {
       const result = await deletePetOwnerShippingAddress(address.id);
       setShippingAddresses((current) =>
@@ -6137,126 +5997,124 @@ function ProfileView({
     <div className="profile-native profile-workspace">
       <header className="native-screen-header">
         <div>
-          <span>{t("Akun & Keluarga").toUpperCase()}</span>
-          <h2>{t("Profil pet parent")}</h2>
+          <span><LocalizedCopy>{t("Akun & Keluarga").toUpperCase()}</LocalizedCopy></span>
+          <h2><LocalizedCopy>{t("Profil pet parent")}</LocalizedCopy></h2>
         </div>
       </header>
       <div className="profile-identity-col">
         <section className={`profile-member-card profile-member-card--${profileTier}`}>
           <span className="profile-member-orb" aria-hidden="true" />
-          <header><div><strong>SLIVADOC</strong><small>PET OWNER MEMBER</small></div><em>{membership.icon} {membership.name}</em></header>
-          <div className="profile-member-identity"><span><Icon name="paw" size={25}/></span><div><small>{t("Nomor member").toUpperCase()}</small><b>{profileMemberNumber}</b><p>{account.full_name}</p></div><i><Icon name="shield" size={22}/></i></div>
-          <footer><span><small>{t("Member sejak").toUpperCase()}</small><b>{new Date(account.member_since).toLocaleDateString(locale, { month: "short", year: "numeric" })}</b></span><span><small>{t("Sliva Point").toUpperCase()}</small><b>{points.toLocaleString(locale)}</b></span><span><small>{t("Level member").toUpperCase()}</small><b>{membership.name}</b></span></footer>
-          <p>{t("Satu identitas untuk setiap momen perawatan")} ✦</p>
+          <header><div><strong><LocalizedCopy>{"SLIVADOC"}</LocalizedCopy></strong><small><LocalizedCopy>{"PET OWNER MEMBER"}</LocalizedCopy></small></div><em><LocalizedCopy>{membership.icon}</LocalizedCopy> <LocalizedCopy>{membership.name}</LocalizedCopy></em></header>
+          <div className="profile-member-identity"><span><Icon name="paw" size={25}/></span><div><small><LocalizedCopy>{t("Nomor member").toUpperCase()}</LocalizedCopy></small><b><LocalizedCopy>{profileMemberNumber}</LocalizedCopy></b><p><LocalizedCopy preserve>{account.full_name}</LocalizedCopy></p></div><i><Icon name="shield" size={22}/></i></div>
+          <footer><span><small><LocalizedCopy>{t("Member sejak").toUpperCase()}</LocalizedCopy></small><b><LocalizedCopy>{new Date(account.member_since).toLocaleDateString(locale, { month: "short", year: "numeric" })}</LocalizedCopy></b></span><span><small><LocalizedCopy>{t("Sliva Point").toUpperCase()}</LocalizedCopy></small><b><LocalizedCopy>{points.toLocaleString(locale)}</LocalizedCopy></b></span><span><small><LocalizedCopy>{t("Level member").toUpperCase()}</LocalizedCopy></small><b><LocalizedCopy>{membership.name}</LocalizedCopy></b></span></footer>
+          <p><LocalizedCopy>{t("Satu identitas untuk setiap momen perawatan")}</LocalizedCopy><LocalizedCopy>{" ✦"}</LocalizedCopy></p>
         </section>
         <section className="profile-main-card profile-native-card">
           <div className="profile-person profile-person--clean">
-            <div className="profile-photo">{initials}</div>
+            <div className="profile-photo"><LocalizedCopy>{initials}</LocalizedCopy></div>
             <div>
-              <h2>{account.full_name}</h2>
+              <h2><LocalizedCopy preserve>{account.full_name}</LocalizedCopy></h2>
               <p>
-                {account.email} · {account.phone || "Nomor telepon belum diisi"}
+                <LocalizedCopy>{account.email}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{account.phone || "Nomor telepon belum diisi"}</LocalizedCopy>
               </p>
-              <span className="gold-member">✓ AKUN AKTIF</span>
+              <span className="gold-member"><LocalizedCopy>{"✓ AKUN AKTIF"}</LocalizedCopy></span>
             </div>
-            <button
+            <LocalizedButton
               className="native-header-icon"
               type="button"
               aria-label="Edit profil"
               onClick={() => setEdit(true)}
             >
               <Icon name="edit" size={16} />
-            </button>
+            </LocalizedButton>
           </div>
           <div className="profile-stats">
             <span>
-              <b>{petCount}</b>
-              <small>Hewan</small>
+              <b><LocalizedCopy>{petCount}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Hewan"}</LocalizedCopy></small>
             </span>
             <span>
-              <b>{points.toLocaleString("id-ID")}</b>
-              <small>Points</small>
+              <b><LocalizedCopy>{points.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Points"}</LocalizedCopy></small>
             </span>
             <span>
               <b>
-                {membership.icon} {membership.name}
+                <LocalizedCopy>{membership.icon}</LocalizedCopy> <LocalizedCopy>{membership.name}</LocalizedCopy>
               </b>
-              <small>Level member</small>
+              <small><LocalizedCopy>{"Level member"}</LocalizedCopy></small>
             </span>
             <span>
-              <b>Aktif</b>
-              <small>Sinkron</small>
+              <b><LocalizedCopy>{"Aktif"}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Sinkron"}</LocalizedCopy></small>
             </span>
           </div>
         </section>
 
         <section className="profile-native-points">
           <header>
-            <span>SLIVA POINT</span>
-            <h3>Saldo dan aturan klaim</h3>
+            <span><LocalizedCopy>{"SLIVA POINT"}</LocalizedCopy></span>
+            <h3><LocalizedCopy>{"Saldo dan aturan klaim"}</LocalizedCopy></h3>
           </header>
           <div>
             <span>
               <Icon name="sparkle" size={19} />
             </span>
             <p>
-              <b>{points.toLocaleString("id-ID")} Sliva Points</b>
+              <b><LocalizedCopy>{points.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" Sliva Points"}</LocalizedCopy></b>
               <small>
-                {points
+                <LocalizedCopy>{points
                   ? "Tersedia untuk klaim sesuai syarat"
-                  : "Belum ada transaksi lunas"}
+                  : "Belum ada transaksi lunas"}</LocalizedCopy>
               </small>
             </p>
-            <i>AKTIF</i>
+            <i><LocalizedCopy>{"AKTIF"}</LocalizedCopy></i>
           </div>
           <div className="profile-membership-rank">
-            <span aria-hidden="true">{membership.icon}</span>
+            <span aria-hidden="true"><LocalizedCopy>{membership.icon}</LocalizedCopy></span>
             <p>
-              <b>{membership.name}</b>
+              <b><LocalizedCopy>{membership.name}</LocalizedCopy></b>
               <small>
-                {membership.next_level_points
-                  ? `${membership.points_to_next.toLocaleString("id-ID")} poin lagi ke level berikutnya`
-                  : "Level tertinggi—terima kasih, Pet Royalty!"}
+                <LocalizedCopy>{membership.next_level_points
+                  ? `${membership.points_to_next.toLocaleString(petOwnerIntlLocale())} poin lagi ke level berikutnya`
+                  : "Level tertinggi—terima kasih, Pet Royalty!"}</LocalizedCopy>
               </small>
             </p>
-            <strong>{membershipProgress}%</strong>
-            <progress max={100} value={membershipProgress} />
+            <strong><LocalizedCopy>{membershipProgress}</LocalizedCopy><LocalizedCopy>{"%"}</LocalizedCopy></strong>
+            <div className="sliva-progress" role="progressbar" aria-label={t("Level member")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={membershipProgress}><span style={{ width: `${membershipProgress}%` }} /></div>
           </div>
           <ul>
-            {(rewardFormula.rules?.length
+            <LocalizedCopy>{(rewardFormula.rules?.length
               ? rewardFormula.rules
               : [rewardFormulaText(rewardFormula)]
             )
               .slice(0, 3)
               .map((rule) => (
                 <li key={rule}>
-                  <Icon name="check" size={12} /> {rule}
+                  <Icon name="check" size={12} /> <LocalizedCopy>{rule}</LocalizedCopy>
                 </li>
-              ))}
+              ))}</LocalizedCopy>
           </ul>
         </section>
 
         <section className="profile-shipping-address">
           <header>
-            <span>ALAMAT PENGIRIMAN</span>
+            <span><LocalizedCopy>{"ALAMAT PENGIRIMAN"}</LocalizedCopy></span>
             <div className="profile-address-heading-row">
-              <h3>Alamat tersimpan</h3>
-              <button
+              <h3><LocalizedCopy>{"Alamat tersimpan"}</LocalizedCopy></h3>
+              <LocalizedButton
                 type="button"
                 onClick={() => {
                   setEditingAddress(null);
                   setAddressModalOpen(true);
                 }}
-              >
-                Tambah
-              </button>
+              ><LocalizedCopy>{"Tambah"}</LocalizedCopy></LocalizedButton>
             </div>
           </header>
-          {addressLoading ? (
-            <p className="profile-address-muted">Memuat alamat tersimpan…</p>
+          <LocalizedCopy>{addressLoading ? (
+            <p className="profile-address-muted"><LocalizedCopy>{"Memuat alamat tersimpan…"}</LocalizedCopy></p>
           ) : shippingAddresses.length > 0 ? (
             <div className="profile-address-list">
-              {shippingAddresses.map((address) => (
+              <LocalizedCopy>{shippingAddresses.map((address) => (
                 <article
                   className={
                     address.is_primary
@@ -6267,65 +6125,54 @@ function ProfileView({
                 >
                   <div>
                     <div className="profile-address-card-title">
-                      <b>{address.label}</b>
-                      {address.is_primary && <span>UTAMA</span>}
+                      <b><LocalizedCopy>{address.label}</LocalizedCopy></b>
+                      <LocalizedCopy>{address.is_primary && <span><LocalizedCopy>{"UTAMA"}</LocalizedCopy></span>}</LocalizedCopy>
                     </div>
-                    <strong>{address.recipient_name}</strong>
-                    <small>{address.phone}</small>
-                    <p>{address.address}</p>
+                    <strong><LocalizedCopy>{address.recipient_name}</LocalizedCopy></strong>
+                    <small><LocalizedCopy>{address.phone}</LocalizedCopy></small>
+                    <p><LocalizedCopy>{address.address}</LocalizedCopy></p>
                     <small>
-                      {address.village.name}, {address.district.name},{" "}
-                      {address.regency.name} · {address.post_code}
+                      <LocalizedCopy>{address.village.name}</LocalizedCopy><LocalizedCopy>{", "}</LocalizedCopy><LocalizedCopy>{address.district.name}</LocalizedCopy><LocalizedCopy>{","}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedCopy>{address.regency.name}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{address.post_code}</LocalizedCopy>
                     </small>
                   </div>
                   <div className="profile-address-card-actions">
-                    {!address.is_primary && (
-                      <button
+                    <LocalizedCopy>{!address.is_primary && (
+                      <LocalizedButton
                         type="button"
                         onClick={() => void makePrimary(address.id)}
-                      >
-                        Jadikan utama
-                      </button>
-                    )}
-                    <button
+                      ><LocalizedCopy>{"Jadikan utama"}</LocalizedCopy></LocalizedButton>
+                    )}</LocalizedCopy>
+                    <LocalizedButton
                       type="button"
                       onClick={() => {
                         setEditingAddress(address);
                         setAddressModalOpen(true);
                       }}
-                    >
-                      Ubah
-                    </button>
-                    <button
+                    ><LocalizedCopy>{"Ubah"}</LocalizedCopy></LocalizedButton>
+                    <LocalizedButton
                       type="button"
                       onClick={() => void removeAddress(address)}
-                    >
-                      Hapus
-                    </button>
+                    ><LocalizedCopy>{"Hapus"}</LocalizedCopy></LocalizedButton>
                   </div>
                 </article>
-              ))}
+              ))}</LocalizedCopy>
             </div>
           ) : (
             <div className="profile-address-empty">
-              <p>
-                Belum ada alamat tersimpan. Tambahkan alamat untuk checkout
-                lebih cepat.
-              </p>
-              <button
+              <p><LocalizedCopy>{"Belum ada alamat tersimpan. Tambahkan alamat untuk checkout lebih cepat."}</LocalizedCopy></p>
+              <LocalizedButton
                 type="button"
                 onClick={() => {
                   setEditingAddress(null);
                   setAddressModalOpen(true);
                 }}
-              >
-                Tambah alamat
-              </button>
+              ><LocalizedCopy>{"Tambah alamat"}</LocalizedCopy></LocalizedButton>
             </div>
-          )}
+          )}</LocalizedCopy>
         </section>
         <div className="profile-actions-stack">
-          <button
+          <LocalizedButton
             className="profile-native-support"
             type="button"
             onClick={onOpenSupport}
@@ -6334,13 +6181,13 @@ function ProfileView({
               <Icon name="chat" size={20} />
             </span>
             <p>
-              <b>Chat Customer Support</b>
-              <small>Hubungi tim Slivadoc langsung dari aplikasi.</small>
+              <b><LocalizedCopy>{"Chat Customer Support"}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Hubungi tim Slivadoc langsung dari aplikasi."}</LocalizedCopy></small>
             </p>
             <Icon name="arrow" size={16} />
-          </button>
+          </LocalizedButton>
 
-          <button
+          <LocalizedButton
             className="profile-native-logout"
             type="button"
             onClick={() => setConfirmLogout(true)}
@@ -6349,31 +6196,31 @@ function ProfileView({
               <Icon name="logout" size={20} />
             </span>
             <p>
-              <b>Keluar dari akun</b>
-              <small>Akhiri sesi hanya di perangkat ini.</small>
+              <b><LocalizedCopy>{"Keluar dari akun"}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Akhiri sesi hanya di perangkat ini."}</LocalizedCopy></small>
             </p>
             <Icon name="chevron" size={17} />
-          </button>
+          </LocalizedButton>
         </div>
       </div>
       <aside className="profile-settings-col">
         <section className="panel profile-native-settings">
           <header>
-            <span>PREFERENSI</span>
-            <h3>{t("Pengaturan akun")}</h3>
+            <span><LocalizedCopy>{"PREFERENSI"}</LocalizedCopy></span>
+            <h3><LocalizedCopy>{t("Pengaturan akun")}</LocalizedCopy></h3>
           </header>
           <AccountLanguageSetting />
-          <button type="button" onClick={() => setEdit(true)}>
+          <LocalizedButton type="button" onClick={() => setEdit(true)}>
             <span>
               <Icon name="user" size={19} />
             </span>
             <p>
-              <b>Profil pet parent</b>
-              <small>{account.full_name}</small>
+              <b><LocalizedCopy>{"Profil pet parent"}</LocalizedCopy></b>
+              <small><LocalizedCopy preserve>{account.full_name}</LocalizedCopy></small>
             </p>
             <Icon name="chevron" size={17} />
-          </button>
-          <button
+          </LocalizedButton>
+          <LocalizedButton
             type="button"
             onClick={() => onOpenNotifications()}
           >
@@ -6381,12 +6228,12 @@ function ProfileView({
               <Icon name="bell" size={19} />
             </span>
             <p>
-              <b>Notifikasi</b>
-              <small>Buka daftar dan detail update</small>
+              <b><LocalizedCopy>{"Notifikasi"}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Buka daftar dan detail update"}</LocalizedCopy></small>
             </p>
             <Icon name="chevron" size={17} />
-          </button>
-          <button
+          </LocalizedButton>
+          <LocalizedButton
             type="button"
             onClick={() => onOpenNotifications("security")}
           >
@@ -6394,12 +6241,12 @@ function ProfileView({
               <Icon name="shield" size={19} />
             </span>
             <p>
-              <b>Privasi & keamanan</b>
-              <small>Tinjau notifikasi keamanan akun</small>
+              <b><LocalizedCopy>{"Privasi & keamanan"}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Tinjau notifikasi keamanan akun"}</LocalizedCopy></small>
             </p>
             <Icon name="chevron" size={17} />
-          </button>
-          <button
+          </LocalizedButton>
+          <LocalizedButton
             type="button"
             onClick={() =>
               familyPet
@@ -6411,29 +6258,29 @@ function ProfileView({
               <Icon name="users" size={19} />
             </span>
             <p>
-              <b>Keluarga & akses</b>
-              <small>Kelola orang tepercaya untuk pet</small>
+              <b><LocalizedCopy>{"Keluarga & akses"}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Kelola orang tepercaya untuk pet"}</LocalizedCopy></small>
             </p>
             <Icon name="chevron" size={17} />
-          </button>
+          </LocalizedButton>
         </section>
       </aside>
-      {edit && (
+      <LocalizedCopy>{edit && (
         <ProfileEditModal
           account={account}
           close={() => setEdit(false)}
           notify={notify}
           changed={onChanged}
         />
-      )}{" "}
-      {familyOpen && familyPet && (
+      )}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
+      <LocalizedCopy>{familyOpen && familyPet && (
         <FamilyModal
           pet={familyPet}
           close={() => setFamilyOpen(false)}
           notify={notify}
         />
-      )}
-      {addressModalOpen && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{addressModalOpen && (
         <ShippingAddressModal
           account={account}
           current={editingAddress}
@@ -6453,8 +6300,8 @@ function ProfileView({
             setAddressModalOpen(false);
           }}
         />
-      )}
-      {confirmLogout && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{confirmLogout && (
         <div
           className="modal-overlay"
           onMouseDown={() => setConfirmLogout(false)}
@@ -6463,38 +6310,31 @@ function ProfileView({
             className="modal confirm-modal"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <button
+            <LocalizedButton
               className="modal-close"
               onClick={() => setConfirmLogout(false)}
             >
               <Icon name="close" />
-            </button>
-            <span className="section-eyebrow">KONFIRMASI KELUAR</span>
-            <h2>Keluar dari akun?</h2>
-            <p>
-              Sesi Slivadoc di perangkat ini akan diakhiri. Data dan profil pet
-              tetap aman.
-            </p>
+            </LocalizedButton>
+            <span className="section-eyebrow"><LocalizedCopy>{"KONFIRMASI KELUAR"}</LocalizedCopy></span>
+            <h2><LocalizedCopy>{"Keluar dari akun?"}</LocalizedCopy></h2>
+            <p><LocalizedCopy>{"Sesi Slivadoc di perangkat ini akan diakhiri. Data dan profil pet tetap aman."}</LocalizedCopy></p>
             <footer>
-              <button
+              <LocalizedButton
                 className="secondary-button"
                 onClick={() => setConfirmLogout(false)}
-              >
-                Tetap masuk
-              </button>
-              <button
+              ><LocalizedCopy>{"Tetap masuk"}</LocalizedCopy></LocalizedButton>
+              <LocalizedButton
                 className="danger-button"
                 onClick={() => {
                   notify("Kamu sudah keluar dari akun");
                   onLogout();
                 }}
-              >
-                Ya, keluar
-              </button>
+              ><LocalizedCopy>{"Ya, keluar"}</LocalizedCopy></LocalizedButton>
             </footer>
           </section>
         </div>
-      )}
+      )}</LocalizedCopy>
     </div>
   );
 }
@@ -6551,15 +6391,15 @@ function ProfileEditModal({
         className="modal form-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close} aria-label="Tutup edit profil">
+        <LocalizedButton className="modal-close" onClick={close} aria-label="Tutup edit profil">
           <Icon name="close" />
-        </button>
-        <span className="section-eyebrow">DATA AKUN</span>
-        <h2>Edit profil pet parent</h2>
+        </LocalizedButton>
+        <span className="section-eyebrow"><LocalizedCopy>{"DATA AKUN"}</LocalizedCopy></span>
+        <h2><LocalizedCopy>{"Edit profil pet parent"}</LocalizedCopy></h2>
         <form className="world-form" onSubmit={submit}>
           <label>
-            <span>Nama lengkap</span>
-            <input
+            <span><LocalizedCopy>{"Nama lengkap"}</LocalizedCopy></span>
+            <LocalizedInput
               name="full_name"
               value={fullName}
               onChange={(event) => setFullNameOverride(event.target.value)}
@@ -6568,12 +6408,12 @@ function ProfileEditModal({
             />
           </label>
           <label>
-            <span>Email login</span>
-            <input value={account.email} disabled />
+            <span><LocalizedCopy>{"Email login"}</LocalizedCopy></span>
+            <LocalizedInput value={account.email} disabled />
           </label>
           <label>
-            <span>Nomor telepon</span>
-            <input
+            <span><LocalizedCopy>{"Nomor telepon"}</LocalizedCopy></span>
+            <LocalizedInput
               name="phone"
               value={phone}
               onChange={(event) => setPhoneOverride(event.target.value)}
@@ -6583,9 +6423,9 @@ function ProfileEditModal({
               placeholder="08xxxxxxxxxx"
             />
           </label>
-          <button className="primary-button full" disabled={busy}>
-            {busy ? "Menyimpan…" : "Simpan perubahan"}
-          </button>
+          <LocalizedButton className="primary-button full" disabled={busy}>
+            <LocalizedCopy>{busy ? "Menyimpan…" : "Simpan perubahan"}</LocalizedCopy>
+          </LocalizedButton>
         </form>
       </section>
     </div>
@@ -6676,17 +6516,17 @@ function ServiceDetail({
         aria-labelledby="service-detail-title"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button
+        <LocalizedButton
           className="modal-close service-detail-close"
           onClick={close}
           aria-label="Tutup detail layanan"
         >
           <Icon name="close" />
-        </button>
+        </LocalizedButton>
         <header className="service-detail-hero">
           <div className={`service-detail-visual ${service.accent}`}>
-            {activeServiceImage ? (
-              <button
+            <LocalizedCopy catalogue>{activeServiceImage ? (
+              <LocalizedButton
                 type="button"
                 className="service-image-open"
                 onClick={() => setServiceViewerOpen(true)}
@@ -6700,60 +6540,60 @@ function ServiceDetail({
                   sizes="230px"
                   unoptimized
                 />
-              </button>
+              </LocalizedButton>
             ) : (
-              <span>{service.emoji}</span>
-            )}
-            <em>{service.type}</em>
+              <span><LocalizedCopy>{service.emoji}</LocalizedCopy></span>
+            )}</LocalizedCopy>
+            <em><LocalizedCopy>{service.type}</LocalizedCopy></em>
             <i>
-              {licenseStatus === "verified"
+              <LocalizedCopy>{licenseStatus === "verified"
                 ? "✓ IZIN TERVERIFIKASI"
-                : "MITRA AKTIF"}
+                : "MITRA AKTIF"}</LocalizedCopy>
             </i>
-            {serviceImages.length > 1 ? (
+            <LocalizedCopy>{serviceImages.length > 1 ? (
               <div className="service-image-pager">
-                <button type="button" onClick={() => moveServiceImage(-1)} aria-label="Gambar sebelumnya">‹</button>
-                <span>{serviceImageIndex + 1}/{serviceImages.length}</span>
-                <button type="button" onClick={() => moveServiceImage(1)} aria-label="Gambar berikutnya">›</button>
+                <LocalizedButton type="button" onClick={() => moveServiceImage(-1)} aria-label="Gambar sebelumnya"><LocalizedCopy>{"‹"}</LocalizedCopy></LocalizedButton>
+                <span><LocalizedCopy>{serviceImageIndex + 1}</LocalizedCopy><LocalizedCopy>{"/"}</LocalizedCopy><LocalizedCopy>{serviceImages.length}</LocalizedCopy></span>
+                <LocalizedButton type="button" onClick={() => moveServiceImage(1)} aria-label="Gambar berikutnya"><LocalizedCopy>{"›"}</LocalizedCopy></LocalizedButton>
               </div>
-            ) : null}
+            ) : null}</LocalizedCopy>
           </div>
           <div className="service-detail-heading">
             <span className="service-verified-pill">
-              <Icon name="shield" size={13} /> {licenseLabel}
+              <Icon name="shield" size={13} /> <LocalizedCopy>{licenseLabel}</LocalizedCopy>
             </span>
-            <h2 id="service-detail-title">{service.name}</h2>
+            <h2 id="service-detail-title"><LocalizedCopy catalogue>{service.name}</LocalizedCopy></h2>
             <p>
               <Icon name="map" size={15} />
-              <span>{service.address}</span>
+              <span><LocalizedCopy>{service.address}</LocalizedCopy></span>
             </p>
             <div className="service-detail-live">
               <i />
-              <b>{service.status}</b>
-              <span>·</span>
-              <span>{service.distance} dari lokasi kamu</span>
+              <b><LocalizedCopy>{service.status}</LocalizedCopy></b>
+              <span><LocalizedCopy>{"·"}</LocalizedCopy></span>
+              <span><LocalizedCopy>{service.distance}</LocalizedCopy><LocalizedCopy>{" dari lokasi kamu"}</LocalizedCopy></span>
             </div>
           </div>
         </header>
         <div className="service-detail-body">
           <section className="service-detail-highlight">
             <div>
-              <span className="detail-highlight-icon">★</span>
+              <span className="detail-highlight-icon"><LocalizedCopy>{"★"}</LocalizedCopy></span>
               <p>
-                <b>{rating}</b>
+                <b><LocalizedCopy>{rating}</LocalizedCopy></b>
                 <small>
-                  {service.reviews > 0
-                    ? `${service.reviews.toLocaleString("id-ID")} ulasan pet parent`
-                    : "Mitra baru"}
+                  <LocalizedCopy>{service.reviews > 0
+                    ? `${service.reviews.toLocaleString(petOwnerIntlLocale())} ulasan pet parent`
+                    : "Mitra baru"}</LocalizedCopy>
                 </small>
               </p>
             </div>
             <div>
-              <span className="detail-highlight-icon mint">Rp</span>
+              <span className="detail-highlight-icon mint"><LocalizedCopy>{"Rp"}</LocalizedCopy></span>
               <p>
-                {service.originalPrice ? <s className="service-detail-old-price">{formatRupiah(service.originalPrice)}</s> : null}
-                <b>{service.price}</b>
-                <small>{service.discountPercent ? `Promo hemat ${service.discountPercent}%` : "Estimasi biaya layanan"}</small>
+                <LocalizedCopy>{service.originalPrice ? <s className="service-detail-old-price"><LocalizedCopy>{formatRupiah(service.originalPrice)}</LocalizedCopy></s> : null}</LocalizedCopy>
+                <b><LocalizedCopy>{service.price}</LocalizedCopy></b>
+                <small><LocalizedCopy>{service.discountPercent ? `Promo hemat ${service.discountPercent}%` : "Estimasi biaya layanan"}</LocalizedCopy></small>
               </p>
             </div>
             <div>
@@ -6761,11 +6601,11 @@ function ServiceDetail({
                 <Icon name="clock" size={17} />
               </span>
               <p>
-                <b>Siap dipesan</b>
-                <small>Jadwal dipilih saat booking</small>
+                <b><LocalizedCopy>{"Siap dipesan"}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"Jadwal dipilih saat booking"}</LocalizedCopy></small>
               </p>
         </div>
-        {serviceViewerOpen && activeServiceImage ? (
+        <LocalizedCopy catalogue>{serviceViewerOpen && activeServiceImage ? (
           <div
             className="world-image-lightbox"
             role="dialog"
@@ -6773,113 +6613,105 @@ function ServiceDetail({
             aria-label={`Galeri ${service.name}`}
             onMouseDown={() => setServiceViewerOpen(false)}
           >
-            <button type="button" className="world-image-close" onClick={() => setServiceViewerOpen(false)} aria-label="Tutup galeri">×</button>
+            <LocalizedButton type="button" className="world-image-close" onClick={() => setServiceViewerOpen(false)} aria-label="Tutup galeri"><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
             <div className="world-image-lightbox-frame" onMouseDown={(event) => event.stopPropagation()}>
               <Image src={activeServiceImage} alt={`Gambar ${service.name}`} fill sizes="100vw" unoptimized priority />
             </div>
-            {serviceImages.length > 1 ? (
+            <LocalizedCopy>{serviceImages.length > 1 ? (
               <>
-                <button type="button" className="world-image-prev" onClick={(event) => { event.stopPropagation(); moveServiceImage(-1); }} aria-label="Gambar sebelumnya">‹</button>
-                <button type="button" className="world-image-next" onClick={(event) => { event.stopPropagation(); moveServiceImage(1); }} aria-label="Gambar berikutnya">›</button>
-                <span className="world-image-count">{serviceImageIndex + 1} / {serviceImages.length}</span>
+                <LocalizedButton type="button" className="world-image-prev" onClick={(event) => { event.stopPropagation(); moveServiceImage(-1); }} aria-label="Gambar sebelumnya"><LocalizedCopy>{"‹"}</LocalizedCopy></LocalizedButton>
+                <LocalizedButton type="button" className="world-image-next" onClick={(event) => { event.stopPropagation(); moveServiceImage(1); }} aria-label="Gambar berikutnya"><LocalizedCopy>{"›"}</LocalizedCopy></LocalizedButton>
+                <span className="world-image-count"><LocalizedCopy>{serviceImageIndex + 1}</LocalizedCopy><LocalizedCopy>{" / "}</LocalizedCopy><LocalizedCopy>{serviceImages.length}</LocalizedCopy></span>
               </>
-            ) : null}
+            ) : null}</LocalizedCopy>
           </div>
-        ) : null}
+        ) : null}</LocalizedCopy>
       </section>
           <section className="service-detail-section">
             <div className="service-detail-section-title">
-              <span>INFORMASI LAYANAN</span>
-              <h3>Yang tersedia untuk pet-mu</h3>
+              <span><LocalizedCopy>{"INFORMASI LAYANAN"}</LocalizedCopy></span>
+              <h3><LocalizedCopy>{"Yang tersedia untuk pet-mu"}</LocalizedCopy></h3>
             </div>
             <div className="service-detail-benefits">
-              {[...new Set([...service.tags, ...inclusions])].map((tag) => (
+              <LocalizedCopy>{[...new Set([...service.tags, ...inclusions])].map((tag) => (
                 <span key={tag}>
                   <i>
                     <Icon name="check" size={12} />
                   </i>
-                  {tag}
+                  <LocalizedCopy>{tag}</LocalizedCopy>
                 </span>
-              ))}
+              ))}</LocalizedCopy>
             </div>
             <p className="service-detail-description">
-              {detail?.description ||
+              <LocalizedCopy catalogue>{detail?.description ||
                 service.description ||
-                "Deskripsi rinci belum dicantumkan oleh mitra."}
+                "Deskripsi rinci belum dicantumkan oleh mitra."}</LocalizedCopy>
             </p>
           </section>
-          {detailLoading && (
-            <div className="service-detail-data-state" role="status">
-              Menyinkronkan rincian layanan dari mitra…
-            </div>
-          )}
-          {detailError && (
+          <LocalizedCopy>{detailLoading && (
+            <div className="service-detail-data-state" role="status"><LocalizedCopy>{"Menyinkronkan rincian layanan dari mitra…"}</LocalizedCopy></div>
+          )}</LocalizedCopy>
+          <LocalizedCopy>{detailError && (
             <div className="service-detail-data-state error" role="alert">
-              {detailError}
+              <LocalizedCopy>{detailError}</LocalizedCopy>
             </div>
-          )}
-          {detail && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{detail && (
             <section className="service-detail-section service-detail-disclosures">
               <div className="service-detail-section-title">
-                <span>PERSIAPAN & KEBIJAKAN</span>
-                <h3>Yang perlu diketahui sebelum booking</h3>
+                <span><LocalizedCopy>{"PERSIAPAN & KEBIJAKAN"}</LocalizedCopy></span>
+                <h3><LocalizedCopy>{"Yang perlu diketahui sebelum booking"}</LocalizedCopy></h3>
               </div>
               <div className="service-detail-disclosure-grid">
                 <div>
-                  <b>Pet yang didukung</b>
+                  <b><LocalizedCopy>{"Pet yang didukung"}</LocalizedCopy></b>
                   <p>
-                    {detail.supported_species.length
+                    <LocalizedCopy>{detail.supported_species.length
                       ? detail.supported_species.join(", ")
-                      : "Belum dicantumkan oleh mitra"}
+                      : "Belum dicantumkan oleh mitra"}</LocalizedCopy>
                   </p>
                 </div>
                 <div>
-                  <b>Persiapan</b>
+                  <b><LocalizedCopy>{"Persiapan"}</LocalizedCopy></b>
                   <p>
-                    {detail.preparation.length
+                    <LocalizedCopy>{detail.preparation.length
                       ? detail.preparation.join(" · ")
-                      : "Tidak ada persiapan khusus yang dicantumkan"}
+                      : "Tidak ada persiapan khusus yang dicantumkan"}</LocalizedCopy>
                   </p>
                 </div>
                 <div>
-                  <b>Perawatan setelah layanan</b>
+                  <b><LocalizedCopy>{"Perawatan setelah layanan"}</LocalizedCopy></b>
                   <p>
-                    {detail.aftercare.length
+                    <LocalizedCopy>{detail.aftercare.length
                       ? detail.aftercare.join(" · ")
-                      : "Belum ada instruksi lanjutan"}
+                      : "Belum ada instruksi lanjutan"}</LocalizedCopy>
                   </p>
                 </div>
                 <div>
-                  <b>Pembatalan & perubahan jadwal</b>
+                  <b><LocalizedCopy>{"Pembatalan & perubahan jadwal"}</LocalizedCopy></b>
                   <p>
-                    {[detail.cancellation_policy, detail.reschedule_policy]
+                    <LocalizedCopy>{[detail.cancellation_policy, detail.reschedule_policy]
                       .filter(Boolean)
-                      .join(" · ") || "Kebijakan belum dicantumkan oleh mitra"}
+                      .join(" · ") || "Kebijakan belum dicantumkan oleh mitra"}</LocalizedCopy>
                   </p>
                 </div>
               </div>
             </section>
-          )}
+          )}</LocalizedCopy>
           <aside className="service-detail-assurance">
             <span>
               <Icon name="shield" size={20} />
             </span>
             <div>
-              <b>Booking lebih tenang bersama Slivadoc</b>
-              <p>
-                Informasi mitra, jadwal, aktivitas, dan status layanan tersimpan
-                dalam satu alur yang mudah dipantau.
-              </p>
+              <b><LocalizedCopy>{"Booking lebih tenang bersama Slivadoc"}</LocalizedCopy></b>
+              <p><LocalizedCopy>{"Informasi mitra, jadwal, aktivitas, dan status layanan tersimpan dalam satu alur yang mudah dipantau."}</LocalizedCopy></p>
             </div>
           </aside>
         </div>
         <footer className="service-detail-actions">
-          <button className="secondary-button" type="button" onClick={close}>
-            Kembali
-          </button>
-          <button className="primary-button" type="button" onClick={book}>
-            Pilih jadwal & booking <Icon name="arrow" size={16} />
-          </button>
+          <LocalizedButton className="secondary-button" type="button" onClick={close}><LocalizedCopy>{"Kembali"}</LocalizedCopy></LocalizedButton>
+          <LocalizedButton className="primary-button" type="button" onClick={book}><LocalizedCopy>{"Pilih jadwal & booking "}</LocalizedCopy><Icon name="arrow" size={16} />
+          </LocalizedButton>
         </footer>
       </section>
     </div>
@@ -6929,11 +6761,11 @@ function activityDetailRows(
           "Produk",
           item.items?.length ? (
             <ul>
-              {item.items.map((line) => (
+              <LocalizedCopy>{item.items.map((line) => (
                 <li key={line.product_id}>
-                  {line.name} × {line.quantity}
+                  <LocalizedCopy>{line.name}</LocalizedCopy><LocalizedCopy>{" × "}</LocalizedCopy><LocalizedCopy>{line.quantity}</LocalizedCopy>
                 </li>
-              ))}
+              ))}</LocalizedCopy>
             </ul>
           ) : (
             ""
@@ -6947,9 +6779,9 @@ function activityDetailRows(
           "Pengiriman",
           item.shipments?.length ? (
             <div className="activity-shipments">
-              {item.shipments.map((shipment) => (
+              <LocalizedCopy>{item.shipments.map((shipment) => (
                 <ActivityShipmentCard key={shipment.id} shipment={shipment} />
-              ))}
+              ))}</LocalizedCopy>
             </div>
           ) : (
             ""
@@ -7001,9 +6833,7 @@ function activityDetailRows(
               {item.online_url && (
                 <>
                   {" · "}
-                  <a href={item.online_url} target="_blank" rel="noreferrer">
-                    Link kelas online
-                  </a>
+                  <a href={item.online_url} target="_blank" rel="noreferrer"><LocalizedCopy>{"Link kelas online"}</LocalizedCopy></a>
                 </>
               )}
             </>
@@ -7019,11 +6849,11 @@ function activityDetailRows(
                 <span style={{ width: `${item.progress_percent}%` }} />
               </div>
               <small>
-                {join(
+                <LocalizedCopy>{join(
                   `${item.progress_percent}%`,
                   item.progress_notes,
                   date(item.last_progress_at),
-                )}
+                )}</LocalizedCopy>
               </small>
             </>
           ) : (
@@ -7079,9 +6909,9 @@ function activityDetailRows(
           item.status === "need_revision" &&
           item.missing_requirements?.length ? (
             <ul>
-              {item.missing_requirements.map((requirement) => (
-                <li key={requirement}>{requirement}</li>
-              ))}
+              <LocalizedCopy>{item.missing_requirements.map((requirement) => (
+                <li key={requirement}><LocalizedCopy>{requirement}</LocalizedCopy></li>
+              ))}</LocalizedCopy>
             </ul>
           ) : (
             ""
@@ -7094,9 +6924,7 @@ function activityDetailRows(
               href={item.issued_document_url}
               target="_blank"
               rel="noreferrer"
-            >
-              Unduh dokumen
-            </a>
+            ><LocalizedCopy>{"Unduh dokumen"}</LocalizedCopy></a>
           ) : (
             ""
           ),
@@ -7151,34 +6979,32 @@ function ActivityShipmentCard({ shipment }: { shipment: ActivityShipment }) {
   const presentation = shipmentPresentation(shipment.status);
   return (
     <article className="activity-shipment">
-      <b>{shipment.shipping_number}</b>
+      <b><LocalizedCopy>{shipment.shipping_number}</LocalizedCopy></b>
       <small>
-        {[shipment.provider || "Lion Parcel", shipment.service_code]
+        <LocalizedCopy>{[shipment.provider || "Lion Parcel", shipment.service_code]
           .filter(Boolean)
-          .join(" · ")}{" "}
-        · {presentation.label}
+          .join(" · ")}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"· "}</LocalizedCopy><LocalizedCopy>{presentation.label}</LocalizedCopy>
       </small>
       <div className="activity-progress">
         <span style={{ width: `${(presentation.stage / 3) * 100}%` }} />
       </div>
-      <small>
-        STT / AWB: {shipment.stt_no || "Menunggu scan Lion Parcel"} · Estimasi:{" "}
-        {shipment.estimated_sla || "Mengikuti rute"}
+      <small><LocalizedCopy>{"STT / AWB: "}</LocalizedCopy><LocalizedCopy>{shipment.stt_no || "Menunggu scan Lion Parcel"}</LocalizedCopy><LocalizedCopy>{" · Estimasi:"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+        <LocalizedCopy>{shipment.estimated_sla || "Mengikuti rute"}</LocalizedCopy>
       </small>
-      {shipment.events.length > 0 && (
+      <LocalizedCopy>{shipment.events.length > 0 && (
         <ul>
-          {shipment.events.map((event) => (
+          <LocalizedCopy>{shipment.events.map((event) => (
             <li key={`${event.status_code}-${event.occurred_at}`}>
-              <b>{event.description || event.status}</b>
+              <b><LocalizedCopy>{event.description || event.status}</LocalizedCopy></b>
               <small>
-                {[event.location, formatActivityDate(event.occurred_at)]
+                <LocalizedCopy>{[event.location, formatActivityDate(event.occurred_at)]
                   .filter(Boolean)
-                  .join(" · ")}
+                  .join(" · ")}</LocalizedCopy>
               </small>
             </li>
-          ))}
+          ))}</LocalizedCopy>
         </ul>
-      )}
+      )}</LocalizedCopy>
     </article>
   );
 }
@@ -7408,24 +7234,24 @@ function ActivityDetail({
         className="modal activity-detail-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close} aria-label="Tutup">
+        <LocalizedButton className="modal-close" onClick={close} aria-label="Tutup">
           <Icon name="close" />
-        </button>
+        </LocalizedButton>
         <header className="activity-detail-hero">
           <span>
             <Icon name={meta.icon} size={24} />
           </span>
           <div>
-            <small>{meta.label.toUpperCase()}</small>
-            <h2>{item.title}</h2>
-            <em>{activityStatusLabel(item)}</em>
+            <small><LocalizedCopy>{meta.label.toUpperCase()}</LocalizedCopy></small>
+            <h2><LocalizedCopy>{item.title}</LocalizedCopy></h2>
+            <em><LocalizedCopy>{activityStatusLabel(item)}</LocalizedCopy></em>
           </div>
         </header>
         <div className="activity-detail-copy">
-          <span className="activity-detail-label">RINGKASAN AKTIVITAS</span>
-          <p>{[item.code, item.subtitle].filter(Boolean).join(" · ")}</p>
+          <span className="activity-detail-label"><LocalizedCopy>{"RINGKASAN AKTIVITAS"}</LocalizedCopy></span>
+          <p><LocalizedCopy>{[item.code, item.subtitle].filter(Boolean).join(" · ")}</LocalizedCopy></p>
         </div>
-        {item.type === "event" &&
+        <LocalizedCopy>{item.type === "event" &&
           item.payment_status === "paid" &&
           (item.status === "confirmed" || item.status === "checked_in") &&
           item.qr_token && (
@@ -7436,157 +7262,139 @@ function ActivityDetail({
                 marginSize={2}
                 title="QR tiket event"
               />
-              <b>{item.qr_token.slice(0, 13).toUpperCase()}</b>
-              <small>Tunjukkan QR ini ke petugas saat check-in.</small>
+              <b><LocalizedCopy>{item.qr_token.slice(0, 13).toUpperCase()}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Tunjukkan QR ini ke petugas saat check-in."}</LocalizedCopy></small>
             </div>
-          )}
-        {rows.length > 0 && (
+          )}</LocalizedCopy>
+        <LocalizedCopy>{rows.length > 0 && (
           <dl>
-            {rows.map(([label, value]) => (
+            <LocalizedCopy>{rows.map(([label, value]) => (
               <div key={label}>
-                <dt>{label}</dt>
-                <dd>{value}</dd>
+                <dt><LocalizedCopy>{label}</LocalizedCopy></dt>
+                <dd><LocalizedCopy>{value}</LocalizedCopy></dd>
               </div>
-            ))}
+            ))}</LocalizedCopy>
           </dl>
-        )}
-        {item.amount > 0 && (
+        )}</LocalizedCopy>
+        <LocalizedCopy>{item.amount > 0 && (
           <div className="activity-detail-copy">
-            <span className="activity-detail-label">Status pembayaran</span>
+            <span className="activity-detail-label"><LocalizedCopy>{"Status pembayaran"}</LocalizedCopy></span>
             <p>
               <b>
-                {item.payable
+                <LocalizedCopy>{item.payable
                   ? "Menunggu pembayaran"
-                  : activityStatusText(item.payment_status)}
-              </b>{" "}
-              · {formatRupiah(item.amount)}
+                  : activityStatusText(item.payment_status)}</LocalizedCopy>
+              </b><LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"· "}</LocalizedCopy><LocalizedCopy>{formatRupiah(item.amount)}</LocalizedCopy>
             </p>
-            {item.payable && !payment && (
-              <button
+            <LocalizedCopy>{item.payable && !payment && (
+              <LocalizedButton
                 className="primary-button full"
                 type="button"
                 disabled={paying}
                 onClick={() => void pay()}
-              >
-                Bayar sekarang
-              </button>
-            )}
-            {payError && <p className="form-message">{payError}</p>}
-            {payment && (
+              ><LocalizedCopy>{"Bayar sekarang"}</LocalizedCopy></LocalizedButton>
+            )}</LocalizedCopy>
+            <LocalizedCopy>{payError && <p className="form-message"><LocalizedCopy>{payError}</LocalizedCopy></p>}</LocalizedCopy>
+            <LocalizedCopy>{payment && (
               <QrisPaymentPanel payment={payment} onPaid={() => void onPaid()} />
-            )}
+            )}</LocalizedCopy>
           </div>
-        )}
-        {item.type === "booking" &&
+        )}</LocalizedCopy>
+        <LocalizedCopy>{item.type === "booking" &&
           item.source !== "clinic" &&
           item.cancellable_until &&
           (item.status === "requested" || item.status === "confirmed") && (
             <div className="activity-detail-copy">
-              <span className="activity-detail-label">Pembatalan</span>
-              {canCancel ? (
+              <span className="activity-detail-label"><LocalizedCopy>{"Pembatalan"}</LocalizedCopy></span>
+              <LocalizedCopy>{canCancel ? (
                 <>
-                  <p>
-                    Bisa dibatalkan hingga{" "}
-                    {item.cancellation_cutoff_hours ?? 24} jam sebelum jadwal.
-                  </p>
-                  <button
+                  <p><LocalizedCopy>{"Bisa dibatalkan hingga"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                    <LocalizedCopy>{item.cancellation_cutoff_hours ?? 24}</LocalizedCopy><LocalizedCopy>{" jam sebelum jadwal."}</LocalizedCopy></p>
+                  <LocalizedButton
                     className="secondary-button full"
                     type="button"
                     disabled={cancelBusy}
                     onClick={() => setCancelOpen(true)}
-                  >
-                    Batalkan booking
-                  </button>
+                  ><LocalizedCopy>{"Batalkan booking"}</LocalizedCopy></LocalizedButton>
                 </>
               ) : (
-                <p>
-                  Batas pembatalan sudah lewat. Hubungi klinik untuk perubahan.
-                </p>
-              )}
-              {cancelOpen && (
+                <p><LocalizedCopy>{"Batas pembatalan sudah lewat. Hubungi klinik untuk perubahan."}</LocalizedCopy></p>
+              )}</LocalizedCopy>
+              <LocalizedCopy>{cancelOpen && (
                 <div className="form-message" role="alertdialog">
                   <p>
-                    {item.cancellation_policy ||
-                      "Booking yang dibatalkan tidak dapat dipulihkan."}
+                    <LocalizedCopy>{item.cancellation_policy ||
+                      "Booking yang dibatalkan tidak dapat dipulihkan."}</LocalizedCopy>
                   </p>
-                  <button
+                  <LocalizedButton
                     className="primary-button"
                     type="button"
                     disabled={cancelBusy}
                     onClick={() => void cancelBooking()}
                   >
-                    {cancelBusy ? "Membatalkan…" : "Ya, batalkan"}
-                  </button>{" "}
-                  <button
+                    <LocalizedCopy>{cancelBusy ? "Membatalkan…" : "Ya, batalkan"}</LocalizedCopy>
+                  </LocalizedButton><LocalizedCopy>{" "}</LocalizedCopy>
+                  <LocalizedButton
                     className="secondary-button"
                     type="button"
                     disabled={cancelBusy}
                     onClick={() => setCancelOpen(false)}
-                  >
-                    Tidak jadi
-                  </button>
+                  ><LocalizedCopy>{"Tidak jadi"}</LocalizedCopy></LocalizedButton>
                 </div>
-              )}
+              )}</LocalizedCopy>
             </div>
-          )}
-        {item.type === "order" && item.cancellable && (
+          )}</LocalizedCopy>
+        <LocalizedCopy>{item.type === "order" && item.cancellable && (
           <div className="activity-detail-copy">
-            <span className="activity-detail-label">Pembatalan</span>
-            <p>Pesanan dapat dibatalkan sebelum penjual memprosesnya.</p>
-            <button
+            <span className="activity-detail-label"><LocalizedCopy>{"Pembatalan"}</LocalizedCopy></span>
+            <p><LocalizedCopy>{"Pesanan dapat dibatalkan sebelum penjual memprosesnya."}</LocalizedCopy></p>
+            <LocalizedButton
               className="secondary-button full"
               type="button"
               disabled={cancelBusy}
               onClick={() => setCancelOpen(true)}
-            >
-              Batalkan pesanan
-            </button>
-            {cancelOpen && (
+            ><LocalizedCopy>{"Batalkan pesanan"}</LocalizedCopy></LocalizedButton>
+            <LocalizedCopy>{cancelOpen && (
               <div className="form-message" role="alertdialog">
-                <p>
-                  Batalkan pesanan ini? Pesanan yang dibatalkan tidak dapat
-                  dipulihkan.
-                </p>
-                <button
+                <p><LocalizedCopy>{"Batalkan pesanan ini? Pesanan yang dibatalkan tidak dapat dipulihkan."}</LocalizedCopy></p>
+                <LocalizedButton
                   className="primary-button"
                   type="button"
                   disabled={cancelBusy}
                   onClick={() => void cancelOrder()}
                 >
-                  {cancelBusy ? "Membatalkan…" : "Ya, batalkan"}
-                </button>{" "}
-                <button
+                  <LocalizedCopy>{cancelBusy ? "Membatalkan…" : "Ya, batalkan"}</LocalizedCopy>
+                </LocalizedButton><LocalizedCopy>{" "}</LocalizedCopy>
+                <LocalizedButton
                   className="secondary-button"
                   type="button"
                   disabled={cancelBusy}
                   onClick={() => setCancelOpen(false)}
-                >
-                  Tidak jadi
-                </button>
+                ><LocalizedCopy>{"Tidak jadi"}</LocalizedCopy></LocalizedButton>
               </div>
-            )}
+            )}</LocalizedCopy>
           </div>
-        )}
-        {returnRows.length > 0 && (
+        )}</LocalizedCopy>
+        <LocalizedCopy>{returnRows.length > 0 && (
           <div className="activity-detail-copy">
-            <span className="activity-detail-label">Retur</span>
-            {returnRows.map((entry) => (
+            <span className="activity-detail-label"><LocalizedCopy>{"Retur"}</LocalizedCopy></span>
+            <LocalizedCopy>{returnRows.map((entry) => (
               <div key={entry.id}>
                 <p>
-                  <b>{entry.business_name}</b>
-                  {entry.return_until && !entry.return_requested
+                  <b><LocalizedCopy>{entry.business_name}</LocalizedCopy></b>
+                  <LocalizedCopy>{entry.return_until && !entry.return_requested
                     ? ` · retur hingga ${formatActivityDate(entry.return_until)}`
-                    : ""}
+                    : ""}</LocalizedCopy>
                 </p>
-                {entry.return_requested ? (
+                <LocalizedCopy>{entry.return_requested ? (
                   <p>
-                    <b>Retur diajukan</b>
+                    <b><LocalizedCopy>{"Retur diajukan"}</LocalizedCopy></b>
                   </p>
                 ) : returnFor === entry.id ? (
                   <div className="form-message">
                     <label>
-                      <span>Alasan retur</span>
-                      <textarea
+                      <span><LocalizedCopy>{"Alasan retur"}</LocalizedCopy></span>
+                      <LocalizedTextarea
                         value={returnReason}
                         maxLength={1000}
                         rows={3}
@@ -7595,50 +7403,46 @@ function ActivityDetail({
                         placeholder="Jelaskan kendala pada barang yang diterima (minimal 10 karakter)"
                       />
                     </label>
-                    {returnError && <p role="alert">{returnError}</p>}
-                    <button
+                    <LocalizedCopy>{returnError && <p role="alert"><LocalizedCopy>{returnError}</LocalizedCopy></p>}</LocalizedCopy>
+                    <LocalizedButton
                       className="primary-button"
                       type="button"
                       disabled={returnBusy}
                       onClick={() => void submitReturn(entry.id)}
                     >
-                      {returnBusy ? "Mengirim…" : "Kirim permintaan retur"}
-                    </button>{" "}
-                    <button
+                      <LocalizedCopy>{returnBusy ? "Mengirim…" : "Kirim permintaan retur"}</LocalizedCopy>
+                    </LocalizedButton><LocalizedCopy>{" "}</LocalizedCopy>
+                    <LocalizedButton
                       className="secondary-button"
                       type="button"
                       disabled={returnBusy}
                       onClick={() => setReturnFor("")}
-                    >
-                      Batal
-                    </button>
+                    ><LocalizedCopy>{"Batal"}</LocalizedCopy></LocalizedButton>
                   </div>
                 ) : (
-                  <button
+                  <LocalizedButton
                     className="secondary-button full"
                     type="button"
                     onClick={() => {
                       setReturnFor(entry.id);
                       setReturnError("");
                     }}
-                  >
-                    Ajukan retur
-                  </button>
-                )}
+                  ><LocalizedCopy>{"Ajukan retur"}</LocalizedCopy></LocalizedButton>
+                )}</LocalizedCopy>
               </div>
-            ))}
+            ))}</LocalizedCopy>
           </div>
-        )}
-        {item.type === "document" && item.status === "need_revision" && (
+        )}</LocalizedCopy>
+        <LocalizedCopy>{item.type === "document" && item.status === "need_revision" && (
           <div className="activity-detail-copy">
-            <span className="activity-detail-label">Lengkapi dokumen</span>
+            <span className="activity-detail-label"><LocalizedCopy>{"Lengkapi dokumen"}</LocalizedCopy></span>
             <RequirementUploads
               requirements={item.missing_requirements ?? []}
               value={revisionDocs}
               onChange={setRevisionDocs}
               disabled={revisionBusy}
             />
-            <button
+            <LocalizedButton
               className="primary-button full"
               type="button"
               disabled={
@@ -7649,35 +7453,34 @@ function ActivityDetail({
               }
               onClick={() => void resubmitDocuments()}
             >
-              {revisionBusy ? "Mengirim…" : "Kirim dokumen"}
-            </button>
+              <LocalizedCopy>{revisionBusy ? "Mengirim…" : "Kirim dokumen"}</LocalizedCopy>
+            </LocalizedButton>
           </div>
-        )}
-        {actionMessage && <p className="form-message">{actionMessage}</p>}
+        )}</LocalizedCopy>
+        <LocalizedCopy>{actionMessage && <p className="form-message"><LocalizedCopy>{actionMessage}</LocalizedCopy></p>}</LocalizedCopy>
         <footer>
-          {item.latitude != null && item.longitude != null && (
+          <LocalizedCopy>{item.latitude != null && item.longitude != null && (
             <a
               className="secondary-button"
               href={`https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`}
               target="_blank"
               rel="noreferrer"
             >
-              <Icon name="map" size={16} /> Petunjuk arah
-            </a>
-          )}
-          {invoiceReferenceType ? (
-            <button
+              <Icon name="map" size={16} /><LocalizedCopy>{" Petunjuk arah"}</LocalizedCopy></a>
+          )}</LocalizedCopy>
+          <LocalizedCopy>{invoiceReferenceType ? (
+            <LocalizedButton
               className="secondary-button"
               type="button"
               disabled={invoiceBusy}
               onClick={() => void openInvoice()}
             >
               <Icon name="download" size={16} />
-              {invoiceBusy ? "Membuka invoice…" : "Buka invoice Slivadoc"}
-            </button>
-          ) : null}
-          {repeatLabel && (
-            <button
+              <LocalizedCopy>{invoiceBusy ? "Membuka invoice…" : "Buka invoice Slivadoc"}</LocalizedCopy>
+            </LocalizedButton>
+          ) : null}</LocalizedCopy>
+          <LocalizedCopy>{repeatLabel && (
+            <LocalizedButton
               className="secondary-button"
               type="button"
               onClick={() => {
@@ -7685,20 +7488,18 @@ function ActivityDetail({
                 onRepeat(item);
               }}
             >
-              <Icon name="arrow" size={16} /> {repeatLabel}
-            </button>
-          )}
-          <button className="primary-button" type="button" onClick={close}>
-            Selesai
-          </button>
+              <Icon name="arrow" size={16} /> <LocalizedCopy>{repeatLabel}</LocalizedCopy>
+            </LocalizedButton>
+          )}</LocalizedCopy>
+          <LocalizedButton className="primary-button" type="button" onClick={close}><LocalizedCopy>{"Selesai"}</LocalizedCopy></LocalizedButton>
         </footer>
-        {invoiceError ? (
+        <LocalizedCopy>{invoiceError ? (
           <div className="activity-invoice-error" role="alert">
-            {invoiceError}
+            <LocalizedCopy>{invoiceError}</LocalizedCopy>
           </div>
-        ) : null}
+        ) : null}</LocalizedCopy>
       </section>
-      {invoiceHTML ? (
+      <LocalizedCopy>{invoiceHTML ? (
         <div
           className="activity-invoice-viewer"
           role="dialog"
@@ -7708,8 +7509,8 @@ function ActivityDetail({
         >
           <header onMouseDown={(event) => event.stopPropagation()}>
             <span><Icon name="download" size={18} /></span>
-            <div><small>DOKUMEN TRANSAKSI</small><b>{item.title}</b></div>
-            <button type="button" onClick={() => setInvoiceHTML("")} aria-label="Tutup invoice"><Icon name="close" size={19} /></button>
+            <div><small><LocalizedCopy>{"DOKUMEN TRANSAKSI"}</LocalizedCopy></small><b><LocalizedCopy>{item.title}</LocalizedCopy></b></div>
+            <LocalizedButton type="button" onClick={() => setInvoiceHTML("")} aria-label="Tutup invoice"><Icon name="close" size={19} /></LocalizedButton>
           </header>
           <iframe
             title={`Invoice ${item.title}`}
@@ -7718,7 +7519,7 @@ function ActivityDetail({
             onMouseDown={(event) => event.stopPropagation()}
           />
         </div>
-      ) : null}
+      ) : null}</LocalizedCopy>
     </div>
   );
 }
@@ -7740,30 +7541,28 @@ function FavoritesView({
   return (
     <div>
       <div className="favorites-intro">
-        <span>♡</span>
+        <span><LocalizedCopy>{"♡"}</LocalizedCopy></span>
         <div>
-          <h2>Koleksi favoritmu</h2>
-          <p>
-            Layanan dan produk favorit tersimpan pada akun di semua perangkat.
-          </p>
+          <h2><LocalizedCopy>{"Koleksi favoritmu"}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Layanan dan produk favorit tersimpan pada akun di semua perangkat."}</LocalizedCopy></p>
         </div>
       </div>
-      {services.length > 0 && (
+      <LocalizedCopy catalogue>{services.length > 0 && (
         <>
           <div className="panel-heading">
             <div>
-              <span className="section-eyebrow">LAYANAN</span>
-              <h3>Favorit layanan</h3>
+              <span className="section-eyebrow"><LocalizedCopy>{"LAYANAN"}</LocalizedCopy></span>
+              <h3><LocalizedCopy>{"Favorit layanan"}</LocalizedCopy></h3>
             </div>
           </div>
           <div className="service-list-grid">
-            {services.map((service) => (
+            <LocalizedCopy catalogue>{services.map((service) => (
               <article
                 className="service-result-card"
                 key={`${service.id}:${service.branchId}`}
               >
                 <div className={`service-result-cover ${service.accent}`}>
-                  {service.imageUrl ? (
+                  <LocalizedCopy catalogue>{service.imageUrl ? (
                     <Image
                       className="catalog-cover-image"
                       src={service.imageUrl}
@@ -7773,48 +7572,46 @@ function FavoritesView({
                       unoptimized
                     />
                   ) : (
-                    <span>{service.emoji}</span>
-                  )}
-                  <em>{service.type}</em>
-                  <button
+                    <span><LocalizedCopy>{service.emoji}</LocalizedCopy></span>
+                  )}</LocalizedCopy>
+                  <em><LocalizedCopy>{service.type}</LocalizedCopy></em>
+                  <LocalizedButton
                     className="favorite"
                     onClick={() => void remove("service", service.id)}
                     aria-label={`Hapus ${service.name} dari favorit`}
                   >
                     <Icon name="heart" />
-                  </button>
+                  </LocalizedButton>
                 </div>
                 <div className="service-result-body">
-                  <h3>{service.name}</h3>
-                  <p>{service.address}</p>
+                  <h3><LocalizedCopy catalogue>{service.name}</LocalizedCopy></h3>
+                  <p><LocalizedCopy>{service.address}</LocalizedCopy></p>
                   <div className="service-result-footer">
-                    <b>{service.price}</b>
-                    <button
+                    <b><LocalizedCopy>{service.price}</LocalizedCopy></b>
+                    <LocalizedButton
                       className="primary-button small"
                       onClick={() => openBooking(service)}
-                    >
-                      Booking
-                    </button>
+                    ><LocalizedCopy>{"Booking"}</LocalizedCopy></LocalizedButton>
                   </div>
                 </div>
               </article>
-            ))}
+            ))}</LocalizedCopy>
           </div>
         </>
-      )}
-      {products.length > 0 && (
+      )}</LocalizedCopy>
+      <LocalizedCopy catalogue>{products.length > 0 && (
         <>
           <div className="panel-heading favorite-product-heading">
             <div>
-              <span className="section-eyebrow">PRODUK</span>
-              <h3>Favorit produk</h3>
+              <span className="section-eyebrow"><LocalizedCopy>{"PRODUK"}</LocalizedCopy></span>
+              <h3><LocalizedCopy>{"Favorit produk"}</LocalizedCopy></h3>
             </div>
           </div>
           <div className="product-grid">
-            {products.map((product) => (
+            <LocalizedCopy catalogue>{products.map((product) => (
               <article className="product-card" key={product.id}>
                 <div className="product-visual">
-                  {product.imageUrl ? (
+                  <LocalizedCopy catalogue>{product.imageUrl ? (
                     <Image
                       className="catalog-cover-image"
                       src={product.imageUrl}
@@ -7824,40 +7621,38 @@ function FavoritesView({
                       unoptimized
                     />
                   ) : (
-                    <span>{product.emoji}</span>
-                  )}
-                  <button
+                    <span><LocalizedCopy>{product.emoji}</LocalizedCopy></span>
+                  )}</LocalizedCopy>
+                  <LocalizedButton
                     className="favorite"
                     onClick={() => void remove("product", product.id)}
                     aria-label={`Hapus ${product.name} dari favorit`}
                   >
                     <Icon name="heart" />
-                  </button>
+                  </LocalizedButton>
                 </div>
                 <div className="product-body">
-                  <small>{product.brand}</small>
-                  <h3>{product.name}</h3>
+                  <small><LocalizedCopy>{product.brand}</LocalizedCopy></small>
+                  <h3><LocalizedCopy catalogue>{product.name}</LocalizedCopy></h3>
                   <div className="product-price">
-                    <b>{formatRupiah(product.price)}</b>
-                    <button onClick={() => addToCart(product.id)}>
+                    <b><LocalizedCopy>{formatRupiah(product.price)}</LocalizedCopy></b>
+                    <LocalizedButton onClick={() => addToCart(product.id)}>
                       <Icon name="plus" />
-                    </button>
+                    </LocalizedButton>
                   </div>
                 </div>
               </article>
-            ))}
+            ))}</LocalizedCopy>
           </div>
         </>
-      )}
-      {empty && (
+      )}</LocalizedCopy>
+      <LocalizedCopy>{empty && (
         <div className="empty-state">
-          <span>♡</span>
-          <h3>Belum ada favorit</h3>
-          <p>
-            Tekan ikon hati di Jelajahi atau Pet Shop untuk menyimpan pilihan.
-          </p>
+          <span><LocalizedCopy>{"♡"}</LocalizedCopy></span>
+          <h3><LocalizedCopy>{"Belum ada favorit"}</LocalizedCopy></h3>
+          <p><LocalizedCopy>{"Tekan ikon hati di Jelajahi atau Pet Shop untuk menyimpan pilihan."}</LocalizedCopy></p>
         </div>
-      )}
+      )}</LocalizedCopy>
     </div>
   );
 }
@@ -7869,12 +7664,12 @@ function NotificationDetail({ item, onBack, onOpen }: {
 }) {
   return (
     <article className="notification-detail panel">
-      <button type="button" className="ghost-text" onClick={onBack}>← Kembali ke semua update</button>
-      <span className="section-eyebrow">{item.category} · {item.read_at ? "Sudah dibaca" : "Belum dibaca"}</span>
-      <h2>{item.title}</h2>
-      <p>{item.body}</p>
-      <time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString("id-ID")}</time>
-      {item.action_route ? <button type="button" className="primary-button full" onClick={onOpen}>Buka halaman terkait</button> : null}
+      <LocalizedButton type="button" className="ghost-text" onClick={onBack}><LocalizedCopy>{"← Kembali ke semua update"}</LocalizedCopy></LocalizedButton>
+      <span className="section-eyebrow"><LocalizedCopy>{item.category}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{item.read_at ? "Sudah dibaca" : "Belum dibaca"}</LocalizedCopy></span>
+      <h2><LocalizedCopy>{item.title}</LocalizedCopy></h2>
+      <p><LocalizedCopy>{item.body}</LocalizedCopy></p>
+      <time dateTime={item.created_at}><LocalizedCopy>{new Date(item.created_at).toLocaleString(petOwnerIntlLocale())}</LocalizedCopy></time>
+      <LocalizedCopy>{item.action_route ? <LocalizedButton type="button" className="primary-button full" onClick={onOpen}><LocalizedCopy>{"Buka halaman terkait"}</LocalizedCopy></LocalizedButton> : null}</LocalizedCopy>
     </article>
   );
 }
@@ -7932,10 +7727,10 @@ function NotificationCenter({
     <div>
       <div className="notification-center-head">
         <div>
-          <b>{unread}</b>
-          <span>belum dibaca</span>
+          <b><LocalizedCopy>{unread}</LocalizedCopy></b>
+          <span><LocalizedCopy>{"belum dibaca"}</LocalizedCopy></span>
         </div>
-        <button
+        <LocalizedButton
           disabled={unread === 0}
           onClick={async () => {
             await readAllNotifications(category);
@@ -7950,58 +7745,52 @@ function NotificationCenter({
               ),
             );
           }}
-        >
-          Tandai semua dibaca
-        </button>
+        ><LocalizedCopy>{"Tandai semua dibaca"}</LocalizedCopy></LocalizedButton>
       </div>
       <div className="notification-filter-tabs">
-        <button
+        <LocalizedButton
           className={!category ? "active" : ""}
           onClick={() => setCategory("")}
-        >
-          Semua
-        </button>
-        {categories.map((value) => (
-          <button
+        ><LocalizedCopy>{"Semua"}</LocalizedCopy></LocalizedButton>
+        <LocalizedCopy>{categories.map((value) => (
+          <LocalizedButton
             key={value}
             className={category === value ? "active" : ""}
             onClick={() => setCategory(value)}
           >
-            {value}
-          </button>
-        ))}
+            <LocalizedCopy>{value}</LocalizedCopy>
+          </LocalizedButton>
+        ))}</LocalizedCopy>
       </div>
       <section className="panel notification-center-list">
-        {visible.length ? (
+        <LocalizedCopy>{visible.length ? (
           visible.map((item) => (
-            <button
+            <LocalizedButton
               className={!item.read_at ? "unread" : ""}
               key={item.id}
               onClick={() => void open(item)}
             >
               <span>
-                {item.category === "health"
+                <LocalizedCopy>{item.category === "health"
                   ? "🩺"
                   : item.category === "booking"
                     ? "📅"
                     : item.category === "points"
                       ? "✦"
-                      : "🔔"}
+                      : "🔔"}</LocalizedCopy>
               </span>
               <div>
-                <small>{item.category.toUpperCase()}</small>
-                <b>{item.title}</b>
-                <p>{item.body}</p>
-                <time>{new Date(item.created_at).toLocaleString("id-ID")}</time>
+                <small><LocalizedCopy>{item.category.toUpperCase()}</LocalizedCopy></small>
+                <b><LocalizedCopy>{item.title}</LocalizedCopy></b>
+                <p><LocalizedCopy>{item.body}</LocalizedCopy></p>
+                <time><LocalizedCopy>{new Date(item.created_at).toLocaleString(petOwnerIntlLocale())}</LocalizedCopy></time>
               </div>
-              {!item.read_at && <i />}
-            </button>
+              <LocalizedCopy>{!item.read_at && <i />}</LocalizedCopy>
+            </LocalizedButton>
           ))
         ) : (
-          <div className="empty-state compact">
-            Tidak ada notifikasi pada kategori ini.
-          </div>
-        )}
+          <div className="empty-state compact"><LocalizedCopy>{"Tidak ada notifikasi pada kategori ini."}</LocalizedCopy></div>
+        )}</LocalizedCopy>
       </section>
     </div>
   );
@@ -8032,8 +7821,8 @@ function MobileNav({
   return (
     <>
       <nav className="mobile-nav" aria-label="Navigasi utama">
-        {items.map((item) => (
-          <button
+        <LocalizedCopy>{items.map((item) => (
+          <LocalizedButton
             type="button"
             key={item.id}
             className={activeView === item.id || (item.id === "world" && isWorldMode(activeView)) ? "active" : ""}
@@ -8045,10 +7834,10 @@ function MobileNav({
             <span>
               <Icon name={item.icon} size={22} />
             </span>
-            <small>{t(item.label)}</small>
-          </button>
-        ))}
-        <button
+            <small><LocalizedCopy>{t(item.label)}</LocalizedCopy></small>
+          </LocalizedButton>
+        ))}</LocalizedCopy>
+        <LocalizedButton
           type="button"
           className={moreActive ? "active" : ""}
           onClick={() => setMore(true)}
@@ -8056,10 +7845,10 @@ function MobileNav({
         >
           <span>
             <Icon name="more" size={22} />
-            {cartCount > 0 && <i>{cartCount}</i>}
+            <LocalizedCopy>{cartCount > 0 && <i><LocalizedCopy>{cartCount}</LocalizedCopy></i>}</LocalizedCopy>
           </span>
-          <small>{t("Lainnya")}</small>
-        </button>
+          <small><LocalizedCopy>{t("Lainnya")}</LocalizedCopy></small>
+        </LocalizedButton>
       </nav>
       {more && (
         <div
@@ -8072,18 +7861,18 @@ function MobileNav({
           >
             <header>
               <div>
-                <span>{t("Semua fitur Slivadoc").toUpperCase()}</span>
-                <h2>{t("Mau ke mana?")}</h2>
+                <span><LocalizedCopy>{t("Semua fitur Slivadoc").toUpperCase()}</LocalizedCopy></span>
+                <h2><LocalizedCopy>{t("Mau ke mana?")}</LocalizedCopy></h2>
               </div>
-              <button onClick={() => setMore(false)} aria-label="Tutup">
+              <LocalizedButton onClick={() => setMore(false)} aria-label="Tutup">
                 <Icon name="close" />
-              </button>
+              </LocalizedButton>
             </header>
             <div className="mobile-more-content">
               <section className="mobile-more-group">
-                <h3>{t("Akun & perawatan").toUpperCase()}</h3>
+                <h3><LocalizedCopy>{t("Akun & perawatan").toUpperCase()}</LocalizedCopy></h3>
                 <div className="mobile-more-grid">
-              <button
+              <LocalizedButton
                 type="button"
                 onClick={() => {
                   setMore(false);
@@ -8093,11 +7882,11 @@ function MobileNav({
                 <span>
                   <Icon name="chat" />
                 </span>
-                <b>SlivaCare</b>
-              </button>
-              {moreIds.map((id) => navItems.find((item) => item.id === id)!)
+                <b><LocalizedCopy>{"SlivaCare"}</LocalizedCopy></b>
+              </LocalizedButton>
+              <LocalizedCopy>{moreIds.map((id) => navItems.find((item) => item.id === id)!)
                 .map((item) => (
-                  <button
+                  <LocalizedButton
                     key={item.id}
                     onClick={() => {
                       setMore(false);
@@ -8107,20 +7896,20 @@ function MobileNav({
                     <span>
                       <Icon name={item.icon} />
                     </span>
-                    <b>{t(item.id === "profile" && !authenticated ? "Masuk ke akun" : item.label)}</b>
-                    {item.id === "shop" && cartCount > 0 && (
-                      <em>{cartCount}</em>
-                    )}
-                  </button>
-                ))}
+                    <b><LocalizedCopy>{t(item.id === "profile" && !authenticated ? "Masuk ke akun" : item.label)}</LocalizedCopy></b>
+                    <LocalizedCopy>{item.id === "shop" && cartCount > 0 && (
+                      <em><LocalizedCopy>{cartCount}</LocalizedCopy></em>
+                    )}</LocalizedCopy>
+                  </LocalizedButton>
+                ))}</LocalizedCopy>
                 </div>
               </section>
               <section className="mobile-more-group mobile-more-world">
-                <h3>SLIVA WORLD</h3>
-                <p>{t("Semua fitur komunitas dan gaya hidup pet, langsung sekali tap.")}</p>
+                <h3><LocalizedCopy>{"SLIVA WORLD"}</LocalizedCopy></h3>
+                <p><LocalizedCopy>{t("Semua fitur komunitas dan gaya hidup pet, langsung sekali tap.")}</LocalizedCopy></p>
                 <div className="mobile-more-grid">
-                  {worldIds.map((id) => navItems.find((item) => item.id === id)!).map((item) => (
-                    <button
+                  <LocalizedCopy>{worldIds.map((id) => navItems.find((item) => item.id === id)!).map((item) => (
+                    <LocalizedButton
                       type="button"
                       key={item.id}
                       onClick={() => {
@@ -8129,9 +7918,9 @@ function MobileNav({
                       }}
                     >
                       <span><Icon name={item.icon} /></span>
-                      <b>{t(item.label)}</b>
-                    </button>
-                  ))}
+                      <b><LocalizedCopy>{t(item.label)}</LocalizedCopy></b>
+                    </LocalizedButton>
+                  ))}</LocalizedCopy>
                 </div>
               </section>
             </div>
@@ -8218,45 +8007,41 @@ function NotificationDrawer({
       >
         <header>
           <div>
-            <span className="section-eyebrow">UPDATE TERBARU</span>
-            <h2>{selected ? "Detail notifikasi" : "Notifikasi"}</h2>
+            <span className="section-eyebrow"><LocalizedCopy>{"UPDATE TERBARU"}</LocalizedCopy></span>
+            <h2><LocalizedCopy>{selected ? "Detail notifikasi" : "Notifikasi"}</LocalizedCopy></h2>
           </div>
-          <button type="button" aria-label="Tutup notifikasi" onClick={onClose}>
+          <LocalizedButton type="button" aria-label="Tutup notifikasi" onClick={onClose}>
             <Icon name="close" />
-          </button>
+          </LocalizedButton>
         </header>
-        {selected ? <NotificationDetail item={selected} onBack={() => setSelectedId("")} onOpen={() => { onClose(); onOpen(selected); }} /> : <>
+        <LocalizedCopy>{selected ? <NotificationDetail item={selected} onBack={() => setSelectedId("")} onOpen={() => { onClose(); onOpen(selected); }} /> : <>
         <div className="notification-category-chips" role="group" aria-label="Filter notifikasi">
-          <button
+          <LocalizedButton
             type="button"
             className={!category ? "active" : ""}
             aria-pressed={!category}
             onClick={() => setCategory("")}
-          >
-            Semua
-          </button>
-          {categories.map((value) => (
-            <button
+          ><LocalizedCopy>{"Semua"}</LocalizedCopy></LocalizedButton>
+          <LocalizedCopy>{categories.map((value) => (
+            <LocalizedButton
               type="button"
               key={value}
               className={category === value ? "active" : ""}
               aria-pressed={category === value}
               onClick={() => setCategory(value)}
             >
-              {value === "security" ? "Keamanan" : value}
-            </button>
-          ))}
+              <LocalizedCopy>{value === "security" ? "Keamanan" : value}</LocalizedCopy>
+            </LocalizedButton>
+          ))}</LocalizedCopy>
         </div>
-        <button
+        <LocalizedButton
           className="mark-read"
           type="button"
           disabled={!visibleItems.some((item) => !item.read_at)}
           onClick={() => void markAll()}
-        >
-          Tandai semua sudah dibaca
-        </button>
+        ><LocalizedCopy>{"Tandai semua sudah dibaca"}</LocalizedCopy></LocalizedButton>
         <div className="notification-list">
-          {visibleItems.length ? (
+          <LocalizedCopy>{visibleItems.length ? (
             visibleItems.map((item) => (
               <Notification
                 key={item.id}
@@ -8278,21 +8063,17 @@ function NotificationDrawer({
                 }
                 title={item.title}
                 note={item.body}
-                time={new Date(item.created_at).toLocaleString("id-ID")}
+                time={new Date(item.created_at).toLocaleString(petOwnerIntlLocale())}
                 unread={!item.read_at}
                 onClick={() => void open(item)}
               />
             ))
           ) : (
-            <div className="empty-state compact">
-              Belum ada notifikasi pada kategori ini.
-            </div>
-          )}
+            <div className="empty-state compact"><LocalizedCopy>{"Belum ada notifikasi pada kategori ini."}</LocalizedCopy></div>
+          )}</LocalizedCopy>
         </div>
-        <button className="full-soft-button" type="button" onClick={seeAll}>
-          Lihat semua berdasarkan kategori
-        </button>
-        </>}
+        <LocalizedButton className="full-soft-button" type="button" onClick={seeAll}><LocalizedCopy>{"Lihat semua berdasarkan kategori"}</LocalizedCopy></LocalizedButton>
+        </>}</LocalizedCopy>
       </aside>
     </div>
   );
@@ -8389,7 +8170,7 @@ function BookingModal({
     return () => window.clearTimeout(timer);
   }, [refreshAvailability]);
   const formattedDate = startsAt
-    ? new Intl.DateTimeFormat("id-ID", {
+    ? new Intl.DateTimeFormat(petOwnerIntlLocale(), {
         weekday: "long",
         day: "numeric",
         month: "long",
@@ -8454,9 +8235,9 @@ function BookingModal({
     return (
       <div className="modal-overlay">
         <div className="modal booking-modal qris-modal">
-          <button className="modal-close" type="button" onClick={onClose}>
+          <LocalizedButton className="modal-close" type="button" onClick={onClose}>
             <Icon name="close" />
-          </button>
+          </LocalizedButton>
           <QrisPaymentPanel
             payment={payment}
             onPaid={() => {
@@ -8474,93 +8255,89 @@ function BookingModal({
       >
         <header>
           <div>
-            <span className="section-eyebrow">BOOKING LAYANAN</span>
-            <h2>{service.name}</h2>
+            <span className="section-eyebrow"><LocalizedCopy>{"BOOKING LAYANAN"}</LocalizedCopy></span>
+            <h2><LocalizedCopy catalogue>{service.name}</LocalizedCopy></h2>
           </div>
-          <button className="modal-close" type="button" onClick={onClose}>
+          <LocalizedButton className="modal-close" type="button" onClick={onClose}>
             <Icon name="close" />
-          </button>
+          </LocalizedButton>
         </header>
         <div className="stepper">
-          {[1, 2, 3].map((item) => (
+          <LocalizedCopy>{[1, 2, 3].map((item) => (
             <div key={item} className={step >= item ? "active" : ""}>
               <span>
-                {step > item ? <Icon name="check" size={13} /> : item}
+                <LocalizedCopy>{step > item ? <Icon name="check" size={13} /> : item}</LocalizedCopy>
               </span>
               <small>
-                {item === 1 ? "Layanan" : item === 2 ? "Jadwal" : "Konfirmasi"}
+                <LocalizedCopy>{item === 1 ? "Layanan" : item === 2 ? "Jadwal" : "Konfirmasi"}</LocalizedCopy>
               </small>
             </div>
-          ))}
+          ))}</LocalizedCopy>
         </div>
-        {step === 1 && (
+        <LocalizedCopy catalogue>{step === 1 && (
           <div className="booking-step">
             <div className="booking-step-intro">
-              <span>1</span>
-              <div><b>Untuk siapa booking ini?</b><small>Pilih pet supaya kebutuhan dan riwayatnya terhubung ke aktivitas.</small></div>
+              <span><LocalizedCopy>{"1"}</LocalizedCopy></span>
+              <div><b><LocalizedCopy>{"Untuk siapa booking ini?"}</LocalizedCopy></b><small><LocalizedCopy>{"Pilih pet supaya kebutuhan dan riwayatnya terhubung ke aktivitas."}</LocalizedCopy></small></div>
             </div>
-            <label className="field-label">Pilih hewan</label>
+            <label className="field-label"><LocalizedCopy>{"Pilih hewan"}</LocalizedCopy></label>
             <div className="booking-pet-options">
-              {pets.map((option) => (
-                <button
+              <LocalizedCopy>{pets.map((option) => (
+                <LocalizedButton
                   className={`selected-pet-box ${option.id === pet?.id ? "selected" : ""}`}
                   type="button"
                   key={option.id}
                   onClick={() => onSelectPet(option.id)}
                 >
-                  <span>{option.avatar}</span>
+                  <span><LocalizedCopy>{option.avatar}</LocalizedCopy></span>
                   <div>
-                    <b>{option.name}</b>
-                    <small>{option.breed} • {option.weight}</small>
+                    <b><LocalizedCopy>{option.name}</LocalizedCopy></b>
+                    <small><LocalizedCopy>{option.breed}</LocalizedCopy><LocalizedCopy>{" • "}</LocalizedCopy><LocalizedCopy>{option.weight}</LocalizedCopy></small>
                   </div>
-                  <i>{option.id === pet?.id ? <Icon name="check" size={15} /> : null}</i>
-                </button>
-              ))}
+                  <i><LocalizedCopy>{option.id === pet?.id ? <Icon name="check" size={15} /> : null}</LocalizedCopy></i>
+                </LocalizedButton>
+              ))}</LocalizedCopy>
             </div>
-            <label className="field-label">Layanan yang dipilih</label>
+            <label className="field-label"><LocalizedCopy>{"Layanan yang dipilih"}</LocalizedCopy></label>
             <div className="service-option selected">
-              <span>{service.emoji}</span>
+              <span><LocalizedCopy>{service.emoji}</LocalizedCopy></span>
               <div>
-                <b>{service.name}</b>
-                <small>{service.tags.join(" · ")}</small>
+                <b><LocalizedCopy catalogue>{service.name}</LocalizedCopy></b>
+                <small><LocalizedCopy>{service.tags.join(" · ")}</LocalizedCopy></small>
               </div>
-              <strong>{service.price}</strong>
+              <strong><LocalizedCopy>{service.price}</LocalizedCopy></strong>
               <i>
                 <Icon name="check" size={13} />
               </i>
             </div>
           </div>
-        )}
-        {step === 2 && (
+        )}</LocalizedCopy>
+        <LocalizedCopy>{step === 2 && (
           <div className="booking-step">
             <div className="booking-step-intro">
-              <span>2</span>
-              <div><b>Pilih slot aktual dari cabang</b><small>Jadwal dan kapasitas disinkronkan langsung dari sistem mitra.</small></div>
+              <span><LocalizedCopy>{"2"}</LocalizedCopy></span>
+              <div><b><LocalizedCopy>{"Pilih slot aktual dari cabang"}</LocalizedCopy></b><small><LocalizedCopy>{"Jadwal dan kapasitas disinkronkan langsung dari sistem mitra."}</LocalizedCopy></small></div>
             </div>
-            <label className="field-label">Pilih tanggal</label>
-            {availabilityLoading && (
-              <div className="booking-availability-state" role="status">
-                Menyinkronkan jadwal cabang…
-              </div>
-            )}
-            {availabilityError && !availabilityLoading && (
+            <label className="field-label"><LocalizedCopy>{"Pilih tanggal"}</LocalizedCopy></label>
+            <LocalizedCopy>{availabilityLoading && (
+              <div className="booking-availability-state" role="status"><LocalizedCopy>{"Menyinkronkan jadwal cabang…"}</LocalizedCopy></div>
+            )}</LocalizedCopy>
+            <LocalizedCopy>{availabilityError && !availabilityLoading && (
               <div className="booking-availability-state error" role="alert">
-                <span>{availabilityError}</span>
-                <button
+                <span><LocalizedCopy>{availabilityError}</LocalizedCopy></span>
+                <LocalizedButton
                   type="button"
                   onClick={() => void refreshAvailability()}
-                >
-                  Coba lagi
-                </button>
+                ><LocalizedCopy>{"Coba lagi"}</LocalizedCopy></LocalizedButton>
               </div>
-            )}
+            )}</LocalizedCopy>
             <div className="date-options">
-              {availability?.data
+              <LocalizedCopy>{availability?.data
                 .filter((item) => item.slots.length > 0)
                 .map((item) => {
                   const localDate = new Date(`${item.date}T12:00:00`);
                   return (
-                    <button
+                    <LocalizedButton
                       className={date === item.date ? "selected" : ""}
                       type="button"
                       key={item.date}
@@ -8570,123 +8347,113 @@ function BookingModal({
                       }}
                     >
                       <small>
-                        {localDate
-                          .toLocaleDateString("id-ID", { weekday: "short" })
-                          .toUpperCase()}
+                        <LocalizedCopy>{localDate
+                          .toLocaleDateString(petOwnerIntlLocale(), { weekday: "short" })
+                          .toUpperCase()}</LocalizedCopy>
                       </small>
-                      <b>{localDate.getDate()}</b>
+                      <b><LocalizedCopy>{localDate.getDate()}</LocalizedCopy></b>
                       <span>
-                        {localDate.toLocaleDateString("id-ID", {
+                        <LocalizedCopy>{localDate.toLocaleDateString(petOwnerIntlLocale(), {
                           month: "short",
-                        })}
+                        })}</LocalizedCopy>
                       </span>
-                    </button>
+                    </LocalizedButton>
                   );
-                })}
+                })}</LocalizedCopy>
             </div>
-            <label className="field-label">Pilih waktu</label>
+            <label className="field-label"><LocalizedCopy>{"Pilih waktu"}</LocalizedCopy></label>
             <div className="time-options">
-              {selectedDay?.slots.map((slot) => (
-                <button
+              <LocalizedCopy>{selectedDay?.slots.map((slot) => (
+                <LocalizedButton
                   type="button"
                   key={slot.starts_at}
                   className={startsAt === slot.starts_at ? "selected" : ""}
                   onClick={() => setStartsAt(slot.starts_at)}
                 >
-                  {slot.local_time}
-                  {slot.remaining_capacity <= 3 && (
-                    <small>Sisa {slot.remaining_capacity}</small>
-                  )}
-                </button>
-              ))}
+                  <LocalizedCopy>{slot.local_time}</LocalizedCopy>
+                  <LocalizedCopy>{slot.remaining_capacity <= 3 && (
+                    <small><LocalizedCopy>{"Sisa "}</LocalizedCopy><LocalizedCopy>{slot.remaining_capacity}</LocalizedCopy></small>
+                  )}</LocalizedCopy>
+                </LocalizedButton>
+              ))}</LocalizedCopy>
             </div>
-            <label className="field-label">
-              Catatan khusus <small>(opsional)</small>
+            <label className="field-label"><LocalizedCopy>{"Catatan khusus "}</LocalizedCopy><small><LocalizedCopy>{"(opsional)"}</LocalizedCopy></small>
             </label>
-            <textarea
+            <LocalizedTextarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               maxLength={1000}
               placeholder="Ceritakan keluhan atau kebutuhan khusus pet..."
             />
           </div>
-        )}
-        {step === 3 && (
+        )}</LocalizedCopy>
+        <LocalizedCopy catalogue>{step === 3 && (
           <div className="booking-step">
             <div className="booking-step-intro">
-              <span>3</span>
-              <div><b>Periksa sekali lagi</b><small>Pastikan pet, jadwal, biaya, dan kebijakan sudah sesuai.</small></div>
+              <span><LocalizedCopy>{"3"}</LocalizedCopy></span>
+              <div><b><LocalizedCopy>{"Periksa sekali lagi"}</LocalizedCopy></b><small><LocalizedCopy>{"Pastikan pet, jadwal, biaya, dan kebijakan sudah sesuai."}</LocalizedCopy></small></div>
             </div>
             <div className="booking-summary">
               <div className={`summary-service ${service.accent}`}>
-                {service.emoji}
+                <LocalizedCopy>{service.emoji}</LocalizedCopy>
               </div>
               <div>
-                <span className="status-badge confirmed">
-                  Slot dikonfirmasi server
-                </span>
-                <h3>{service.name}</h3>
-                <p>{service.address}</p>
+                <span className="status-badge confirmed"><LocalizedCopy>{"Slot dikonfirmasi server"}</LocalizedCopy></span>
+                <h3><LocalizedCopy catalogue>{service.name}</LocalizedCopy></h3>
+                <p><LocalizedCopy>{service.address}</LocalizedCopy></p>
               </div>
             </div>
             <div className="summary-lines">
               <span>
-                <small>Hewan</small>
+                <small><LocalizedCopy>{"Hewan"}</LocalizedCopy></small>
                 <b>
-                  {pet?.avatar ?? "🐾"} {pet?.name ?? "Pet"}
+                  <LocalizedCopy>{pet?.avatar ?? "🐾"}</LocalizedCopy> <LocalizedCopy>{pet?.name ?? "Pet"}</LocalizedCopy>
                 </b>
               </span>
               <span>
-                <small>Layanan</small>
-                <b>{service.name}</b>
+                <small><LocalizedCopy>{"Layanan"}</LocalizedCopy></small>
+                <b><LocalizedCopy catalogue>{service.name}</LocalizedCopy></b>
               </span>
               <span>
-                <small>Jadwal</small>
+                <small><LocalizedCopy>{"Jadwal"}</LocalizedCopy></small>
                 <b>
-                  {formattedDate} • {selectedSlot?.local_time ?? "-"}{" "}
-                  {availability?.timezone ?? ""}
+                  <LocalizedCopy>{formattedDate}</LocalizedCopy><LocalizedCopy>{" • "}</LocalizedCopy><LocalizedCopy>{selectedSlot?.local_time ?? "-"}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
+                  <LocalizedCopy>{availability?.timezone ?? ""}</LocalizedCopy>
                 </b>
               </span>
               <span className="total">
-                <small>Total pembayaran</small>
+                <small><LocalizedCopy>{"Total pembayaran"}</LocalizedCopy></small>
                 <span className="service-checkout-price">
-                  {service.originalPrice ? <s>{formatRupiah(service.originalPrice)}</s> : null}
-                  <b>{formatRupiah(service.priceValue || 0)}</b>
-                  {service.discountPercent ? <em>Hemat {service.discountPercent}%</em> : null}
+                  <LocalizedCopy>{service.originalPrice ? <s><LocalizedCopy>{formatRupiah(service.originalPrice)}</LocalizedCopy></s> : null}</LocalizedCopy>
+                  <b><LocalizedCopy>{formatRupiah(service.priceValue || 0)}</LocalizedCopy></b>
+                  <LocalizedCopy>{service.discountPercent ? <em><LocalizedCopy>{"Hemat "}</LocalizedCopy><LocalizedCopy>{service.discountPercent}</LocalizedCopy><LocalizedCopy>{"%"}</LocalizedCopy></em> : null}</LocalizedCopy>
                 </span>
               </span>
             </div>
-            {service.priceValue > 0 && (
+            <LocalizedCopy>{service.priceValue > 0 && (
               <PaymentMethodPicker
                 value={paymentMethod}
                 onChange={setPaymentMethod}
                 disabled={busy}
               />
-            )}{" "}
-            {notes && <p className="booking-note">Catatan: {notes}</p>}
-            {service.cancellationCutoffHours !== undefined && (
-              <p className="booking-note">
-                Bisa dibatalkan hingga {service.cancellationCutoffHours} jam
-                sebelum jadwal
-              </p>
-            )}
+            )}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
+            <LocalizedCopy>{notes && <p className="booking-note"><LocalizedCopy>{"Catatan: "}</LocalizedCopy><LocalizedCopy>{notes}</LocalizedCopy></p>}</LocalizedCopy>
+            <LocalizedCopy>{service.cancellationCutoffHours !== undefined && (
+              <p className="booking-note"><LocalizedCopy>{"Bisa dibatalkan hingga "}</LocalizedCopy><LocalizedCopy>{service.cancellationCutoffHours}</LocalizedCopy><LocalizedCopy>{" jam sebelum jadwal"}</LocalizedCopy></p>
+            )}</LocalizedCopy>
             <label className="consent">
-              <input
+              <LocalizedInput
                 type="checkbox"
                 checked={consent}
                 onChange={(event) => setConsent(event.target.checked)}
-              />{" "}
-              Saya menyetujui kebijakan pembatalan
-              {service.cancellationPolicy
+              /><LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"Saya menyetujui kebijakan pembatalan"}</LocalizedCopy><LocalizedCopy>{service.cancellationPolicy
                 ? ` (${service.cancellationPolicy})`
-                : " yang dicantumkan mitra"}{" "}
-              dan penggunaan data kesehatan.
-            </label>
+                : " yang dicantumkan mitra"}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"dan penggunaan data kesehatan."}</LocalizedCopy></label>
           </div>
-        )}
-        {message && <div className="form-message">{message}</div>}
+        )}</LocalizedCopy>
+        <LocalizedCopy>{message && <div className="form-message"><LocalizedCopy>{message}</LocalizedCopy></div>}</LocalizedCopy>
         <footer>
-          <button
+          <LocalizedButton
             className="secondary-button"
             type="button"
             disabled={
@@ -8694,9 +8461,9 @@ function BookingModal({
             }
             onClick={() => (step === 1 ? onClose() : setStep(step - 1))}
           >
-            {step === 1 ? "Batal" : "Kembali"}
-          </button>
-          <button
+            <LocalizedCopy>{step === 1 ? "Batal" : "Kembali"}</LocalizedCopy>
+          </LocalizedButton>
+          <LocalizedButton
             className="primary-button"
             type="button"
             disabled={
@@ -8707,15 +8474,15 @@ function BookingModal({
             }
             onClick={() => (step < 3 ? setStep(step + 1) : void confirm())}
           >
-            {busy
+            <LocalizedCopy>{busy
               ? "Membuat pembayaran…"
               : step < 3
                 ? "Lanjutkan"
                 : service.priceValue > 0
                   ? "Lanjut ke pembayaran"
-                  : "Konfirmasi booking"}{" "}
+                  : "Konfirmasi booking"}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
             <Icon name="arrow" size={16} />
-          </button>
+          </LocalizedButton>
         </footer>
       </div>
     </div>
@@ -9319,29 +9086,27 @@ function CartDrawer({
       >
         <header>
           <div>
-            <span className="section-eyebrow">SLIVA PET SHOP</span>
+            <span className="section-eyebrow"><LocalizedCopy>{"SLIVA PET SHOP"}</LocalizedCopy></span>
             <h2>
-              {payment
+              <LocalizedCopy>{payment
                 ? "Pembayaran"
                 : checkoutStep === "shipping"
                   ? "Pengiriman"
-                  : "Keranjangmu"}
+                  : "Keranjangmu"}</LocalizedCopy>
             </h2>
           </div>
-          <button type="button" onClick={onClose}>
+          <LocalizedButton type="button" onClick={onClose}>
             <Icon name="close" />
-          </button>
+          </LocalizedButton>
         </header>
-        {!payment && checkoutStep === "shipping" && (
-          <button
+        <LocalizedCopy>{!payment && checkoutStep === "shipping" && (
+          <LocalizedButton
             className="cart-back-button"
             type="button"
             onClick={() => setCheckoutStep("cart")}
-          >
-            ← Kembali ke keranjang
-          </button>
-        )}
-        {payment ? (
+          ><LocalizedCopy>{"← Kembali ke keranjang"}</LocalizedCopy></LocalizedButton>
+        )}</LocalizedCopy>
+        <LocalizedCopy>{payment ? (
           <QrisPaymentPanel
             payment={payment}
             onPaid={() => {
@@ -9353,23 +9118,21 @@ function CartDrawer({
           />
         ) : items.length === 0 ? (
           <div className="empty-state compact">
-            <span>🛒</span>
-            <h3>Keranjang masih kosong</h3>
-            <p>Yuk, pilih kebutuhan terbaik untuk mereka.</p>
-            <button
+            <span><LocalizedCopy>{"🛒"}</LocalizedCopy></span>
+            <h3><LocalizedCopy>{"Keranjang masih kosong"}</LocalizedCopy></h3>
+            <p><LocalizedCopy>{"Yuk, pilih kebutuhan terbaik untuk mereka."}</LocalizedCopy></p>
+            <LocalizedButton
               className="primary-button small"
               type="button"
               onClick={onClose}
-            >
-              Mulai belanja
-            </button>
+            ><LocalizedCopy>{"Mulai belanja"}</LocalizedCopy></LocalizedButton>
           </div>
         ) : (
           <>
             {checkoutStep === "cart" ? (
               <>
                 <div className="cart-bulk-actions">
-                  <button
+                  <LocalizedButton
                     type="button"
                     aria-pressed={allCartItemsSelected}
                     onClick={() =>
@@ -9380,151 +9143,133 @@ function CartDrawer({
                       )
                     }
                   >
-                    {allCartItemsSelected ? "Batalkan pilihan" : "Pilih semua"}
-                  </button>
-                  {selectedCartItems.length > 0 && (
-                    <button
+                    <LocalizedCopy>{allCartItemsSelected ? "Batalkan pilihan" : "Pilih semua"}</LocalizedCopy>
+                  </LocalizedButton>
+                  <LocalizedCopy>{selectedCartItems.length > 0 && (
+                    <LocalizedButton
                       className="cart-delete-selected"
                       type="button"
                       onClick={deleteSelectedCartItems}
-                    >
-                      Hapus dipilih ({selectedCartItems.length})
-                    </button>
-                  )}
+                    ><LocalizedCopy>{"Hapus dipilih ("}</LocalizedCopy><LocalizedCopy>{selectedCartItems.length}</LocalizedCopy><LocalizedCopy>{")"}</LocalizedCopy></LocalizedButton>
+                  )}</LocalizedCopy>
                 </div>
                 <div className="cart-items">
-                  {items.map((item) => {
+                  <LocalizedCopy>{items.map((item) => {
                     const selected = selectedCartIDs.has(item.id);
                     const productStockError =
                       stockError?.productID === item.id ? stockError : null;
                     return (
                       <div className="cart-item" key={item.id}>
-                        <button
+                        <LocalizedButton
                           className={`cart-item-select${selected ? " selected" : ""}`}
                           type="button"
                           aria-label={`${selected ? "Batalkan pilihan" : "Pilih"} ${item.name}`}
                           aria-pressed={selected}
                           onClick={() => toggleCartItem(item.id)}
                         >
-                          <span>{item.emoji}</span>
+                          <span><LocalizedCopy>{item.emoji}</LocalizedCopy></span>
                           <small>
-                            {selected ? (
+                            <LocalizedCopy>{selected ? (
                               <Icon name="check" size={12} />
                             ) : (
                               "Pilih"
-                            )}
+                            )}</LocalizedCopy>
                           </small>
-                        </button>
+                        </LocalizedButton>
                         <div>
-                          <small>{item.brand}</small>
-                          <b>{item.name}</b>
-                          <strong>{formatRupiah(item.price)}</strong>
-                          {productStockError && (
+                          <small><LocalizedCopy>{item.brand}</LocalizedCopy></small>
+                          <b><LocalizedCopy>{item.name}</LocalizedCopy></b>
+                          <strong><LocalizedCopy>{formatRupiah(item.price)}</LocalizedCopy></strong>
+                          <LocalizedCopy>{productStockError && (
                             <small
                               className="cart-item-stock-warning"
                               role="status"
                             >
-                              {productStockError.availableStock == null
+                              <LocalizedCopy>{productStockError.availableStock == null
                                 ? "Produk tidak tersedia atau stok berubah. Sesuaikan jumlah atau hapus produk ini."
-                                : `Stok tersedia: ${productStockError.availableStock.toLocaleString("id-ID")}. Sesuaikan jumlah lalu cek ulang pengiriman.`}
+                                : `Stok tersedia: ${productStockError.availableStock.toLocaleString(petOwnerIntlLocale())}. Sesuaikan jumlah lalu cek ulang pengiriman.`}</LocalizedCopy>
                             </small>
-                          )}
+                          )}</LocalizedCopy>
                         </div>
                         <div className="quantity">
-                          <button
+                          <LocalizedButton
                             type="button"
                             onClick={() => update(item.id, -1)}
-                          >
-                            −
-                          </button>
-                          <b>{cart[item.id]}</b>
-                          <button
+                          ><LocalizedCopy>{"−"}</LocalizedCopy></LocalizedButton>
+                          <b><LocalizedCopy>{cart[item.id]}</LocalizedCopy></b>
+                          <LocalizedButton
                             type="button"
                             onClick={() => update(item.id, 1)}
-                          >
-                            +
-                          </button>
+                          ><LocalizedCopy>{"+"}</LocalizedCopy></LocalizedButton>
                         </div>
                       </div>
                     );
-                  })}
+                  })}</LocalizedCopy>
                 </div>
                 <div className="cart-summary cart-cart-summary">
                   <span>
-                    <small>
-                      Subtotal {selectedCartItems.length} produk dipilih
-                    </small>
-                    <b>{formatRupiah(cartSubtotal)}</b>
+                    <small><LocalizedCopy>{"Subtotal "}</LocalizedCopy><LocalizedCopy>{selectedCartItems.length}</LocalizedCopy><LocalizedCopy>{" produk dipilih"}</LocalizedCopy></small>
+                    <b><LocalizedCopy>{formatRupiah(cartSubtotal)}</LocalizedCopy></b>
                   </span>
                 </div>
-                <button
+                <LocalizedButton
                   className="primary-button full"
                   type="button"
                   disabled={selectedCartItems.length === 0}
                   onClick={() => setCheckoutStep("shipping")}
                 >
-                  {selectedCartItems.length === 0
+                  <LocalizedCopy>{selectedCartItems.length === 0
                     ? "Pilih produk untuk checkout"
-                    : "Atur pengiriman"}{" "}
+                    : "Atur pengiriman"}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
                   <Icon name="arrow" size={16} />
-                </button>
+                </LocalizedButton>
               </>
             ) : (
               <>
                 <div className="cart-order-preview">
                   <span>
-                    {selectedCartItems.length} produk dipilih ·{" "}
-                    {formatRupiah(cartSubtotal)}
+                    <LocalizedCopy>{selectedCartItems.length}</LocalizedCopy><LocalizedCopy>{" produk dipilih ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                    <LocalizedCopy>{formatRupiah(cartSubtotal)}</LocalizedCopy>
                   </span>
-                  <button type="button" onClick={() => setCheckoutStep("cart")}>
-                    Ubah keranjang
-                  </button>
+                  <LocalizedButton type="button" onClick={() => setCheckoutStep("cart")}><LocalizedCopy>{"Ubah keranjang"}</LocalizedCopy></LocalizedButton>
                 </div>
                 {shippingFormVisible && (
                   <section className="cart-shipping">
                     <div className="cart-shipping-heading">
-                      <b>Alamat pengiriman</b>
-                      <small>Alamat dikelola dari halaman Akun.</small>
+                      <b><LocalizedCopy>{"Alamat pengiriman"}</LocalizedCopy></b>
+                      <small><LocalizedCopy>{"Alamat dikelola dari halaman Akun."}</LocalizedCopy></small>
                     </div>
-                    {accountAddressLoading ? (
-                      <p className="profile-address-muted">
-                        Memuat alamat tersimpan…
-                      </p>
+                    <LocalizedCopy>{accountAddressLoading ? (
+                      <p className="profile-address-muted"><LocalizedCopy>{"Memuat alamat tersimpan…"}</LocalizedCopy></p>
                     ) : accountShippingAddress ? (
                       <div className="cart-shipping-saved">
                         <div>
-                          <b>{accountShippingAddress.recipient_name}</b>
-                          <span>{accountShippingAddress.phone}</span>
-                          <p>{accountShippingAddress.address}</p>
+                          <b><LocalizedCopy>{accountShippingAddress.recipient_name}</LocalizedCopy></b>
+                          <span><LocalizedCopy>{accountShippingAddress.phone}</LocalizedCopy></span>
+                          <p><LocalizedCopy>{accountShippingAddress.address}</LocalizedCopy></p>
                           <small>
-                            {accountShippingAddress.village.name},{" "}
-                            {accountShippingAddress.district.name},{" "}
-                            {accountShippingAddress.regency.name} ·{" "}
-                            {accountShippingAddress.post_code}
+                            <LocalizedCopy>{accountShippingAddress.village.name}</LocalizedCopy><LocalizedCopy>{","}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                            <LocalizedCopy>{accountShippingAddress.district.name}</LocalizedCopy><LocalizedCopy>{","}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                            <LocalizedCopy>{accountShippingAddress.regency.name}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                            <LocalizedCopy>{accountShippingAddress.post_code}</LocalizedCopy>
                           </small>
                         </div>
-                        <button type="button" onClick={onOpenAccount}>
-                          Ubah di Akun
-                        </button>
+                        <LocalizedButton type="button" onClick={onOpenAccount}><LocalizedCopy>{"Ubah di Akun"}</LocalizedCopy></LocalizedButton>
                       </div>
                     ) : (
                       <div className="cart-shipping-empty">
-                        <p>Belum ada alamat tersimpan untuk checkout.</p>
-                        <button type="button" onClick={onOpenAccount}>
-                          Tambah alamat di Akun
-                        </button>
+                        <p><LocalizedCopy>{"Belum ada alamat tersimpan untuk checkout."}</LocalizedCopy></p>
+                        <LocalizedButton type="button" onClick={onOpenAccount}><LocalizedCopy>{"Tambah alamat di Akun"}</LocalizedCopy></LocalizedButton>
                       </div>
-                    )}
-                    {singleBranchOptions.length > 0 && (
+                    )}</LocalizedCopy>
+                    <LocalizedCopy>{singleBranchOptions.length > 0 && (
                       <div className="cart-shipping-branches">
-                        <small className="cart-shipping-branch-label">
-                          PILIH CABANG PENGIRIMAN · DEFAULT TERDEKAT
-                        </small>
+                        <small className="cart-shipping-branch-label"><LocalizedCopy>{"PILIH CABANG PENGIRIMAN · DEFAULT TERDEKAT"}</LocalizedCopy></small>
                         <div className="cart-shipping-branch-options">
-                          {singleBranchOptions.map((branch) => {
+                          <LocalizedCopy>{singleBranchOptions.map((branch) => {
                             const cheapest = cheapestCartShippingRate(branch);
                             return (
-                              <button
+                              <LocalizedButton
                                 className={
                                   shippingBranchID === branch.branch_id
                                     ? "selected"
@@ -9537,23 +9282,21 @@ function CartDrawer({
                                   setShippingSelections({});
                                 }}
                               >
-                                <b>{branch.branch_name}</b>
-                                <span>{branch.origin}</span>
-                                {branch.distance_km != null ? (
+                                <b><LocalizedCopy>{branch.branch_name}</LocalizedCopy></b>
+                                <span><LocalizedCopy>{branch.origin}</LocalizedCopy></span>
+                                <LocalizedCopy>{branch.distance_km != null ? (
                                   <small>
-                                    {branch.distance_km.toFixed(1)} km dari
-                                    alamat
-                                  </small>
+                                    <LocalizedCopy>{branch.distance_km.toFixed(1)}</LocalizedCopy><LocalizedCopy>{" km dari alamat"}</LocalizedCopy></small>
                                 ) : cheapest ? (
-                                  <strong>{formatRupiah(cheapest.fee)}</strong>
-                                ) : null}
-                              </button>
+                                  <strong><LocalizedCopy>{formatRupiah(cheapest.fee)}</LocalizedCopy></strong>
+                                ) : null}</LocalizedCopy>
+                              </LocalizedButton>
                             );
-                          })}
+                          })}</LocalizedCopy>
                         </div>
                       </div>
-                    )}
-                    {(singleBranchOptions.length > 0
+                    )}</LocalizedCopy>
+                    <LocalizedCopy>{(singleBranchOptions.length > 0
                       ? quote?.shipping_quotes.filter(
                           (shipment) => shipment.branch_id === shippingBranchID,
                         )
@@ -9563,13 +9306,12 @@ function CartDrawer({
                         className="cart-shipping-origin"
                         key={shipment.branch_id}
                       >
-                        <small>
-                          DIKIRIM DARI {shipment.branch_name} ·{" "}
-                          {shipment.origin}
+                        <small><LocalizedCopy>{"DIKIRIM DARI "}</LocalizedCopy><LocalizedCopy>{shipment.branch_name}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                          <LocalizedCopy>{shipment.origin}</LocalizedCopy>
                         </small>
                         <div className="cart-shipping-rates">
-                          {shipment.rates.map((rate) => (
-                            <button
+                          <LocalizedCopy>{shipment.rates.map((rate) => (
+                            <LocalizedButton
                               className={
                                 shippingSelections[shipment.branch_id] ===
                                 rate.service_code
@@ -9585,21 +9327,21 @@ function CartDrawer({
                                 }))
                               }
                             >
-                              <b>{rate.service_code}</b>
-                              <span>{formatRupiah(rate.fee)}</span>
+                              <b><LocalizedCopy>{rate.service_code}</LocalizedCopy></b>
+                              <span><LocalizedCopy>{formatRupiah(rate.fee)}</LocalizedCopy></span>
                               <small>
-                                {rate.estimated_sla || "Sesuai rute"}
+                                <LocalizedCopy>{rate.estimated_sla || "Sesuai rute"}</LocalizedCopy>
                               </small>
-                            </button>
-                          ))}
+                            </LocalizedButton>
+                          ))}</LocalizedCopy>
                         </div>
                       </div>
-                    ))}
+                    ))}</LocalizedCopy>
                   </section>
                 )}
                 <label className="voucher">
-                  <span>🎟️</span>
-                  <input
+                  <span><LocalizedCopy>{"🎟️"}</LocalizedCopy></span>
+                  <LocalizedInput
                     value={voucherInput}
                     onChange={(event) => {
                       setVoucherInput(
@@ -9610,21 +9352,20 @@ function CartDrawer({
                     minLength={6}
                     placeholder="Minimal 6 huruf/angka"
                   />
-                  <button
+                  <LocalizedButton
                     type="button"
                     disabled={voucherInput.length < 6 || voucherBusy}
                     onClick={() => void applyVoucher()}
                   >
-                    {voucherBusy ? "Memeriksa…" : "Pakai"}
-                  </button>
+                    <LocalizedCopy>{voucherBusy ? "Memeriksa…" : "Pakai"}</LocalizedCopy>
+                  </LocalizedButton>
                 </label>
                 {appliedVoucher && quote && quote.voucher_discount > 0 && (
-                  <small className="voucher-applied">
-                    Voucher {appliedVoucher} aktif · potongan{" "}
-                    {formatRupiah(quote.voucher_discount)}
-                    {quote.voucher_description
+                  <small className="voucher-applied"><LocalizedCopy>{"Voucher "}</LocalizedCopy><LocalizedCopy>{appliedVoucher}</LocalizedCopy><LocalizedCopy>{" aktif · potongan"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                    <LocalizedCopy>{formatRupiah(quote.voucher_discount)}</LocalizedCopy>
+                    <LocalizedCopy>{quote.voucher_description
                       ? ` · ${quote.voucher_description}`
-                      : ""}
+                      : ""}</LocalizedCopy>
                   </small>
                 )}
                 {rewardFormula.enabled &&
@@ -9632,24 +9373,21 @@ function CartDrawer({
                   maximumRedeemable > 0 && (
                     <section className="points-redemption-card">
                       <div>
-                        <span>✦</span>
+                        <span><LocalizedCopy>{"✦"}</LocalizedCopy></span>
                         <p>
-                          <b>Pakai SlivaPoints</b>
-                          <small>
-                            Saldo {points.toLocaleString("id-ID")} · maksimal
-                            checkout ini{" "}
-                            {maximumRedeemable.toLocaleString("id-ID")} poin
-                          </small>
+                          <b><LocalizedCopy>{"Pakai SlivaPoints"}</LocalizedCopy></b>
+                          <small><LocalizedCopy>{"Saldo "}</LocalizedCopy><LocalizedCopy>{points.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" · maksimal checkout ini"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                            <LocalizedCopy>{maximumRedeemable.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" poin"}</LocalizedCopy></small>
                         </p>
                       </div>
                       <label>
-                        <input
+                        <LocalizedInput
                           type="number"
                           min={minimumRedemption}
                           max={maximumRedeemable}
                           step="1"
                           value={redeemPoints || ""}
-                          placeholder={`Min. ${minimumRedemption.toLocaleString("id-ID")}`}
+                          placeholder={`Min. ${minimumRedemption.toLocaleString(petOwnerIntlLocale())}`}
                           onChange={(event) =>
                             setRedeemPoints(
                               Math.max(
@@ -9662,62 +9400,53 @@ function CartDrawer({
                             )
                           }
                         />
-                        <button
+                        <LocalizedButton
                           type="button"
                           onClick={() => setRedeemPoints(maximumRedeemable)}
-                        >
-                          Maks
-                        </button>
+                        ><LocalizedCopy>{"Maks"}</LocalizedCopy></LocalizedButton>
                       </label>
-                      {redeemPoints > 0 && redeemPoints < minimumRedemption && (
-                        <small>
-                          Minimum penukaran{" "}
-                          {minimumRedemption.toLocaleString("id-ID")} poin.
-                        </small>
-                      )}
+                      <LocalizedCopy>{redeemPoints > 0 && redeemPoints < minimumRedemption && (
+                        <small><LocalizedCopy>{"Minimum penukaran"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                          <LocalizedCopy>{minimumRedemption.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" poin."}</LocalizedCopy></small>
+                      )}</LocalizedCopy>
                     </section>
                   )}
-                {quoteError && <p className="cart-quote-error">{quoteError}</p>}
+                {quoteError && <p className="cart-quote-error"><LocalizedCopy>{quoteError}</LocalizedCopy></p>}
                 <div className="cart-summary">
                   <span>
-                    <small>Subtotal</small>
-                    <b>{quote ? formatRupiah(quote.subtotal) : "…"}</b>
+                    <small><LocalizedCopy>{"Subtotal"}</LocalizedCopy></small>
+                    <b><LocalizedCopy>{quote ? formatRupiah(quote.subtotal) : "…"}</LocalizedCopy></b>
                   </span>
                   <span>
-                    <small>Pengiriman</small>
-                    <b>{quote ? formatRupiah(quote.shipping_fee) : "—"}</b>
+                    <small><LocalizedCopy>{"Pengiriman"}</LocalizedCopy></small>
+                    <b><LocalizedCopy>{quote ? formatRupiah(quote.shipping_fee) : "—"}</LocalizedCopy></b>
                   </span>
                   <span>
-                    <small>Biaya layanan</small>
-                    <b>{quote ? formatRupiah(quote.platform_fee) : "…"}</b>
+                    <small><LocalizedCopy>{"Biaya layanan"}</LocalizedCopy></small>
+                    <b><LocalizedCopy>{quote ? formatRupiah(quote.platform_fee) : "…"}</LocalizedCopy></b>
                   </span>
-                  {quote && quote.voucher_discount > 0 && (
+                  <LocalizedCopy>{quote && quote.voucher_discount > 0 && (
                     <span>
-                      <small>Voucher ({quote.voucher_code})</small>
-                      <b className="good">
-                        −{formatRupiah(quote.voucher_discount)}
+                      <small><LocalizedCopy>{"Voucher ("}</LocalizedCopy><LocalizedCopy>{quote.voucher_code}</LocalizedCopy><LocalizedCopy>{")"}</LocalizedCopy></small>
+                      <b className="good"><LocalizedCopy>{"−"}</LocalizedCopy><LocalizedCopy>{formatRupiah(quote.voucher_discount)}</LocalizedCopy>
                       </b>
                     </span>
-                  )}
-                  {quote && quote.points_discount > 0 && (
+                  )}</LocalizedCopy>
+                  <LocalizedCopy>{quote && quote.points_discount > 0 && (
                     <span>
-                      <small>
-                        SlivaPoints (
-                        {quote.points_redeemed.toLocaleString("id-ID")})
-                      </small>
-                      <b className="good">
-                        −{formatRupiah(quote.points_discount)}
+                      <small><LocalizedCopy>{"SlivaPoints ("}</LocalizedCopy><LocalizedCopy>{quote.points_redeemed.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{")"}</LocalizedCopy></small>
+                      <b className="good"><LocalizedCopy>{"−"}</LocalizedCopy><LocalizedCopy>{formatRupiah(quote.points_discount)}</LocalizedCopy>
                       </b>
                     </span>
-                  )}
+                  )}</LocalizedCopy>
                   <span className="total">
-                    <small>Total</small>
+                    <small><LocalizedCopy>{"Total"}</LocalizedCopy></small>
                     <b>
-                      {quote
+                      <LocalizedCopy>{quote
                         ? formatRupiah(quote.total_amount)
                         : quoteError
                           ? "Belum tersedia"
-                          : "Menghitung…"}
+                          : "Menghitung…"}</LocalizedCopy>
                     </b>
                   </span>
                 </div>
@@ -9726,19 +9455,19 @@ function CartDrawer({
                   onChange={setPaymentMethod}
                   disabled={busy}
                 />
-                <button
+                <LocalizedButton
                   className="primary-button full"
                   type="button"
                   disabled={busy || !paymentMethod}
                   onClick={() => void checkout()}
                 >
-                  {busy ? "Membuat pembayaran…" : "Lanjut ke pembayaran"}{" "}
+                  <LocalizedCopy>{busy ? "Membuat pembayaran…" : "Lanjut ke pembayaran"}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
                   <Icon name="arrow" size={16} />
-                </button>
+                </LocalizedButton>
               </>
             )}
           </>
-        )}
+        )}</LocalizedCopy>
       </aside>
     </div>
   );
@@ -9747,8 +9476,8 @@ function CartDrawer({
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <small>{label}</small>
-      <b>{value}</b>
+      <small><LocalizedCopy>{label}</LocalizedCopy></small>
+      <b><LocalizedCopy>{value}</LocalizedCopy></b>
     </div>
   );
 }
@@ -9756,8 +9485,8 @@ function Progress({ label, value }: { label: string; value: number }) {
   return (
     <div className="progress-row">
       <span>
-        <small>{label}</small>
-        <b>{value}%</b>
+        <small><LocalizedCopy>{label}</LocalizedCopy></small>
+        <b><LocalizedCopy>{value}</LocalizedCopy><LocalizedCopy>{"%"}</LocalizedCopy></b>
       </span>
       <div>
         <i style={{ width: `${value}%` }} />
@@ -9783,19 +9512,19 @@ function Notification({
   onClick: () => void;
 }) {
   return (
-    <button
+    <LocalizedButton
       type="button"
       className={`notification ${unread ? "unread" : ""}`}
       onClick={onClick}
     >
-      <span className={tone}>{icon}</span>
+      <span className={tone}><LocalizedCopy>{icon}</LocalizedCopy></span>
       <p>
-        <b>{title}</b>
-        <small>{note}</small>
-        <em>{time}</em>
+        <b><LocalizedCopy>{title}</LocalizedCopy></b>
+        <small><LocalizedCopy>{note}</LocalizedCopy></small>
+        <em><LocalizedCopy>{time}</LocalizedCopy></em>
       </p>
-      {unread && <i />}
-    </button>
+      <LocalizedCopy>{unread && <i />}</LocalizedCopy>
+    </LocalizedButton>
   );
 }
 
@@ -9803,7 +9532,7 @@ function downloadViewSummary(view: AppView) {
   const content = [
     `Slivadoc Pet Owner · ${titles[view].title}`,
     titles[view].subtitle,
-    `Dibuat: ${new Date().toLocaleString("id-ID")}`,
+    `Dibuat: ${new Date().toLocaleString(petOwnerIntlLocale())}`,
     "",
     "Ringkasan ini dibuat dari informasi pada akun dan tampilan yang sedang aktif.",
   ].join("\n");

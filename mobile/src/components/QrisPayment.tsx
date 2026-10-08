@@ -1,9 +1,10 @@
+import { LocalizedPressable as Pressable } from "./LocalizedPressable";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
   Modal,
-  Pressable,
+
   StyleSheet,
   View,
 } from "react-native";
@@ -169,7 +170,7 @@ function MobileQrisModalState({
     };
   }, [currentID, currentStatus]);
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <SafeAreaView style={styles.wrap}>
           <View style={styles.sheet}>

@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
+import {  ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import type { PetView } from "../data";

@@ -1,4 +1,5 @@
 "use client";
+import { LocalizedCopy, LocalizedButton, LocalizedTextarea } from "../../components/LocalizedCopy";
 
 import { useParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
@@ -105,49 +106,49 @@ export default function PetSpotReviewPage() {
     <PublicPage>
       <section className="seo-main-section">
         <div className="seo-empty petspot-review">
-          {stage.name === "loading" && <p role="status">Memuat ulasan…</p>}
-          {stage.name === "invalid" && (
+          <LocalizedCopy>{stage.name === "loading" && <p role="status"><LocalizedCopy>{"Memuat ulasan…"}</LocalizedCopy></p>}</LocalizedCopy>
+          <LocalizedCopy>{stage.name === "invalid" && (
             <>
-              <span className="seo-eyebrow">ULASAN</span>
-              <h1>Link ulasan tidak valid</h1>
-              <p>Minta tempat terkait untuk mengirim link ulasan yang baru.</p>
+              <span className="seo-eyebrow"><LocalizedCopy>{"ULASAN"}</LocalizedCopy></span>
+              <h1><LocalizedCopy>{"Link ulasan tidak valid"}</LocalizedCopy></h1>
+              <p><LocalizedCopy>{"Minta tempat terkait untuk mengirim link ulasan yang baru."}</LocalizedCopy></p>
             </>
-          )}
-          {stage.name === "already" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{stage.name === "already" && (
             <>
-              <span className="seo-eyebrow">ULASAN</span>
-              <h1>Ulasan sudah dikirim</h1>
-              <p>Terima kasih, ulasan untuk link ini sudah kami terima.</p>
+              <span className="seo-eyebrow"><LocalizedCopy>{"ULASAN"}</LocalizedCopy></span>
+              <h1><LocalizedCopy>{"Ulasan sudah dikirim"}</LocalizedCopy></h1>
+              <p><LocalizedCopy>{"Terima kasih, ulasan untuk link ini sudah kami terima."}</LocalizedCopy></p>
             </>
-          )}
-          {stage.name === "error" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{stage.name === "error" && (
             <>
-              <span className="seo-eyebrow">ULASAN</span>
-              <h1>Terjadi kendala</h1>
-              <p role="alert">{stage.message}</p>
+              <span className="seo-eyebrow"><LocalizedCopy>{"ULASAN"}</LocalizedCopy></span>
+              <h1><LocalizedCopy>{"Terjadi kendala"}</LocalizedCopy></h1>
+              <p role="alert"><LocalizedCopy>{stage.message}</LocalizedCopy></p>
             </>
-          )}
-          {stage.name === "done" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{stage.name === "done" && (
             <>
-              <span className="seo-eyebrow">TERIMA KASIH</span>
-              <h1>Ulasanmu sudah terkirim</h1>
-              <p>{stage.message}</p>
+              <span className="seo-eyebrow"><LocalizedCopy>{"TERIMA KASIH"}</LocalizedCopy></span>
+              <h1><LocalizedCopy>{"Ulasanmu sudah terkirim"}</LocalizedCopy></h1>
+              <p><LocalizedCopy>{stage.message}</LocalizedCopy></p>
             </>
-          )}
-          {stage.name === "form" && (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{stage.name === "form" && (
             <form className="world-form" onSubmit={submit}>
-              <span className="seo-eyebrow">ULASAN PETSPOT</span>
-              <h1>Bagaimana pengalamanmu di {stage.request.spot_name}?</h1>
-              {stage.request.recipient_name && (
-                <p>Halo {stage.request.recipient_name}, ceritakan kunjunganmu.</p>
-              )}
+              <span className="seo-eyebrow"><LocalizedCopy>{"ULASAN PETSPOT"}</LocalizedCopy></span>
+              <h1><LocalizedCopy>{"Bagaimana pengalamanmu di "}</LocalizedCopy><LocalizedCopy>{stage.request.spot_name}</LocalizedCopy><LocalizedCopy>{"?"}</LocalizedCopy></h1>
+              <LocalizedCopy>{stage.request.recipient_name && (
+                <p><LocalizedCopy>{"Halo "}</LocalizedCopy><LocalizedCopy>{stage.request.recipient_name}</LocalizedCopy><LocalizedCopy>{", ceritakan kunjunganmu."}</LocalizedCopy></p>
+              )}</LocalizedCopy>
               <div
                 className="petspot-review-stars"
                 role="radiogroup"
                 aria-label="Penilaian"
               >
-                {[1, 2, 3, 4, 5].map((value) => (
-                  <button
+                <LocalizedCopy>{[1, 2, 3, 4, 5].map((value) => (
+                  <LocalizedButton
                     key={value}
                     type="button"
                     role="radio"
@@ -155,30 +156,28 @@ export default function PetSpotReviewPage() {
                     aria-label={`${value} bintang`}
                     className={value <= rating ? "active" : ""}
                     onClick={() => setRating(value)}
-                  >
-                    ★
-                  </button>
-                ))}
+                  ><LocalizedCopy>{"★"}</LocalizedCopy></LocalizedButton>
+                ))}</LocalizedCopy>
               </div>
               <label>
-                <span>Komentar (opsional)</span>
-                <textarea
+                <span><LocalizedCopy>{"Komentar (opsional)"}</LocalizedCopy></span>
+                <LocalizedTextarea
                   value={comment}
                   maxLength={1000}
                   onChange={(event) => setComment(event.target.value)}
                   placeholder="Ceritakan pelayanan, suasana, dan hal yang kamu suka."
                 />
               </label>
-              {message && (
+              <LocalizedCopy>{message && (
                 <div className="form-message" role="alert">
-                  {message}
+                  <LocalizedCopy>{message}</LocalizedCopy>
                 </div>
-              )}
-              <button className="primary-button full" disabled={busy || rating < 1}>
-                {busy ? "Mengirim…" : "Kirim ulasan"}
-              </button>
+              )}</LocalizedCopy>
+              <LocalizedButton className="primary-button full" disabled={busy || rating < 1}>
+                <LocalizedCopy>{busy ? "Mengirim…" : "Kirim ulasan"}</LocalizedCopy>
+              </LocalizedButton>
             </form>
-          )}
+          )}</LocalizedCopy>
         </div>
       </section>
     </PublicPage>

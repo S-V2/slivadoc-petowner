@@ -1,6 +1,9 @@
 "use client";
+import { SlivaVideo } from "../SlivaVideo";
+import { petOwnerIntlLocale } from "../../lib/petowner-locale";
+import { LocalizedCopy, LocalizedButton } from "../LocalizedCopy";
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import { LocalizedImage as Image } from "../LocalizedCopy";
 import { useStoryClock } from "../../lib/use-story-clock";
 import { storyProgress } from "../../lib/pethub-interactions";
 import {
@@ -71,16 +74,16 @@ export function PetHubStoryView({
         <span style={{ width: `${storyProgress(elapsed) * 100}%` }} />
       </div>
       <div className="hub-story-toolbar">
-        <small>{Math.ceil((30_000 - elapsed) / 1000)} detik</small>
-        <button
+        <small><LocalizedCopy>{Math.ceil((30_000 - elapsed) / 1000)}</LocalizedCopy><LocalizedCopy>{" detik"}</LocalizedCopy></small>
+        <LocalizedButton
           type="button"
           onClick={() => setPaused((value) => !value)}
           aria-label={paused ? "Lanjutkan story" : "Jeda story"}
         >
-          {paused ? "▶" : "Ⅱ"}
-        </button>
+          <LocalizedCopy>{paused ? "▶" : "Ⅱ"}</LocalizedCopy>
+        </LocalizedButton>
       </div>
-      <h2>{story.author_name}</h2>
+      <h2><LocalizedCopy preserve>{story.author_name}</LocalizedCopy></h2>
       <div
         className="hub-story-media"
         onPointerDown={() => setHeld(true)}
@@ -88,11 +91,10 @@ export function PetHubStoryView({
         onPointerCancel={() => setHeld(false)}
         onPointerLeave={() => setHeld(false)}
       >
-        {story.media_type === "video" ? (
-          <video
+        <LocalizedCopy>{story.media_type === "video" ? (
+          <SlivaVideo
             ref={videoRef}
             src={url}
-            controls
             playsInline
             preload="metadata"
             autoPlay
@@ -120,31 +122,25 @@ export function PetHubStoryView({
             onLoad={() => setReady(true)}
             onError={() => setFailed(true)}
           />
-        )}
+        )}</LocalizedCopy>
       </div>
-      {failed ? (
-        <p role="alert">
-          Media belum dapat dimuat. Kamu bisa lanjut ke story berikutnya.
-        </p>
+      <LocalizedCopy>{failed ? (
+        <p role="alert"><LocalizedCopy>{"Media belum dapat dimuat. Kamu bisa lanjut ke story berikutnya."}</LocalizedCopy></p>
       ) : !ready ? (
-        <p role="status">Memuat story…</p>
-      ) : null}
+        <p role="status"><LocalizedCopy>{"Memuat story…"}</LocalizedCopy></p>
+      ) : null}</LocalizedCopy>
       <div className="hub-story-navigation">
-        <button type="button" onClick={previous} disabled={!previous}>
-          ‹ Sebelumnya
-        </button>
-        <small>Tahan foto untuk jeda</small>
-        <button type="button" onClick={next}>
-          Berikutnya ›
-        </button>
+        <LocalizedButton type="button" onClick={previous} disabled={!previous}><LocalizedCopy>{"‹ Sebelumnya"}</LocalizedCopy></LocalizedButton>
+        <small><LocalizedCopy>{"Tahan foto untuk jeda"}</LocalizedCopy></small>
+        <LocalizedButton type="button" onClick={next}><LocalizedCopy>{"Berikutnya ›"}</LocalizedCopy></LocalizedButton>
       </div>
-      <p>{story.caption}</p>
+      <p><LocalizedCopy>{story.caption}</LocalizedCopy></p>
       <small>
-        {views} penonton · Tayang sampai{" "}
-        {new Date(story.expires_at).toLocaleTimeString("id-ID", {
+        <LocalizedCopy>{views}</LocalizedCopy><LocalizedCopy>{" penonton · Tayang sampai"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+        <LocalizedCopy>{new Date(story.expires_at).toLocaleTimeString(petOwnerIntlLocale(), {
           hour: "2-digit",
           minute: "2-digit",
-        })}
+        })}</LocalizedCopy>
       </small>
     </div>
   );

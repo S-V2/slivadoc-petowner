@@ -1,3 +1,6 @@
+import { LocalizedPressable as Pressable } from "./src/components/LocalizedPressable";
+import { SlivaAlertHost } from "./src/components/SlivaAlert";
+import { useResponsiveLayout } from "./src/responsive";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -7,7 +10,7 @@ import {
   Image,
   Modal,
   Platform,
-  Pressable,
+
   ScrollView,
   StyleSheet,
   useWindowDimensions,
@@ -298,6 +301,7 @@ export default function App() {
       <LanguageProvider>
         <MobileNetworkLogger>
           <MobileApp />
+          <SlivaAlertHost />
         </MobileNetworkLogger>
       </LanguageProvider>
     </SafeAreaProvider>
@@ -306,6 +310,7 @@ export default function App() {
 
 function MobileApp() {
   const insets = useSafeAreaInsets();
+  const layout = useResponsiveLayout();
   const { formatCurrency } = useI18n();
   const [tab, setTab] = useState<Tab>("home");
   const [moreOpen, setMoreOpen] = useState(false);
@@ -1109,7 +1114,7 @@ function MobileApp() {
             if (requireLogin()) navigateTo("messages");
           }}
         >
-          <View style={styles.app}>
+          <View style={[styles.app, { width: "100%", maxWidth: layout.contentWidth, alignSelf: "center" }]}>
             {tab !== "home" ? (
               <View style={styles.backBar}>
                 <Pressable
@@ -1763,7 +1768,7 @@ function MoreModal({
   onSelectWorld: (mode: WorldMode) => void;
 }) {
   return (
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={visible}
       transparent
       animationType="slide"
@@ -1887,7 +1892,7 @@ function NotificationModal({
     onClose();
   };
   return (
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={visible}
       transparent
       animationType="slide"
@@ -2023,7 +2028,7 @@ function LoginModal({
       : passwordValid && (mode === "login" || registrationValid));
   return (
     <>
-      <Modal
+      <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
         visible={visible}
         transparent
         animationType="slide"
@@ -2273,7 +2278,7 @@ function LoginModal({
         </Pressable>
       </Modal>
       {policy ? (
-        <Modal
+        <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
           visible
           transparent
           animationType="slide"
@@ -2363,7 +2368,7 @@ function NativeServiceGallery({ service }: { service: Service }) {
           </View>
         ) : null}
       </View>
-      <Modal
+      <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
         visible={previewIndex !== undefined}
         animationType="fade"
         transparent
@@ -2479,7 +2484,7 @@ function BookingModal({
       .finally(() => setAvailabilityLoading(false));
   }, [service.branchId, service.id, visible]);
   return (
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={visible}
       transparent
       animationType="slide"
@@ -3061,7 +3066,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(14,32,55,.42)",
   },
-  sheetWrap: { maxHeight: "88%" },
+  sheetWrap: { maxHeight: "88%", width: "100%", maxWidth: 720, alignSelf: "center" },
   sheet: {
     paddingHorizontal: 16,
     paddingBottom: 20,
@@ -3069,7 +3074,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 32,
     backgroundColor: colors.white,
   },
-  notificationSheetWrap: {
+  notificationSheetWrap: {width: "100%", maxWidth: 720, alignSelf: "center",
     height: "86%",
     overflow: "hidden",
     borderTopLeftRadius: 26,
@@ -3082,7 +3087,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   notificationSheet: { flex: 1, paddingHorizontal: 16, paddingBottom: 4 },
-  moreSheetWrap: { width: "100%", maxHeight: "82%" },
+  moreSheetWrap: {maxWidth: 720, alignSelf: "center",  width: "100%", maxHeight: "82%" },
   moreSheet: {
     maxHeight: "100%",
     flexShrink: 1,
@@ -3267,7 +3272,7 @@ const styles = StyleSheet.create({
   notificationDetailActionText: { color: colors.white, fontSize: 11, fontWeight: "700" },
   notificationDetailInfo: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 10, padding: 11, borderRadius: 13, backgroundColor: colors.sky50 },
   notificationDetailInfoText: { flex: 1, color: colors.muted, fontSize: 9, lineHeight: 14 },
-  loginSheetWrap: { maxHeight: "88%" },
+  loginSheetWrap: { maxHeight: "88%", width: "100%", maxWidth: 720, alignSelf: "center",  },
   loginSheet: {
     maxHeight: "100%",
     paddingHorizontal: 16,
@@ -3348,7 +3353,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textDecorationLine: "underline",
   },
-  legalSheetWrap: { maxHeight: "82%" },
+  legalSheetWrap: {width: "100%", maxWidth: 720, alignSelf: "center",  maxHeight: "82%" },
   legalSheet: {
     maxHeight: "100%",
     gap: 16,
@@ -3537,7 +3542,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.sky600,
   },
-  bookingWrap: { maxHeight: "88%" },
+  bookingWrap: { maxHeight: "88%", width: "100%", maxWidth: 720, alignSelf: "center",  },
   bookingSheet: {
     maxHeight: "100%",
     paddingHorizontal: 16,

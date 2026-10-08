@@ -1,6 +1,7 @@
+import { LocalizedCopy } from "../../../../components/LocalizedCopy";
 import type { Metadata } from "next";
-import Image from "next/image";
-import Link from "next/link";
+import { LocalizedImage as Image } from "../../../../components/LocalizedCopy";
+import { LocalizedLink as Link } from "../../../../components/LocalizedCopy";
 import { notFound } from "next/navigation";
 import JsonLd from "../../../../components/seo/JsonLd";
 import { Breadcrumbs, PublicPage } from "../../../../components/seo/PublicSite";
@@ -74,16 +75,16 @@ function DetailList({
 }) {
   return (
     <article className="seo-card">
-      <small>{title}</small>
-      {values.length ? (
+      <small><LocalizedCopy>{title}</LocalizedCopy></small>
+      <LocalizedCopy>{values.length ? (
         <ul>
-          {values.map((value) => (
-            <li key={value}>{value}</li>
-          ))}
+          <LocalizedCopy>{values.map((value) => (
+            <li key={value}><LocalizedCopy>{value}</LocalizedCopy></li>
+          ))}</LocalizedCopy>
         </ul>
       ) : (
-        <p>{empty}</p>
-      )}
+        <p><LocalizedCopy>{empty}</LocalizedCopy></p>
+      )}</LocalizedCopy>
     </article>
   );
 }
@@ -149,7 +150,7 @@ export default async function PublicServicePage(props: PageProps) {
         />
         <div className="seo-product-detail-grid">
           <div className="seo-product-detail-media">
-            {service.image_url ? (
+            <LocalizedCopy catalogue>{service.image_url ? (
               <Image
                 src={service.image_url}
                 alt={`Foto ${service.name}`}
@@ -159,53 +160,49 @@ export default async function PublicServicePage(props: PageProps) {
                 unoptimized
               />
             ) : (
-              <span aria-hidden="true">🐾</span>
-            )}
+              <span aria-hidden="true"><LocalizedCopy>{"🐾"}</LocalizedCopy></span>
+            )}</LocalizedCopy>
           </div>
           <div className="seo-product-detail-copy">
             <span className="seo-eyebrow">
-              {service.category} · {licenseLabel}
+              <LocalizedCopy>{service.category}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{licenseLabel}</LocalizedCopy>
             </span>
-            <h1>{service.name}</h1>
+            <h1><LocalizedCopy catalogue>{service.name}</LocalizedCopy></h1>
             <p>
-              {service.description ||
-                "Deskripsi rinci belum dicantumkan oleh mitra."}
+              <LocalizedCopy catalogue>{service.description ||
+                "Deskripsi rinci belum dicantumkan oleh mitra."}</LocalizedCopy>
             </p>
             <strong className="seo-product-detail-price">
-              {service.price > 0 ? rupiah.format(service.price) : "Gratis"}
+              <LocalizedCopy>{service.price > 0 ? rupiah.format(service.price) : "Gratis"}</LocalizedCopy>
             </strong>
             <div className="seo-product-facts">
               <span>
-                <b>{service.duration_minutes} menit</b>
-                <small>Durasi layanan</small>
+                <b><LocalizedCopy>{service.duration_minutes}</LocalizedCopy><LocalizedCopy>{" menit"}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"Durasi layanan"}</LocalizedCopy></small>
               </span>
               <span>
-                <b>{service.capacity}</b>
-                <small>Kapasitas per slot</small>
+                <b><LocalizedCopy>{service.capacity}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"Kapasitas per slot"}</LocalizedCopy></small>
               </span>
               <span>
-                <b>{service.city}</b>
-                <small>Lokasi cabang</small>
+                <b><LocalizedCopy>{service.city}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"Lokasi cabang"}</LocalizedCopy></small>
               </span>
             </div>
             <div className="seo-seller-summary">
-              <small>PENYEDIA LAYANAN</small>
+              <small><LocalizedCopy>{"PENYEDIA LAYANAN"}</LocalizedCopy></small>
               <b>
-                {service.business_name} — {service.branch_name}
+                <LocalizedCopy>{service.business_name}</LocalizedCopy><LocalizedCopy>{" — "}</LocalizedCopy><LocalizedCopy>{service.branch_name}</LocalizedCopy>
               </b>
-              <span>{service.address}</span>
-              {service.phone && <span>{service.phone}</span>}
+              <span><LocalizedCopy>{service.address}</LocalizedCopy></span>
+              <LocalizedCopy>{service.phone && <span><LocalizedCopy>{service.phone}</LocalizedCopy></span>}</LocalizedCopy>
             </div>
             <div className="seo-hero-actions">
               <Link
                 className="seo-primary"
                 href={`/?view=discover&service=${service.id}`}
-              >
-                Cek slot & booking
-              </Link>
-              <Link className="seo-secondary" href={`/tempat/${place.slug}`}>
-                Kembali ke profil tempat
-              </Link>
+              ><LocalizedCopy>{"Cek slot & booking"}</LocalizedCopy></Link>
+              <Link className="seo-secondary" href={`/tempat/${place.slug}`}><LocalizedCopy>{"Kembali ke profil tempat"}</LocalizedCopy></Link>
             </div>
           </div>
         </div>
@@ -213,8 +210,8 @@ export default async function PublicServicePage(props: PageProps) {
 
       <section className="seo-main-section">
         <div className="seo-section-heading">
-          <h2>Cakupan dan kebutuhan layanan</h2>
-          <p>Rincian ditampilkan dari katalog aktif milik mitra.</p>
+          <h2><LocalizedCopy>{"Cakupan dan kebutuhan layanan"}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Rincian ditampilkan dari katalog aktif milik mitra."}</LocalizedCopy></p>
         </div>
         <div className="seo-card-grid">
           <DetailList
@@ -247,36 +244,36 @@ export default async function PublicServicePage(props: PageProps) {
 
       <section className="seo-main-section">
         <div className="seo-section-heading">
-          <h2>Jadwal dan kebijakan</h2>
+          <h2><LocalizedCopy>{"Jadwal dan kebijakan"}</LocalizedCopy></h2>
         </div>
         <div className="seo-card-grid">
           <article className="seo-card">
-            <small>Jam operasional</small>
-            {openingHours.length ? (
+            <small><LocalizedCopy>{"Jam operasional"}</LocalizedCopy></small>
+            <LocalizedCopy>{openingHours.length ? (
               <ul>
-                {openingHours.map(([day, value]) => (
+                <LocalizedCopy>{openingHours.map(([day, value]) => (
                   <li key={day}>
-                    {day.toUpperCase()}:{" "}
-                    {Array.isArray(value) ? value.join(", ") : value}
+                    <LocalizedCopy>{day.toUpperCase()}</LocalizedCopy><LocalizedCopy>{":"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                    <LocalizedCopy>{Array.isArray(value) ? value.join(", ") : value}</LocalizedCopy>
                   </li>
-                ))}
+                ))}</LocalizedCopy>
               </ul>
             ) : (
-              <p>Jam operasional belum dicantumkan.</p>
-            )}
+              <p><LocalizedCopy>{"Jam operasional belum dicantumkan."}</LocalizedCopy></p>
+            )}</LocalizedCopy>
           </article>
           <article className="seo-card">
-            <small>Pembatalan</small>
+            <small><LocalizedCopy>{"Pembatalan"}</LocalizedCopy></small>
             <p>
-              {service.cancellation_policy ||
-                "Kebijakan pembatalan belum dicantumkan."}
+              <LocalizedCopy catalogue>{service.cancellation_policy ||
+                "Kebijakan pembatalan belum dicantumkan."}</LocalizedCopy>
             </p>
           </article>
           <article className="seo-card">
-            <small>Perubahan jadwal</small>
+            <small><LocalizedCopy>{"Perubahan jadwal"}</LocalizedCopy></small>
             <p>
-              {service.reschedule_policy ||
-                "Kebijakan perubahan jadwal belum dicantumkan."}
+              <LocalizedCopy>{service.reschedule_policy ||
+                "Kebijakan perubahan jadwal belum dicantumkan."}</LocalizedCopy>
             </p>
           </article>
         </div>

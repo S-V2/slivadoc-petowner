@@ -6,6 +6,7 @@ const app = await readFile(new URL("../mobile/App.tsx", import.meta.url), "utf8"
 const i18n = await readFile(new URL("../mobile/src/i18n.tsx", import.meta.url), "utf8");
 const profile = await readFile(new URL("../mobile/src/screens/ProfileScreen.tsx", import.meta.url), "utf8");
 const marketplace = await readFile(new URL("../mobile/src/screens/MarketplaceScreen.tsx", import.meta.url), "utf8");
+const sharedCopy = await readFile(new URL("../shared/english-copy.ts", import.meta.url), "utf8");
 const theme = await readFile(new URL("../mobile/src/theme.ts", import.meta.url), "utf8");
 const ui = await readFile(new URL("../mobile/src/components/ui.tsx", import.meta.url), "utf8");
 
@@ -47,7 +48,7 @@ test("core journeys include curated English copy", () => {
     '"Kesehatan": ["Health",',
     '"Komunitas": ["Community",',
     '"Privasi & keamanan": ["Privacy & security",',
-  ]) assert.ok(i18n.includes(phrase), `${phrase} must be translated`);
+  ]) assert.ok(sharedCopy.includes(phrase.replace(': [', ': ').replace(/,$/, '')), `${phrase} must be translated`);
 });
 
 test("all primary mobile screens render localized text primitives", () => {

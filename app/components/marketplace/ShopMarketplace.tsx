@@ -1,8 +1,10 @@
 "use client";
+import { petOwnerIntlLocale } from "../../lib/petowner-locale";
+import { LocalizedCopy, LocalizedButton, LocalizedTextarea, LocalizedInput } from "../LocalizedCopy";
 import { SlivaSelect } from "../SlivaSelect";
 import { DiscountBadge } from "../DiscountBadge";
 
-import Image from "next/image";
+import { LocalizedImage as Image } from "../LocalizedCopy";
 import {
   useCallback,
   useDeferredValue,
@@ -84,7 +86,7 @@ function compactNumber(value: number) {
     return `${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1)}jt`;
   if (value >= 1_000)
     return `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}rb`;
-  return Math.max(0, Math.round(value)).toLocaleString("id-ID");
+  return Math.max(0, Math.round(value)).toLocaleString(petOwnerIntlLocale());
 }
 
 function earnedPoints(price: number) {
@@ -103,14 +105,14 @@ function MarketplaceStars({
       className="market-stars"
       aria-label={`Rating ${value.toFixed(1)} dari 5`}
     >
-      {Array.from({ length: 5 }, (_, index) => (
+      <LocalizedCopy>{Array.from({ length: 5 }, (_, index) => (
         <Icon
           key={index}
           name="star"
           size={size}
           data-active={index < Math.round(value)}
         />
-      ))}
+      ))}</LocalizedCopy>
     </span>
   );
 }
@@ -128,11 +130,11 @@ function StoreAvatar({
 }) {
   return (
     <span className={`market-store-avatar ${large ? "is-large" : ""}`}>
-      {logoUrl ? (
+      <LocalizedCopy>{logoUrl ? (
         <Image src={logoUrl} alt={`Logo ${name}`} fill sizes={large ? "84px" : "34px"} unoptimized />
       ) : (
-        <b>{name.trim().slice(0, 1).toUpperCase() || "S"}</b>
-      )}
+        <b><LocalizedCopy>{name.trim().slice(0, 1).toUpperCase() || "S"}</LocalizedCopy></b>
+      )}</LocalizedCopy>
       <i className={online ? "is-online" : ""} aria-hidden="true" />
     </span>
   );
@@ -143,7 +145,7 @@ function storePresenceLabel(online: boolean, lastSeen?: string) {
   if (!lastSeen) return "Terakhir online belum tersedia";
   const value = new Date(lastSeen);
   if (Number.isNaN(value.getTime())) return "Terakhir online belum tersedia";
-  return `Terakhir online ${value.toLocaleString("id-ID", {
+  return `Terakhir online ${value.toLocaleString(petOwnerIntlLocale(), {
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -173,9 +175,9 @@ function ProductPicture({
   return (
     <>
     <div className={detail ? "market-product-gallery" : "market-card-picture"}>
-      {imageUrl ? (
+      <LocalizedCopy catalogue>{imageUrl ? (
         <>
-          <button type="button" className={detail ? "market-detail-picture" : "market-card-image-button"} onClick={() => detail && setViewerOpen(true)} aria-label={detail ? `Perbesar foto ${product.name}` : undefined}>
+          <LocalizedButton type="button" className={detail ? "market-detail-picture" : "market-card-image-button"} onClick={() => detail && setViewerOpen(true)} aria-label={detail ? `Perbesar foto ${product.name}` : undefined}>
             <Image
               src={imageUrl}
               alt={`Foto ${product.name}`}
@@ -183,10 +185,10 @@ function ProductPicture({
               sizes={detail ? "(max-width: 860px) 100vw, 45vw" : "(max-width: 580px) 50vw, 22vw"}
               unoptimized
             />
-            {detail && images.length > 1 && <span className="market-gallery-count"><Icon name="camera" size={13} /> {activeImage + 1}/{images.length}</span>}
-          </button>
+            <LocalizedCopy>{detail && images.length > 1 && <span className="market-gallery-count"><Icon name="camera" size={13} /> <LocalizedCopy>{activeImage + 1}</LocalizedCopy><LocalizedCopy>{"/"}</LocalizedCopy><LocalizedCopy>{images.length}</LocalizedCopy></span>}</LocalizedCopy>
+          </LocalizedButton>
           {detail && images.length > 1 && <div className="market-gallery-thumbs" aria-label="Pilih foto produk">
-            {images.map((url, index) => <button type="button" className={index === activeImage ? "active" : ""} key={url} onClick={() => setActiveImage(index)} aria-label={`Foto ${index + 1}`}><Image src={url} alt="" fill sizes="64px" unoptimized /></button>)}
+            <LocalizedCopy>{images.map((url, index) => <LocalizedButton type="button" className={index === activeImage ? "active" : ""} key={url} onClick={() => setActiveImage(index)} aria-label={`Foto ${index + 1}`}><Image src={url} alt="" fill sizes="64px" unoptimized /></LocalizedButton>)}</LocalizedCopy>
           </div>}
         </>
       ) : (
@@ -195,15 +197,15 @@ function ProductPicture({
           aria-label={`Ilustrasi ${product.name}`}
         >
           <i />
-          <span>{product.emoji}</span>
-          <small>{product.category}</small>
+          <span><LocalizedCopy>{product.emoji}</LocalizedCopy></span>
+          <small><LocalizedCopy>{product.category}</LocalizedCopy></small>
         </div>
-      )}
+      )}</LocalizedCopy>
     </div>
     {viewerOpen && imageUrl && <div className="market-image-viewer" role="dialog" aria-modal="true" aria-label={`Galeri ${product.name}`} onMouseDown={() => setViewerOpen(false)}>
-      <button type="button" className="market-image-viewer-close" onClick={() => setViewerOpen(false)} aria-label="Tutup galeri"><Icon name="close" size={22} /></button>
+      <LocalizedButton type="button" className="market-image-viewer-close" onClick={() => setViewerOpen(false)} aria-label="Tutup galeri"><Icon name="close" size={22} /></LocalizedButton>
       <div className="market-image-viewer-stage" onMouseDown={(event) => event.stopPropagation()}><Image src={imageUrl} alt={`Foto ${activeImage + 1} ${product.name}`} fill sizes="100vw" unoptimized /></div>
-      {images.length > 1 && <div className="market-image-viewer-nav"><button type="button" onClick={() => setActiveImage((activeImage - 1 + images.length) % images.length)} aria-label="Foto sebelumnya">‹</button><span>{activeImage + 1} / {images.length}</span><button type="button" onClick={() => setActiveImage((activeImage + 1) % images.length)} aria-label="Foto berikutnya">›</button></div>}
+      <LocalizedCopy>{images.length > 1 && <div className="market-image-viewer-nav"><LocalizedButton type="button" onClick={() => setActiveImage((activeImage - 1 + images.length) % images.length)} aria-label="Foto sebelumnya"><LocalizedCopy>{"‹"}</LocalizedCopy></LocalizedButton><span><LocalizedCopy>{activeImage + 1}</LocalizedCopy><LocalizedCopy>{" / "}</LocalizedCopy><LocalizedCopy>{images.length}</LocalizedCopy></span><LocalizedButton type="button" onClick={() => setActiveImage((activeImage + 1) % images.length)} aria-label="Foto berikutnya"><LocalizedCopy>{"›"}</LocalizedCopy></LocalizedButton></div>}</LocalizedCopy>
     </div>}
     </>
   );
@@ -254,12 +256,12 @@ function ProductCard({
         <span
           className={`market-card-badge ${!product.available ? "is-empty" : ""}`}
         >
-          {badge}
+          <LocalizedCopy>{badge}</LocalizedCopy>
         </span>
-        {discountPercent > 0 ? (
+        <LocalizedCopy>{discountPercent > 0 ? (
           <DiscountBadge percent={discountPercent} />
-        ) : null}
-        <button
+        ) : null}</LocalizedCopy>
+        <LocalizedButton
           className={`market-favorite ${favorite ? "is-favorite" : ""}`}
           type="button"
           aria-label={
@@ -273,17 +275,17 @@ function ProductCard({
           }}
         >
           <Icon name="heart" size={17} />
-        </button>
+        </LocalizedButton>
       </div>
 
       <div className="market-card-content">
-        <span className="market-card-category">{product.category}</span>
-        <h3>{product.name}</h3>
+        <span className="market-card-category"><LocalizedCopy>{product.category}</LocalizedCopy></span>
+        <h3><LocalizedCopy catalogue>{product.name}</LocalizedCopy></h3>
         <p className="market-card-description">
-          {product.description ||
-            "Kebutuhan pet pilihan dari partner Slivadoc."}
+          <LocalizedCopy catalogue>{product.description ||
+            "Kebutuhan pet pilihan dari partner Slivadoc."}</LocalizedCopy>
         </p>
-        <button
+        <LocalizedButton
           type="button"
           className="market-card-seller"
           onClick={(event) => {
@@ -297,53 +299,49 @@ function ProductCard({
             online={product.storeIsOnline}
           />
           <span>
-            <b>{product.businessName}</b>
-            <small>{storePresenceLabel(Boolean(product.storeIsOnline), product.storeLastSeenAt)}</small>
+            <b><LocalizedCopy>{product.businessName}</LocalizedCopy></b>
+            <small><LocalizedCopy>{storePresenceLabel(Boolean(product.storeIsOnline), product.storeLastSeenAt)}</LocalizedCopy></small>
           </span>
-        </button>
+        </LocalizedButton>
         <div className="market-card-price-wrap">
-          {discountPercent > 0 ? (
-            <span><s>{formatRupiah(product.originalPrice!)}</s><em>Hemat {discountPercent}%</em></span>
-          ) : null}
-          <strong className="market-card-price">{formatRupiah(product.price)}</strong>
+          <LocalizedCopy>{discountPercent > 0 ? (
+            <span><s><LocalizedCopy>{formatRupiah(product.originalPrice!)}</LocalizedCopy></s><em><LocalizedCopy>{"Hemat "}</LocalizedCopy><LocalizedCopy>{discountPercent}</LocalizedCopy><LocalizedCopy>{"%"}</LocalizedCopy></em></span>
+          ) : null}</LocalizedCopy>
+          <strong className="market-card-price"><LocalizedCopy>{formatRupiah(product.price)}</LocalizedCopy></strong>
         </div>
         <div className="market-card-social-proof">
           <span>
             <Icon name="star" size={12} />
-            {product.reviewCount ? product.rating.toFixed(1) : "Baru"}
-            {product.reviewCount
+            <LocalizedCopy>{product.reviewCount ? product.rating.toFixed(1) : "Baru"}</LocalizedCopy>
+            <LocalizedCopy>{product.reviewCount
               ? ` (${compactNumber(product.reviewCount)})`
-              : ""}
+              : ""}</LocalizedCopy>
           </span>
           <i />
-          <span>{compactNumber(product.soldCount)} terjual</span>
+          <span><LocalizedCopy>{compactNumber(product.soldCount)}</LocalizedCopy><LocalizedCopy>{" terjual"}</LocalizedCopy></span>
         </div>
         <div className="market-card-fulfillment">
           <span>
-            <Icon name="map" size={12} /> {product.city}
+            <Icon name="map" size={12} /> <LocalizedCopy>{product.city}</LocalizedCopy>
           </span>
           <span>
-            {product.available
+            <LocalizedCopy>{product.available
               ? `Stok ${compactNumber(product.stock)}`
-              : "Tidak tersedia"}
+              : "Tidak tersedia"}</LocalizedCopy>
           </span>
         </div>
         <div className="market-card-reward">
-          <Icon name="sparkle" size={12} />
-          Dapatkan {earnedPoints(product.price).toLocaleString("id-ID")} Sliva
-          Point
-        </div>
+          <Icon name="sparkle" size={12} /><LocalizedCopy>{"Dapatkan "}</LocalizedCopy><LocalizedCopy>{earnedPoints(product.price).toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" Sliva Point"}</LocalizedCopy></div>
         <footer>
-          <button
+          <LocalizedButton
             type="button"
             className="market-detail-link"
             onClick={(event) => {
               event.stopPropagation();
               onOpen();
             }}
-          >
-            Detail <Icon name="arrow" size={14} />
-          </button>
+          ><LocalizedCopy>{"Detail "}</LocalizedCopy><Icon name="arrow" size={14} />
+          </LocalizedButton>
         </footer>
       </div>
     </article>
@@ -416,27 +414,26 @@ function ProductReviews({
     <section className="market-reviews" aria-labelledby="market-review-title">
       <header className="market-section-heading">
         <div>
-          <span>SUARA PET PARENT</span>
-          <h2 id="market-review-title">Ulasan & komentar</h2>
-          <p>Semua komentar berasal dari pembelian yang sudah dibayar.</p>
+          <span><LocalizedCopy>{"SUARA PET PARENT"}</LocalizedCopy></span>
+          <h2 id="market-review-title"><LocalizedCopy>{"Ulasan & komentar"}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Semua komentar berasal dari pembelian yang sudah dibayar."}</LocalizedCopy></p>
         </div>
-        <span className="market-review-count">{reviews.length} ulasan</span>
+        <span className="market-review-count"><LocalizedCopy>{reviews.length}</LocalizedCopy><LocalizedCopy>{" ulasan"}</LocalizedCopy></span>
       </header>
 
       <div className="market-review-overview">
         <div className="market-review-score">
-          <strong>{reviews.length ? average.toFixed(1) : "–"}</strong>
-          <span>dari 5</span>
+          <strong><LocalizedCopy>{reviews.length ? average.toFixed(1) : "–"}</LocalizedCopy></strong>
+          <span><LocalizedCopy>{"dari 5"}</LocalizedCopy></span>
           <MarketplaceStars value={average} size={15} />
           <small>
-            {product.reviewCount.toLocaleString("id-ID")} rating terkumpul
-          </small>
+            <LocalizedCopy>{product.reviewCount.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" rating terkumpul"}</LocalizedCopy></small>
         </div>
         <div className="market-rating-bars" aria-label="Distribusi rating">
-          {distribution.map(({ score, count }) => (
+          <LocalizedCopy>{distribution.map(({ score, count }) => (
             <div key={score}>
               <span>
-                {score} <Icon name="star" size={11} />
+                <LocalizedCopy>{score}</LocalizedCopy> <Icon name="star" size={11} />
               </span>
               <i>
                 <b
@@ -445,9 +442,9 @@ function ProductReviews({
                   }}
                 />
               </i>
-              <small>{count}</small>
+              <small><LocalizedCopy>{count}</LocalizedCopy></small>
             </div>
-          ))}
+          ))}</LocalizedCopy>
         </div>
       </div>
 
@@ -456,8 +453,8 @@ function ProductReviews({
         role="tablist"
         aria-label="Filter ulasan"
       >
-        {(["all", 5, 4, 3, 2, 1] as ReviewFilter[]).map((value) => (
-          <button
+        <LocalizedCopy>{(["all", 5, 4, 3, 2, 1] as ReviewFilter[]).map((value) => (
+          <LocalizedButton
             key={value}
             type="button"
             role="tab"
@@ -468,63 +465,59 @@ function ProductReviews({
               setReviewLimit(5);
             }}
           >
-            {value === "all" ? "Semua" : `${value} bintang`}
-          </button>
-        ))}
+            <LocalizedCopy>{value === "all" ? "Semua" : `${value} bintang`}</LocalizedCopy>
+          </LocalizedButton>
+        ))}</LocalizedCopy>
       </div>
 
-      {loading ? (
+      <LocalizedCopy>{loading ? (
         <div className="market-review-state">
           <i />
-          <span>Memuat ulasan terbaru…</span>
+          <span><LocalizedCopy>{"Memuat ulasan terbaru…"}</LocalizedCopy></span>
         </div>
       ) : error ? (
         <div className="market-review-state is-error">
           <Icon name="chat" size={22} />
-          <span>{error}</span>
+          <span><LocalizedCopy>{error}</LocalizedCopy></span>
         </div>
       ) : filteredReviews.length ? (
         <div className="market-review-list">
-          {visibleReviews.map((review) => (
+          <LocalizedCopy>{visibleReviews.map((review) => (
             <article key={review.id} className="market-review-card">
               <span className="market-review-avatar">
-                {review.reviewer_name.slice(0, 1).toUpperCase() || "P"}
+                <LocalizedCopy>{review.reviewer_name.slice(0, 1).toUpperCase() || "P"}</LocalizedCopy>
               </span>
               <div>
                 <header>
                   <div>
-                    <b>{review.reviewer_name}</b>
+                    <b><LocalizedCopy preserve>{review.reviewer_name}</LocalizedCopy></b>
                     <span>
-                      <Icon name="shield" size={11} /> Pembelian terverifikasi
-                    </span>
+                      <Icon name="shield" size={11} /><LocalizedCopy>{" Pembelian terverifikasi"}</LocalizedCopy></span>
                   </div>
                   <time dateTime={review.updated_at || review.created_at}>
-                    {new Date(
+                    <LocalizedCopy>{new Date(
                       review.updated_at || review.created_at,
-                    ).toLocaleDateString("id-ID", {
+                    ).toLocaleDateString(petOwnerIntlLocale(), {
                       day: "numeric",
                       month: "short",
                       year: "numeric",
-                    })}
+                    })}</LocalizedCopy>
                   </time>
                 </header>
                 <MarketplaceStars value={review.rating} size={12} />
-                <p>{review.comment}</p>
+                <p><LocalizedCopy>{review.comment}</LocalizedCopy></p>
               </div>
             </article>
-          ))}
-          {visibleReviews.length < filteredReviews.length && (
-            <button
+          ))}</LocalizedCopy>
+          <LocalizedCopy>{visibleReviews.length < filteredReviews.length && (
+            <LocalizedButton
               className="market-review-more"
               type="button"
               onClick={() => setReviewLimit((current) => current + 5)}
-            >
-              Lihat{" "}
-              {Math.min(5, filteredReviews.length - visibleReviews.length)}{" "}
-              ulasan berikutnya
-              <Icon name="chevron" size={14} />
-            </button>
-          )}
+            ><LocalizedCopy>{"Lihat"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+              <LocalizedCopy>{Math.min(5, filteredReviews.length - visibleReviews.length)}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"ulasan berikutnya"}</LocalizedCopy><Icon name="chevron" size={14} />
+            </LocalizedButton>
+          )}</LocalizedCopy>
         </div>
       ) : (
         <div className="market-review-empty">
@@ -533,14 +526,14 @@ function ProductReviews({
           </span>
           <div>
             <b>
-              {filter === "all"
+              <LocalizedCopy>{filter === "all"
                 ? "Belum ada komentar"
-                : `Belum ada rating ${filter} bintang`}
+                : `Belum ada rating ${filter} bintang`}</LocalizedCopy>
             </b>
-            <p>Bagikan pengalamanmu setelah pesanan dibayar.</p>
+            <p><LocalizedCopy>{"Bagikan pengalamanmu setelah pesanan dibayar."}</LocalizedCopy></p>
           </div>
         </div>
-      )}
+      )}</LocalizedCopy>
 
       <form className="market-review-composer" onSubmit={submit}>
         <div>
@@ -548,45 +541,45 @@ function ProductReviews({
             <Icon name="chat" size={20} />
           </span>
           <div>
-            <b>Tulis ulasanmu</b>
-            <p>Ulasan dapat dikirim oleh pembeli terverifikasi.</p>
+            <b><LocalizedCopy>{"Tulis ulasanmu"}</LocalizedCopy></b>
+            <p><LocalizedCopy>{"Ulasan dapat dikirim oleh pembeli terverifikasi."}</LocalizedCopy></p>
           </div>
         </div>
         <fieldset>
-          <legend>Rating produk</legend>
+          <legend><LocalizedCopy>{"Rating produk"}</LocalizedCopy></legend>
           <div>
-            {Array.from({ length: 5 }, (_, index) => (
-              <button
+            <LocalizedCopy>{Array.from({ length: 5 }, (_, index) => (
+              <LocalizedButton
                 key={index}
                 type="button"
                 aria-label={`${index + 1} bintang`}
                 onClick={() => setRating(index + 1)}
               >
                 <Icon name="star" size={22} data-active={index < rating} />
-              </button>
-            ))}
-            <span>{rating}/5</span>
+              </LocalizedButton>
+            ))}</LocalizedCopy>
+            <span><LocalizedCopy>{rating}</LocalizedCopy><LocalizedCopy>{"/5"}</LocalizedCopy></span>
           </div>
         </fieldset>
         <label>
-          <span>Komentar</span>
-          <textarea
+          <span><LocalizedCopy>{"Komentar"}</LocalizedCopy></span>
+          <LocalizedTextarea
             value={comment}
             onChange={(event) => setComment(event.target.value)}
             maxLength={1000}
             placeholder="Ceritakan kualitas produk, kemasan, dan reaksi pet-mu…"
           />
-          <small>{comment.length}/1000 karakter</small>
+          <small><LocalizedCopy>{comment.length}</LocalizedCopy><LocalizedCopy>{"/1000 karakter"}</LocalizedCopy></small>
         </label>
-        {validation && <p className="market-form-error">{validation}</p>}
-        <button type="submit" disabled={submitting}>
+        <LocalizedCopy>{validation && <p className="market-form-error"><LocalizedCopy>{validation}</LocalizedCopy></p>}</LocalizedCopy>
+        <LocalizedButton type="submit" disabled={submitting}>
           <Icon name={authenticated ? "chat" : "user"} size={16} />
-          {submitting
+          <LocalizedCopy>{submitting
             ? "Mempublikasikan…"
             : authenticated
               ? "Publikasikan ulasan"
-              : "Masuk untuk memberi ulasan"}
-        </button>
+              : "Masuk untuk memberi ulasan"}</LocalizedCopy>
+        </LocalizedButton>
       </form>
     </section>
   );
@@ -671,13 +664,12 @@ function ProductDetail({
   return (
     <div className="market-product-detail">
       <nav className="market-breadcrumb" aria-label="Breadcrumb">
-        <button type="button" onClick={onBack}>
-          <Icon name="arrow" size={15} /> Marketplace
-        </button>
+        <LocalizedButton type="button" onClick={onBack}>
+          <Icon name="arrow" size={15} /><LocalizedCopy>{" Marketplace"}</LocalizedCopy></LocalizedButton>
         <Icon name="chevron" size={13} />
-        <span>{product.category}</span>
+        <span><LocalizedCopy>{product.category}</LocalizedCopy></span>
         <Icon name="chevron" size={13} />
-        <strong>{product.name}</strong>
+        <strong><LocalizedCopy catalogue>{product.name}</LocalizedCopy></strong>
       </nav>
 
       <section className="market-detail-hero">
@@ -687,68 +679,66 @@ function ProductDetail({
           <div className="market-detail-assurance">
             <span>
               <Icon name="shield" size={17} />
-              <b>Belanja terlindungi</b>
-              <small>Pembayaran aman</small>
+              <b><LocalizedCopy>{"Belanja terlindungi"}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Pembayaran aman"}</LocalizedCopy></small>
             </span>
             <span>
               <Icon name="check" size={17} />
-              <b>Stok langsung</b>
-              <small>Dari sistem partner</small>
+              <b><LocalizedCopy>{"Stok langsung"}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Dari sistem partner"}</LocalizedCopy></small>
             </span>
             <span>
               <Icon name="map" size={17} />
-              <b>Pengiriman jelas</b>
-              <small>Asal toko tertera</small>
+              <b><LocalizedCopy>{"Pengiriman jelas"}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Asal toko tertera"}</LocalizedCopy></small>
             </span>
           </div>
         </div>
 
         <div className="market-detail-main">
           <div className="market-detail-labels">
-            <span>{product.category}</span>
-            {product.available ? (
-              <em>Siap dikirim</em>
+            <span><LocalizedCopy>{product.category}</LocalizedCopy></span>
+            <LocalizedCopy>{product.available ? (
+              <em><LocalizedCopy>{"Siap dikirim"}</LocalizedCopy></em>
             ) : (
-              <em className="is-empty">Stok habis</em>
-            )}
+              <em className="is-empty"><LocalizedCopy>{"Stok habis"}</LocalizedCopy></em>
+            )}</LocalizedCopy>
           </div>
           <div className="market-detail-title-row">
-            <h1>{product.name}</h1>
-            <button
+            <h1><LocalizedCopy catalogue>{product.name}</LocalizedCopy></h1>
+            <LocalizedButton
               className={favorite ? "is-favorite" : ""}
               type="button"
               aria-label={favorite ? "Hapus dari favorit" : "Simpan ke favorit"}
               onClick={onFavorite}
             >
               <Icon name="heart" size={20} />
-            </button>
+            </LocalizedButton>
           </div>
           <div className="market-detail-rating">
             <MarketplaceStars value={product.rating} />
             <b>
-              {product.reviewCount ? product.rating.toFixed(1) : "Produk baru"}
+              <LocalizedCopy>{product.reviewCount ? product.rating.toFixed(1) : "Produk baru"}</LocalizedCopy>
             </b>
-            <span>{product.reviewCount.toLocaleString("id-ID")} ulasan</span>
+            <span><LocalizedCopy>{product.reviewCount.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" ulasan"}</LocalizedCopy></span>
             <i />
-            <span>{compactNumber(product.soldCount)} terjual</span>
+            <span><LocalizedCopy>{compactNumber(product.soldCount)}</LocalizedCopy><LocalizedCopy>{" terjual"}</LocalizedCopy></span>
           </div>
           <div className="market-detail-price-block">
-            {discountPercent > 0 ? (
-              <span><s>{formatRupiah(product.originalPrice!)}</s></span>
-            ) : null}
-            <strong className="market-detail-price">{formatRupiah(product.price)}</strong>
-            {discountPercent > 0 ? <small>Kamu hemat {formatRupiah(product.originalPrice! - product.price)}</small> : null}
+            <LocalizedCopy>{discountPercent > 0 ? (
+              <span><s><LocalizedCopy>{formatRupiah(product.originalPrice!)}</LocalizedCopy></s></span>
+            ) : null}</LocalizedCopy>
+            <strong className="market-detail-price"><LocalizedCopy>{formatRupiah(product.price)}</LocalizedCopy></strong>
+            <LocalizedCopy>{discountPercent > 0 ? <small><LocalizedCopy>{"Kamu hemat "}</LocalizedCopy><LocalizedCopy>{formatRupiah(product.originalPrice! - product.price)}</LocalizedCopy></small> : null}</LocalizedCopy>
           </div>
           <p className="market-detail-points">
-            <Icon name="sparkle" size={15} />
-            Transaksi ini menghasilkan{" "}
+            <Icon name="sparkle" size={15} /><LocalizedCopy>{"Transaksi ini menghasilkan"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
             <b>
-              {earnedPoints(product.price).toLocaleString("id-ID")} Sliva Point
-            </b>
+              <LocalizedCopy>{earnedPoints(product.price).toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" Sliva Point"}</LocalizedCopy></b>
           </p>
 
           <div className="market-seller-card">
-            <button type="button" className="market-seller-profile" onClick={onOpenStore}>
+            <LocalizedButton type="button" className="market-seller-profile" onClick={onOpenStore}>
               <StoreAvatar
                 name={product.businessName}
                 logoUrl={product.storeLogoUrl}
@@ -756,157 +746,146 @@ function ProductDetail({
                 large
               />
               <span>
-                <small>DIJUAL OLEH</small>
-                <b>{product.businessName}</b>
+                <small><LocalizedCopy>{"DIJUAL OLEH"}</LocalizedCopy></small>
+                <b><LocalizedCopy>{product.businessName}</LocalizedCopy></b>
                 <p>
-                  <Icon name="map" size={12} /> {product.branchName} ·{" "}
-                  {product.city}
+                  <Icon name="map" size={12} /> <LocalizedCopy>{product.branchName}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                  <LocalizedCopy>{product.city}</LocalizedCopy>
                 </p>
                 <p className={product.storeIsOnline ? "is-online" : ""}>
-                  {storePresenceLabel(Boolean(product.storeIsOnline), product.storeLastSeenAt)}
+                  <LocalizedCopy>{storePresenceLabel(Boolean(product.storeIsOnline), product.storeLastSeenAt)}</LocalizedCopy>
                 </p>
               </span>
-            </button>
+            </LocalizedButton>
             <em>
-              <Icon name="shield" size={12} /> {licenseLabel}
+              <Icon name="shield" size={12} /> <LocalizedCopy>{licenseLabel}</LocalizedCopy>
             </em>
             <div className="market-seller-actions">
-              <button type="button" onClick={onChat}>
-                <Icon name="chat" size={15} /> Chat toko
-              </button>
-              <button type="button" onClick={onOpenStore}>
-                Kunjungi toko <Icon name="arrow" size={14} />
-              </button>
+              <LocalizedButton type="button" onClick={onChat}>
+                <Icon name="chat" size={15} /><LocalizedCopy>{" Chat toko"}</LocalizedCopy></LocalizedButton>
+              <LocalizedButton type="button" onClick={onOpenStore}><LocalizedCopy>{"Kunjungi toko "}</LocalizedCopy><Icon name="arrow" size={14} />
+              </LocalizedButton>
             </div>
           </div>
 
           <div className="market-detail-copy">
-            <h2>Tentang produk</h2>
+            <h2><LocalizedCopy>{"Tentang produk"}</LocalizedCopy></h2>
             <p>
-              {product.description ||
-                "Deskripsi produk belum dicantumkan oleh penjual."}
+              <LocalizedCopy catalogue>{product.description ||
+                "Deskripsi produk belum dicantumkan oleh penjual."}</LocalizedCopy>
             </p>
           </div>
 
           <dl className="market-product-facts">
             <div>
-              <dt>Stok</dt>
+              <dt><LocalizedCopy>{"Stok"}</LocalizedCopy></dt>
               <dd>
-                {product.available
-                  ? `${product.stock.toLocaleString("id-ID")} tersedia`
-                  : "Habis"}
+                <LocalizedCopy>{product.available
+                  ? `${product.stock.toLocaleString(petOwnerIntlLocale())} tersedia`
+                  : "Habis"}</LocalizedCopy>
               </dd>
             </div>
             <div>
-              <dt>SKU</dt>
-              <dd>{product.sku}</dd>
+              <dt><LocalizedCopy>{"SKU"}</LocalizedCopy></dt>
+              <dd><LocalizedCopy>{product.sku}</LocalizedCopy></dd>
             </div>
             <div>
-              <dt>Kategori</dt>
-              <dd>{product.category}</dd>
+              <dt><LocalizedCopy>{"Kategori"}</LocalizedCopy></dt>
+              <dd><LocalizedCopy>{product.category}</LocalizedCopy></dd>
             </div>
-            {product.barcode && (
+            <LocalizedCopy>{product.barcode && (
               <div>
-                <dt>Barcode</dt>
-                <dd>{product.barcode}</dd>
+                <dt><LocalizedCopy>{"Barcode"}</LocalizedCopy></dt>
+                <dd><LocalizedCopy>{product.barcode}</LocalizedCopy></dd>
               </div>
-            )}
+            )}</LocalizedCopy>
           </dl>
 
           <section className="market-product-disclosures">
             <div>
-              <h2>Identitas & kepatuhan produk</h2>
-              {complianceFacts.length ? (
+              <h2><LocalizedCopy>{"Identitas & kepatuhan produk"}</LocalizedCopy></h2>
+              <LocalizedCopy>{complianceFacts.length ? (
                 <dl>
-                  {complianceFacts.map(([label, value]) => (
+                  <LocalizedCopy>{complianceFacts.map(([label, value]) => (
                     <div key={label}>
-                      <dt>{label}</dt>
-                      <dd>{value}</dd>
+                      <dt><LocalizedCopy>{label}</LocalizedCopy></dt>
+                      <dd><LocalizedCopy>{value}</LocalizedCopy></dd>
                     </div>
-                  ))}
+                  ))}</LocalizedCopy>
                 </dl>
               ) : (
-                <p>
-                  Penjual belum melengkapi identitas atau nomor kepatuhan
-                  produk.
-                </p>
-              )}
+                <p><LocalizedCopy>{"Penjual belum melengkapi identitas atau nomor kepatuhan produk."}</LocalizedCopy></p>
+              )}</LocalizedCopy>
             </div>
             <div>
-              <h2>Penggunaan yang aman</h2>
-              {usageFacts.length ? (
+              <h2><LocalizedCopy>{"Penggunaan yang aman"}</LocalizedCopy></h2>
+              <LocalizedCopy>{usageFacts.length ? (
                 <dl>
-                  {usageFacts.map(([label, value]) => (
+                  <LocalizedCopy>{usageFacts.map(([label, value]) => (
                     <div key={label}>
-                      <dt>{label}</dt>
-                      <dd>{value}</dd>
+                      <dt><LocalizedCopy>{label}</LocalizedCopy></dt>
+                      <dd><LocalizedCopy>{value}</LocalizedCopy></dd>
                     </div>
-                  ))}
+                  ))}</LocalizedCopy>
                 </dl>
               ) : (
-                <p>Petunjuk penggunaan belum dicantumkan oleh penjual.</p>
-              )}
+                <p><LocalizedCopy>{"Petunjuk penggunaan belum dicantumkan oleh penjual."}</LocalizedCopy></p>
+              )}</LocalizedCopy>
             </div>
             <div>
-              <h2>Retur & garansi</h2>
+              <h2><LocalizedCopy>{"Retur & garansi"}</LocalizedCopy></h2>
               <p>
-                {product.returnPolicy ||
-                  "Kebijakan retur belum dicantumkan oleh penjual."}
+                <LocalizedCopy>{product.returnPolicy ||
+                  "Kebijakan retur belum dicantumkan oleh penjual."}</LocalizedCopy>
               </p>
-              {product.warrantyPolicy && <p>{product.warrantyPolicy}</p>}
+              <LocalizedCopy>{product.warrantyPolicy && <p><LocalizedCopy>{product.warrantyPolicy}</LocalizedCopy></p>}</LocalizedCopy>
             </div>
           </section>
 
           <div className="market-purchase-box">
             <label>
-              <span>Jumlah</span>
+              <span><LocalizedCopy>{"Jumlah"}</LocalizedCopy></span>
               <div className="market-quantity">
-                <button
+                <LocalizedButton
                   type="button"
                   aria-label="Kurangi jumlah"
                   disabled={quantity <= 1}
                   onClick={() => setQuantity((value) => Math.max(1, value - 1))}
-                >
-                  −
-                </button>
-                <strong>{quantity}</strong>
-                <button
+                ><LocalizedCopy>{"−"}</LocalizedCopy></LocalizedButton>
+                <strong><LocalizedCopy>{quantity}</LocalizedCopy></strong>
+                <LocalizedButton
                   type="button"
                   aria-label="Tambah jumlah"
                   disabled={quantity >= product.stock}
                   onClick={() =>
                     setQuantity((value) => Math.min(product.stock, value + 1))
                   }
-                >
-                  +
-                </button>
+                ><LocalizedCopy>{"+"}</LocalizedCopy></LocalizedButton>
               </div>
             </label>
             <p>
-              <span>Subtotal</span>
-              <b>{formatRupiah(product.price * quantity)}</b>
+              <span><LocalizedCopy>{"Subtotal"}</LocalizedCopy></span>
+              <b><LocalizedCopy>{formatRupiah(product.price * quantity)}</LocalizedCopy></b>
             </p>
             <div>
-              <button
+              <LocalizedButton
                 type="button"
                 disabled={!product.available || adding}
                 aria-busy={adding}
                 onClick={() => void addProduct()}
               >
-                {adding ? (
+                <LocalizedCopy>{adding ? (
                   <span className="market-add-spinner" aria-hidden="true" />
                 ) : (
                   <Icon name="cart" size={17} />
-                )}
-                {adding ? "Menambahkan…" : "+ Keranjang"}
-              </button>
-              <button
+                )}</LocalizedCopy>
+                <LocalizedCopy>{adding ? "Menambahkan…" : "+ Keranjang"}</LocalizedCopy>
+              </LocalizedButton>
+              <LocalizedButton
                 type="button"
                 disabled={!product.available}
                 onClick={() => onBuy(quantity)}
-              >
-                Beli sekarang
-              </button>
+              ><LocalizedCopy>{"Beli sekarang"}</LocalizedCopy></LocalizedButton>
             </div>
           </div>
         </div>
@@ -1011,7 +990,7 @@ export function MarketplaceChatPanel({
 
   return (
     <div className="market-chat-layer" role="dialog" aria-modal="true" aria-label={`Chat dengan ${store.name}`}>
-      <button type="button" className="market-chat-scrim" aria-label="Tutup chat" onClick={onClose} />
+      <LocalizedButton type="button" className="market-chat-scrim" aria-label="Tutup chat" onClick={onClose} />
       <section className="market-chat-panel">
         <header>
           <StoreAvatar
@@ -1020,28 +999,27 @@ export function MarketplaceChatPanel({
             online={store.is_online}
           />
           <div>
-            <b>{store.name}</b>
+            <b><LocalizedCopy>{store.name}</LocalizedCopy></b>
             <span className={store.is_online ? "is-online" : ""}>
-              {storePresenceLabel(store.is_online, store.last_seen_at)}
+              <LocalizedCopy>{storePresenceLabel(store.is_online, store.last_seen_at)}</LocalizedCopy>
             </span>
           </div>
-          <button type="button" aria-label="Tutup chat" onClick={onClose}>
+          <LocalizedButton type="button" aria-label="Tutup chat" onClick={onClose}>
             <Icon name="close" size={18} />
-          </button>
+          </LocalizedButton>
         </header>
-        {product && (
+        <LocalizedCopy catalogue>{product && (
           <div className="market-chat-context">
             <ProductPicture product={product} />
             <div>
-              <small>TANYAKAN PRODUK INI</small>
-              <b>{product.name}</b>
-              <span>{formatRupiah(product.price)}</span>
+              <small><LocalizedCopy>{"TANYAKAN PRODUK INI"}</LocalizedCopy></small>
+              <b><LocalizedCopy catalogue>{product.name}</LocalizedCopy></b>
+              <span><LocalizedCopy>{formatRupiah(product.price)}</LocalizedCopy></span>
             </div>
           </div>
-        )}
+        )}</LocalizedCopy>
         <div className="market-chat-notice">
-          <Icon name="shield" size={14} /> Kanal ini hanya untuk pesan teks dengan toko. Jangan bagikan OTP atau kata sandi.
-        </div>
+          <Icon name="shield" size={14} /><LocalizedCopy>{" Kanal ini hanya untuk pesan teks dengan toko. Jangan bagikan OTP atau kata sandi."}</LocalizedCopy></div>
         <div
           ref={messageList}
           className="market-chat-messages"
@@ -1052,48 +1030,48 @@ export function MarketplaceChatPanel({
               list.scrollHeight - list.scrollTop - list.clientHeight < 72;
           }}
         >
-          {loading ? (
-            <p className="market-chat-state">Memuat percakapan…</p>
+          <LocalizedCopy>{loading ? (
+            <p className="market-chat-state"><LocalizedCopy>{"Memuat percakapan…"}</LocalizedCopy></p>
           ) : messages.length ? (
             messages.map((message) => (
               <article key={message.id} className={message.sender_type === "buyer" ? "is-mine" : ""}>
-                <small>{message.sender_type === "buyer" ? "Kamu" : message.sender_name}</small>
-                <p>{message.body}</p>
+                <small><LocalizedCopy>{message.sender_type === "buyer" ? "Kamu" : message.sender_name}</LocalizedCopy></small>
+                <p><LocalizedCopy>{message.body}</LocalizedCopy></p>
                 <time dateTime={message.created_at}>
-                  {new Date(message.created_at).toLocaleTimeString("id-ID", {
+                  <LocalizedCopy>{new Date(message.created_at).toLocaleTimeString(petOwnerIntlLocale(), {
                     hour: "2-digit",
                     minute: "2-digit",
-                  })}
+                  })}</LocalizedCopy>
                 </time>
               </article>
             ))
           ) : (
             <div className="market-chat-empty">
-              <span>👋</span>
-              <b>Mulai obrolan dengan toko</b>
-              <p>Tanyakan stok, ukuran, kandungan, atau detail produk lainnya.</p>
+              <span><LocalizedCopy>{"👋"}</LocalizedCopy></span>
+              <b><LocalizedCopy>{"Mulai obrolan dengan toko"}</LocalizedCopy></b>
+              <p><LocalizedCopy>{"Tanyakan stok, ukuran, kandungan, atau detail produk lainnya."}</LocalizedCopy></p>
             </div>
-          )}
+          )}</LocalizedCopy>
         </div>
-        {error && <p className="market-chat-error">{error}</p>}
-        {composerTray === "attachments" && (
+        <LocalizedCopy>{error && <p className="market-chat-error"><LocalizedCopy>{error}</LocalizedCopy></p>}</LocalizedCopy>
+        <LocalizedCopy>{composerTray === "attachments" && (
           <div className="market-chat-shortcuts" role="group" aria-label="Pilihan chat toko">
-            {marketplaceChatShortcuts.map((shortcut) => (
-              <button
+            <LocalizedCopy>{marketplaceChatShortcuts.map((shortcut) => (
+              <LocalizedButton
                 type="button"
                 key={shortcut.id}
                 onClick={() => onShortcut(shortcut.id)}
               >
                 <span><Icon name={shortcut.icon} size={19} /></span>
-                <small>{shortcut.label}</small>
-              </button>
-            ))}
+                <small><LocalizedCopy>{shortcut.label}</LocalizedCopy></small>
+              </LocalizedButton>
+            ))}</LocalizedCopy>
           </div>
-        )}
-        {composerTray === "emoji" && (
+        )}</LocalizedCopy>
+        <LocalizedCopy>{composerTray === "emoji" && (
           <div className="market-chat-emojis" role="group" aria-label="Pilih emoji">
-            {marketplaceChatEmojis.map((emoji) => (
-              <button
+            <LocalizedCopy>{marketplaceChatEmojis.map((emoji) => (
+              <LocalizedButton
                 type="button"
                 key={emoji}
                 aria-label={`Gunakan emoji ${emoji}`}
@@ -1103,13 +1081,13 @@ export function MarketplaceChatPanel({
                   window.requestAnimationFrame(() => input.current?.focus());
                 }}
               >
-                {emoji}
-              </button>
-            ))}
+                <LocalizedCopy>{emoji}</LocalizedCopy>
+              </LocalizedButton>
+            ))}</LocalizedCopy>
           </div>
-        )}
+        )}</LocalizedCopy>
         <form onSubmit={submit}>
-          <button
+          <LocalizedButton
             type="button"
             className={`market-chat-tool ${composerTray === "attachments" ? "is-active" : ""}`}
             aria-label="Buka pilihan chat"
@@ -1121,8 +1099,8 @@ export function MarketplaceChatPanel({
             }
           >
             <Icon name="plus" size={20} />
-          </button>
-          <textarea
+          </LocalizedButton>
+          <LocalizedTextarea
             ref={input}
             value={draft}
             onChange={(event) => {
@@ -1139,17 +1117,17 @@ export function MarketplaceChatPanel({
             placeholder="Tulis pesan ke toko…"
             aria-label="Pesan untuk toko"
           />
-          {hasDraft ? (
-            <button
+          <LocalizedCopy>{hasDraft ? (
+            <LocalizedButton
               type="submit"
               className="market-chat-action is-send"
               disabled={sending}
               aria-label={sending ? "Mengirim pesan" : "Kirim pesan"}
             >
               <Icon name="send" size={19} />
-            </button>
+            </LocalizedButton>
           ) : (
-            <button
+            <LocalizedButton
               type="button"
               className={`market-chat-action is-emoji ${composerTray === "emoji" ? "is-active" : ""}`}
               aria-label="Buka pilihan emoji"
@@ -1160,9 +1138,9 @@ export function MarketplaceChatPanel({
                 )
               }
             >
-              <span aria-hidden="true">😊</span>
-            </button>
-          )}
+              <span aria-hidden="true"><LocalizedCopy>{"😊"}</LocalizedCopy></span>
+            </LocalizedButton>
+          )}</LocalizedCopy>
         </form>
       </section>
     </div>
@@ -1237,18 +1215,18 @@ function MarketplaceStorefront({
   }, [category, products, sort]);
 
   if (loading && !fallback && !fallbackService) {
-    return <div className="market-store-loading"><i /><span>Menyiapkan etalase toko…</span></div>;
+    return <div className="market-store-loading"><i /><span><LocalizedCopy>{"Menyiapkan etalase toko…"}</LocalizedCopy></span></div>;
   }
   if (error && !fallback && !fallbackService) {
-    return <div className="market-empty-state"><span>!</span><h3>Etalase belum dapat dibuka</h3><p>{error}</p><button type="button" onClick={onBack}>Kembali</button></div>;
+    return <div className="market-empty-state"><span><LocalizedCopy>{"!"}</LocalizedCopy></span><h3><LocalizedCopy>{"Etalase belum dapat dibuka"}</LocalizedCopy></h3><p><LocalizedCopy>{error}</LocalizedCopy></p><LocalizedButton type="button" onClick={onBack}><LocalizedCopy>{"Kembali"}</LocalizedCopy></LocalizedButton></div>;
   }
 
   return (
     <div className="market-store-page">
       <nav className="market-breadcrumb" aria-label="Breadcrumb">
-        <button type="button" onClick={onBack}><Icon name="arrow" size={15} /> Marketplace</button>
+        <LocalizedButton type="button" onClick={onBack}><Icon name="arrow" size={15} /><LocalizedCopy>{" Marketplace"}</LocalizedCopy></LocalizedButton>
         <Icon name="chevron" size={13} />
-        <strong>{store.name}</strong>
+        <strong><LocalizedCopy>{store.name}</LocalizedCopy></strong>
       </nav>
       <section className="market-store-hero">
         <div className="market-store-banner" style={store.banner_url ? { backgroundImage: `url(${store.banner_url})` } : undefined} />
@@ -1260,122 +1238,122 @@ function MarketplaceStorefront({
             large
           />
           <div>
-            <span className="market-store-verified"><Icon name="shield" size={12} /> Partner terverifikasi</span>
-            <h1>{store.name}</h1>
-            <p><Icon name="map" size={13} /> {store.city || "Indonesia"}</p>
-            <p className={store.is_online ? "is-online" : ""}>{storePresenceLabel(store.is_online, store.last_seen_at)}</p>
+            <span className="market-store-verified"><Icon name="shield" size={12} /><LocalizedCopy>{" Partner terverifikasi"}</LocalizedCopy></span>
+            <h1><LocalizedCopy>{store.name}</LocalizedCopy></h1>
+            <p><Icon name="map" size={13} /> <LocalizedCopy>{store.city || "Indonesia"}</LocalizedCopy></p>
+            <p className={store.is_online ? "is-online" : ""}><LocalizedCopy>{storePresenceLabel(store.is_online, store.last_seen_at)}</LocalizedCopy></p>
           </div>
-          <button type="button" onClick={onChat}><Icon name="chat" size={17} /> Chat toko</button>
+          <LocalizedButton type="button" onClick={onChat}><Icon name="chat" size={17} /><LocalizedCopy>{" Chat toko"}</LocalizedCopy></LocalizedButton>
         </div>
         <div className="market-store-stats">
-          <span><b>{store.product_count}</b><small>Produk</small></span>
-          <span><b>{services.length}</b><small>Layanan</small></span>
-          <span><b>{store.rating ? store.rating.toFixed(1) : "Baru"}</b><small>Rating</small></span>
-          <span><b>{compactNumber(store.sold_count)}</b><small>Terjual</small></span>
+          <span><b><LocalizedCopy>{store.product_count}</LocalizedCopy></b><small><LocalizedCopy>{"Produk"}</LocalizedCopy></small></span>
+          <span><b><LocalizedCopy>{services.length}</LocalizedCopy></b><small><LocalizedCopy>{"Layanan"}</LocalizedCopy></small></span>
+          <span><b><LocalizedCopy>{store.rating ? store.rating.toFixed(1) : "Baru"}</LocalizedCopy></b><small><LocalizedCopy>{"Rating"}</LocalizedCopy></small></span>
+          <span><b><LocalizedCopy>{compactNumber(store.sold_count)}</LocalizedCopy></b><small><LocalizedCopy>{"Terjual"}</LocalizedCopy></small></span>
         </div>
       </section>
 
       <div className="market-store-navigation" role="tablist" aria-label="Bagian toko">
-        {([
+        <LocalizedCopy>{([
           ["products", "Produk"],
           ["services", "Layanan"],
           ["categories", "Kategori"],
           ["reviews", `Ulasan (${store.review_count})`],
           ["about", "Tentang toko"],
         ] as Array<[StoreSection, string]>).map(([id, label]) => (
-          <button key={id} type="button" role="tab" aria-selected={section === id} className={section === id ? "active" : ""} onClick={() => setSection(id)}>{label}</button>
-        ))}
+          <LocalizedButton key={id} type="button" role="tab" aria-selected={section === id} className={section === id ? "active" : ""} onClick={() => setSection(id)}><LocalizedCopy>{label}</LocalizedCopy></LocalizedButton>
+        ))}</LocalizedCopy>
       </div>
 
-      {section === "products" && (
+      <LocalizedCopy>{section === "products" && (
         <section className="market-store-products">
           <header>
-            <div><span>ETALASE TOKO</span><h2>Temukan kebutuhan pet-mu</h2></div>
-            <p>{visible.length} produk</p>
+            <div><span><LocalizedCopy>{"ETALASE TOKO"}</LocalizedCopy></span><h2><LocalizedCopy>{"Temukan kebutuhan pet-mu"}</LocalizedCopy></h2></div>
+            <p><LocalizedCopy>{visible.length}</LocalizedCopy><LocalizedCopy>{" produk"}</LocalizedCopy></p>
           </header>
           <div className="market-store-sort" role="tablist" aria-label="Urutan produk toko">
-            {([
+            <LocalizedCopy>{([
               ["popular", "Populer"],
               ["newest", "Terbaru"],
               ["bestseller", "Terlaris"],
               ["price", "Harga termurah"],
               ["price_desc", "Harga termahal"],
             ] as Array<[SortMode, string]>).map(([id, label]) => (
-              <button key={id} type="button" role="tab" aria-selected={sort === id} className={sort === id ? "active" : ""} onClick={() => setSort(id)}>{label}</button>
-            ))}
+              <LocalizedButton key={id} type="button" role="tab" aria-selected={sort === id} className={sort === id ? "active" : ""} onClick={() => setSort(id)}><LocalizedCopy>{label}</LocalizedCopy></LocalizedButton>
+            ))}</LocalizedCopy>
           </div>
           <div className="market-store-category-filter">
-            {["Semua", ...categories.map((item) => item.name)].map((name) => (
-              <button key={name} type="button" className={category === name ? "active" : ""} onClick={() => setCategory(name)}>{name}</button>
-            ))}
+            <LocalizedCopy>{["Semua", ...categories.map((item) => item.name)].map((name) => (
+              <LocalizedButton key={name} type="button" className={category === name ? "active" : ""} onClick={() => setCategory(name)}><LocalizedCopy>{name}</LocalizedCopy></LocalizedButton>
+            ))}</LocalizedCopy>
           </div>
           <div className="market-product-grid">
-            {visible.map((product) => (
+            <LocalizedCopy>{visible.map((product) => (
               <ProductCard key={product.id} product={product} favorite={favorites.includes(product.id)} onOpen={() => onOpenProduct(product)} onStore={() => undefined} onFavorite={() => onFavorite(product)} />
-            ))}
+            ))}</LocalizedCopy>
           </div>
         </section>
-      )}
+      )}</LocalizedCopy>
 
-      {section === "services" && (
+      <LocalizedCopy catalogue>{section === "services" && (
         <section className="market-store-services">
           <header>
-            <div><span>LAYANAN PARTNER</span><h2>Pilih layanan dari {store.name}</h2></div>
-            <p>{services.length} layanan</p>
+            <div><span><LocalizedCopy>{"LAYANAN PARTNER"}</LocalizedCopy></span><h2><LocalizedCopy>{"Pilih layanan dari "}</LocalizedCopy><LocalizedCopy>{store.name}</LocalizedCopy></h2></div>
+            <p><LocalizedCopy>{services.length}</LocalizedCopy><LocalizedCopy>{" layanan"}</LocalizedCopy></p>
           </header>
-          {services.length ? (
+          <LocalizedCopy catalogue>{services.length ? (
             <div className="market-store-service-grid">
-              {services.map((service) => (
-                <button key={service.id} type="button" className="market-store-service-card" onClick={() => onOpenService(service)}>
+              <LocalizedCopy catalogue>{services.map((service) => (
+                <LocalizedButton key={service.id} type="button" className="market-store-service-card" onClick={() => onOpenService(service)}>
                   <span className="market-store-service-media">
-                    {service.imageUrl ? <Image src={service.imageUrl} alt={`Foto ${service.name}`} fill sizes="120px" unoptimized /> : <Icon name="paw" size={28} />}
+                    <LocalizedCopy catalogue>{service.imageUrl ? <Image src={service.imageUrl} alt={`Foto ${service.name}`} fill sizes="120px" unoptimized /> : <Icon name="paw" size={28} />}</LocalizedCopy>
                   </span>
                   <span className="market-store-service-copy">
-                    <small>{service.type}</small>
-                    <b>{service.name}</b>
-                    <em>{service.durationMinutes ? `${service.durationMinutes} menit · ` : ""}{service.priceValue === undefined ? service.price : formatRupiah(service.priceValue)}</em>
+                    <small><LocalizedCopy>{service.type}</LocalizedCopy></small>
+                    <b><LocalizedCopy catalogue>{service.name}</LocalizedCopy></b>
+                    <em><LocalizedCopy>{service.durationMinutes ? `${service.durationMinutes} menit · ` : ""}<LocalizedCopy></LocalizedCopy>{service.priceValue === undefined ? service.price : formatRupiah(service.priceValue)}</LocalizedCopy></em>
                   </span>
                   <Icon name="chevron" size={16} />
-                </button>
-              ))}
+                </LocalizedButton>
+              ))}</LocalizedCopy>
             </div>
-          ) : <div className="market-review-empty"><span><Icon name="paw" size={24} /></span><div><b>Belum ada layanan aktif</b><p>Partner ini belum menerbitkan layanan untuk dibooking.</p></div></div>}
+          ) : <div className="market-review-empty"><span><Icon name="paw" size={24} /></span><div><b><LocalizedCopy>{"Belum ada layanan aktif"}</LocalizedCopy></b><p><LocalizedCopy>{"Partner ini belum menerbitkan layanan untuk dibooking."}</LocalizedCopy></p></div></div>}</LocalizedCopy>
         </section>
-      )}
+      )}</LocalizedCopy>
 
-      {section === "categories" && (
+      <LocalizedCopy>{section === "categories" && (
         <section className="market-store-info-grid">
-          {categories.map((item) => (
-            <button key={item.name} type="button" onClick={() => { setCategory(item.name); setSection("products"); }}>
+          <LocalizedCopy>{categories.map((item) => (
+            <LocalizedButton key={item.name} type="button" onClick={() => { setCategory(item.name); setSection("products"); }}>
               <span><Icon name={categoryIcons[item.name] || "bag"} size={24} /></span>
-              <b>{item.name}</b><small>{item.product_count} produk</small>
-            </button>
-          ))}
+              <b><LocalizedCopy>{item.name}</LocalizedCopy></b><small><LocalizedCopy>{item.product_count}</LocalizedCopy><LocalizedCopy>{" produk"}</LocalizedCopy></small>
+            </LocalizedButton>
+          ))}</LocalizedCopy>
         </section>
-      )}
+      )}</LocalizedCopy>
 
-      {section === "reviews" && (
+      <LocalizedCopy>{section === "reviews" && (
         <section className="market-store-review-list">
-          <header><div><span>REPUTASI TOKO</span><h2>Ulasan dari pet parent</h2></div><b>{store.rating ? store.rating.toFixed(1) : "–"} / 5</b></header>
-          {response?.reviews.length ? response.reviews.map((review) => (
+          <header><div><span><LocalizedCopy>{"REPUTASI TOKO"}</LocalizedCopy></span><h2><LocalizedCopy>{"Ulasan dari pet parent"}</LocalizedCopy></h2></div><b><LocalizedCopy>{store.rating ? store.rating.toFixed(1) : "–"}</LocalizedCopy><LocalizedCopy>{" / 5"}</LocalizedCopy></b></header>
+          <LocalizedCopy>{response?.reviews.length ? response.reviews.map((review) => (
             <article key={review.id}>
-              <span>{review.reviewer_name.slice(0, 1).toUpperCase()}</span>
-              <div><b>{review.reviewer_name}</b><MarketplaceStars value={review.rating} /><p>{review.comment}</p><small>{review.product_name} · {new Date(review.updated_at).toLocaleDateString("id-ID")}</small></div>
+              <span><LocalizedCopy>{review.reviewer_name.slice(0, 1).toUpperCase()}</LocalizedCopy></span>
+              <div><b><LocalizedCopy preserve>{review.reviewer_name}</LocalizedCopy></b><MarketplaceStars value={review.rating} /><p><LocalizedCopy>{review.comment}</LocalizedCopy></p><small><LocalizedCopy>{review.product_name}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{new Date(review.updated_at).toLocaleDateString(petOwnerIntlLocale())}</LocalizedCopy></small></div>
             </article>
-          )) : <div className="market-review-empty"><span><Icon name="chat" size={24} /></span><div><b>Belum ada ulasan toko</b><p>Ulasan produk yang terverifikasi akan tampil di sini.</p></div></div>}
+          )) : <div className="market-review-empty"><span><Icon name="chat" size={24} /></span><div><b><LocalizedCopy>{"Belum ada ulasan toko"}</LocalizedCopy></b><p><LocalizedCopy>{"Ulasan produk yang terverifikasi akan tampil di sini."}</LocalizedCopy></p></div></div>}</LocalizedCopy>
         </section>
-      )}
+      )}</LocalizedCopy>
 
-      {section === "about" && (
+      <LocalizedCopy>{section === "about" && (
         <section className="market-store-about">
-          <div><span>🏪</span><div><small>TENTANG TOKO</small><h2>{store.name}</h2><p>{store.about}</p></div></div>
+          <div><span><LocalizedCopy>{"🏪"}</LocalizedCopy></span><div><small><LocalizedCopy>{"TENTANG TOKO"}</LocalizedCopy></small><h2><LocalizedCopy>{store.name}</LocalizedCopy></h2><p><LocalizedCopy>{store.about}</LocalizedCopy></p></div></div>
           <dl>
-            <div><dt>Bergabung</dt><dd>{store.joined_at ? new Date(store.joined_at).toLocaleDateString("id-ID", { month: "long", year: "numeric" }) : "Partner Slivadoc"}</dd></div>
-            <div><dt>Lokasi</dt><dd>{store.city || "Indonesia"}</dd></div>
-            <div><dt>Status</dt><dd>{store.is_online ? "Online" : "Offline"}</dd></div>
+            <div><dt><LocalizedCopy>{"Bergabung"}</LocalizedCopy></dt><dd><LocalizedCopy>{store.joined_at ? new Date(store.joined_at).toLocaleDateString(petOwnerIntlLocale(), { month: "long", year: "numeric" }) : "Partner Slivadoc"}</LocalizedCopy></dd></div>
+            <div><dt><LocalizedCopy>{"Lokasi"}</LocalizedCopy></dt><dd><LocalizedCopy>{store.city || "Indonesia"}</LocalizedCopy></dd></div>
+            <div><dt><LocalizedCopy>{"Status"}</LocalizedCopy></dt><dd><LocalizedCopy>{store.is_online ? "Online" : "Offline"}</LocalizedCopy></dd></div>
           </dl>
         </section>
-      )}
+      )}</LocalizedCopy>
     </div>
   );
 }
@@ -1740,85 +1718,78 @@ export default function ShopMarketplace({
     <div className="shop-native market-home">
       <header className="market-mobile-header">
         <div>
-          <span>SLIVA MARKET</span>
-          <h1>Kebutuhan pet, lengkap.</h1>
+          <span><LocalizedCopy>{"SLIVA MARKET"}</LocalizedCopy></span>
+          <h1><LocalizedCopy>{"Kebutuhan pet, lengkap."}</LocalizedCopy></h1>
         </div>
-        <button
+        <LocalizedButton
           type="button"
           aria-label="Buka keranjang"
           onClick={() => setCartOpen(true)}
         >
           <Icon name="cart" size={20} />
-          {cartCount > 0 && <b>{cartCount > 99 ? "99+" : cartCount}</b>}
-        </button>
+          <LocalizedCopy>{cartCount > 0 && <b><LocalizedCopy>{cartCount > 99 ? "99+" : cartCount}</LocalizedCopy></b>}</LocalizedCopy>
+        </LocalizedButton>
       </header>
 
       <section className="market-hero">
         <div className="market-hero-copy">
           <span>
-            <Icon name="shield" size={13} /> MARKETPLACE PET TERINTEGRASI
-          </span>
-          <h1>Belanja lebih tenang untuk sahabat terbaikmu.</h1>
-          <p>
-            Bandingkan produk, cek stok asli, baca ulasan pembeli, lalu checkout
-            dari banyak petshop dalam satu keranjang.
-          </p>
+            <Icon name="shield" size={13} /><LocalizedCopy>{" MARKETPLACE PET TERINTEGRASI"}</LocalizedCopy></span>
+          <h1><LocalizedCopy>{"Belanja lebih tenang untuk sahabat terbaikmu."}</LocalizedCopy></h1>
+          <p><LocalizedCopy>{"Bandingkan produk, cek stok asli, baca ulasan pembeli, lalu checkout dari banyak petshop dalam satu keranjang."}</LocalizedCopy></p>
           <div className="market-hero-trust">
             <span>
-              <b>{productCatalog.length}</b> produk aktif
-            </span>
+              <b><LocalizedCopy>{productCatalog.length}</LocalizedCopy></b><LocalizedCopy>{" produk aktif"}</LocalizedCopy></span>
             <span>
-              <b>{sellerCount}</b> partner
-            </span>
+              <b><LocalizedCopy>{sellerCount}</LocalizedCopy></b><LocalizedCopy>{" partner"}</LocalizedCopy></span>
             <span>
-              <b>100%</b> stok live
-            </span>
+              <b><LocalizedCopy>{"100%"}</LocalizedCopy></b><LocalizedCopy>{" stok live"}</LocalizedCopy></span>
           </div>
         </div>
         <div className="market-hero-art" aria-hidden="true">
           <i />
-          <span>🛍️</span>
-          <b>🐾</b>
+          <span><LocalizedCopy>{"🛍️"}</LocalizedCopy></span>
+          <b><LocalizedCopy>{"🐾"}</LocalizedCopy></b>
         </div>
       </section>
 
       <div className="market-sticky-tools">
         <label className="market-search">
           <Icon name="search" size={19} />
-          <input
+          <LocalizedInput
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Cari makanan, vitamin, mainan, atau toko…"
             aria-label="Cari produk atau toko"
           />
-          {query && (
-            <button
+          <LocalizedCopy>{query && (
+            <LocalizedButton
               type="button"
               aria-label="Hapus pencarian"
               onClick={() => setQuery("")}
             >
               <Icon name="close" size={15} />
-            </button>
-          )}
+            </LocalizedButton>
+          )}</LocalizedCopy>
         </label>
-        <button
+        <LocalizedButton
           className="market-cart-button"
           type="button"
           aria-label="Keranjang"
           onClick={() => setCartOpen(true)}
         >
           <Icon name="cart" size={18} />
-          <span>Keranjang</span>
-          {cartCount > 0 && <b>{cartCount}</b>}
-        </button>
+          <span><LocalizedCopy>{"Keranjang"}</LocalizedCopy></span>
+          <LocalizedCopy>{cartCount > 0 && <b><LocalizedCopy>{cartCount}</LocalizedCopy></b>}</LocalizedCopy>
+        </LocalizedButton>
       </div>
 
       <section className="market-category-section">
         <header className="market-section-heading">
           <div>
-            <span>BELANJA SESUAI KEBUTUHAN</span>
-            <h2>Kategori populer</h2>
+            <span><LocalizedCopy>{"BELANJA SESUAI KEBUTUHAN"}</LocalizedCopy></span>
+            <h2><LocalizedCopy>{"Kategori populer"}</LocalizedCopy></h2>
           </div>
         </header>
         <div
@@ -1826,8 +1797,8 @@ export default function ShopMarketplace({
           role="tablist"
           aria-label="Kategori produk"
         >
-          {categories.map((item) => (
-            <button
+          <LocalizedCopy>{categories.map((item) => (
+            <LocalizedButton
               type="button"
               role="tab"
               aria-selected={category === item}
@@ -1838,23 +1809,23 @@ export default function ShopMarketplace({
               <span>
                 <Icon name={categoryIcons[item] || "bag"} size={20} />
               </span>
-              <b>{item}</b>
-              <small>{categoryCounts.get(item) ?? 0} produk</small>
-            </button>
-          ))}
+              <b><LocalizedCopy>{item}</LocalizedCopy></b>
+              <small><LocalizedCopy>{categoryCounts.get(item) ?? 0}</LocalizedCopy><LocalizedCopy>{" produk"}</LocalizedCopy></small>
+            </LocalizedButton>
+          ))}</LocalizedCopy>
         </div>
       </section>
 
       <section className="market-catalog-section">
         <header className="market-catalog-heading">
           <div>
-            <span>PILIHAN UNTUK {petName.toUpperCase()}</span>
-            <h2>Produk terbaik dari partner Slivadoc</h2>
-            <p>{filtered.length} produk sesuai pilihanmu</p>
+            <span><LocalizedCopy>{"PILIHAN UNTUK "}</LocalizedCopy><LocalizedCopy>{petName.toUpperCase()}</LocalizedCopy></span>
+            <h2><LocalizedCopy>{"Produk terbaik dari partner Slivadoc"}</LocalizedCopy></h2>
+            <p><LocalizedCopy>{filtered.length}</LocalizedCopy><LocalizedCopy>{" produk sesuai pilihanmu"}</LocalizedCopy></p>
           </div>
           <div className="market-catalog-filters">
             <label>
-              <span>Toko</span>
+              <span><LocalizedCopy>{"Toko"}</LocalizedCopy></span>
               <SlivaSelect aria-label="Toko"
                 value={store}
                 onChange={(event) => setStore(event.target.value)}
@@ -1866,7 +1837,7 @@ export default function ShopMarketplace({
               </SlivaSelect>
             </label>
             <label>
-              <span>Urutkan</span>
+              <span><LocalizedCopy>{"Urutkan"}</LocalizedCopy></span>
               <SlivaSelect aria-label="Urutkan"
                 value={sort}
                 onChange={(event) => setSort(event.target.value as SortMode)}
@@ -1880,9 +1851,9 @@ export default function ShopMarketplace({
           </div>
         </header>
 
-        {filtered.length ? (
+        <LocalizedCopy>{filtered.length ? (
           <div className="market-product-grid">
-            {filtered.map((product) => (
+            <LocalizedCopy>{filtered.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
@@ -1891,27 +1862,25 @@ export default function ShopMarketplace({
                 onStore={() => openStore(product.businessId)}
                 onFavorite={() => toggleFavorite(product.id)}
               />
-            ))}
+            ))}</LocalizedCopy>
           </div>
         ) : (
           <div className="market-empty-state">
             <span>
               <Icon name="search" size={28} />
             </span>
-            <h3>Produk belum ditemukan</h3>
-            <p>Coba ganti kata kunci, kategori, atau pilihan toko.</p>
-            <button
+            <h3><LocalizedCopy>{"Produk belum ditemukan"}</LocalizedCopy></h3>
+            <p><LocalizedCopy>{"Coba ganti kata kunci, kategori, atau pilihan toko."}</LocalizedCopy></p>
+            <LocalizedButton
               type="button"
               onClick={() => {
                 setQuery("");
                 setCategory("Semua");
                 setStore("");
               }}
-            >
-              Reset filter
-            </button>
+            ><LocalizedCopy>{"Reset filter"}</LocalizedCopy></LocalizedButton>
           </div>
-        )}
+        )}</LocalizedCopy>
       </section>
 
       <section className="market-confidence-strip">
@@ -1920,11 +1889,8 @@ export default function ShopMarketplace({
             <Icon name="shield" size={19} />
           </span>
           <div>
-            <b>Status partner transparan</b>
-            <p>
-              Produk hanya dari bisnis aktif; status izin ditampilkan apa
-              adanya.
-            </p>
+            <b><LocalizedCopy>{"Status partner transparan"}</LocalizedCopy></b>
+            <p><LocalizedCopy>{"Produk hanya dari bisnis aktif; status izin ditampilkan apa adanya."}</LocalizedCopy></p>
           </div>
         </article>
         <article>
@@ -1932,8 +1898,8 @@ export default function ShopMarketplace({
             <Icon name="check" size={19} />
           </span>
           <div>
-            <b>Data stok langsung</b>
-            <p>Ketersediaan mengikuti cabang.</p>
+            <b><LocalizedCopy>{"Data stok langsung"}</LocalizedCopy></b>
+            <p><LocalizedCopy>{"Ketersediaan mengikuti cabang."}</LocalizedCopy></p>
           </div>
         </article>
         <article>
@@ -1941,12 +1907,12 @@ export default function ShopMarketplace({
             <Icon name="chat" size={19} />
           </span>
           <div>
-            <b>Ulasan pembeli asli</b>
-            <p>Hanya transaksi berbayar.</p>
+            <b><LocalizedCopy>{"Ulasan pembeli asli"}</LocalizedCopy></b>
+            <p><LocalizedCopy>{"Hanya transaksi berbayar."}</LocalizedCopy></p>
           </div>
         </article>
       </section>
-      {chat && <MarketplaceChatPanel {...chat} onClose={() => setChat(undefined)} onShortcut={openChatShortcut} notify={notify} />}
+      <LocalizedCopy>{chat && <MarketplaceChatPanel {...chat} onClose={() => setChat(undefined)} onShortcut={openChatShortcut} notify={notify} />}</LocalizedCopy>
     </div>
   );
 }

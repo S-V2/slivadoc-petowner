@@ -1,6 +1,9 @@
 "use client";
+import { SlivaVideo } from "../SlivaVideo";
+import { SlivaFilePicker } from "../SlivaFilePicker";
+import { LocalizedCopy, LocalizedButton, LocalizedTextarea } from "../LocalizedCopy";
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import { LocalizedImage as Image } from "../LocalizedCopy";
 import { uploadPetHubMedia } from "../../lib/petowner-api";
 import { createPetHubPost, createPetHubStory } from "../../lib/platform-api";
 
@@ -110,24 +113,24 @@ export function PetHubComposer({
   }
   return (
     <div className="modal-world-body hub-composer">
-      <small className="world-kicker">PETHUB CREATOR</small>
+      <small className="world-kicker"><LocalizedCopy>{"PETHUB CREATOR"}</LocalizedCopy></small>
       <h2>
-        {mode === "story"
+        <LocalizedCopy>{mode === "story"
           ? "Story baru"
           : mode === "reel"
             ? "Reel baru"
-            : "Bagikan momen pet kamu"}
+            : "Bagikan momen pet kamu"}</LocalizedCopy>
       </h2>
       <p>
-        {mode === "story"
+        <LocalizedCopy>{mode === "story"
           ? "Foto atau video singkat, tayang 24 jam."
           : mode === "reel"
             ? "Video vertikal dengan tombol interaksi di kanan."
-            : "Teks, satu foto, album hingga 10 foto, atau satu video."}
+            : "Teks, satu foto, album hingga 10 foto, atau satu video."}</LocalizedCopy>
       </p>
       <label className="hub-upload">
-        <span>Pilih {mode === "reel" ? "video" : "foto / video"}</span>
-        <input
+        <span><LocalizedCopy>{"Pilih "}</LocalizedCopy><LocalizedCopy>{mode === "reel" ? "video" : "foto / video"}</LocalizedCopy></span>
+        <SlivaFilePicker
           aria-label="Pilih media PetHub"
           type="file"
           accept={mode === "reel" ? "video/*" : "image/*,video/*"}
@@ -137,10 +140,10 @@ export function PetHubComposer({
         />
       </label>
       <div className="hub-upload-previews">
-        {files.map((file, index) => (
+        <LocalizedCopy>{files.map((file, index) => (
           <div key={`${file.name}-${index}`}>
-            {file.type.startsWith("video/") ? (
-              <video src={previews[index]} controls playsInline />
+            <LocalizedCopy>{file.type.startsWith("video/") ? (
+              <SlivaVideo src={previews[index]} playsInline />
             ) : previews[index] ? (
               <Image
                 src={previews[index]}
@@ -149,23 +152,19 @@ export function PetHubComposer({
                 height={400}
                 unoptimized
               />
-            ) : null}
-            <button
+            ) : null}</LocalizedCopy>
+            <LocalizedButton
               type="button"
               disabled={busy}
               aria-label={`Hapus media ${index + 1}`}
               onClick={() =>
                 setFiles((current) => current.filter((_, i) => i !== index))
               }
-            >
-              ×
-            </button>
+            ><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
           </div>
-        ))}
+        ))}</LocalizedCopy>
       </div>
-      <label>
-        Caption
-        <textarea
+      <label><LocalizedCopy>{"Caption"}</LocalizedCopy><LocalizedTextarea
           className="thread-input"
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
@@ -180,9 +179,9 @@ export function PetHubComposer({
       </label>
       <div className="composer-bottom">
         <span>
-          {caption.length}/{limit}
+          <LocalizedCopy>{caption.length}</LocalizedCopy><LocalizedCopy>{"/"}</LocalizedCopy><LocalizedCopy>{limit}</LocalizedCopy>
         </span>
-        <button
+        <LocalizedButton
           className="primary-button"
           disabled={
             busy ||
@@ -191,8 +190,8 @@ export function PetHubComposer({
           }
           onClick={() => void submit()}
         >
-          {busy ? progress : "Terbitkan"}
-        </button>
+          <LocalizedCopy>{busy ? progress : "Terbitkan"}</LocalizedCopy>
+        </LocalizedButton>
       </div>
     </div>
   );

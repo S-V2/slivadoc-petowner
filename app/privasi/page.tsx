@@ -1,3 +1,4 @@
+import { LocalizedCopy } from "../components/LocalizedCopy";
 import type { Metadata } from "next";
 import { Breadcrumbs, PublicPage } from "../components/seo/PublicSite";
 import { pageMetadata } from "../lib/seo-config";
@@ -44,35 +45,26 @@ export default function PrivacyPage() {
           items={[{ label: "Beranda", href: "/" }, { label: "Privasi & Data" }]}
         />
         <div className="seo-section-heading">
-          <span className="seo-eyebrow">PRIVASI & DATA</span>
-          <h1>
-            Data digunakan untuk menjalankan layanan, bukan untuk
-            membingungkanmu.
-          </h1>
-          <p>
-            Berlaku mulai 4 Oktober 2026. Ringkasan ini menjelaskan pemrosesan
-            data utama pada ekosistem Slivadoc.
-          </p>
+          <span className="seo-eyebrow"><LocalizedCopy>{"PRIVASI & DATA"}</LocalizedCopy></span>
+          <h1><LocalizedCopy>{"Data digunakan untuk menjalankan layanan, bukan untuk membingungkanmu."}</LocalizedCopy></h1>
+          <p><LocalizedCopy>{"Berlaku mulai 4 Oktober 2026. Ringkasan ini menjelaskan pemrosesan data utama pada ekosistem Slivadoc."}</LocalizedCopy></p>
         </div>
       </section>
       <section className="seo-main-section">
         <div className="seo-card-grid">
-          {sections.map(([title, detail]) => (
+          <LocalizedCopy>{sections.map(([title, detail]) => (
             <article className="seo-card" key={title}>
-              <h2>{title}</h2>
-              <p>{detail}</p>
+              <h2><LocalizedCopy>{title}</LocalizedCopy></h2>
+              <p><LocalizedCopy>{detail}</LocalizedCopy></p>
             </article>
-          ))}
+          ))}</LocalizedCopy>
         </div>
       </section>
       <section className="seo-main-section">
         <div className="seo-section-heading">
-          <h2>Kontak privasi</h2>
-          <p>
-            Kirim permintaan melalui Pusat Bantuan setelah masuk agar identitas
-            akun dapat diverifikasi, atau hubungi{" "}
-            <a href="mailto:support@slivadoc.com">support@slivadoc.com</a>.
-          </p>
+          <h2><LocalizedCopy>{"Kontak privasi"}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Kirim permintaan melalui Pusat Bantuan setelah masuk agar identitas akun dapat diverifikasi, atau hubungi"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+            <a href="mailto:support@slivadoc.com"><LocalizedCopy>{"support@slivadoc.com"}</LocalizedCopy></a><LocalizedCopy>{"."}</LocalizedCopy></p>
         </div>
       </section>
     </PublicPage>

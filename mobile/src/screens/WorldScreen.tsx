@@ -1,3 +1,6 @@
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
+import { useResponsiveLayout } from "../responsive";
+import { SlivaDatePicker } from "../components/SlivaDatePicker";
 import {
   useCallback,
   useEffect,
@@ -15,7 +18,7 @@ import {
   Modal,
   PanResponder,
   Platform,
-  Pressable,
+
   ScrollView,
   StyleSheet,
   type TextInputProps,
@@ -318,7 +321,7 @@ function FormTextField({
   return (
     <View style={styles.formField}>
       <Text style={styles.formLabel}>{label}</Text>
-      <TextInput
+      {props.placeholder?.includes("YYYY-MM-DD") || props.placeholder === "18:00" ? <SlivaDatePicker value={props.value} onChangeText={props.onChangeText} label={label} kind={props.placeholder.includes("HH:mm") ? "datetime-local" : props.placeholder === "18:00" ? "time" : "date"} /> : <TextInput
         {...props}
         multiline={multiline}
         placeholderTextColor={colors.muted}
@@ -327,7 +330,7 @@ function FormTextField({
           multiline && styles.formTextarea,
           props.style,
         ]}
-      />
+      />}
     </View>
   );
 }
@@ -539,7 +542,7 @@ export function WorldScreen({
   onOpenActivity: (type: MobileActivityType, id: string) => void;
 }) {
   const { formatCurrency, formatDate, formatNumber } = useI18n();
-  const { width: viewportWidth } = useWindowDimensions();
+  const { contentWidth: viewportWidth, sheetWidth } = useResponsiveLayout();
   const money = (value?: number) => formatCurrency(value ?? 0);
   const when = (value?: string) =>
     value
@@ -581,7 +584,7 @@ export function WorldScreen({
   );
   useEffect(() => {
     if (!selected || selectedImages.length < 2) return;
-    const galleryWidth = Math.max(260, viewportWidth - 32);
+    const galleryWidth = Math.max(260, sheetWidth - 32);
     const timer = setInterval(() => {
       setSelectedImageIndex((current) => {
         const next = (current + 1) % selectedImages.length;
@@ -593,7 +596,7 @@ export function WorldScreen({
       });
     }, 1_000);
     return () => clearInterval(timer);
-  }, [selected, selectedImages.length, viewportWidth]);
+  }, [selected, selectedImages.length, sheetWidth]);
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -2002,7 +2005,7 @@ export function WorldScreen({
                         </Text>
                       )}
                     </View>
-                    <Text style={styles.academyTrainerName} numberOfLines={1}>
+                    <Text translate={false} style={styles.academyTrainerName} numberOfLines={1}>
                       {trainer.full_name}
                     </Text>
                     <Text style={styles.academyTrainerMeta}>
@@ -2366,7 +2369,7 @@ export function WorldScreen({
           <AdoptionManager onAction={onAction} />
         ) : null}
       </Screen>
-      <Modal
+      <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
         visible={!!selected}
         transparent
         animationType="slide"
@@ -2421,7 +2424,7 @@ export function WorldScreen({
                           setSelectedImageIndex(
                             Math.round(
                               event.nativeEvent.contentOffset.x /
-                                Math.max(260, viewportWidth - 32),
+                                Math.max(260, sheetWidth - 32),
                             ),
                           )
                         }
@@ -2432,7 +2435,7 @@ export function WorldScreen({
                             onPress={() => setImageViewerIndex(index)}
                             style={[
                               styles.sheetHero,
-                              { width: Math.max(260, viewportWidth - 32) },
+                              { width: Math.max(260, sheetWidth - 32) },
                             ]}
                             accessibilityLabel={`Perbesar gambar ${index + 1}`}
                           >
@@ -2666,7 +2669,7 @@ export function WorldScreen({
                                 </Text>
                               )}
                             </View>
-                            <Text
+                            <Text translate={false}
                               style={styles.academyTrainerName}
                               numberOfLines={1}
                             >
@@ -2840,7 +2843,7 @@ export function WorldScreen({
                                 </View>
                                 <View style={styles.academyReviewCopy}>
                                   <View style={styles.academyReviewerRow}>
-                                    <Text style={styles.academyReviewerName}>
+                                    <Text translate={false} style={styles.academyReviewerName}>
                                       {review.reviewer_name}
                                     </Text>
                                     {review.verified_enrollment ? (
@@ -3872,7 +3875,7 @@ export function WorldScreen({
           </KeyboardAvoidingView>
         </View>
       </Modal>
-      <Modal
+      <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
         visible={!!pawDatingChat}
         transparent
         animationType="slide"
@@ -3996,7 +3999,7 @@ export function WorldScreen({
           </SafeAreaView>
         </View>
       </Modal>
-      <Modal
+      <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
         visible={!!academyTrainer}
         transparent
         animationType="slide"
@@ -4049,7 +4052,7 @@ export function WorldScreen({
                   <Text style={styles.academyTrainerKicker}>
                     PET TRAINER TERVERIFIKASI
                   </Text>
-                  <Text style={styles.trainerProfileName}>
+                  <Text translate={false} style={styles.trainerProfileName}>
                     {academyTrainer?.full_name}
                   </Text>
                   <Text style={styles.trainerProfileAcademy}>
@@ -4108,7 +4111,7 @@ export function WorldScreen({
           </SafeAreaView>
         </View>
       </Modal>
-      <Modal
+      <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
         visible={imageViewerIndex !== undefined}
         transparent
         animationType="fade"
@@ -4324,7 +4327,7 @@ function PawDatingCreateModal({
   };
 
   return (
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={visible}
       transparent
       animationType="slide"
@@ -4339,7 +4342,7 @@ function PawDatingCreateModal({
             <View style={styles.createModalHeader}>
               <View>
                 <Text style={styles.eyebrow}>PAW DATING REGISTRATION</Text>
-                <Text style={styles.createModalTitle}>
+                <Text translate={false} style={styles.createModalTitle}>
                   Daftarkan {pet.name}
                 </Text>
               </View>
@@ -4355,7 +4358,7 @@ function PawDatingCreateModal({
                 <Ionicons name="paw" size={24} color={colors.sky600} />
                 <View style={styles.petSummaryCopy}>
                   <Text style={styles.formLabel}>PET</Text>
-                  <Text style={styles.petSummaryName}>
+                  <Text translate={false} style={styles.petSummaryName}>
                     {pet.name} · {pet.breed}
                   </Text>
                 </View>
@@ -4911,7 +4914,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(14,32,55,.42)",
   },
   sheetKeyboard: { flex: 1, justifyContent: "flex-end" },
-  sheetWrap: { width: "100%", height: "92%", maxHeight: "92%" },
+  sheetWrap: {maxWidth: 720, alignSelf: "center",  width: "100%", height: "92%", maxHeight: "92%" },
   sheet: {
     flex: 1,
     minHeight: 0,
@@ -5605,8 +5608,8 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(14,32,55,.42)",
   },
-  createModalSafe: { maxHeight: "94%" },
-  createModalSheet: {
+  createModalSafe: {width: "100%", maxWidth: 720, alignSelf: "center",  maxHeight: "94%" },
+  createModalSheet: {width: "100%", maxWidth: 720, alignSelf: "center",
     maxHeight: "100%",
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
@@ -6120,7 +6123,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(14,32,55,.45)",
   },
-  pawChatSheet: {
+  pawChatSheet: {width: "100%", maxWidth: 720, alignSelf: "center",
     height: "88%",
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
@@ -6250,7 +6253,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sky600,
   },
   pawChatSendDisabled: { opacity: 0.42 },
-  trainerSheetWrap: { width: "100%", height: "86%", maxHeight: "86%" },
+  trainerSheetWrap: {maxWidth: 720, alignSelf: "center",  width: "100%", height: "86%", maxHeight: "86%" },
   trainerSheet: {
     flex: 1,
     minHeight: 0,

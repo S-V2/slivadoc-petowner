@@ -1,5 +1,6 @@
+import { LocalizedCopy } from "../../components/LocalizedCopy";
 import type { Metadata } from "next";
-import Link from "next/link";
+import { LocalizedLink as Link } from "../../components/LocalizedCopy";
 import { notFound } from "next/navigation";
 import JsonLd from "../../components/seo/JsonLd";
 import { Breadcrumbs, PublicPage } from "../../components/seo/PublicSite";
@@ -120,91 +121,76 @@ export default async function PlaceDetailPage({
         />
         <div className="seo-hero-grid">
           <div>
-            <span className="seo-eyebrow">Mitra Slivadoc · {place.city}</span>
+            <span className="seo-eyebrow"><LocalizedCopy>{"Mitra Slivadoc · "}</LocalizedCopy><LocalizedCopy>{place.city}</LocalizedCopy></span>
             <h1>
-              {place.name} — {place.branchName}
+              <LocalizedCopy>{place.name}</LocalizedCopy><LocalizedCopy>{" — "}</LocalizedCopy><LocalizedCopy>{place.branchName}</LocalizedCopy>
             </h1>
             <p>
-              {place.address}. Lihat layanan yang dipublikasikan dari sistem
-              mitra dan lanjutkan pencarian atau booking melalui Slivadoc.
-            </p>
+              <LocalizedCopy>{place.address}</LocalizedCopy><LocalizedCopy>{". Lihat layanan yang dipublikasikan dari sistem mitra dan lanjutkan pencarian atau booking melalui Slivadoc."}</LocalizedCopy></p>
             <div className="seo-hero-actions">
-              <Link className="seo-primary" href="/?view=discover">
-                Buka di Slivadoc
-              </Link>
-              <Link className="seo-secondary" href="/tempat">
-                Kembali ke direktori
-              </Link>
+              <Link className="seo-primary" href="/?view=discover"><LocalizedCopy>{"Buka di Slivadoc"}</LocalizedCopy></Link>
+              <Link className="seo-secondary" href="/tempat"><LocalizedCopy>{"Kembali ke direktori"}</LocalizedCopy></Link>
             </div>
-            {place.latitude != null && place.longitude != null && (
+            <LocalizedCopy>{place.latitude != null && place.longitude != null && (
               <div className="seo-hero-actions">
                 <a
                   className="seo-secondary"
                   href={`https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`}
                   target="_blank"
                   rel="noreferrer"
-                >
-                  Petunjuk arah
-                </a>
+                ><LocalizedCopy>{"Petunjuk arah"}</LocalizedCopy></a>
               </div>
-            )}
+            )}</LocalizedCopy>
           </div>
           <aside className="seo-hero-panel">
-            <strong>Informasi lokasi</strong>
+            <strong><LocalizedCopy>{"Informasi lokasi"}</LocalizedCopy></strong>
             <ul>
-              <li>{place.address}</li>
-              <li>{place.city}</li>
-              <li>{place.services.length} layanan aktif</li>
-              {place.rating != null && place.rating > 0 && (
-                <li>
-                  Rating {place.rating} dari {place.reviewCount ?? 0} ulasan
-                </li>
-              )}
+              <li><LocalizedCopy>{place.address}</LocalizedCopy></li>
+              <li><LocalizedCopy>{place.city}</LocalizedCopy></li>
+              <li><LocalizedCopy>{place.services.length}</LocalizedCopy><LocalizedCopy>{" layanan aktif"}</LocalizedCopy></li>
+              <LocalizedCopy>{place.rating != null && place.rating > 0 && (
+                <li><LocalizedCopy>{"Rating "}</LocalizedCopy><LocalizedCopy>{place.rating}</LocalizedCopy><LocalizedCopy>{" dari "}</LocalizedCopy><LocalizedCopy>{place.reviewCount ?? 0}</LocalizedCopy><LocalizedCopy>{" ulasan"}</LocalizedCopy></li>
+              )}</LocalizedCopy>
             </ul>
           </aside>
         </div>
       </section>
       <section className="seo-main-section">
         <div className="seo-section-heading">
-          <h2>Layanan yang tersedia</h2>
-          <p>
-            Harga dan ketersediaan mengikuti data aktif dari sistem mitra pada
-            saat halaman dimuat.
-          </p>
+          <h2><LocalizedCopy>{"Layanan yang tersedia"}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Harga dan ketersediaan mengikuti data aktif dari sistem mitra pada saat halaman dimuat."}</LocalizedCopy></p>
         </div>
         <div className="seo-card-grid">
-          {place.services.map((service) => (
+          <LocalizedCopy catalogue>{place.services.map((service) => (
             <article className="seo-card" key={service.id}>
-              <small>{service.category}</small>
+              <small><LocalizedCopy>{service.category}</LocalizedCopy></small>
               <h2>
                 <Link href={`/tempat/${place.slug}/layanan/${service.id}`}>
-                  {service.name}
+                  <LocalizedCopy catalogue>{service.name}</LocalizedCopy>
                 </Link>
               </h2>
               <p>
-                {service.description ||
-                  "Deskripsi layanan belum dicantumkan oleh mitra."}
+                <LocalizedCopy catalogue>{service.description ||
+                  "Deskripsi layanan belum dicantumkan oleh mitra."}</LocalizedCopy>
               </p>
               <p>
-                {service.durationMinutes > 0
+                <LocalizedCopy>{service.durationMinutes > 0
                   ? `${service.durationMinutes} menit · `
-                  : ""}
-                {service.price > 0
+                  : ""}</LocalizedCopy>
+                <LocalizedCopy>{service.price > 0
                   ? new Intl.NumberFormat("id-ID", {
                       style: "currency",
                       currency: "IDR",
                       maximumFractionDigits: 0,
                     }).format(service.price)
-                  : "Hubungi mitra"}
+                  : "Hubungi mitra"}</LocalizedCopy>
               </p>
               <Link
                 className="seo-card-link"
                 href={`/tempat/${place.slug}/layanan/${service.id}`}
-              >
-                Lihat detail & jadwal →
-              </Link>
+              ><LocalizedCopy>{"Lihat detail & jadwal →"}</LocalizedCopy></Link>
             </article>
-          ))}
+          ))}</LocalizedCopy>
         </div>
       </section>
     </PublicPage>

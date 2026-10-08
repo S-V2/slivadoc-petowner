@@ -1,10 +1,11 @@
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { featureSearchShortcuts } from "../../../shared/petowner-flow";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
   Modal,
-  Pressable,
+
   ScrollView,
   StyleSheet,
   View,
@@ -123,6 +124,7 @@ function HomeSearchModal({
   onClose: () => void;
   onChoose: (result: MobileGlobalSearchResult) => void;
 }) {
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [results, setResults] = useState<MobileGlobalSearchResult[]>([]);
@@ -139,7 +141,7 @@ function HomeSearchModal({
       const localResults =
         category === "" || category === "feature"
           ? featureSearchItems.filter((item) =>
-              `${item.title} ${item.subtitle}`.toLowerCase().includes(normalizedQuery),
+              `${item.title} ${item.subtitle} ${t(item.title)} ${t(item.subtitle)}`.toLowerCase().includes(normalizedQuery),
             )
           : [];
       if (category === "feature") {
@@ -172,13 +174,13 @@ function HomeSearchModal({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [canSearch, category, normalizedQuery, query, searchKey, visible]);
+  }, [canSearch, category, normalizedQuery, query, searchKey, visible, t]);
 
   const searching = canSearch && resolvedSearchKey !== searchKey;
   const visibleResults = canSearch && !searching ? results : [];
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.searchBackdrop} onPress={onClose}>
         <Pressable style={styles.searchSheet} onPress={(event) => event.stopPropagation()}>
           <SafeAreaView edges={["bottom", "left", "right"]} style={styles.searchSheetSafe}>
@@ -561,7 +563,7 @@ export function HomeScreen({
         </View>
       </Screen>
       <HomeSearchModal visible={searchOpen} onClose={() => setSearchOpen(false)} onChoose={onSearchResult} />
-      <Modal visible={petPickerOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setPetPickerOpen(false)}>
+      <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible={petPickerOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setPetPickerOpen(false)}>
         <Pressable style={styles.petPickerBackdrop} onPress={() => setPetPickerOpen(false)}>
           <SafeAreaView style={styles.petPickerSafe}>
             <Pressable style={styles.petPickerSheet} onPress={(event) => event.stopPropagation()}>

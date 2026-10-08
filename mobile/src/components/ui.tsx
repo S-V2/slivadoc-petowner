@@ -1,9 +1,11 @@
+import { LocalizedPressable as Pressable } from "./LocalizedPressable";
+import { useResponsiveLayout } from "../responsive";
 import { createContext, useContext, type PropsWithChildren, type ReactNode } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
+
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -62,10 +64,11 @@ export function useAppSurface() {
 
 export function Screen({ children, contentStyle }: PropsWithChildren<{ contentStyle?: StyleProp<ViewStyle> }>) {
   const { bottomInset, refreshing, onRefresh } = useAppSurface();
+  const layout = useResponsiveLayout();
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={[styles.screenContent, { paddingBottom: bottomInset + 108 }, contentStyle]}
+      contentContainerStyle={[styles.screenContent, { width: "100%", maxWidth: layout.contentWidth, alignSelf: "center", paddingHorizontal: layout.gutter, paddingBottom: bottomInset + 108 }, contentStyle]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.sky500]} tintColor={colors.sky500} progressBackgroundColor={colors.white} />}
@@ -99,7 +102,7 @@ export function TopHeader({ title, subtitle, onNotification }: { title: string; 
 export function SectionTitle({ eyebrow, title, action, onAction }: { eyebrow?: string; title: string; action?: string; onAction?: () => void }) {
   return (
     <View style={styles.sectionTitle}>
-      <View>
+      <View style={{flex:1,minWidth:0}}>
         {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
         <Text style={styles.sectionHeading}>{title}</Text>
       </View>
@@ -210,8 +213,9 @@ export function BoundedBottomSheet({
   onClose: () => void;
   maxHeight?: `${number}%` | number;
 }>) {
+  const layout = useResponsiveLayout();
   return (
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={visible}
       transparent
       animationType="slide"
@@ -229,7 +233,7 @@ export function BoundedBottomSheet({
             onPress={onClose}
             style={StyleSheet.absoluteFill}
           />
-          <View accessible={false} accessibilityViewIsModal style={[styles.sheet, { maxHeight }]}>
+          <View accessible={false} accessibilityViewIsModal style={[styles.sheet, { maxHeight, width: "100%", maxWidth: layout.sheetWidth, alignSelf: "center" }]}>
             <SafeAreaView edges={["bottom", "left", "right"]} style={styles.sheetSafe}>
               <View style={styles.sheetHandle} />
               {children}
@@ -260,11 +264,11 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, ...shadow },
   primaryButton: { minHeight: 48, paddingHorizontal: 17, borderRadius: radius.md, borderBottomLeftRadius: 9, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.sky600, ...shadow },
   compactButton: { minHeight: 42, borderRadius: 14, paddingHorizontal: 14 },
-  primaryButtonText: { color: colors.white, fontSize: typography.control, fontWeight: "600" },
+  primaryButtonText: { flexShrink: 1, textAlign: "center", color: colors.white, fontSize: typography.control, fontWeight: "600" },
   lightButton: { backgroundColor: colors.white, shadowOpacity: 0 },
   lightButtonText: { color: colors.sky600 },
   softButton: { minHeight: 44, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.sky200, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: colors.sky50 },
-  softButtonText: { color: colors.sky600, fontSize: typography.control, fontWeight: "600" },
+  softButtonText: { flexShrink: 1, textAlign: "center", color: colors.sky600, fontSize: typography.control, fontWeight: "600" },
   appIcon: { alignItems: "center", justifyContent: "center" },
   pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
   pill: { maxWidth: "52%", flexShrink: 0, alignSelf: "flex-start", paddingHorizontal: 9, paddingVertical: 5, borderRadius: radius.pill },
@@ -298,7 +302,7 @@ const styles = StyleSheet.create({
     borderColor: colors.sky100,
     backgroundColor: colors.sky25,
   },
-  sheetSafe: { minHeight: 120, backgroundColor: colors.white },
+  sheetSafe: { minHeight: 120, flexShrink: 1, backgroundColor: colors.white },
   sheetHandle: {
     alignSelf: "center",
     width: 42,

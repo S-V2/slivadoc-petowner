@@ -1,3 +1,4 @@
+import { petOwnerIntlLocale } from "./petowner-locale.ts";
 import type { IconName } from "../components/Icon.tsx";
 import type {
   ActivityType,
@@ -133,7 +134,7 @@ export function activityAttentionReason(
   if (item.type === "document" && item.status === "need_revision")
     return "Dokumen perlu dilengkapi";
   if (item.scheduled_at && new Date(item.scheduled_at) > now)
-    return `Mulai ${new Date(item.scheduled_at).toLocaleString("id-ID", {
+    return `Mulai ${new Date(item.scheduled_at).toLocaleString(petOwnerIntlLocale(), {
       weekday: "short",
       hour: "2-digit",
       minute: "2-digit",
@@ -142,7 +143,7 @@ export function activityAttentionReason(
 }
 
 export function formatActivityDate(value: string) {
-  return new Date(value).toLocaleString("id-ID", {
+  return new Date(value).toLocaleString(petOwnerIntlLocale(), {
     dateStyle: "medium",
     timeStyle: "short",
   });

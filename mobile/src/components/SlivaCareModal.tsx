@@ -1,5 +1,6 @@
+import { LocalizedPressable as Pressable } from "./LocalizedPressable";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform,  ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { askSlivaCare, getMobileSupportChat, petownerRealtime, sendMobileSupportChatMessage, type AssistantMessage, type MobileOwner, type MobileSupportMessage } from "../api";
@@ -132,7 +133,7 @@ export function SlivaCareModal({ visible, onClose, onAction, owner, pet, onLogin
   const agentIcon = mode === "assistant" ? "sparkles" : supportMode ? "headset" : "medical";
   const teamSender = supportMode ? "Tim Slivadoc" : "Care Team";
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.page}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboard}>
           <View style={styles.header}>

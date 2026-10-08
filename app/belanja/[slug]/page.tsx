@@ -1,7 +1,8 @@
+import { LocalizedCopy } from "../../components/LocalizedCopy";
 import type { Metadata } from "next";
 import { validGtin } from "../../lib/product-discovery";
-import Image from "next/image";
-import Link from "next/link";
+import { LocalizedImage as Image } from "../../components/LocalizedCopy";
+import { LocalizedLink as Link } from "../../components/LocalizedCopy";
 import { notFound, permanentRedirect } from "next/navigation";
 import JsonLd from "../../components/seo/JsonLd";
 import { Breadcrumbs, PublicPage } from "../../components/seo/PublicSite";
@@ -125,7 +126,7 @@ export default async function ProductPage({ params }: PageProps) {
         />
         <div className="seo-product-detail-grid">
           <div className="seo-product-detail-media">
-            {product.imageUrl ? (
+            <LocalizedCopy catalogue>{product.imageUrl ? (
               <Image
                 src={product.imageUrl}
                 alt={`Foto ${product.name}`}
@@ -135,50 +136,50 @@ export default async function ProductPage({ params }: PageProps) {
                 unoptimized
               />
             ) : (
-              <span aria-hidden="true">🐾</span>
-            )}
+              <span aria-hidden="true"><LocalizedCopy>{"🐾"}</LocalizedCopy></span>
+            )}</LocalizedCopy>
           </div>
           <div className="seo-product-detail-copy">
-            <span className="seo-eyebrow">{product.category}</span>
-            <h1>{product.name}</h1>
+            <span className="seo-eyebrow"><LocalizedCopy>{product.category}</LocalizedCopy></span>
+            <h1><LocalizedCopy catalogue>{product.name}</LocalizedCopy></h1>
             <p>
-              {product.description ||
-                "Deskripsi produk belum dicantumkan oleh penjual."}
+              <LocalizedCopy catalogue>{product.description ||
+                "Deskripsi produk belum dicantumkan oleh penjual."}</LocalizedCopy>
             </p>
             <strong className="seo-product-detail-price">
-              {rupiah.format(product.price)}
+              <LocalizedCopy>{rupiah.format(product.price)}</LocalizedCopy>
             </strong>
             <div className="seo-product-facts">
               <span>
-                <b>{product.available ? "Tersedia" : "Stok habis"}</b>
-                <small>Status stok saat ini</small>
+                <b><LocalizedCopy>{product.available ? "Tersedia" : "Stok habis"}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"Status stok saat ini"}</LocalizedCopy></small>
               </span>
               <span>
                 <b>
-                  {product.reviewCount > 0
+                  <LocalizedCopy>{product.reviewCount > 0
                     ? `★ ${product.rating.toFixed(1)}`
-                    : "Produk baru"}
+                    : "Produk baru"}</LocalizedCopy>
                 </b>
-                <small>{product.reviewCount} ulasan terverifikasi</small>
+                <small><LocalizedCopy>{product.reviewCount}</LocalizedCopy><LocalizedCopy>{" ulasan terverifikasi"}</LocalizedCopy></small>
               </span>
               <span>
-                <b>{Math.round(product.soldCount).toLocaleString("id-ID")}</b>
-                <small>produk terjual</small>
+                <b><LocalizedCopy>{Math.round(product.soldCount).toLocaleString("id-ID")}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"produk terjual"}</LocalizedCopy></small>
               </span>
             </div>
             <div className="seo-seller-summary">
               <small>
-                {product.businessLicenseStatus === "verified"
+                <LocalizedCopy>{product.businessLicenseStatus === "verified"
                   ? "IZIN USAHA PENJUAL TERVERIFIKASI"
                   : product.businessLicenseStatus === "pending"
                     ? "IZIN USAHA SEDANG DITINJAU"
-                    : "DIJUAL OLEH PARTNER AKTIF"}
+                    : "DIJUAL OLEH PARTNER AKTIF"}</LocalizedCopy>
               </small>
-              <b>{product.businessName}</b>
+              <b><LocalizedCopy>{product.businessName}</LocalizedCopy></b>
               <span>
-                {[product.branchName, product.city]
+                <LocalizedCopy>{[product.branchName, product.city]
                   .filter(Boolean)
-                  .join(" · ") || "Lokasi cabang belum dicantumkan"}
+                  .join(" · ") || "Lokasi cabang belum dicantumkan"}</LocalizedCopy>
               </span>
             </div>
             <div className="seo-hero-actions">
@@ -186,27 +187,22 @@ export default async function ProductPage({ params }: PageProps) {
                 className="seo-primary"
                 href={`/?view=shop&product=${product.id}`}
               >
-                {product.available
+                <LocalizedCopy>{product.available
                   ? "Beli di Sliva Market"
-                  : "Lihat alternatif"}
+                  : "Lihat alternatif"}</LocalizedCopy>
               </Link>
-              <Link className="seo-secondary" href="/belanja">
-                Kembali ke katalog
-              </Link>
+              <Link className="seo-secondary" href="/belanja"><LocalizedCopy>{"Kembali ke katalog"}</LocalizedCopy></Link>
             </div>
           </div>
         </div>
       </section>
       <section className="seo-main-section">
         <div className="seo-section-heading">
-          <h2>Detail produk & kepatuhan</h2>
-          <p>
-            Informasi berikut berasal dari data yang dicantumkan penjual pada
-            katalog Slivadoc.
-          </p>
+          <h2><LocalizedCopy>{"Detail produk & kepatuhan"}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Informasi berikut berasal dari data yang dicantumkan penjual pada katalog Slivadoc."}</LocalizedCopy></p>
         </div>
         <div className="seo-card-grid">
-          {[
+          <LocalizedCopy>{[
             ["Merek", product.brandName],
             ["Produsen", product.manufacturer],
             ["Negara asal", product.originCountry],
@@ -223,27 +219,27 @@ export default async function ProductPage({ params }: PageProps) {
             .filter(([, value]) => Boolean(value))
             .map(([label, value]) => (
               <article className="seo-card" key={label}>
-                <small>{label}</small>
-                <h2>{value}</h2>
+                <small><LocalizedCopy>{label}</LocalizedCopy></small>
+                <h2><LocalizedCopy>{value}</LocalizedCopy></h2>
               </article>
-            ))}
-          {!product.brandName &&
+            ))}</LocalizedCopy>
+          <LocalizedCopy>{!product.brandName &&
             !product.manufacturer &&
             !product.originCountry &&
             !product.registrationNumber && (
               <article className="seo-card">
-                <small>Informasi penjual</small>
-                <h2>Detail kepatuhan produk belum dilengkapi</h2>
+                <small><LocalizedCopy>{"Informasi penjual"}</LocalizedCopy></small>
+                <h2><LocalizedCopy>{"Detail kepatuhan produk belum dilengkapi"}</LocalizedCopy></h2>
               </article>
-            )}
+            )}</LocalizedCopy>
         </div>
       </section>
       <section className="seo-main-section">
         <div className="seo-section-heading">
-          <h2>Penggunaan, keamanan, dan retur</h2>
+          <h2><LocalizedCopy>{"Penggunaan, keamanan, dan retur"}</LocalizedCopy></h2>
         </div>
         <div className="seo-card-grid">
-          {[
+          <LocalizedCopy catalogue>{[
             ["Komposisi / bahan", product.ingredients],
             ["Cara penggunaan", product.usageInstructions],
             ["Penyimpanan", product.storageInstructions],
@@ -255,35 +251,32 @@ export default async function ProductPage({ params }: PageProps) {
             .filter(([, value]) => Boolean(value))
             .map(([label, value]) => (
               <article className="seo-card" key={label}>
-                <small>{label}</small>
-                <p>{value}</p>
+                <small><LocalizedCopy>{label}</LocalizedCopy></small>
+                <p><LocalizedCopy>{value}</LocalizedCopy></p>
               </article>
-            ))}
-          {!product.ingredients &&
+            ))}</LocalizedCopy>
+          <LocalizedCopy catalogue>{!product.ingredients &&
             !product.usageInstructions &&
             !product.returnPolicy && (
               <article className="seo-card">
-                <small>Informasi penggunaan</small>
-                <p>
-                  Penjual belum melengkapi petunjuk penggunaan dan kebijakan
-                  retur.
-                </p>
+                <small><LocalizedCopy>{"Informasi penggunaan"}</LocalizedCopy></small>
+                <p><LocalizedCopy>{"Penjual belum melengkapi petunjuk penggunaan dan kebijakan retur."}</LocalizedCopy></p>
               </article>
-            )}
+            )}</LocalizedCopy>
         </div>
       </section>
       <section className="seo-main-section seo-product-assurance">
         <article>
-          <b>Stok terhubung</b>
-          <p>Ketersediaan berasal dari inventori cabang aktif.</p>
+          <b><LocalizedCopy>{"Stok terhubung"}</LocalizedCopy></b>
+          <p><LocalizedCopy>{"Ketersediaan berasal dari inventori cabang aktif."}</LocalizedCopy></p>
         </article>
         <article>
-          <b>Ulasan pembeli</b>
-          <p>Ulasan hanya dapat dikirim setelah transaksi dibayar.</p>
+          <b><LocalizedCopy>{"Ulasan pembeli"}</LocalizedCopy></b>
+          <p><LocalizedCopy>{"Ulasan hanya dapat dikirim setelah transaksi dibayar."}</LocalizedCopy></p>
         </article>
         <article>
-          <b>Total transparan</b>
-          <p>Voucher, poin, layanan, dan ongkir dihitung oleh server.</p>
+          <b><LocalizedCopy>{"Total transparan"}</LocalizedCopy></b>
+          <p><LocalizedCopy>{"Voucher, poin, layanan, dan ongkir dihitung oleh server."}</LocalizedCopy></p>
         </article>
       </section>
     </PublicPage>

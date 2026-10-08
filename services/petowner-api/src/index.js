@@ -1,3 +1,5 @@
+import { createTranslationService, translationRequest } from "./translation.js";
+import { join } from "node:path";
 import "dotenv/config";
 import { createServer } from "node:http";
 import cloudinaryPackage from "cloudinary";
@@ -210,6 +212,14 @@ async function requirePlatformUser(request, response, next) {
       });
   }
 }
+
+const translate = createTranslationService({ baseURL: process.env.SLIVA_TRANSLATION_URL, cacheDir: join(process.env.DATA_DIR || "/tmp/slivadoc-petowner", "translations") });
+app.post("/api/translations", rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: "draft-8", legacyHeaders: false }), async (request, response) => {
+  const parsed = translationRequest.safeParse(request.body);
+  if (!parsed.success) return response.status(400).json({ error: "invalid_translation_request" });
+  try { const translations = await translate(parsed.data); response.json({ translations, target: "en" }); }
+  catch (error) { response.status(error.message === "translation_busy" ? 429 : 503).json({ error: "translation_unavailable", message: "Translation is temporarily unavailable. Please try again." }); }
+});
 
 app.get("/health", (_request, response) => {
   if (Date.now() - lastPlatformProbe > 30_000) {

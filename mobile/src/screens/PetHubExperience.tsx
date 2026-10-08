@@ -1,9 +1,10 @@
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 /* React Native Image uses accessibilityLabel instead of the web alt attribute. */
 /* eslint-disable jsx-a11y/alt-text */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
-  Pressable,
+
   ScrollView,
   Share,
   StyleSheet,
@@ -92,6 +93,11 @@ const videoPoster = (url: string) => {
     .replace(/\.(mp4|mov|webm)(\?.*)?$/i, ".jpg$2");
 };
 
+function toggleVideoMute(player: ReturnType<typeof useVideoPlayer>) {
+  player.muted = !player.muted;
+  return player.muted;
+}
+
 function InlineVideo({
   uri,
   style,
@@ -102,14 +108,24 @@ function InlineVideo({
   const player = useVideoPlayer(uri, (instance) => {
     instance.loop = true;
   });
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
+  useEffect(() => {
+    const listener = player.addListener("playingChange", (event) => setPlaying(event.isPlaying));
+    return () => listener.remove();
+  }, [player]);
   return (
-    <VideoView
-      player={player}
-      nativeControls
-      contentFit="cover"
-      surfaceType="textureView"
-      style={style}
-    />
+    <View style={[style, { overflow: "hidden" }]}>
+      <VideoView player={player} nativeControls={false} contentFit="cover" surfaceType="textureView" style={StyleSheet.absoluteFill} />
+      <View style={{ position: "absolute", bottom: 8, left: 8, right: 8, flexDirection: "row", gap: 12 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={playing ? "Jeda video" : "Putar video"} onPress={() => playing ? player.pause() : player.play()} style={{ padding: 12, backgroundColor: colors.sky600, borderRadius: 18 }}>
+          <Ionicons name={playing ? "pause" : "play"} size={22} color="#fff" />
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={muted ? "Aktifkan suara" : "Bisukan video"} onPress={() => { setMuted(toggleVideoMute(player)); }} style={{ padding: 12, backgroundColor: colors.sky600, borderRadius: 18 }}>
+          <Ionicons name={muted ? "volume-mute" : "volume-high"} size={22} color="#fff" />
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -1040,7 +1056,7 @@ export function PetHubExperience({
                     </Text>
                   </View>
                   <View style={styles.authorCopy}>
-                    <Text style={styles.commentAuthor}>{item.author_name}</Text>
+                    <Text translate={false} style={styles.commentAuthor}>{item.author_name}</Text>
                     <Text style={styles.commentBody}>{item.content}</Text>
                     <Text style={styles.authorMeta}>
                       {formatAge(item.created_at, language)}

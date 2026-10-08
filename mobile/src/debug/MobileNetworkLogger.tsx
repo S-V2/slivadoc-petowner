@@ -1,5 +1,6 @@
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { useEffect, useRef, type PropsWithChildren } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {  StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {

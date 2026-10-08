@@ -1,5 +1,6 @@
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import {  StyleSheet, View } from "react-native";
 import {
   getMobileAdoptionListingApplications,
   getMobileMyAdoptionApplications,

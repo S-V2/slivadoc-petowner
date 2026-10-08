@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { LocalizedCopy } from "../LocalizedCopy";
+import { LocalizedLink as Link } from "../LocalizedCopy";
 import type { ReactNode } from "react";
 import { cityPages, guidePages, servicePages } from "../../lib/seo-content";
 
@@ -10,19 +11,16 @@ export function PublicHeader() {
         href="/"
         aria-label="Slivadoc, kembali ke beranda"
       >
-        <span>SLIVA</span>DOC
-      </Link>
+        <span><LocalizedCopy>{"SLIVA"}</LocalizedCopy></span><LocalizedCopy>{"DOC"}</LocalizedCopy></Link>
       <nav aria-label="Navigasi publik Slivadoc">
-        <Link href="/layanan">Layanan</Link>
-        <Link href="/belanja">Belanja</Link>
-        <Link href="/kota">Kota</Link>
-        <Link href="/wilayah">Wilayah</Link>
-        <Link href="/tempat">Tempat</Link>
-        <Link href="/panduan">Panduan</Link>
-        <Link href="/tentang">Tentang</Link>
-        <Link className="seo-header-cta" href="/?view=discover">
-          Buka Slivadoc
-        </Link>
+        <Link href="/layanan"><LocalizedCopy>{"Layanan"}</LocalizedCopy></Link>
+        <Link href="/belanja"><LocalizedCopy>{"Belanja"}</LocalizedCopy></Link>
+        <Link href="/kota"><LocalizedCopy>{"Kota"}</LocalizedCopy></Link>
+        <Link href="/wilayah"><LocalizedCopy>{"Wilayah"}</LocalizedCopy></Link>
+        <Link href="/tempat"><LocalizedCopy>{"Tempat"}</LocalizedCopy></Link>
+        <Link href="/panduan"><LocalizedCopy>{"Panduan"}</LocalizedCopy></Link>
+        <Link href="/tentang"><LocalizedCopy>{"Tentang"}</LocalizedCopy></Link>
+        <Link className="seo-header-cta" href="/?view=discover"><LocalizedCopy>{"Buka Slivadoc"}</LocalizedCopy></Link>
       </nav>
     </header>
   );
@@ -33,38 +31,35 @@ export function PublicFooter() {
     <footer className="seo-footer">
       <div>
         <Link className="seo-brand" href="/">
-          <span>SLIVA</span>DOC
-        </Link>
-        <p>One Platform. Every Animal. One Connected Ecosystem.</p>
+          <span><LocalizedCopy>{"SLIVA"}</LocalizedCopy></span><LocalizedCopy>{"DOC"}</LocalizedCopy></Link>
+        <p><LocalizedCopy>{"One Platform. Every Animal. One Connected Ecosystem."}</LocalizedCopy></p>
       </div>
       <div>
-        <strong>Jelajahi</strong>
-        <Link href="/layanan">Layanan pet care</Link>
-        <Link href="/belanja">Belanja kebutuhan pet</Link>
-        <Link href="/kota">Layanan berdasarkan kota</Link>
-        <Link href="/wilayah">Seluruh wilayah Indonesia</Link>
-        <Link href="/tempat">Direktori tempat</Link>
-        <Link href="/panduan">Panduan pet parent</Link>
+        <strong><LocalizedCopy>{"Jelajahi"}</LocalizedCopy></strong>
+        <Link href="/layanan"><LocalizedCopy>{"Layanan pet care"}</LocalizedCopy></Link>
+        <Link href="/belanja"><LocalizedCopy>{"Belanja kebutuhan pet"}</LocalizedCopy></Link>
+        <Link href="/kota"><LocalizedCopy>{"Layanan berdasarkan kota"}</LocalizedCopy></Link>
+        <Link href="/wilayah"><LocalizedCopy>{"Seluruh wilayah Indonesia"}</LocalizedCopy></Link>
+        <Link href="/tempat"><LocalizedCopy>{"Direktori tempat"}</LocalizedCopy></Link>
+        <Link href="/panduan"><LocalizedCopy>{"Panduan pet parent"}</LocalizedCopy></Link>
       </div>
       <div>
-        <strong>Perusahaan</strong>
-        <Link href="/tentang">Tentang Slivadoc</Link>
-        <Link href="/mitra">Mitra pet business</Link>
-        <Link href="/untuk/pet-owner">Manfaat untuk pet owner</Link>
-        <Link href="/gratis">Program gratis Slivadoc</Link>
-        <Link href="/en">English</Link>
-        <Link href="/?view=community">Komunitas</Link>
+        <strong><LocalizedCopy>{"Perusahaan"}</LocalizedCopy></strong>
+        <Link href="/tentang"><LocalizedCopy>{"Tentang Slivadoc"}</LocalizedCopy></Link>
+        <Link href="/mitra"><LocalizedCopy>{"Mitra pet business"}</LocalizedCopy></Link>
+        <Link href="/untuk/pet-owner"><LocalizedCopy>{"Manfaat untuk pet owner"}</LocalizedCopy></Link>
+        <Link href="/gratis"><LocalizedCopy>{"Program gratis Slivadoc"}</LocalizedCopy></Link>
+        <Link href="/en"><LocalizedCopy>{"English"}</LocalizedCopy></Link>
+        <Link href="/?view=community"><LocalizedCopy>{"Komunitas"}</LocalizedCopy></Link>
       </div>
       <div>
-        <strong>Bantuan & kebijakan</strong>
-        <Link href="/bantuan">Pusat bantuan</Link>
-        <Link href="/syarat-ketentuan">Syarat & ketentuan</Link>
-        <Link href="/privasi">Privasi & data</Link>
-        <a href="mailto:support@slivadoc.com">support@slivadoc.com</a>
+        <strong><LocalizedCopy>{"Bantuan & kebijakan"}</LocalizedCopy></strong>
+        <Link href="/bantuan"><LocalizedCopy>{"Pusat bantuan"}</LocalizedCopy></Link>
+        <Link href="/syarat-ketentuan"><LocalizedCopy>{"Syarat & ketentuan"}</LocalizedCopy></Link>
+        <Link href="/privasi"><LocalizedCopy>{"Privasi & data"}</LocalizedCopy></Link>
+        <a href="mailto:support@slivadoc.com"><LocalizedCopy>{"support@slivadoc.com"}</LocalizedCopy></a>
       </div>
-      <small>
-        © {new Date().getUTCFullYear()} PT Sliva Technology Indonesia
-      </small>
+      <small><LocalizedCopy>{"© "}</LocalizedCopy><LocalizedCopy>{new Date().getUTCFullYear()}</LocalizedCopy><LocalizedCopy>{" PT Sliva Technology Indonesia"}</LocalizedCopy></small>
     </footer>
   );
 }
@@ -73,7 +68,7 @@ export function PublicPage({ children }: { children: ReactNode }) {
   return (
     <div className="seo-site">
       <PublicHeader />
-      <main>{children}</main>
+      <main><LocalizedCopy>{children}</LocalizedCopy></main>
       <PublicFooter />
     </div>
   );
@@ -86,16 +81,16 @@ export function Breadcrumbs({
 }) {
   return (
     <nav className="seo-breadcrumbs" aria-label="Breadcrumb">
-      {items.map((item, index) => (
+      <LocalizedCopy>{items.map((item, index) => (
         <span key={`${item.label}-${index}`}>
-          {index > 0 && <i aria-hidden="true">/</i>}
-          {item.href ? (
-            <Link href={item.href}>{item.label}</Link>
+          <LocalizedCopy>{index > 0 && <i aria-hidden="true"><LocalizedCopy>{"/"}</LocalizedCopy></i>}</LocalizedCopy>
+          <LocalizedCopy>{item.href ? (
+            <Link href={item.href}><LocalizedCopy>{item.label}</LocalizedCopy></Link>
           ) : (
-            <b aria-current="page">{item.label}</b>
-          )}
+            <b aria-current="page"><LocalizedCopy>{item.label}</LocalizedCopy></b>
+          )}</LocalizedCopy>
         </span>
-      ))}
+      ))}</LocalizedCopy>
     </nav>
   );
 }
@@ -107,48 +102,42 @@ export function DiscoveryLinks() {
       aria-labelledby="seo-discovery-title"
     >
       <div className="seo-discovery-heading">
-        <span>Jelajahi Slivadoc</span>
-        <h2 id="seo-discovery-title">
-          Semua kebutuhan anabul, lebih mudah ditemukan
-        </h2>
-        <p>
-          Temukan layanan, produk, panduan, dan area pet care yang relevan
-          sebelum melanjutkan ke aplikasi.
-        </p>
+        <span><LocalizedCopy>{"Jelajahi Slivadoc"}</LocalizedCopy></span>
+        <h2 id="seo-discovery-title"><LocalizedCopy>{"Semua kebutuhan anabul, lebih mudah ditemukan"}</LocalizedCopy></h2>
+        <p><LocalizedCopy>{"Temukan layanan, produk, panduan, dan area pet care yang relevan sebelum melanjutkan ke aplikasi."}</LocalizedCopy></p>
       </div>
       <div className="seo-discovery-columns">
         <div>
-          <strong>Layanan populer</strong>
-          {servicePages.slice(0, 5).map((item) => (
+          <strong><LocalizedCopy>{"Layanan populer"}</LocalizedCopy></strong>
+          <LocalizedCopy>{servicePages.slice(0, 5).map((item) => (
             <Link key={item.slug} href={`/layanan/${item.slug}`}>
-              {item.name}
+              <LocalizedCopy>{item.name}</LocalizedCopy>
             </Link>
-          ))}
+          ))}</LocalizedCopy>
         </div>
         <div>
-          <strong>Belanja & panduan</strong>
-          <Link href="/belanja">Katalog kebutuhan pet</Link>
-          {guidePages.slice(0, 3).map((item) => (
+          <strong><LocalizedCopy>{"Belanja & panduan"}</LocalizedCopy></strong>
+          <Link href="/belanja"><LocalizedCopy>{"Katalog kebutuhan pet"}</LocalizedCopy></Link>
+          <LocalizedCopy>{guidePages.slice(0, 3).map((item) => (
             <Link key={item.slug} href={`/panduan/${item.slug}`}>
-              {item.title}
+              <LocalizedCopy>{item.title}</LocalizedCopy>
             </Link>
-          ))}
+          ))}</LocalizedCopy>
         </div>
         <div>
-          <strong>Area layanan</strong>
-          <Link href="/wilayah">Jelajahi seluruh Indonesia</Link>
-          {cityPages.slice(0, 5).map((item) => (
-            <Link key={item.slug} href={`/kota/${item.slug}`}>
-              Pet care {item.name}
+          <strong><LocalizedCopy>{"Area layanan"}</LocalizedCopy></strong>
+          <Link href="/wilayah"><LocalizedCopy>{"Jelajahi seluruh Indonesia"}</LocalizedCopy></Link>
+          <LocalizedCopy>{cityPages.slice(0, 5).map((item) => (
+            <Link key={item.slug} href={`/kota/${item.slug}`}><LocalizedCopy>{"Pet care "}</LocalizedCopy><LocalizedCopy>{item.name}</LocalizedCopy>
             </Link>
-          ))}
+          ))}</LocalizedCopy>
         </div>
         <div>
-          <strong>Kenali manfaatnya</strong>
-          <Link href="/untuk/pet-owner">Untuk pet owner</Link>
-          <Link href="/mitra">Untuk pet clinic & bisnis hewan</Link>
-          <Link href="/gratis">Program aplikasi gratis</Link>
-          <Link href="/en">Pet care in Indonesia (English)</Link>
+          <strong><LocalizedCopy>{"Kenali manfaatnya"}</LocalizedCopy></strong>
+          <Link href="/untuk/pet-owner"><LocalizedCopy>{"Untuk pet owner"}</LocalizedCopy></Link>
+          <Link href="/mitra"><LocalizedCopy>{"Untuk pet clinic & bisnis hewan"}</LocalizedCopy></Link>
+          <Link href="/gratis"><LocalizedCopy>{"Program aplikasi gratis"}</LocalizedCopy></Link>
+          <Link href="/en"><LocalizedCopy>{"Pet care in Indonesia (English)"}</LocalizedCopy></Link>
         </div>
       </div>
     </section>

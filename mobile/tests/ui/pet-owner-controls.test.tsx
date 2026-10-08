@@ -24,6 +24,7 @@ describe("native Slivadoc controls", () => {
     await render(<AddPetSheet onClose={() => {}} onSaved={async () => {}}/>, { wrapper: Providers });
     await waitFor(() => expect(screen.getByRole("button", { name: "Save pet profile" })).toBeEnabled());
     expect(screen.getByText("Add pet profile")).toBeOnTheScreen();
+    expect(screen.getByText("NEW FAMILY MEMBER")).toBeOnTheScreen();
     expect(screen.getByLabelText("Pet name")).toBeOnTheScreen();
     await user.press(screen.getByRole("button", { name: "Animal type" }));
     await user.type(screen.getByLabelText("Search options"), "cat");

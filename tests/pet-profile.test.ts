@@ -27,6 +27,8 @@ test("English pet headings preserve names and correctly translate age and home c
   assert.equal(translateText("Kondisi Nala", "en"), "Nala's health");
   assert.equal(translateText("Untuk Milo", "en"), "For Milo");
   assert.equal(translateText("AKUN & PERAWATAN", "en"), "ACCOUNT & CARE");
+  assert.equal(translateText("ANGGOTA KELUARGA BARU", "en"), "NEW FAMILY MEMBER");
+  assert.equal(translateText("Buka kesehatan Nala", "en"), "Open Nala's health");
   assert.equal(translateText("Buka PetSpot", "en"), "Open PetSpot");
   assert.equal(translateText("11 th pengalaman · 3156 konsultasi", "en"), "11 years of experience · 3156 consultations");
   assert.equal(translateText("3 tahun 5 bulan", "en"), "3 years 5 months");

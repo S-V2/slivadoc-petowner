@@ -24,12 +24,14 @@ export function translateText(value: string, language: SlivaLanguage, forceConte
   const core = value.trim();
   // Primitives can nest: an English label must never be translated a second time.
   if (englishOutputs.has(core.toLocaleLowerCase("en"))) return value;
-  const exact = Object.prototype.hasOwnProperty.call(englishCopy, core) ? englishCopy[core] : folded.get(core.toLocaleLowerCase("id"));
+  // Reviewed copy wins over generated text even when a heading is uppercase.
+  const exact = folded.get(core.toLocaleLowerCase("id")) ?? (Object.prototype.hasOwnProperty.call(englishCopy, core) ? englishCopy[core] : undefined);
   let translated: string | undefined = exact;
   if (!translated) {
     const patterns: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
       [/^Hai, (.+)!$/i, m => `Hi, ${m[1]}!`],
       [/^Kondisi (.+)$/i, m => `${m[1]}'s health`],
+      [/^Kesehatan (.+)$/i, m => `${m[1]}'s health`],
       [/^Untuk (.+)$/i, m => `For ${m[1]}`],
       [/^Buka (.+)$/i, m => `Open ${translateText(m[1]!, language)}`],
       [/^(\d+) th pengalaman · (\d+) konsultasi$/i, m => `${m[1]} ${m[1] === "1" ? "year" : "years"} of experience · ${m[2]} ${m[2] === "1" ? "consultation" : "consultations"}`],

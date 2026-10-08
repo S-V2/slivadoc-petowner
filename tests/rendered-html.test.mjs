@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before, after } from "node:test";
+
+const originalFetch = globalThis.fetch;
+before(() => { globalThis.fetch = async (input, init) => String(input).includes("/api/v1/public/discovery/") ? Response.json({ data: [], count: 0, has_more: false }) : originalFetch(input, init); });
+after(() => { globalThis.fetch = originalFetch; });
 
 async function render(pathname = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -55,7 +59,7 @@ test("serves crawlable service, sitemap, robots, and RSS routes", async () => {
   const robots = await render("/robots.txt");
   assert.equal(robots.status, 200);
   const robotsText = await robots.text();
-  assert.match(robotsText, /Sitemap: https:\/\/slivadoc\.id\/sitemap\.xml/i);
+  assert.match(robotsText, /Sitemap: https:\/\/slivadoc\.id\/sitemap-index\.xml/i);
   assert.match(robotsText, /Disallow: \/api\//i);
 
   const feed = await render("/feed.xml");

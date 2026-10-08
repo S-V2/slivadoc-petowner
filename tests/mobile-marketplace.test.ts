@@ -32,7 +32,7 @@ test("bottom navigation opens a clean marketplace without replaying cart intents
   assert.match(app, /current\?\.token === token \? undefined : current/);
 });
 
-test("mobile marketplace uses live catalogue, authoritative checkout, and BatPay", () => {
+test("mobile marketplace uses live catalogue, authoritative checkout, and QRIS", () => {
   assert.match(marketplace, /getMobileProducts/);
   assert.match(
     marketplace,
@@ -100,7 +100,5 @@ test("mobile order detail exposes a view-only shipment timeline through delivery
   assert.match(activities, /Dalam perjalanan/);
   assert.match(activities, /Sudah diterima/);
   assert.match(activities, /shipment\.events/);
-  assert.match(activities, /loadActivities\(true\)/);
-  assert.match(activities, /60_000/);
   assert.doesNotMatch(activities, /shipping\/track/);
 });

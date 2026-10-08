@@ -13,25 +13,29 @@
     "android": "npm --prefix mobile run android --",
     "ios": "npm --prefix mobile run ios --",
     "test": "npm run build && node --experimental-strip-types --test tests/*.test.mjs tests/*.test.ts",
+    "test:coverage": "npm run build && mkdir -p coverage && node --experimental-strip-types --test --experimental-test-coverage --test-coverage-include='app/**' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/node.lcov tests/*.test.mjs tests/*.test.ts",
     "test:responsive": "playwright test",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
     "api:install": "npm --prefix services/petowner-api install",
     "api:dev": "npm --prefix services/petowner-api run dev",
     "api:start": "npm --prefix services/petowner-api start",
-    "api:test": "npm --prefix services/petowner-api test"
+    "api:test": "npm --prefix services/petowner-api test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
     "maplibre-gl": "^6.13.0",
-    "next": "^16.3.3",
+    "next": "^16.3.6",
     "pmtiles": "^4.5.0",
+    "qrcode.react": "4.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.54.1",
+    "@cloudflare/workers-types": "5.20261007.1",
     "@playwright/test": "^1.61.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
@@ -41,14 +45,18 @@
     "@vitejs/plugin-rsc": "0.5.34",
     "drizzle-kit": "1.0.0-rc.4",
     "eslint": "9.39.4",
-    "eslint-config-next": "^16.3.3",
+    "eslint-config-next": "^16.3.6",
     "react-server-dom-webpack": "^19.2.8",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vinext": "1.0.0-beta.8",
     "vite": "8.2.2",
-    "wrangler": "4.127.0"
+    "wrangler": "4.127.0",
+    "yaml": "^2.9.1"
   },
   "type": "module",
-  "displayName": "Slivadoc Pet Owner"
+  "displayName": "Slivadoc Pet Owner",
+  "overrides": {
+    "sharp": "0.35.5"
+  }
 }

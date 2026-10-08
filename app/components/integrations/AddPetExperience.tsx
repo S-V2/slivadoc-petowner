@@ -1,8 +1,12 @@
 "use client";
+import { SlivaFilePicker } from "../SlivaFilePicker";
+import { LocalizedCopy, LocalizedButton, LocalizedInput } from "../LocalizedCopy";
+import { SlivaDatePicker } from "../SlivaDatePicker";
 
+import { SlivaSelect } from "../SlivaSelect";
 import NextImage from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Pet } from "../../data/mock";
+import type { Pet } from "../../lib/petowner-domain";
 import {
   createPetOwnerPet,
   getPetSpecies,
@@ -32,7 +36,7 @@ const groupLabels: Record<string, string> = {
   other: "Spesies lainnya",
 };
 const groupToPetType = (group: string): Pet["type"] =>
-  ({
+  (({
     dog: "Dog",
     cat: "Cat",
     small_mammal: "Small Mammal",
@@ -45,7 +49,7 @@ const groupToPetType = (group: string): Pet["type"] =>
     insect: "Insect",
     equine: "Equine",
     farm_animal: "Farm Animal",
-  })[group] as Pet["type"] ?? "Other";
+  })[group] as Pet["type"]) ?? "Other";
 
 export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
   const [speciesOptions, setSpeciesOptions] = useState<PetSpecies[]>([]);
@@ -162,16 +166,16 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
       >
         <header>
           <div>
-            <span className="section-eyebrow">ANGGOTA KELUARGA BARU</span>
-            <h2>Tambah profil hewan</h2>
-            <p>Lengkapi identitas dasar agar perawatan lebih personal.</p>
+            <span className="section-eyebrow"><LocalizedCopy>{"ANGGOTA KELUARGA BARU"}</LocalizedCopy></span>
+            <h2><LocalizedCopy>{"Tambah profil hewan"}</LocalizedCopy></h2>
+            <p><LocalizedCopy>{"Lengkapi identitas dasar agar perawatan lebih personal."}</LocalizedCopy></p>
           </div>
-          <button className="modal-close" type="button" onClick={onClose}>
+          <LocalizedButton className="modal-close" type="button" onClick={onClose}>
             <Icon name="close" />
-          </button>
+          </LocalizedButton>
         </header>
         <div className="pet-photo-upload">
-          {preview ? (
+          <LocalizedCopy>{preview ? (
             <NextImage
               src={preview}
               alt="Preview foto hewan"
@@ -180,13 +184,13 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
               unoptimized
             />
           ) : (
-            <span>{species?.emoji ?? "🐾"}</span>
-          )}
-          <button type="button" onClick={() => inputRef.current?.click()}>
-            <Icon name="camera" size={15} />{" "}
-            {preview ? "Ganti foto" : "Tambah foto"}
-          </button>
-          <input
+            <span><LocalizedCopy>{species?.emoji ?? "🐾"}</LocalizedCopy></span>
+          )}</LocalizedCopy>
+          <LocalizedButton type="button" onClick={() => inputRef.current?.click()}>
+            <Icon name="camera" size={15} /><LocalizedCopy>{" "}</LocalizedCopy>
+            <LocalizedCopy>{preview ? "Ganti foto" : "Tambah foto"}</LocalizedCopy>
+          </LocalizedButton>
+          <SlivaFilePicker
             ref={inputRef}
             hidden
             type="file"
@@ -194,10 +198,10 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
             onChange={(event) => choosePhoto(event.target.files?.[0])}
           />
         </div>
-        <label className="field-label" htmlFor="pet-species">Jenis hewan *</label>
+        <label className="field-label" htmlFor="pet-species"><LocalizedCopy>{"Jenis hewan *"}</LocalizedCopy></label>
         <div className="species-picker">
-          <span aria-hidden="true">{species?.emoji ?? "🐾"}</span>
-          <select
+          <span aria-hidden="true"><LocalizedCopy>{species?.emoji ?? "🐾"}</LocalizedCopy></span>
+          <SlivaSelect aria-label="Jenis hewan"
             id="pet-species"
             value={speciesCode}
             disabled={!speciesOptions.length}
@@ -206,72 +210,83 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
             {!speciesOptions.length && <option>Memuat katalog spesies…</option>}
             {Object.entries(groupedSpecies).map(([group, items]) => (
               <optgroup key={group} label={groupLabels[group] ?? group}>
-                {items.map((item) => (
+                <LocalizedCopy>{items.map((item) => (
                   <option key={item.code} value={item.code}>
                     {item.emoji} {item.label}
                     {item.scientific_name ? ` · ${item.scientific_name}` : ""}
                   </option>
-                ))}
+                ))}</LocalizedCopy>
               </optgroup>
             ))}
-          </select>
+          </SlivaSelect>
         </div>
-        {species && (
+        <LocalizedCopy>{species && (
           <p className="species-hint">
-            {groupLabels[species.group] ?? species.group} · profil perawatan {species.care_profile.replaceAll("_", " ")}
+            <LocalizedCopy>{groupLabels[species.group] ?? species.group}</LocalizedCopy><LocalizedCopy>{" · profil perawatan"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+            <LocalizedCopy>{species.care_profile.replaceAll("_", " ")}</LocalizedCopy>
           </p>
-        )}
+        )}</LocalizedCopy>
         <div className="form-grid">
-          {species?.code === "other" && (
+          <LocalizedCopy>{species?.code === "other" && (
             <>
               <label>
-                <span>Nama umum spesies *</span>
-                <input value={customSpecies} onChange={(event) => setCustomSpecies(event.target.value)} placeholder="Contoh: kelabang gurun" />
+                <span><LocalizedCopy>{"Nama umum spesies *"}</LocalizedCopy></span>
+                <LocalizedInput
+                  value={customSpecies}
+                  onChange={(event) => setCustomSpecies(event.target.value)}
+                  placeholder="Contoh: kelabang gurun"
+                />
               </label>
               <label>
-                <span>Nama ilmiah (opsional)</span>
-                <input value={customScientificName} onChange={(event) => setCustomScientificName(event.target.value)} placeholder="Genus species" />
+                <span><LocalizedCopy>{"Nama ilmiah (opsional)"}</LocalizedCopy></span>
+                <LocalizedInput
+                  value={customScientificName}
+                  onChange={(event) =>
+                    setCustomScientificName(event.target.value)
+                  }
+                  placeholder="Genus species"
+                />
               </label>
             </>
-          )}
+          )}</LocalizedCopy>
           <label>
-            <span>Nama hewan *</span>
-            <input
+            <span><LocalizedCopy>{"Nama hewan *"}</LocalizedCopy></span>
+            <LocalizedInput
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="Contoh: Snoppy"
             />
           </label>
           <label>
-            <span>Ras / varietas (opsional)</span>
-            <input
+            <span><LocalizedCopy>{"Ras / varietas (opsional)"}</LocalizedCopy></span>
+            <LocalizedInput
               value={breed}
               onChange={(event) => setBreed(event.target.value)}
               placeholder="Contoh: Pomeranian"
             />
           </label>
           <label>
-            <span>Jenis kelamin</span>
-            <select
+            <span><LocalizedCopy>{"Jenis kelamin"}</LocalizedCopy></span>
+            <SlivaSelect aria-label="Jenis kelamin"
               value={gender}
               onChange={(event) => setGender(event.target.value)}
             >
               <option value="male">Jantan</option>
               <option value="female">Betina</option>
-            </select>
+            </SlivaSelect>
           </label>
           <label>
-            <span>Tanggal lahir / menetas (opsional)</span>
-            <input
+            <span><LocalizedCopy>{"Tanggal lahir / menetas (opsional)"}</LocalizedCopy></span>
+            <SlivaDatePicker
               value={birthDate}
               onChange={(event) => setBirthDate(event.target.value)}
               type="date"
             />
           </label>
           <label>
-            <span>Berat badan</span>
+            <span><LocalizedCopy>{"Berat badan"}</LocalizedCopy></span>
             <div className="unit-input">
-              <input
+              <LocalizedInput
                 value={weight}
                 onChange={(event) =>
                   setWeight(event.target.value.replace(/[^0-9.]/g, ""))
@@ -279,30 +294,28 @@ export default function AddPetExperience({ onClose, onSaved, notify }: Props) {
                 inputMode="decimal"
                 placeholder="3.5"
               />
-              <em>kg</em>
+              <em><LocalizedCopy>{"kg"}</LocalizedCopy></em>
             </div>
           </label>
         </div>
         <div className="upload-security">
           <Icon name="shield" size={16} />
           <p>
-            <b>Upload aman</b>
-            <small>JPG, PNG, atau WebP • maksimal 8 MB.</small>
+            <b><LocalizedCopy>{"Upload aman"}</LocalizedCopy></b>
+            <small><LocalizedCopy>{"JPG, PNG, atau WebP • maksimal 8 MB."}</LocalizedCopy></small>
           </p>
         </div>
         <footer>
-          <button className="secondary-button" type="button" onClick={onClose}>
-            Batal
-          </button>
-          <button
+          <LocalizedButton className="secondary-button" type="button" onClick={onClose}><LocalizedCopy>{"Batal"}</LocalizedCopy></LocalizedButton>
+          <LocalizedButton
             className="primary-button"
             type="button"
             disabled={loading || !species}
             onClick={() => void save()}
           >
-            {loading ? "Menyimpan..." : "Simpan profil"}{" "}
+            <LocalizedCopy>{loading ? "Menyimpan..." : "Simpan profil"}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
             <Icon name="arrow" size={16} />
-          </button>
+          </LocalizedButton>
         </footer>
       </div>
     </div>

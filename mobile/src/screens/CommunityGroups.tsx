@@ -1,24 +1,29 @@
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 /* React Native Image uses accessibilityLabel instead of the web alt attribute. */
 /* eslint-disable jsx-a11y/alt-text */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
+
   ScrollView,
   StyleSheet,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   createMobileCommunityGroup,
   getMobileCommunityGroupMessages,
   getMobileCommunityGroups,
   joinMobileCommunityGroup,
   sendMobileCommunityGroupMessage,
+  getMobileCommunityGroupMembers,
+  updateMobileCommunityGroupMember,
+  type MobileCommunityGroupMember,
   type MobileCommunityGroup,
   type MobileCommunityGroupMessage,
   type MobileOwner,
@@ -238,8 +243,49 @@ function CreateGroupSheet({ visible, onClose, onCreated, onAction }: { visible: 
   );
 }
 
+function JoinRequests({ group, onAction }: { group: MobileCommunityGroup; onAction: (message: string) => void }) {
+  const [requests, setRequests] = useState<MobileCommunityGroupMember[]>([]);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(async () => {
+    try {
+      setRequests((await getMobileCommunityGroupMembers(group.id, "pending")).data ?? []);
+    } catch (cause) {
+      onAction(cause instanceof Error ? cause.message : "Permintaan bergabung belum dapat dimuat");
+    }
+  }, [group.id, onAction]);
+  useEffect(() => {
+    queueMicrotask(() => void load());
+  }, [load]);
+  const review = async (member: MobileCommunityGroupMember, status: "active" | "blocked") => {
+    setBusy(true);
+    try {
+      await updateMobileCommunityGroupMember(group.id, member.user_id, status);
+      onAction(status === "active" ? `${member.full_name} bergabung ke grup` : `Permintaan ${member.full_name} ditolak`);
+      await load();
+    } catch (cause) {
+      onAction(cause instanceof Error ? cause.message : "Permintaan belum dapat diproses");
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!requests.length) return null;
+  return (
+    <View style={styles.requests}>
+      <Text style={styles.requestsTitle}>Permintaan bergabung</Text>
+      {requests.map((member) => (
+        <View key={member.user_id} style={styles.requestRow}>
+          <Text translate={false} numberOfLines={1} style={styles.requestName}>{member.full_name}</Text>
+          <Pressable accessibilityRole="button" disabled={busy} onPress={() => void review(member, "blocked")} style={[styles.requestReject, busy && { opacity: 0.55 }]}><Text style={styles.requestRejectText}>Tolak</Text></Pressable>
+          <Pressable accessibilityRole="button" disabled={busy} onPress={() => void review(member, "active")} style={[styles.requestApprove, busy && { opacity: 0.55 }]}><Text style={styles.requestApproveText}>Setujui</Text></Pressable>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { group?: MobileCommunityGroup; owner: MobileOwner; hasPet: boolean; onClose: () => void; onRequirePet: () => void; onAction: (message: string) => void }) {
   const { locale } = useI18n();
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<MobileCommunityGroupMessage[]>([]);
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -282,8 +328,20 @@ function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { 
   };
 
   return (
-    <Modal visible={Boolean(group)} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView edges={["top", "bottom", "left", "right"]} style={styles.roomPage}>
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
+      visible={Boolean(group)}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      statusBarTranslucent={false}
+      navigationBarTranslucent={false}
+      onRequestClose={onClose}
+    >
+      <SafeAreaView edges={["top", "left", "right"]} style={styles.roomPage}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+          style={styles.roomKeyboard}
+        >
         {group ? <>
           <View style={styles.roomHeader}>
             <Pressable accessibilityRole="button" accessibilityLabel="Kembali" onPress={onClose} style={styles.roomBack}><Ionicons name="arrow-back" size={22} color={colors.navy} /></Pressable>
@@ -293,13 +351,15 @@ function GroupRoom({ group, owner, hasPet, onClose, onRequirePet, onAction }: { 
           </View>
           <ScrollView ref={scrollRef} onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.messages}>
             <View style={styles.encryptionNote}><Ionicons name="lock-closed" size={11} color="#8B7123" /><Text style={styles.encryptionText}>Percakapan tersimpan aman di Slivadoc. Jangan bagikan data kontak pribadi.</Text></View>
-            {messages.length ? messages.map((message) => <View key={message.id} style={[styles.bubbleWrap, message.mine && styles.myBubbleWrap]}><View style={[styles.bubble, message.mine && styles.myBubble]}>{!message.mine ? <Text style={styles.senderName}>{message.sender_name}</Text> : null}<Text style={styles.messageBody}>{message.body}</Text><Text style={styles.messageTime}>{messageTime(message.created_at, locale)}{message.mine ? "  ✓✓" : ""}</Text></View></View>) : <View style={styles.roomEmpty}><View style={styles.emptyIcon}><Ionicons name="chatbubbles-outline" size={24} color={colors.sky600}/></View><Text style={styles.emptyTitle}>Mulai percakapan</Text><Text style={styles.emptyNote}>Sapa member grup dengan pesan pertama yang ramah.</Text></View>}
+            {group.owner ? <JoinRequests group={group} onAction={onAction} /> : null}
+            {messages.length ? messages.map((message) => <View key={message.id} style={[styles.bubbleWrap, message.mine && styles.myBubbleWrap]}><View style={[styles.bubble, message.mine && styles.myBubble]}>{!message.mine ? <Text translate={false} style={styles.senderName}>{message.sender_name}</Text> : null}<Text style={styles.messageBody}>{message.body}</Text><Text style={styles.messageTime}>{messageTime(message.created_at, locale)}{message.mine ? "  ✓✓" : ""}</Text></View></View>) : <View style={styles.roomEmpty}><View style={styles.emptyIcon}><Ionicons name="chatbubbles-outline" size={24} color={colors.sky600}/></View><Text style={styles.emptyTitle}>Mulai percakapan</Text><Text style={styles.emptyNote}>Sapa member grup dengan pesan pertama yang ramah.</Text></View>}
           </ScrollView>
-          <View style={styles.roomComposer}>
+          <View style={[styles.roomComposer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
             <TextInput value={body} onChangeText={setBody} editable={hasPet && !sending} multiline maxLength={2000} placeholder={hasPet ? `Pesan sebagai ${owner.full_name.split(" ")[0]}…` : "Mode lihat saja — tambahkan pet untuk membalas"} placeholderTextColor={colors.muted} style={styles.roomInput} />
             <Pressable accessibilityRole="button" accessibilityLabel={hasPet ? "Kirim pesan" : "Tambah profil pet"} disabled={sending || (hasPet && !body.trim())} onPress={() => hasPet ? void send() : onRequirePet()} style={[styles.send, (!body.trim() || sending) && hasPet && styles.disabled]}><Ionicons name={hasPet ? "send" : "lock-closed"} size={18} color={colors.white} /></Pressable>
           </View>
         </> : null}
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );
@@ -335,6 +395,14 @@ const styles = StyleSheet.create({
   groupMetaRow: { minHeight: 16, flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 },
   ownerBadge: { flexDirection: "row", alignItems: "center", gap: 3 },
   ownerText: { color: "#13856F", fontSize: 9, fontWeight: "600" },
+  requests: { gap: 8, padding: 12, marginBottom: 9, borderWidth: 1, borderColor: colors.sky100, borderRadius: 16, backgroundColor: colors.white },
+  requestsTitle: { color: colors.navy, fontSize: 13, fontWeight: "700" },
+  requestRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  requestName: { flex: 1, color: colors.text, fontSize: 12, fontWeight: "600" },
+  requestApprove: { minHeight: 34, justifyContent: "center", paddingHorizontal: 12, borderRadius: 11, backgroundColor: colors.sky600 },
+  requestApproveText: { color: colors.white, fontSize: 11, fontWeight: "700" },
+  requestReject: { minHeight: 34, justifyContent: "center", paddingHorizontal: 12, borderRadius: 11, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white },
+  requestRejectText: { color: colors.red, fontSize: 11, fontWeight: "700" },
   joinButton: { minHeight: 34, justifyContent: "center", paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.sky50 },
   joinText: { color: colors.sky600, fontSize: 10, fontWeight: "600" },
   emptyCard: { alignItems: "center", gap: 7, marginTop: 12, padding: 22, borderWidth: 1, borderColor: colors.sky100, borderRadius: 22, backgroundColor: colors.white, ...shadow },
@@ -346,7 +414,7 @@ const styles = StyleSheet.create({
   sheetKicker: { color: colors.sky600, fontSize: 9, fontWeight: "600", letterSpacing: 1 },
   sheetTitle: { marginTop: 2, color: colors.navy, fontSize: 18, fontWeight: "700" },
   close: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.line, borderRadius: 13 },
-  inputLabel: { marginTop: 10, marginBottom: 5, color: colors.navy, fontSize: 10, fontWeight: "600" },
+  inputLabel: { marginTop: 10, marginBottom: 5, color: colors.navy, fontSize: 12, fontWeight: "600" },
   input: { minHeight: 44, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 13, color: colors.text, fontSize: 12 },
   descriptionInput: { minHeight: 80, paddingTop: 11, textAlignVertical: "top" },
   visibilityRow: { flexDirection: "row", gap: 8 },
@@ -356,7 +424,8 @@ const styles = StyleSheet.create({
   activeVisibilityText: { color: colors.sky600 },
   safetyNote: { marginVertical: 12, color: colors.muted, fontSize: 10, lineHeight: 15 },
   roomPage: { flex: 1, backgroundColor: "#EEF7F5" },
-  roomHeader: { minHeight: 64, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: colors.line, backgroundColor: colors.white },
+  roomKeyboard: { flex: 1 },
+  roomHeader: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 10, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: colors.line, backgroundColor: colors.white, ...shadow },
   roomBack: { width: 40, height: 44, alignItems: "center", justifyContent: "center" },
   roomAvatar: { width: 40, height: 40, borderRadius: 14, backgroundColor: colors.sky50 },
   roomCopy: { minWidth: 0, flex: 1 },
@@ -375,7 +444,7 @@ const styles = StyleSheet.create({
   messageTime: { marginTop: 2, color: colors.muted, fontSize: 8, textAlign: "right" },
   roomEmpty: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80 },
   emptyIcon: { width: 52, height: 52, marginBottom: 10, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 },
-  roomComposer: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 8, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.white },
+  roomComposer: { flexDirection: "row", alignItems: "flex-end", gap: 8, paddingHorizontal: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.white, ...shadow },
   roomInput: { maxHeight: 110, minHeight: 44, flex: 1, paddingHorizontal: 13, paddingVertical: Platform.OS === "ios" ? 12 : 8, borderWidth: 1, borderColor: colors.line, borderRadius: 18, color: colors.text, fontSize: 12 },
   send: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: colors.sky600 },
   disabled: { opacity: 0.45 },

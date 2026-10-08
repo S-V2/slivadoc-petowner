@@ -1,0 +1,50 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const read = (path) => readFile(new URL(`../mobile/${path}`, import.meta.url), "utf8");
+const api = await read("src/api.ts");
+const world = await read("src/screens/WorldScreen.tsx");
+const adoption = await read("src/screens/AdoptionManager.tsx");
+
+test("adoption mode lists my applications with withdraw and lister review", () => {
+  assert.match(api, /\/api\/v1\/petowner\/adoption-applications"/);
+  assert.match(api, /adoption-applications\/\$\{applicationId\}\/withdraw/);
+  assert.match(api, /petowner\/adoptions\/\$\{listingId\}\/applications/);
+  assert.match(api, /adoption-applications\/\$\{applicationId\}\/status[\s\S]{0,80}method: "PATCH"/);
+  assert.match(world, /<AdoptionManager onAction=\{onAction\} \/>/);
+  assert.match(adoption, /Lamaran saya/);
+  assert.match(adoption, /Tarik lamaran/);
+  assert.match(adoption, /submitted: \["screening", "rejected"\]/);
+  assert.match(adoption, /Catatan untuk pelamar/);
+});
+
+test("group owner approves or rejects pending join requests", async () => {
+  const groups = await read("src/screens/CommunityGroups.tsx");
+  assert.match(api, /community\/groups\/\$\{id\}\/members\?status=\$\{status\}/);
+  assert.match(api, /members\/\$\{userId\}`[\s\S]{0,80}method: "PATCH"/);
+  assert.match(groups, /group\.owner \? <JoinRequests/);
+  assert.match(groups, /getMobileCommunityGroupMembers\(group\.id, "pending"\)/);
+  assert.match(groups, /Permintaan bergabung/);
+  assert.match(groups, /review\(member, "active"\)[\s\S]*Setujui/);
+  assert.match(groups, /review\(member, "blocked"\)[\s\S]*Tolak/);
+});
+
+test("support chat uses REST polling and care chat uses the petowner socket", async () => {
+  const modal = await read("src/components/SlivaCareModal.tsx");
+  assert.match(api, /"\/api\/v1\/petowner\/support-chat"/);
+  assert.match(api, /getMobileSupportChat[\s\S]{0,200}cache: "no-store"/);
+  assert.match(api, /sendMobileSupportChatMessage[\s\S]{0,200}method: "POST"/);
+  assert.match(api, /export function petownerRealtime\(\)/);
+  assert.match(api, /io\(\s*requireServiceURL\(PETOWNER_API_URL/);
+  assert.match(api, /petownerSocketToken !== platformAccessToken/);
+  assert.doesNotMatch(api, /REALTIME_API_URL|export const realtime\b/);
+  assert.match(modal, /sender_role === "owner"/);
+  assert.match(modal, /setInterval\(\(\) => void load\(true\), 15_000\)/);
+  assert.match(modal, /setInterval\(\(\) => \{ if \(socket\.connected\) join\(\); \}, 15_000\)/);
+  assert.match(modal, /"chat:join"/);
+  assert.match(modal, /"chat:send"/);
+  assert.match(modal, /uniqueById\(items\.map\(fromCare\)\)/);
+  assert.match(modal, /supportMode \? "Tim Slivadoc" : "Care Team"/);
+  assert.doesNotMatch(modal, /realtime\./);
+});

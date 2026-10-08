@@ -1,10 +1,14 @@
 import * as SecureStore from "expo-secure-store";
 
 import { NativeModules, Platform } from "react-native";
-import { io } from "socket.io-client";
+import { io, type Socket } from "socket.io-client";
 import { uniqueById } from "./collections";
+import { PET_PROFILE_REQUIRED_MESSAGE, petOwnerMutationRequiresPet as mobileMutationRequiresPet } from "../../shared/petowner-flow";
+export { PET_PROFILE_REQUIRED_MESSAGE, petOwnerMutationRequiresPet as mobileMutationRequiresPet } from "../../shared/petowner-flow";
+import { buildMobilePawDatingDiscoveryPath } from "./pawdating";
 
 export { uniqueById } from "./collections";
+export { buildMobilePawDatingDiscoveryPath } from "./pawdating";
 
 function resolveDevelopmentHost() {
   const scriptUrl = String(NativeModules.SourceCode?.scriptURL ?? "");
@@ -43,10 +47,6 @@ export const PLATFORM_API_URL = resolveServiceURL(
   process.env.EXPO_PUBLIC_PLATFORM_API_URL,
   8080,
 );
-export const REALTIME_API_URL = resolveServiceURL(
-  process.env.EXPO_PUBLIC_REALTIME_URL,
-  8091,
-);
 
 export type AssistantMessage = { role: "user" | "assistant"; content: string };
 
@@ -58,29 +58,6 @@ let platformRefreshToken = "";
 let refreshPromise: Promise<string> | null = null;
 let mobileOwnerHasPet: boolean | undefined;
 
-export const PET_PROFILE_REQUIRED_MESSAGE =
-  "Tambahkan profil pet terlebih dahulu. Tanpa pet, akun hanya dapat melihat konten.";
-
-const petProtectedMutationPatterns = [
-  /^\/api\/v1\/petowner\/(?:bookings|orders|favorites\/toggle|products\/[^/]+\/reviews|petship|fundraisers|reminders)(?:\/|$)/,
-  /^\/api\/v1\/community\//,
-  /^\/api\/v1\/pethub\//,
-  /^\/api\/v1\/consultations(?:\/|$)/,
-  /^\/api\/v1\/trainer-consultations$/,
-  /^\/api\/v1\/adoptions\//,
-  /^\/api\/v1\/academy\/enrollments$/,
-  /^\/api\/v1\/events\/[^/]+\/registrations$/,
-  /^\/api\/v1\/pet-document-requests$/,
-  /^\/api\/v1\/pawdating\//,
-  /^\/api\/v1\/payment-intents$/,
-];
-
-export function mobileMutationRequiresPet(path: string, method = "GET") {
-  if (method.toUpperCase() === "GET") return false;
-  const pathname = path.split("?", 1)[0] ?? path;
-  return petProtectedMutationPatterns.some((pattern) => pattern.test(pathname));
-}
-
 export async function restorePlatformSession(): Promise<boolean> {
   try {
     const [access, refresh] = await Promise.all([
@@ -90,7 +67,6 @@ export async function restorePlatformSession(): Promise<boolean> {
     if (access) {
       platformAccessToken = access;
       platformRefreshToken = refresh ?? "";
-      realtime.auth = { token: access };
       return true;
     } else if (refresh) {
       platformRefreshToken = refresh;
@@ -106,7 +82,6 @@ export async function restorePlatformSession(): Promise<boolean> {
 export async function setPlatformTokens(access: string, refresh: string) {
   platformAccessToken = access;
   platformRefreshToken = refresh;
-  realtime.auth = { token: access };
   try {
     await Promise.all([
       access
@@ -123,7 +98,6 @@ export async function setPlatformTokens(access: string, refresh: string) {
 
 export function setPlatformAccessToken(token: string) {
   platformAccessToken = token;
-  realtime.auth = { token };
 }
 
 export function hasPlatformSession() {
@@ -134,7 +108,7 @@ export async function clearMobileSession() {
   platformAccessToken = "";
   platformRefreshToken = "";
   mobileOwnerHasPet = undefined;
-  realtime.auth = { token: "" };
+  petownerSocket?.disconnect();
   mobileCache.clear();
   mobileInFlight.clear();
   try {
@@ -195,6 +169,17 @@ export function clearMobileCache() {
   mobileCache.clear();
 }
 
+export class MobileApiError extends Error {
+  status: number;
+  code: string;
+  constructor(message: string, status: number, code = "") {
+    super(message);
+    this.name = "MobileApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const baseURL = requireServiceURL(
     PETOWNER_API_URL,
@@ -238,7 +223,7 @@ async function platformRequest<T>(
     throw new Error(PET_PROFILE_REQUIRED_MESSAGE);
   }
   const key = `${path}:${platformAccessToken.slice(-12)}`;
-  if (method === "GET") {
+  if (method === "GET" && init?.cache !== "no-store") {
     const cached = mobileCache.get(key);
     if (cached && cached.expires > Date.now()) return cached.value as T;
     const pending = mobileInFlight.get(key);
@@ -268,7 +253,11 @@ async function platformRequest<T>(
     }
     const payload = await response.json().catch(() => ({}));
     if (!response.ok)
-      throw new Error(payload.message ?? "Layanan Slivadoc belum tersedia");
+      throw new MobileApiError(
+        payload.message ?? "Layanan Slivadoc belum tersedia",
+        response.status,
+        typeof payload.code === "string" ? payload.code : "",
+      );
     if (method === "GET")
       mobileCache.set(key, { expires: Date.now() + 15_000, value: payload });
     else mobileCache.clear();
@@ -295,6 +284,8 @@ export type MobilePet = {
   vaccination_status: string;
   photo_url: string;
   last_medical_record_at?: string;
+  access_role?: string;
+  permissions?: string[];
 };
 export type MobileOwner = {
   id: string;
@@ -316,6 +307,7 @@ export type MobileNotification = {
   action_route?: string;
   read_at?: string | null;
   created_at: string;
+  metadata?: Record<string, unknown>;
 };
 export type MobileFamilyAccess = {
   id: string;
@@ -328,21 +320,17 @@ export type MobileFamilyAccess = {
   accepted_at?: string | null;
   created_at: string;
 };
-export type MobileActivity = {
-  id: string;
-  pet_id: string;
-  reference_id?: string;
-  category: string;
-  title: string;
-  description: string;
-  status: string;
-  action_route: string;
-  action_label: string;
-  metadata: Record<string, unknown>;
-  starts_at?: string;
-  occurred_at: string;
-};
-export type MobileActivityType = "booking" | "order" | "consultation";
+export type MobileActivityType =
+  | "booking"
+  | "order"
+  | "consultation"
+  | "academy"
+  | "event"
+  | "reservation"
+  | "document"
+  | "donation"
+  | "hotel"
+  | "home_service";
 export type MobileActivityState = "all" | "upcoming" | "ongoing" | "history";
 export type MobileActivityOrderItem = {
   id: string;
@@ -381,6 +369,15 @@ export type MobileShipment = {
   print_url: string;
   events: MobileShipmentEvent[];
 };
+export type MobileOrderFulfillment = {
+  id: string;
+  business_id: string;
+  business_name: string;
+  status: string;
+  delivered_at?: string | null;
+  return_until?: string | null;
+  return_requested?: boolean;
+};
 export type MobileActivityCenterItem = {
   id: string;
   type: MobileActivityType;
@@ -393,6 +390,10 @@ export type MobileActivityCenterItem = {
   amount: number;
   state: Exclude<MobileActivityState, "all">;
   scheduled_at?: string | null;
+  ends_at?: string | null;
+  needs_action: boolean;
+  payable: boolean;
+  payment_reference_type: string;
   occurred_at: string;
   updated_at: string;
   service_id?: string;
@@ -406,6 +407,8 @@ export type MobileActivityCenterItem = {
   branch_name?: string;
   address?: string;
   city?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   pet_id?: string;
   pet_name?: string;
   notes?: string;
@@ -442,22 +445,76 @@ export type MobileActivityCenterItem = {
   started_at?: string | null;
   ended_at?: string | null;
   room_key?: string;
+  program_id?: string;
+  program_title?: string;
+  academy_name?: string;
+  session_count?: number;
+  progress_percent?: number;
+  progress_notes?: string;
+  last_progress_at?: string | null;
+  participant_name?: string;
+  location?: string;
+  online_url?: string;
+  event_id?: string;
+  venue?: string;
+  ticket_quantity?: number;
+  qr_token?: string;
+  spot_id?: string;
+  spot_name?: string;
+  spot_category?: string;
+  resource_name?: string;
+  resource_code?: string;
+  guest_count?: number;
+  pet_count?: number;
+  deposit_amount?: number;
+  remaining_amount?: number;
+  hold_expires_at?: string;
+  product_name?: string;
+  origin_city?: string;
+  destination_city?: string;
+  departure_at?: string | null;
+  missing_requirements?: string[];
+  issued_document_url?: string;
+  fundraiser_id?: string;
+  fundraiser_title?: string;
+  beneficiary_name?: string;
+  anonymous?: boolean;
+  message?: string;
+  room_name?: string;
+  checked_in_at?: string | null;
+  checked_out_at?: string | null;
+  source?: "clinic";
+  cancellable_until?: string;
+  cancellation_cutoff_hours?: number;
+  cancellation_policy?: string;
+  job_code?: string;
+  service_type?: string;
+  pickup_address?: string;
+  destination_address?: string;
+  driver_name?: string;
+  cancellable?: boolean;
+  fulfillments?: MobileOrderFulfillment[];
 };
 export type MobileActivityCenterResponse = {
   data: MobileActivityCenterItem[];
-  count: number;
   summary: Record<MobileActivityType, number>;
+  next_cursor: string | null;
 };
 
-type LegacyMobileActivityResponse = {
-  data: MobileActivity[];
-  count: number;
+export type MobileMembership = {
+  id: string;
+  name: string;
+  icon: string;
+  min_points: number;
+  next_level_points: number | null;
+  points_to_next: number;
 };
+
 export type MobileBootstrap = {
   user: MobileOwner;
   pets: MobilePet[];
   notifications: MobileNotification[];
-  activities: MobileActivity[];
+  unread_notifications?: number;
   favorites: Array<{
     entity_type: string;
     entity_id: string;
@@ -467,6 +524,7 @@ export type MobileBootstrap = {
     balance: number;
     earned: number;
     redeemed: number;
+    membership?: MobileMembership;
     formula: {
       enabled: boolean;
       point_value_rupiah?: number;
@@ -474,6 +532,13 @@ export type MobileBootstrap = {
       settlement_hold_days?: number;
       max_redemption_bps?: number;
       min_redemption_points?: number;
+      membership_levels?: Array<{
+        id: string;
+        name: string;
+        icon: string;
+        min_points: number;
+        max_points: number | null;
+      }>;
       payment_methods?: Array<{
         method: string;
         label: string;
@@ -493,18 +558,49 @@ export type MobileService = {
   name: string;
   category: string;
   image_url: string;
+  image_urls: string[];
   price: number;
+  original_price?: number;
+  discount_percent?: number;
   distance_km?: number | null;
   city: string;
   address: string;
   business_name: string;
   branch_name: string;
   duration_minutes: number;
+  rating?: number | null;
+  review_count?: number | null;
+  description?: string;
+  inclusions?: string[];
+  supported_species?: string[];
+  cancellation_policy?: string;
+  cancellation_cutoff_hours?: number;
+  business_license_status?: "not_submitted" | "pending" | "verified" | "rejected";
+};
+export type MobileServiceAvailability = {
+  data: Array<{
+    date: string;
+    label: string;
+    slots: Array<{
+      starts_at: string;
+      ends_at: string;
+      local_time: string;
+      remaining_capacity: number;
+    }>;
+  }>;
+  service_id: string;
+  branch_id: string;
+  timezone: string;
+  duration_minutes: number;
+  reason: string;
 };
 export type MobileProduct = {
   id: string;
   business_id: string;
   business_name: string;
+  store_logo_url: string;
+  store_is_online: boolean;
+  store_last_seen_at: string;
   branch_id?: string;
   branch_name: string;
   city: string;
@@ -514,13 +610,17 @@ export type MobileProduct = {
   category: string;
   description: string;
   image_url: string;
+  image_urls: string[];
   price: number;
+  original_price?: number;
+  discount_percent?: number;
   stock: number;
   minimum_stock: number;
   available: boolean;
   rating: number;
   review_count: number;
   sold_count: number;
+  created_at: string;
 };
 
 function productText(value: unknown) {
@@ -547,6 +647,9 @@ function normalizeMobileProduct(product: MobileProduct): MobileProduct {
       productText(product.branch_id) ||
       `partner:${businessName.toLowerCase().replace(/\s+/g, "-")}`,
     business_name: businessName,
+    store_logo_url: productText(product.store_logo_url),
+    store_is_online: product.store_is_online === true,
+    store_last_seen_at: productText(product.store_last_seen_at),
     branch_id: productText(product.branch_id) || undefined,
     branch_name: branchName,
     city: productText(product.city) || "Online",
@@ -556,7 +659,16 @@ function normalizeMobileProduct(product: MobileProduct): MobileProduct {
     category: productText(product.category) || "Kebutuhan pet",
     description: productText(product.description),
     image_url: productText(product.image_url),
+    image_urls: Array.from(new Set([
+      ...(Array.isArray(product.image_urls) ? product.image_urls.map(productText) : []),
+      productText(product.image_url),
+    ].filter(Boolean))),
     price: Math.max(0, productNumber(product.price)),
+    original_price: Math.max(
+      productNumber(product.price),
+      productNumber(product.original_price),
+    ),
+    discount_percent: Math.max(0, productNumber(product.discount_percent)),
     stock,
     minimum_stock: Math.max(0, productNumber(product.minimum_stock)),
     available:
@@ -564,8 +676,66 @@ function normalizeMobileProduct(product: MobileProduct): MobileProduct {
     rating: Math.min(5, Math.max(0, productNumber(product.rating))),
     review_count: Math.max(0, productNumber(product.review_count)),
     sold_count: Math.max(0, productNumber(product.sold_count)),
+    created_at: productText(product.created_at),
   };
 }
+
+export type MobileMarketplaceStore = {
+  id: string;
+  name: string;
+  logo_url: string;
+  banner_url: string;
+  about: string;
+  city: string;
+  joined_at: string;
+  is_online: boolean;
+  last_seen_at: string;
+  product_count: number;
+  category_count: number;
+  rating: number;
+  review_count: number;
+  sold_count: number;
+};
+
+export type MobileMarketplaceStoreResponse = {
+  store: MobileMarketplaceStore;
+  categories: Array<{ name: string; product_count: number }>;
+  reviews: Array<{
+    id: string;
+    product_id: string;
+    product_name: string;
+    reviewer_name: string;
+    rating: number;
+    comment: string;
+    updated_at: string;
+  }>;
+};
+
+export type MobileMarketplaceChatMessage = {
+  id: string;
+  thread_id: string;
+  sender_user_id: string;
+  sender_type: "buyer" | "store";
+  sender_name: string;
+  product_id: string;
+  product_name: string;
+  body: string;
+  created_at: string;
+};
+
+export type MobileMarketplaceChatThread = {
+  id: string;
+  business_id: string;
+  business_name: string;
+  store_logo_url: string;
+  product_id: string;
+  product_name: string;
+  last_message: string;
+  last_message_created_at: string;
+  store_is_online: boolean;
+  store_last_seen_at: string;
+  unread_count: number;
+};
 
 export type MobileProductReview = {
   id: string;
@@ -660,8 +830,8 @@ export type MobileMedicalRecord = {
 };
 export type MobilePaymentMethod = {
   code: string;
-  method: "qris" | "virtual_account";
-  bank_code?: string;
+  /** "qris" from the current backend; a backend that predates the cutover may list others. */
+  method: string;
   label: string;
   description: string;
 };
@@ -669,17 +839,16 @@ export type MobilePaymentIntent = {
   id: string;
   order_id: string;
   provider: string;
-  method: "qris" | "virtual_account";
-  bank_code?: string;
+  /** "qris"; rows written before the cutover can carry other legacy methods. */
+  method: string;
   status: string;
   payment_status: string;
   amount: number;
   currency: string;
   reference_type: string;
   reference_id: string;
+  qr_string?: string;
   qr_url?: string;
-  va_number?: string;
-  va_name?: string;
   expires_at?: string;
 };
 
@@ -768,9 +937,16 @@ export const getMobileBootstrap = async () => {
     ...result,
     pets,
     notifications: uniqueById(result.notifications),
-    activities: uniqueById(result.activities),
   };
 };
+export const updateMobilePetOwnerProfile = (input: {
+  full_name: string;
+  phone: string;
+}) =>
+  platformRequest<{ full_name: string; phone: string; message: string }>(
+    "/api/v1/petowner/profile",
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
 export const getMobileServices = (options?: {
   search?: string;
   category?: string;
@@ -785,143 +961,51 @@ export const getMobileServices = (options?: {
     `/api/v1/public/discovery/services${query.size ? `?${query}` : ""}`,
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 };
-
-function legacyActivityType(
-  activity: MobileActivity,
-): MobileActivityType | undefined {
-  const source = `${activity.category} ${activity.action_route}`.toLowerCase();
-  if (
-    source.includes("booking") ||
-    source.includes("hotel") ||
-    source.includes("home_service")
-  )
-    return "booking";
-  if (
-    source.includes("order") ||
-    source.includes("marketplace") ||
-    source.includes("commerce")
-  )
-    return "order";
-  if (source.includes("consult")) return "consultation";
-  return undefined;
-}
-
-function legacyActivityState(
-  activity: MobileActivity,
-  type: MobileActivityType,
-): Exclude<MobileActivityState, "all"> {
-  const status = activity.status.toLowerCase();
-  if (["completed", "cancelled", "no_show"].includes(status)) return "history";
-  const scheduledAt = activity.starts_at
-    ? new Date(activity.starts_at).getTime()
-    : Number.NaN;
-  if (
-    Number.isFinite(scheduledAt) &&
-    scheduledAt > Date.now() &&
-    (type === "booking" ||
-      ["scheduled", "pending_payment", "requested", "confirmed"].includes(
-        status,
-      ))
-  ) {
-    return "upcoming";
-  }
-  return "ongoing";
-}
-
-function legacyMetadataValue(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  return typeof value === "string" ? value : undefined;
-}
-
-function legacyMetadataAmount(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function normalizeLegacyActivity(
-  activity: MobileActivity,
-): MobileActivityCenterItem | undefined {
-  const type = legacyActivityType(activity);
-  if (!type) return undefined;
-  const metadata = activity.metadata ?? {};
-  const referenceId =
-    activity.reference_id ||
-    legacyMetadataValue(metadata, "reference_id") ||
-    activity.id;
-  const amount =
-    legacyMetadataAmount(metadata, "total_amount") ||
-    legacyMetadataAmount(metadata, "amount");
-  return {
-    id: activity.id,
-    type,
-    reference_id: referenceId,
-    code:
-      legacyMetadataValue(metadata, "booking_code") ||
-      legacyMetadataValue(metadata, "order_number") ||
-      legacyMetadataValue(metadata, "code") ||
-      referenceId.slice(0, 8).toUpperCase(),
-    title: activity.title,
-    subtitle: activity.description,
-    status: activity.status,
-    payment_status:
-      legacyMetadataValue(metadata, "payment_status") || "belum tersedia",
-    amount,
-    total_amount: amount,
-    state: legacyActivityState(activity, type),
-    scheduled_at: activity.starts_at,
-    occurred_at: activity.occurred_at,
-    updated_at: activity.occurred_at,
-    pet_id: activity.pet_id,
-    pet_name: legacyMetadataValue(metadata, "pet_name"),
-    service_id: legacyMetadataValue(metadata, "service_id"),
-    plan_id: legacyMetadataValue(metadata, "plan_id"),
-    business_name: legacyMetadataValue(metadata, "business_name"),
-    branch_name: legacyMetadataValue(metadata, "branch_name"),
-    notes: legacyMetadataValue(metadata, "notes"),
-  };
-}
-
-function isDetailedActivityResponse(
-  result: MobileActivityCenterResponse | LegacyMobileActivityResponse,
-): result is MobileActivityCenterResponse {
-  return Boolean(
-    "summary" in result &&
-    result.summary &&
-    typeof result.summary.booking === "number" &&
-    typeof result.summary.order === "number" &&
-    typeof result.summary.consultation === "number",
+export const getMobileServiceAvailability = (
+  serviceId: string,
+  branchId: string,
+  days = 14,
+) =>
+  platformRequest<MobileServiceAvailability>(
+    `/api/v1/public/discovery/services/${encodeURIComponent(serviceId)}/availability?branch_id=${encodeURIComponent(branchId)}&days=${days}`,
+    { cache: "no-store" },
   );
-}
 
-export const getMobileActivityCenter = async (
-  type: MobileActivityType | "all" = "all",
-  state: MobileActivityState = "all",
-) => {
-  const result = await platformRequest<
-    MobileActivityCenterResponse | LegacyMobileActivityResponse
-  >(
-    `/api/v1/petowner/activities?view=center&type=${encodeURIComponent(type)}&state=${encodeURIComponent(state)}&limit=100`,
-  );
-  if (isDetailedActivityResponse(result)) {
-    return { ...result, data: uniqueById(result.data) };
-  }
+const activityCenterPath =
+  "/api/v1/petowner/activities?view=center&type=all&state=all&limit=100";
 
-  const normalized = uniqueById(
-    result.data
-      .map(normalizeLegacyActivity)
-      .filter((item): item is MobileActivityCenterItem => Boolean(item)),
+// Aktivitas changes the moment a payment settles, so it skips the 15 s GET cache.
+export const getMobileActivityCenter = (cursor?: string) => {
+  const path = cursor
+    ? `${activityCenterPath}&cursor=${encodeURIComponent(cursor)}`
+    : activityCenterPath;
+  for (const key of mobileCache.keys())
+    if (key.startsWith(`${path}:`)) mobileCache.delete(key);
+  return platformRequest<MobileActivityCenterResponse>(path).then(
+    (result) => ({
+      ...result,
+      data: uniqueById(result.data),
+      next_cursor: result.next_cursor ?? null,
+    }),
   );
-  const summary = normalized.reduce<Record<MobileActivityType, number>>(
-    (counts, item) => ({ ...counts, [item.type]: counts[item.type] + 1 }),
-    { booking: 0, order: 0, consultation: 0 },
-  );
-  const data = normalized.filter(
-    (item) =>
-      (type === "all" || item.type === type) &&
-      (state === "all" || item.state === state),
-  );
-  return { data, count: data.length, summary };
 };
+
+const activityTypesByReference: Record<string, MobileActivityType> = {
+  academy_enrollment: "academy",
+  event_registration: "event",
+  consultation: "consultation",
+  document_request: "document",
+  petspot_reservation: "reservation",
+  petowner_booking: "booking",
+  shop_order: "order",
+  fundraiser_donation: "donation",
+};
+
+export function activityTypeForReference(
+  referenceType: string,
+): MobileActivityType | undefined {
+  return activityTypesByReference[referenceType];
+}
 
 export const getMobileProducts = (options?: {
   search?: string;
@@ -940,6 +1024,45 @@ export const getMobileProducts = (options?: {
   }));
 };
 
+export const getMobileMarketplaceStore = (businessId: string) =>
+  platformRequest<MobileMarketplaceStoreResponse>(
+    `/api/v1/public/marketplace/stores/${encodeURIComponent(businessId)}`,
+    { cache: "no-store" },
+  );
+
+export const createMobileMarketplaceChat = (input: {
+  business_id: string;
+  product_id?: string;
+}) =>
+  platformRequest<{ id: string }>("/api/v1/petowner/marketplace/chats", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+export const getMobileMarketplaceChats = () =>
+  platformRequest<{ data: MobileMarketplaceChatThread[]; count: number }>(
+    "/api/v1/petowner/marketplace/chats",
+    { cache: "no-store" },
+  );
+
+export const getMobileMarketplaceChatMessages = (threadId: string) =>
+  platformRequest<{
+    data: MobileMarketplaceChatMessage[];
+    count: number;
+    viewer: "buyer" | "store";
+  }>(`/api/v1/marketplace/chats/${encodeURIComponent(threadId)}/messages`, {
+    cache: "no-store",
+  });
+
+export const sendMobileMarketplaceChatMessage = (
+  threadId: string,
+  input: { body: string; product_id?: string },
+) =>
+  platformRequest<MobileMarketplaceChatMessage>(
+    `/api/v1/marketplace/chats/${encodeURIComponent(threadId)}/messages`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+
 export const getMobileProductReviews = (productId: string) =>
   platformRequest<{
     data: MobileProductReview[];
@@ -950,6 +1073,9 @@ export const getMobileProductReviews = (productId: string) =>
     data: uniqueById(result.data),
   }));
 
+export const REVIEW_HIDDEN_MESSAGE =
+  "Ulasanmu disembunyikan moderator dan tidak bisa diubah. Hubungi dukungan jika ada keberatan.";
+
 export const saveMobileProductReview = (
   productId: string,
   input: { rating: number; comment: string },
@@ -957,6 +1083,64 @@ export const saveMobileProductReview = (
   platformRequest<{ id: string; message: string }>(
     `/api/v1/petowner/products/${productId}/reviews`,
     { method: "POST", body: JSON.stringify(input) },
+  ).catch((cause: unknown) => {
+    if (cause instanceof MobileApiError && cause.code === "review_hidden")
+      throw new MobileApiError(REVIEW_HIDDEN_MESSAGE, cause.status, cause.code);
+    throw cause;
+  });
+
+export const cancelMobileOrder = (orderId: string) =>
+  platformRequest<{ id: string; status: string; refund_queued: boolean }>(
+    `/api/v1/petowner/orders/${encodeURIComponent(orderId)}/cancel`,
+    { method: "POST" },
+  );
+
+export const requestMobileOrderReturn = (
+  orderId: string,
+  fulfillmentId: string,
+  reason: string,
+) =>
+  platformRequest<{ id: string; ticket_number: string; status: string }>(
+    `/api/v1/petowner/orders/${encodeURIComponent(orderId)}/fulfillments/${encodeURIComponent(fulfillmentId)}/return-request`,
+    { method: "POST", body: JSON.stringify({ reason }) },
+  );
+
+export type MobileInvoice = {
+  id: string;
+  invoice_number: string;
+  business_name: string;
+  branch_name: string;
+  status: "pending" | "paid" | "void" | "refunded" | "partially_refunded";
+  subtotal: number;
+  discount_amount: number;
+  tax_amount: number;
+  total_amount: number;
+  paid_amount: number;
+  refunded_amount: number;
+  issued_at: string | null;
+  paid_at: string | null;
+};
+export type MobileInvoiceDetail = MobileInvoice & {
+  items: Array<{
+    item_type: "product" | "service" | "fee";
+    description: string;
+    quantity: number;
+    unit_price: number;
+    discount_amount: number;
+    line_total: number;
+  }>;
+};
+
+export const getMobileInvoices = (limit = 50) =>
+  platformRequest<{ data: MobileInvoice[]; count: number }>(
+    `/api/v1/petowner/invoices?limit=${limit}`,
+    { cache: "no-store" },
+  );
+
+export const getMobileInvoice = (invoiceId: string) =>
+  platformRequest<MobileInvoiceDetail>(
+    `/api/v1/petowner/invoices/${encodeURIComponent(invoiceId)}`,
+    { cache: "no-store" },
   );
 
 function normalizeMobileRegionOptions(payload: unknown): MobileRegionOption[] {
@@ -1110,8 +1294,13 @@ export const createMobileBooking = (input: Record<string, unknown>) =>
     method: "POST",
     body: JSON.stringify(input),
   });
+export const cancelMobileBooking = (id: string, reason?: string) =>
+  platformRequest<{ id: string; status: string; refund_queued: boolean }>(
+    `/api/v1/petowner/bookings/${id}/cancel`,
+    { method: "POST", body: JSON.stringify(reason ? { reason } : {}) },
+  );
 export const getMobilePaymentMethods = () =>
-  platformRequest<{ data: MobilePaymentMethod[] }>("/api/v1/payment-methods");
+  platformRequest<{ data: MobilePaymentMethod[] }>("/api/v1/payment-methods", { cache: "no-store" });
 export const createMobilePaymentIntent = (
   referenceType: string,
   referenceId: string,
@@ -1134,10 +1323,15 @@ export const readMobileNotification = (id: string) =>
   platformRequest<{ read: boolean }>(`/api/v1/notifications/${id}/read`, {
     method: "PATCH",
   });
-export const readAllMobileNotifications = () =>
-  platformRequest<{ updated: number }>("/api/v1/notifications/read-all", {
-    method: "PATCH",
-  });
+export const readAllMobileNotifications = (category = "") =>
+  platformRequest<{ updated: number }>(
+    `/api/v1/notifications/read-all?category=${encodeURIComponent(category)}`,
+    { method: "PATCH" },
+  );
+export const getMobileNotifications = (limit = 100) =>
+  platformRequest<{ data: MobileNotification[]; count: number; unread_count: number }>(
+    `/api/v1/notifications?limit=${limit}`,
+  );
 export const toggleMobileFavorite = (
   entityId: string,
   entityType = "service",
@@ -1163,8 +1357,10 @@ export type MobileCommunityPost = {
 };
 export type MobileCommunityComment = {
   id: string;
+  user_id: string;
   author_name: string;
   body: string;
+  parent_id?: string | null;
   created_at: string;
 };
 export const getMobileCommunityPosts = (tab = "for_you") =>
@@ -1185,10 +1381,10 @@ export const getMobileCommunityComments = (id: string) =>
   platformRequest<{ data: MobileCommunityComment[] }>(
     `/api/v1/community/posts/${id}/comments`,
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
-export const createMobileCommunityComment = (id: string, body: string) =>
+export const createMobileCommunityComment = (id: string, body: string, parentId?: string) =>
   platformRequest<{ id: string; created_at: string; message: string }>(
     `/api/v1/community/posts/${id}/comments`,
-    { method: "POST", body: JSON.stringify({ body }) },
+    { method: "POST", body: JSON.stringify({ body, parent_id: parentId || undefined }) },
   );
 
 export type MobileCommunityGroup = {
@@ -1247,15 +1443,51 @@ export const sendMobileCommunityGroupMessage = (id: string, body: string) =>
     `/api/v1/community/groups/${id}/messages`,
     { method: "POST", body: JSON.stringify({ body }) },
   );
+export type MobileCommunityGroupMember = {
+  user_id: string;
+  full_name: string;
+  role: "owner" | "moderator" | "member";
+  status: "pending" | "active" | "blocked";
+  joined_at: string;
+};
+export const getMobileCommunityGroupMembers = (
+  id: string,
+  status: "pending" | "active",
+) =>
+  platformRequest<{ data: MobileCommunityGroupMember[] }>(
+    `/api/v1/community/groups/${id}/members?status=${status}`,
+  );
+export const updateMobileCommunityGroupMember = (
+  id: string,
+  userId: string,
+  status: "active" | "blocked",
+) =>
+  platformRequest<{
+    group_id: string;
+    user_id: string;
+    status: "active" | "blocked";
+    member_count: number;
+  }>(`/api/v1/community/groups/${id}/members/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 
 export type WorldItem = {
   id: string;
+  media_urls?: string[];
+  view_count?: number;
+  liked?: boolean;
+  saved?: boolean;
   title?: string;
   name?: string;
   description?: string;
   category?: string;
   academy_name?: string;
   trainer_name?: string;
+  trainers?: MobileAcademyTrainer[];
+  schedules?: MobileAcademySchedule[];
+  reviews?: MobileAcademyReview[];
+  supported_species?: string[];
   full_name?: string;
   doctor_name?: string;
   specialties?: string[];
@@ -1264,6 +1496,7 @@ export type WorldItem = {
   trainer_id?: string;
   provider_type?: "veterinarian" | "trainer";
   discount_percent?: number;
+  original_price?: number;
   followup_days?: number;
   duration_minutes?: number;
   total_fee?: number;
@@ -1273,6 +1506,8 @@ export type WorldItem = {
   sex?: string;
   species?: string;
   age_months?: number;
+  adoption_fee?: number;
+  submitted_by_name?: string;
   health_status?: string;
   health_score?: number;
   health_valid_until?: string;
@@ -1304,8 +1539,19 @@ export type WorldItem = {
   latitude?: number;
   longitude?: number;
   rating?: number;
-  distance_km?: number;
+  consultation_count?: number;
+  experience_years?: number;
+  starting_price?: number;
+  availability_status?: string;
+  distance_km?: number | null;
   pet_facilities?: string[];
+  facility_details?: Array<string | { name: string; description?: string; icon?: string; category?: string }>;
+  opening_hours?: Record<string, string>;
+  phone?: string;
+  website_url?: string;
+  supported_events?: Array<{ name: string; description?: string; inclusions?: string[] }>;
+  resources?: MobilePetSpotResource[];
+  petspot_reviews?: MobilePetSpotReview[];
   status?: string;
   viewer_count?: number;
   channel_name?: string;
@@ -1314,6 +1560,10 @@ export type WorldItem = {
   author_name?: string;
   like_count?: number;
   comment_count?: number;
+  review_count?: number;
+  participant_count?: number;
+  running_since?: string;
+  featured?: boolean;
   repost_count?: number;
   media_url?: string;
   photo_url?: string;
@@ -1334,18 +1584,96 @@ export type WorldItem = {
   verified?: boolean;
   reservable?: boolean;
   cover_url?: string;
+  banner_url?: string;
+  image_urls?: string[];
   deposit_type?: "percentage" | "fixed";
   deposit_value?: number;
   reservation_policy?: {
     slot_minutes?: number;
     hold_minutes?: number;
     minimum_notice_minutes?: number;
+    maximum_advance_days?: number;
+    minimum_duration_minutes?: number;
+    maximum_duration_minutes?: number;
     maximum_party_size?: number;
     cancellation_hours?: number;
+    cancellation_fee_percent?: number;
+    require_vaccine?: boolean;
+    house_rules?: string[];
     pet_rules?: string[];
   };
   following?: boolean;
   created_at?: string;
+};
+
+export type MobileAcademyTrainer = {
+  id: string;
+  academy_id: string;
+  academy_name: string;
+  full_name: string;
+  bio: string;
+  specialties: string[];
+  pet_types: string[];
+  certification: string;
+  experience_years: number;
+  rating: number;
+  photo_url: string;
+  status: string;
+  program_count?: number;
+  programs?: Array<{
+    id: string;
+    title: string;
+    level: string;
+    price: number;
+    session_count: number;
+  }>;
+};
+
+export type MobileAcademySchedule = {
+  id: string;
+  trainer_id?: string;
+  trainer_name: string;
+  starts_at: string;
+  ends_at: string;
+  location: string;
+  online_url: string;
+  remaining_capacity: number;
+};
+
+export type MobileAcademyReview = {
+  id: string;
+  reviewer_name: string;
+  pet_name: string;
+  rating: number;
+  comment: string;
+  verified_enrollment: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MobilePawDatingInterest = {
+  id: string;
+  status: string;
+  interest_type: string;
+  introduction_message: string;
+  created_at: string;
+  source_profile_id: string;
+  source_name: string;
+  target_profile_id: string;
+  target_name: string;
+  direction: "incoming" | "outgoing";
+  match_id?: string;
+};
+
+export type MobilePawDatingMessage = {
+  id: string;
+  sender_user_id: string;
+  sender_name: string;
+  message_type: string;
+  body: string;
+  attachment_url: string;
+  read_at?: string;
+  created_at: string;
 };
 
 const getUniqueWorldItems = (path: string) =>
@@ -1356,14 +1684,46 @@ const getUniqueWorldItems = (path: string) =>
 
 export const getMobileAcademy = () =>
   getUniqueWorldItems("/api/v1/public/academy/programs");
+export const getMobileAcademyProgram = (programId: string) =>
+  platformRequest<WorldItem>(`/api/v1/public/academy/programs/${programId}`);
+export const getMobileAcademyTrainers = (species?: string) =>
+  platformRequest<{ data: MobileAcademyTrainer[] }>(
+    `/api/v1/public/academy/trainers${species ? `?species=${encodeURIComponent(species)}` : ""}`,
+  );
+export const getMobileAcademyTrainer = (trainerId: string) =>
+  platformRequest<MobileAcademyTrainer>(
+    `/api/v1/public/academy/trainers/${trainerId}`,
+  );
 export const trackMobileAcademyProgramClick = (programId: string) =>
   platformRequest<void>(`/api/v1/public/academy/programs/${programId}/click`, {
     method: "POST",
   });
+export const saveMobileAcademyProgramReview = (
+  programId: string,
+  input: { rating: number; comment: string },
+) =>
+  platformRequest<{ id: string; verified_enrollment: boolean }>(
+    `/api/v1/petowner/academy/programs/${programId}/reviews`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
 export const getMobileEvents = () =>
   getUniqueWorldItems("/api/v1/public/events");
 export const getMobilePetSpots = () =>
   getUniqueWorldItems("/api/v1/public/petspots");
+export const getMobilePetSpot = async (spotId: string): Promise<WorldItem> => {
+  const venue = await platformRequest<Omit<WorldItem, "reviews"> & { reviews?: MobilePetSpotReview[] }>(`/api/v1/public/petspots/${encodeURIComponent(spotId)}`);
+  const { reviews, ...detail } = venue;
+  return { ...detail, petspot_reviews: reviews };
+};
+export type MobilePetSpotReview = {
+  id: string;
+  reviewer_name: string;
+  rating: number;
+  comment: string;
+  pet_type: string;
+  verified_visit: boolean;
+  created_at: string;
+};
 export type MobilePetSpotResource = {
   id: string;
   code: string;
@@ -1434,10 +1794,6 @@ export const createMobilePetSpotReservation = (input: {
     "/api/v1/petowner/petspot-reservations",
     { method: "POST", body: JSON.stringify(input) },
   );
-export const getMobilePetSpotReservations = () =>
-  platformRequest<{ data: MobilePetSpotReservation[]; count: number }>(
-    "/api/v1/petowner/petspot-reservations",
-  );
 export const getMobileStreams = () =>
   getUniqueWorldItems("/api/v1/public/pethub/streams");
 export const getMobilePetHubFeed = () =>
@@ -1488,20 +1844,7 @@ export const getMobileDocumentProducts = () =>
 export const getMobilePawDatingProfiles = (location?: {
   latitude: number;
   longitude: number;
-}) => {
-  const params = new URLSearchParams({
-    min_level: "2",
-    min_health_score: "80",
-    max_distance_km: "200",
-  });
-  if (location) {
-    params.set("latitude", String(location.latitude));
-    params.set("longitude", String(location.longitude));
-  }
-  return getUniqueWorldItems(
-    `/api/v1/public/pawdating/profiles?${params.toString()}`,
-  );
-};
+}) => getUniqueWorldItems(buildMobilePawDatingDiscoveryPath(location));
 export const getMobilePawDatingProfile = (
   profileId: string,
   location?: { latitude: number; longitude: number },
@@ -1518,6 +1861,30 @@ export const getMobilePawDatingProfile = (
 };
 export const getMobileMyPawDatingProfiles = () =>
   getUniqueWorldItems("/api/v1/pawdating/profiles");
+export const getMobilePawDatingInterests = () =>
+  platformRequest<{ data: MobilePawDatingInterest[] }>(
+    "/api/v1/pawdating/interests",
+  );
+export const respondMobilePawDatingInterest = (
+  interestId: string,
+  action: "accept" | "decline",
+) =>
+  platformRequest<{ id: string; status: string; match_id?: string; message?: string }>(
+    `/api/v1/pawdating/interests/${interestId}`,
+    { method: "PATCH", body: JSON.stringify({ action }) },
+  );
+export const getMobilePawDatingMessages = (matchId: string) =>
+  platformRequest<{ data: MobilePawDatingMessage[] }>(
+    `/api/v1/pawdating/matches/${matchId}/messages`,
+  );
+export const createMobilePawDatingMessage = (matchId: string, body: string) =>
+  platformRequest<{ id: string; created_at: string }>(
+    `/api/v1/pawdating/matches/${matchId}/messages`,
+    {
+      method: "POST",
+      body: JSON.stringify({ message_type: "text", body }),
+    },
+  );
 export const createMobilePawDatingProfile = (input: Record<string, unknown>) =>
   platformRequest<{ id: string; status: string; message: string }>(
     "/api/v1/pawdating/profiles",
@@ -1616,13 +1983,92 @@ export const applyMobileAdoption = (
     `/api/v1/adoptions/${listingId}/applications`,
     { method: "POST", body: JSON.stringify(input) },
   );
+export const createMobileAdoptionListing = (input: { pet_id: string; city: string; description: string; personality: string[]; health_status: string; vaccinated: boolean; sterilized: boolean; photo_urls: string[]; adoption_fee: number }) =>
+  platformRequest<{ id: string; status: string }>("/api/v1/petowner/adoptions", { method: "POST", body: JSON.stringify(input) });
+export type MobileAdoptionApplicationStatus =
+  | "submitted"
+  | "screening"
+  | "home_visit"
+  | "approved"
+  | "rejected"
+  | "withdrawn"
+  | "completed";
+export type MobileMyAdoptionListing = {
+  id: string;
+  pet_id: string;
+  name: string;
+  species: string;
+  breed: string;
+  city: string;
+  description: string;
+  status: string;
+  applicant_count: number;
+  created_at: string;
+};
+export type MobileAdoptionApplicationRecord = {
+  id: string;
+  listing_id: string;
+  applicant_name: string;
+  phone: string;
+  address: string;
+  housing_type: string;
+  has_other_pets: boolean;
+  experience: string;
+  reason: string;
+  status: MobileAdoptionApplicationStatus;
+  status_note: string;
+  created_at: string;
+  updated_at: string;
+};
+export type MobileMyAdoptionApplication = {
+  id: string;
+  listing_id: string;
+  listing_name: string;
+  listing_status: string;
+  status: MobileAdoptionApplicationStatus;
+  status_note: string;
+  created_at: string;
+  updated_at: string;
+};
+export const getMobileMyAdoptionApplications = () =>
+  platformRequest<{ data: MobileMyAdoptionApplication[] }>(
+    "/api/v1/petowner/adoption-applications",
+  );
+export const withdrawMobileAdoptionApplication = (applicationId: string) =>
+  platformRequest<{ id: string; status: MobileAdoptionApplicationStatus }>(
+    `/api/v1/petowner/adoption-applications/${applicationId}/withdraw`,
+    { method: "POST" },
+  );
+export const getMobileMyAdoptionListings = () =>
+  platformRequest<{ data: MobileMyAdoptionListing[] }>(
+    "/api/v1/petowner/adoptions",
+  );
+export const getMobileAdoptionListingApplications = (listingId: string) =>
+  platformRequest<{ data: MobileAdoptionApplicationRecord[] }>(
+    `/api/v1/petowner/adoptions/${listingId}/applications`,
+  );
+export const reviewMobileAdoptionApplication = (
+  applicationId: string,
+  status: "screening" | "home_visit" | "approved" | "rejected" | "completed",
+  note: string,
+) =>
+  platformRequest<{ id: string; status: MobileAdoptionApplicationStatus }>(
+    `/api/v1/petowner/adoption-applications/${applicationId}/status`,
+    { method: "PATCH", body: JSON.stringify({ status, note }) },
+  );
+export type MobileSubmittedDocument = {
+  requirement: string;
+  url: string;
+  file_name: string;
+  mime_type: string;
+};
 export type MobileDocumentRequestInput = {
   pet_id?: string;
   origin_city?: string;
   destination_city?: string;
   departure_at?: string;
   transport_type?: "flight" | "ship";
-  submitted_documents: string[];
+  submitted_documents: MobileSubmittedDocument[];
 };
 export const createMobileDocumentRequest = (
   productId: string,
@@ -1634,6 +2080,14 @@ export const createMobileDocumentRequest = (
       method: "POST",
       body: JSON.stringify({ product_id: productId, ...input }),
     },
+  );
+export const resubmitMobileDocuments = (
+  id: string,
+  submitted_documents: MobileSubmittedDocument[],
+) =>
+  platformRequest<{ id: string; status: string }>(
+    `/api/v1/pet-document-requests/${id}/documents`,
+    { method: "PATCH", body: JSON.stringify({ submitted_documents }) },
   );
 export const commentMobilePetHubPost = (postId: string, content: string) =>
   platformRequest<{ id: string }>(`/api/v1/pethub/posts/${postId}/comments`, {
@@ -1648,13 +2102,15 @@ export type MobilePetHubComment = {
   created_at: string;
 };
 export const getMobilePetHubComments = (postId: string) =>
-  platformRequest<{ data: MobilePetHubComment[] }>(
+  platformRequest<{ data: MobilePetHubComment[]; count: number }>(
     `/api/v1/pethub/posts/${postId}/comments`,
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 export const enrollMobileAcademy = (
   programId: string,
   participantName: string,
   petName: string,
+  petId?: string,
+  scheduleId?: string,
 ) =>
   platformRequest<{ id: string; amount: number; message: string }>(
     "/api/v1/academy/enrollments",
@@ -1664,6 +2120,8 @@ export const enrollMobileAcademy = (
         program_id: programId,
         participant_name: participantName,
         pet_name: petName,
+        pet_id: petId,
+        schedule_id: scheduleId,
       }),
     },
   );
@@ -1703,6 +2161,7 @@ export const createMobilePetHubPost = (content: string, authorName: string) =>
 export const createMobilePetHubMediaPost = (input: {
   content: string;
   media_url: string;
+  media_urls?: string[];
   post_type: "photo" | "video";
 }) =>
   platformRequest<{ id: string; message: string }>("/api/v1/pethub/posts", {
@@ -1727,10 +2186,14 @@ export const createMobilePetHubStory = (input: {
     },
   );
 export const reactMobilePetHubPost = (postId: string) =>
-  platformRequest<{ liked: boolean }>(
+  platformRequest<{ liked: boolean; like_count: number }>(
     `/api/v1/pethub/posts/${postId}/reactions`,
     { method: "POST" },
   );
+export const likeMobilePetHubPost = (postId: string) =>
+  platformRequest<{ liked: boolean; like_count: number }>(`/api/v1/pethub/posts/${postId}/like`, { method: "PUT" });
+export const saveMobilePetHubPost = (postId: string) => platformRequest<{ saved: boolean }>(`/api/v1/pethub/posts/${postId}/save`, { method: "POST" });
+export const viewMobilePetHubStory = (storyId: string) => platformRequest<{ view_count: number }>(`/api/v1/pethub/stories/${storyId}/views`, { method: "POST" });
 
 export function askSlivaCare(
   message: string,
@@ -1828,11 +2291,42 @@ export async function uploadMobileMedia(
   };
 }
 
-export const realtime = io(
-  REALTIME_API_URL || "https://realtime-not-configured.invalid",
-  {
-    autoConnect: false,
-    auth: { token: platformAccessToken },
-    transports: ["websocket", "polling"],
-  },
-);
+export type MobileSupportMessage = {
+  id: string;
+  ticket_id: string;
+  sender_id: string;
+  sender_name: string;
+  sender_role: "owner" | "support";
+  body: string;
+  created_at: string;
+};
+export const getMobileSupportChat = () =>
+  platformRequest<{ ticket_id: string | null; messages: MobileSupportMessage[] }>(
+    "/api/v1/petowner/support-chat",
+    { cache: "no-store" },
+  );
+export const sendMobileSupportChatMessage = (body: string) =>
+  platformRequest<MobileSupportMessage>("/api/v1/petowner/support-chat", {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+
+let petownerSocket: Socket | null = null;
+let petownerSocketToken = "";
+
+/** Socket.IO client to the petowner-api (care chat); rebuilt when the access token changes. */
+export function petownerRealtime() {
+  if (!petownerSocket || petownerSocketToken !== platformAccessToken) {
+    petownerSocket?.disconnect();
+    petownerSocket = io(
+      requireServiceURL(PETOWNER_API_URL, "EXPO_PUBLIC_PETOWNER_API_URL"),
+      {
+        autoConnect: false,
+        auth: { token: platformAccessToken },
+        transports: ["websocket", "polling"],
+      },
+    );
+    petownerSocketToken = platformAccessToken;
+  }
+  return petownerSocket;
+}

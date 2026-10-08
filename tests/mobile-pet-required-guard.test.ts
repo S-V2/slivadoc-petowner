@@ -6,6 +6,7 @@ const read = (path: string) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 const api = read("mobile/src/api.ts");
+const policy = read("shared/petowner-flow.ts");
 const app = read("mobile/App.tsx");
 const marketplace = read("mobile/src/screens/MarketplaceScreen.tsx");
 const community = read("mobile/src/screens/CommunityScreen.tsx");
@@ -18,9 +19,9 @@ test("the API client denies pet-owner mutations after bootstrap confirms there i
   assert.match(api, /mobileOwnerHasPet = pets\.length > 0/);
   assert.match(api, /mobileMutationRequiresPet\(path, method\)/);
   assert.match(api, /PET_PROFILE_REQUIRED_MESSAGE/);
-  assert.match(api, /\/api\\\/v1\\\/community/);
-  assert.match(api, /\/api\\\/v1\\\/petowner\\\/\(\?:bookings\|orders/);
-  assert.match(api, /\/api\\\/v1\\\/consultations/);
+  assert.match(policy, /\/api\\\/v1\\\/community/);
+  assert.match(policy, /\/api\\\/v1\\\/petowner\\\/\(\?:bookings\|orders/);
+  assert.match(policy, /\/api\\\/v1\\\/consultations/);
 });
 
 test("accounts without pets see a clear read-only notice and a path to add a pet", () => {

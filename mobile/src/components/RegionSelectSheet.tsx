@@ -1,3 +1,4 @@
+import { LocalizedPressable as Pressable } from "./LocalizedPressable";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import {
@@ -6,7 +7,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
+
   StyleSheet,
   View,
 } from "react-native";
@@ -298,7 +299,7 @@ export function RegionSelectSheet({
   if (embedded) return content;
 
   return (
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       animationType="slide"
       onRequestClose={close}
       onShow={() => setQuery("")}

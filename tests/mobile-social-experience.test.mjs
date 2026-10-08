@@ -9,10 +9,24 @@ test("home Tanya Dokter opens the consultation catalogue instead of live chat", 
   const home = read("mobile/src/screens/HomeScreen.tsx");
 
   assert.match(home, /onOpenConsultation/);
-  assert.match(home, /Tanya Dokter[\s\S]*onPress: onOpenConsultation/);
+  assert.match(home, /Tanya Dokter[\s\S]*onPress: \(\) => onOpenConsultation\(\)/);
   assert.doesNotMatch(home, /onOpenChat/);
-  assert.match(app, /onOpenConsultation=\{\(\) => openConsultation\(\)\}/);
-  assert.match(app, /result\.route === "consult"[\s\S]*openConsultation\(\)/);
+  assert.match(app, /onOpenConsultation=\{openConsultation\}/);
+  assert.match(app, /result\.route === "consult"[\s\S]*openConsultation\(result\.category === "veterinarian" \? result\.id : undefined\)/);
+  assert.match(app, /veterinarianId/);
+});
+
+test("home recommendations use runtime-safe sorting and explicit partner detail flows", () => {
+  const app = read("mobile/App.tsx");
+  const home = read("mobile/src/screens/HomeScreen.tsx");
+  const marketplace = read("mobile/src/screens/MarketplaceScreen.tsx");
+
+  assert.doesNotMatch(home, /\.toSorted\(/);
+  assert.match(home, /nearestPartners/);
+  assert.match(home, /onOpenPartner\(partner\.id\)/);
+  assert.match(app, /businessId\?: string/);
+  assert.match(marketplace, /\["services", "Layanan"\]/);
+  assert.match(marketplace, /onOpenService\(service\)/);
 });
 
 test("Android and iOS get a visible back control outside the home tab", () => {

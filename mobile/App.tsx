@@ -1,3 +1,6 @@
+import { LocalizedPressable as Pressable } from "./src/components/LocalizedPressable";
+import { SlivaAlertHost } from "./src/components/SlivaAlert";
+import { useResponsiveLayout } from "./src/responsive";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -7,11 +10,13 @@ import {
   Image,
   Modal,
   Platform,
-  Pressable,
+
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import * as ExpoLocation from "expo-location";
 import {
@@ -20,14 +25,21 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as SecureStore from "expo-secure-store";
+import { worldFeatures as sharedWorldFeatures } from "../shared/petowner-flow";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { DiscoverScreen } from "./src/screens/DiscoverScreen";
-import { MarketplaceScreen } from "./src/screens/MarketplaceScreen";
+import {
+  MarketplaceChatSheet,
+  MarketplaceScreen,
+  type MarketplaceChatShortcut,
+} from "./src/screens/MarketplaceScreen";
 import { ActivityScreen } from "./src/screens/ActivityScreen";
 import { HealthScreen } from "./src/screens/HealthScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { CommunityScreen } from "./src/screens/CommunityScreen";
-import { WorldScreen } from "./src/screens/WorldScreen";
+import { WorldScreen, type WorldMode } from "./src/screens/WorldScreen";
+import { ChatInboxScreen } from "./src/screens/ChatInboxScreen";
 import { type PetView, type Service } from "./src/data";
 import { colors, shadow, typography } from "./src/theme";
 import {
@@ -40,8 +52,13 @@ import {
   clearMobileCache,
   createMobileBooking,
   createMobilePaymentIntent,
+  getMobileActivityCenter,
   getMobileBootstrap,
   getMobileMedicalRecords,
+  getMobileMarketplaceChats,
+  getMobileNotifications,
+  uniqueById,
+  getMobileServiceAvailability,
   getMobileServices,
   hasPlatformSession,
   loginMobile,
@@ -54,19 +71,24 @@ import {
   toggleMobileFavorite,
   verifyMobileRegistrationOTP,
   type MobileBootstrap,
+  type MobileActivityCenterResponse,
   type MobileActivityOrderItem,
+  type MobileActivityType,
   type MobileMedicalRecord,
   type MobileNotification,
   type MobilePaymentIntent,
   type MobileService,
+  type MobileServiceAvailability,
   type MobileGlobalSearchResult,
+  type MobileMarketplaceChatThread,
 } from "./src/api";
 import { SlivaCareModal } from "./src/components/SlivaCareModal";
 import {
-  MobileBatpayModal,
+  MobileQrisModal,
   MobilePaymentMethods,
-} from "./src/components/BatpayPayment";
+} from "./src/components/QrisPayment";
 import slivadocLogo from "./assets/slivadoc-logo.png";
+import { MobileNetworkLogger } from "./src/debug/MobileNetworkLogger";
 import { LanguageProvider, LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "./src/i18n";
 
 type Tab =
@@ -77,6 +99,7 @@ type Tab =
   | "activity"
   | "health"
   | "community"
+  | "messages"
   | "profile";
 
 type TabItem = {
@@ -110,6 +133,12 @@ const bottomTabs: TabItem[] = [
 
 const moreTabs: TabItem[] = [
   {
+    id: "messages",
+    label: "Chat",
+    icon: "chatbubbles-outline",
+    activeIcon: "chatbubbles",
+  },
+  {
     id: "discover",
     label: "Layanan",
     icon: "search-outline",
@@ -134,6 +163,112 @@ const moreTabs: TabItem[] = [
     activeIcon: "person",
   },
 ];
+
+const worldIcons: Record<WorldMode, keyof typeof Ionicons.glyphMap> = {
+  academy: "school-outline", events: "ticket-outline", petspot: "map-outline",
+  pethub: "videocam-outline", consult: "medkit-outline", adoption: "paw-outline",
+  documents: "document-text-outline", pawdating: "heart-circle-outline",
+};
+const worldFeatures = sharedWorldFeatures.map((item) => ({ ...item, icon: worldIcons[item.mode] }));
+
+const navigationStorageKey = "slivadoc.petowner.active_tab";
+const petStorageKey = "slivadoc.petowner.active_pet";
+
+function mobileServiceCategory(value: string) {
+  const category = value.toLowerCase();
+  if (category.includes("home")) return "Home Care";
+  if (category.includes("hotel") || category.includes("boarding")) return "Pet Hotel";
+  if (category.includes("groom")) return "Grooming";
+  if (category.includes("shop")) return "Pet Shop";
+  if (category.includes("clinic") || category.includes("veter")) return "Clinic";
+  return value.replaceAll("_", " ");
+}
+const validTabs = new Set<Tab>([
+  ...bottomTabs.map((item) => item.id),
+  ...moreTabs.map((item) => item.id),
+]);
+
+function AnimatedTabButton({
+  item,
+  active,
+  badge = 0,
+  onPress,
+}: {
+  item: TabItem;
+  active: boolean;
+  badge?: number;
+  onPress: () => void;
+}) {
+  const [progress] = useState(() => new Animated.Value(active ? 1 : 0));
+
+  useEffect(() => {
+    Animated.spring(progress, {
+      toValue: active ? 1 : 0,
+      damping: 16,
+      stiffness: 220,
+      mass: 0.7,
+      useNativeDriver: true,
+    }).start();
+  }, [active, progress]);
+
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityLabel={item.label}
+      accessibilityState={{ selected: active }}
+      android_ripple={{ color: colors.sky50, borderless: false }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.tabItem,
+        active && styles.activeTabItem,
+        pressed && styles.tabItemPressed,
+      ]}
+    >
+      <Animated.View
+        style={[
+          styles.tabAnimatedContent,
+          {
+            transform: [
+              {
+                translateY: progress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -2],
+                }),
+              },
+              {
+                scale: progress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 1.04],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <View style={[styles.tabIcon, active && styles.activeTabIcon]}>
+          <Ionicons
+            name={active ? item.activeIcon : item.icon}
+            size={22}
+            color={active ? colors.white : colors.muted}
+          />
+          {badge > 0 ? (
+            <View style={styles.activityBadge}>
+              <Text style={styles.activityBadgeText}>
+                {badge > 9 ? "9+" : badge}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        <Text
+          numberOfLines={1}
+          style={[styles.tabLabel, active && styles.activeTabLabel]}
+        >
+          {item.label}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 const searchRouteTabs: Record<string, Tab> = {
   home: "home",
@@ -164,7 +299,10 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <LanguageProvider>
-        <MobileApp />
+        <MobileNetworkLogger>
+          <MobileApp />
+          <SlivaAlertHost />
+        </MobileNetworkLogger>
       </LanguageProvider>
     </SafeAreaProvider>
   );
@@ -172,16 +310,19 @@ export default function App() {
 
 function MobileApp() {
   const insets = useSafeAreaInsets();
+  const layout = useResponsiveLayout();
   const { formatCurrency } = useI18n();
   const [tab, setTab] = useState<Tab>("home");
   const [moreOpen, setMoreOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationCategory, setNotificationCategory] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
   const [chatContext, setChatContext] = useState<"care" | "support">("care");
   const [bookingOpen, setBookingOpen] = useState(false);
   const [payment, setPayment] = useState<MobilePaymentIntent>();
   const [selectedService, setSelectedService] = useState<Service>();
+  const [selectedPetId, setSelectedPetId] = useState("");
   const [bootstrap, setBootstrap] = useState<MobileBootstrap>();
   const [services, setServices] = useState<Service[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -191,16 +332,42 @@ function MobileApp() {
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [openingPulse] = useState(() => new Animated.Value(0));
+  const [openingOrbit] = useState(() => new Animated.Value(0));
+  const [openingProgress] = useState(() => new Animated.Value(0));
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [activityCenter, setActivityCenter] =
+    useState<MobileActivityCenterResponse>();
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityLoadingMore, setActivityLoadingMore] = useState(false);
+  const [chatUnread, setChatUnread] = useState(0);
+  const activityExtraRef = useRef(false);
+  const [activityIntent, setActivityIntent] = useState<{
+    token: number;
+    type: MobileActivityType;
+    // Without an id the intent only filters (the marketplace "Pesanan" shortcut).
+    id?: string;
+  }>();
+  const activityRequestRef = useRef(0);
   const [marketplaceIntent, setMarketplaceIntent] = useState<{
     token: number;
     productId?: string;
+    businessId?: string;
+    storeSection?: "products" | "services";
     items?: Array<{ product_id: string; quantity: number }>;
   }>();
+  const [inboxChatThread, setInboxChatThread] =
+    useState<MobileMarketplaceChatThread>();
   const [worldIntent, setWorldIntent] = useState<{
     token: number;
-    mode: "consult";
+    mode: WorldMode;
     itemId?: string;
+    veterinarianId?: string;
+  }>();
+  const [serviceIntent, setServiceIntent] = useState<{
+    token: number;
+    category?: string;
+    serviceId?: string;
   }>();
   const intentTokenRef = useRef(0);
   const tabRef = useRef<Tab>("home");
@@ -216,16 +383,26 @@ function MobileApp() {
       branchName: item.branch_name,
       city: item.city,
       name: item.name,
-      category: item.category,
-      rating: "Baru",
+      category: mobileServiceCategory(item.category),
+      rating:
+        typeof item.rating === "number" && Number.isFinite(item.rating)
+          ? item.rating.toFixed(1)
+          : "Baru",
       distance:
         typeof item.distance_km === "number" &&
         Number.isFinite(item.distance_km)
           ? `${item.distance_km.toFixed(1)} km`
           : item.city,
       price: formatCurrency(item.price),
+      originalPrice: item.original_price,
+      discountPercent: item.discount_percent,
       status: "Tersedia untuk booking",
       imageUrl: item.image_url,
+      imageUrls: item.image_urls?.length
+        ? item.image_urls
+        : item.image_url
+          ? [item.image_url]
+          : [],
       icon: item.category.toLowerCase().includes("groom")
         ? "🛁"
         : item.category.toLowerCase().includes("hotel")
@@ -236,6 +413,13 @@ function MobileApp() {
       tone: (["mint", "blue", "violet", "peach"] as const)[index % 4] ?? "blue",
       priceValue: item.price,
       address: `${item.branch_name} · ${item.address}`,
+      description: item.description,
+      durationMinutes: item.duration_minutes,
+      inclusions: item.inclusions,
+      supportedSpecies: item.supported_species,
+      cancellationPolicy: item.cancellation_policy,
+      cancellationCutoffHours: item.cancellation_cutoff_hours,
+      licenseStatus: item.business_license_status,
     }),
     [formatCurrency],
   );
@@ -258,17 +442,93 @@ function MobileApp() {
     score: item.health_score,
     allergies: item.allergies,
     lastUpdated: item.last_medical_record_at,
+    shared: Boolean(item.access_role) && item.access_role !== "owner",
   }));
-  const pet = pets[0];
+  const pet = pets.find((item) => item.id === selectedPetId) ?? pets[0];
   const petId = pet?.id;
   const hasPet = pets.length > 0;
 
+  useEffect(() => {
+    if (!pets.length) return;
+    if (pets.some((item) => item.id === selectedPetId)) return;
+    void SecureStore.getItemAsync(petStorageKey).then((saved) => {
+      const next = pets.find((item) => item.id === saved)?.id ?? pets[0]?.id ?? "";
+      setSelectedPetId(next);
+    });
+  }, [pets, selectedPetId]);
+
+  const selectPet = useCallback((petIdToSelect: string) => {
+    setSelectedPetId(petIdToSelect);
+    void SecureStore.setItemAsync(petStorageKey, petIdToSelect);
+  }, []);
+
   const notify = useCallback((message: string) => setToast(message), []);
+  const openNotifications = useCallback((category?: string) => {
+    setNotificationCategory(typeof category === "string" ? category : "");
+    setNotificationsOpen(true);
+    // The bootstrap only carries a slice; load the full list and merge it in.
+    void getMobileNotifications(100)
+      .then((result) =>
+        setBootstrap((current) =>
+          current
+            ? {
+                ...current,
+                notifications: uniqueById([...result.data, ...current.notifications]),
+                unread_notifications: result.unread_count,
+              }
+            : current,
+        ),
+      )
+      .catch(() => undefined);
+  }, []);
   useEffect(() => {
     if (!toast) return;
     const timeout = setTimeout(() => setToast(""), 2400);
     return () => clearTimeout(timeout);
   }, [toast]);
+
+  useEffect(() => {
+    if (!initialLoading) return;
+    openingPulse.setValue(0);
+    openingOrbit.setValue(0);
+    openingProgress.setValue(0);
+    const motion = Animated.parallel([
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(openingPulse, {
+            toValue: 1,
+            duration: 1_150,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(openingPulse, {
+            toValue: 0,
+            duration: 1_150,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      ),
+      Animated.loop(
+        Animated.timing(openingOrbit, {
+          toValue: 1,
+          duration: 8_000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      ),
+      Animated.loop(
+        Animated.timing(openingProgress, {
+          toValue: 1,
+          duration: 1_650,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ),
+    ]);
+    motion.start();
+    return () => motion.stop();
+  }, [initialLoading, openingOrbit, openingProgress, openingPulse]);
 
   useEffect(() => {
     if (!petId) return;
@@ -293,6 +553,101 @@ function MobileApp() {
     setFavorites(data.favorites.map((item) => item.entity_id));
     return data;
   }, []);
+  const loadActivityCenter = useCallback(
+    // keepLoaded: background refreshes keep pages the user already loaded.
+    async (silent = false, keepLoaded = false) => {
+      const request = activityRequestRef.current + 1;
+      activityRequestRef.current = request;
+      setActivityLoading(true);
+      try {
+        const result = await getMobileActivityCenter();
+        if (activityRequestRef.current === request) {
+          const keep = keepLoaded && activityExtraRef.current;
+          if (!keep) activityExtraRef.current = false;
+          setActivityCenter((current) => {
+            if (!keep || !current) return result;
+            const fresh = new Set(result.data.map((item) => item.id));
+            return {
+              ...result,
+              data: [
+                ...result.data,
+                ...current.data.filter((item) => !fresh.has(item.id)),
+              ],
+              next_cursor: current.next_cursor,
+            };
+          });
+        }
+      } catch (cause) {
+        if (!silent)
+          notify(
+            (cause instanceof Error && cause.message) ||
+              "Aktivitas belum dapat dimuat",
+          );
+      } finally {
+        if (activityRequestRef.current === request) setActivityLoading(false);
+      }
+    },
+    [notify],
+  );
+  const loadMoreActivities = useCallback(async () => {
+    const cursor = activityCenter?.next_cursor;
+    if (!cursor || activityLoadingMore) return;
+    const request = activityRequestRef.current;
+    setActivityLoadingMore(true);
+    try {
+      const page = await getMobileActivityCenter(cursor);
+      // A refresh started meanwhile owns the list; drop this stale page.
+      if (activityRequestRef.current !== request) return;
+      activityExtraRef.current = true;
+      setActivityCenter((current) =>
+        current
+          ? {
+              ...current,
+              data: uniqueById([...current.data, ...page.data]),
+              next_cursor: page.next_cursor,
+            }
+          : current,
+      );
+    } catch (cause) {
+      notify(
+        (cause instanceof Error && cause.message) ||
+          "Aktivitas lainnya belum dapat dimuat",
+      );
+    } finally {
+      setActivityLoadingMore(false);
+    }
+  }, [activityCenter?.next_cursor, activityLoadingMore, notify]);
+  const signedIn = Boolean(bootstrap);
+  useEffect(() => {
+    if (!signedIn) return;
+    queueMicrotask(() => void loadActivityCenter(true, true));
+    const timer = setInterval(() => void loadActivityCenter(true, true), 60_000);
+    return () => clearInterval(timer);
+  }, [loadActivityCenter, signedIn]);
+  useEffect(() => {
+    if ((tab === "activity" || tab === "messages") && signedIn)
+      queueMicrotask(() => void loadActivityCenter(true, true));
+  }, [loadActivityCenter, signedIn, tab]);
+  // Header chat badge: one fetch on login, whenever notifications refresh, and
+  // when the chat inbox / thread sheet closes.
+  const unreadNotificationCount = bootstrap?.unread_notifications ?? 0;
+  const messagesOpen = tab === "messages";
+  const inboxChatOpen = Boolean(inboxChatThread);
+  useEffect(() => {
+    if (!signedIn) return;
+    queueMicrotask(
+      () =>
+        void getMobileMarketplaceChats()
+          .then((result) =>
+            setChatUnread(
+              result.data.reduce((total, item) => total + item.unread_count, 0),
+            ),
+          )
+          .catch(() => undefined),
+    );
+  }, [signedIn, unreadNotificationCount, messagesOpen, inboxChatOpen, refreshVersion]);
+  const needsActionCount =
+    activityCenter?.data.filter((item) => item.needs_action).length ?? 0;
   const loadServices = useCallback(async () => {
     let coordinates: { latitude: number; longitude: number } | undefined;
     try {
@@ -330,7 +685,8 @@ function MobileApp() {
     clearMobileCache();
     try {
       const tasks: Promise<unknown>[] = [loadServices()];
-      if (hasPlatformSession()) tasks.push(refreshAccount());
+      if (hasPlatformSession())
+        tasks.push(refreshAccount(), loadActivityCenter(true));
       if (petId)
         tasks.push(
           getMobileMedicalRecords(petId).then((result) =>
@@ -367,7 +723,16 @@ function MobileApp() {
   };
 
   useEffect(() => {
-    queueMicrotask(() => void reloadData(false));
+    queueMicrotask(() => {
+      void SecureStore.getItemAsync(navigationStorageKey)
+        .then((saved) => {
+          if (!saved || !validTabs.has(saved as Tab)) return;
+          const restored = saved as Tab;
+          tabRef.current = restored;
+          setTab(restored);
+        })
+        .finally(() => void reloadData(false));
+    });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const navigateTo = useCallback(
@@ -380,6 +745,7 @@ function MobileApp() {
       tabRef.current = next;
       screenTransition.setValue(0);
       setTab(next);
+      void SecureStore.setItemAsync(navigationStorageKey, next);
     },
     [screenTransition],
   );
@@ -391,22 +757,25 @@ function MobileApp() {
       tabRef.current = previous;
       screenTransition.setValue(0);
       setTab(previous);
+      void SecureStore.setItemAsync(navigationStorageKey, previous);
       return true;
     }
     if (tabRef.current !== "home") {
       tabRef.current = "home";
       screenTransition.setValue(0);
       setTab("home");
+      void SecureStore.setItemAsync(navigationStorageKey, "home");
       return true;
     }
     return false;
   }, [screenTransition]);
 
   useEffect(() => {
-    Animated.timing(screenTransition, {
+    Animated.spring(screenTransition, {
       toValue: 1,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
+      damping: 20,
+      stiffness: 185,
+      mass: 0.72,
       useNativeDriver: true,
     }).start();
   }, [screenTransition, tab]);
@@ -460,6 +829,13 @@ function MobileApp() {
     setChatContext("support");
     setChatOpen(true);
   };
+  const openCareChat = (petId?: string) => {
+    if (!requireLogin()) return;
+    if (petId && pets.some((item) => item.id === petId)) selectPet(petId);
+    setChatContext("care");
+    // A Modal (notifications) is still dismissing; iOS drops a sheet presented over it.
+    setTimeout(() => setChatOpen(true), 400);
+  };
   const openBooking = (service?: Service) => {
     if (!service) {
       navigateTo("discover");
@@ -469,15 +845,80 @@ function MobileApp() {
     setSelectedService(service);
     setBookingOpen(true);
   };
-  const nextIntentToken = () => {
+  const openServiceCatalog = (category?: string, serviceId?: string) => {
+    setServiceIntent({ token: nextIntentToken(), category, serviceId });
+    navigateTo("discover");
+  };
+  const nextIntentToken = useCallback(() => {
     intentTokenRef.current += 1;
     return intentTokenRef.current;
-  };
+  }, []);
+  const openActivity = useCallback(
+    (type: MobileActivityType, id: string) => {
+      navigateTo("activity");
+      // The tap that gets here usually closes a Modal (notifications, booking,
+      // QRIS). iOS drops a sheet presented while another is still dismissing,
+      // so the detail opens no sooner than that animation takes.
+      const dismissed = Date.now() + 400;
+      void loadActivityCenter(true).finally(() =>
+        setTimeout(
+          () => setActivityIntent({ token: nextIntentToken(), type, id }),
+          Math.max(0, dismissed - Date.now()),
+        ),
+      );
+    },
+    [loadActivityCenter, navigateTo, nextIntentToken],
+  );
+  const consumeActivityIntent = useCallback(
+    (token: number) =>
+      setActivityIntent((current) =>
+        current?.token === token ? undefined : current,
+      ),
+    [],
+  );
   const consumeMarketplaceIntent = useCallback((token: number) => {
     setMarketplaceIntent((current) => current?.token === token ? undefined : current);
   }, []);
   const openMarketplace = (productId?: string) => {
     setMarketplaceIntent({ token: nextIntentToken(), productId });
+    navigateTo("marketplace");
+  };
+  const openPartnerProfile = (businessId: string) => {
+    setMarketplaceIntent({ token: nextIntentToken(), businessId });
+    navigateTo("marketplace");
+  };
+  const openStoreChat = (chatThread: MobileMarketplaceChatThread) => {
+    setInboxChatThread(chatThread);
+  };
+  // A store reply notification opens its thread; unknown thread falls back to the inbox.
+  const openNotificationThread = async (threadId: string) => {
+    try {
+      const result = await getMobileMarketplaceChats();
+      const thread = result.data.find((item) => item.id === threadId);
+      if (thread) {
+        setInboxChatThread(thread);
+        return;
+      }
+    } catch {}
+    navigateTo("messages");
+  };
+  const openInboxChatShortcut = (shortcut: MarketplaceChatShortcut) => {
+    const thread = inboxChatThread;
+    if (!thread) return;
+    setInboxChatThread(undefined);
+    if (shortcut === "pet_hotel") {
+      openServiceCatalog("Pet Hotel");
+      return;
+    }
+    if (shortcut === "orders") {
+      openOrderActivity();
+      return;
+    }
+    setMarketplaceIntent({
+      token: nextIntentToken(),
+      businessId: thread.business_id,
+      storeSection: shortcut,
+    });
     navigateTo("marketplace");
   };
   const reorderProducts = (items: MobileActivityOrderItem[]) => {
@@ -490,9 +931,25 @@ function MobileApp() {
     });
     navigateTo("marketplace");
   };
-  const openConsultation = (itemId?: string) => {
+  const openConsultation = (veterinarianId?: string) => {
+    setWorldIntent({ token: nextIntentToken(), mode: "consult", veterinarianId });
+    navigateTo("world");
+  };
+  const openConsultationPlan = (itemId?: string) => {
     setWorldIntent({ token: nextIntentToken(), mode: "consult", itemId });
     navigateTo("world");
+  };
+  const openWorldItem = (mode: "academy" | "events" | "petspot", itemId: string) => {
+    setWorldIntent({ token: nextIntentToken(), mode, itemId });
+    navigateTo("world");
+  };
+  const openWorldFeature = (mode: WorldMode) => {
+    setWorldIntent({ token: nextIntentToken(), mode });
+    navigateTo("world");
+  };
+  const openOrderActivity = () => {
+    setActivityIntent({ token: nextIntentToken(), type: "order" });
+    navigateTo("activity");
   };
   const rebookService = (serviceId?: string) => {
     const service = services.find((item) => item.id === serviceId);
@@ -510,13 +967,27 @@ function MobileApp() {
     }
     if (result.category === "service") {
       const service = services.find((item) => item.id === result.id);
-      if (service) {
-        openBooking(service);
-        return;
-      }
+      openServiceCatalog(service?.category, result.id);
+      return;
+    }
+    if (result.category === "product") {
+      openMarketplace(result.id);
+      return;
     }
     if (result.route === "consult" || result.category === "veterinarian") {
-      openConsultation();
+      openConsultation(result.category === "veterinarian" ? result.id : undefined);
+      return;
+    }
+    if (result.category === "academy") {
+      openWorldItem("academy", result.id);
+      return;
+    }
+    if (result.category === "event") {
+      openWorldItem("events", result.id);
+      return;
+    }
+    if (result.category === "petspot") {
+      openWorldItem("petspot", result.id);
       return;
     }
     navigateTo(searchRouteTabs[result.route] ?? "discover");
@@ -535,20 +1006,96 @@ function MobileApp() {
           edges={["top", "bottom", "left", "right"]}
           style={styles.brandLoading}
         >
-          <View style={styles.brandLoadingMark}>
-            <Image
-              alt="Logo Slivadoc"
-              accessibilityLabel="Logo Slivadoc"
-              source={slivadocLogo}
-              style={styles.brandLoadingLogo}
-              resizeMode="contain"
+          <View pointerEvents="none" style={styles.brandLoadingSkyOrb} />
+          <View pointerEvents="none" style={styles.brandLoadingMintOrb} />
+          <Text style={styles.brandLoadingEyebrow}>SLIVADOC PET CARE ECOSYSTEM</Text>
+          <View style={styles.brandLoadingVisual}>
+            <Animated.View
+              style={[
+                styles.brandLoadingHalo,
+                {
+                  opacity: openingPulse.interpolate({ inputRange: [0, 1], outputRange: [0.34, 0.68] }),
+                  transform: [{ scale: openingPulse.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.08] }) }],
+                },
+              ]}
             />
+            <Animated.View
+              style={[
+                styles.brandLoadingOrbit,
+                {
+                  transform: [{ rotate: openingOrbit.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }],
+                },
+              ]}
+            >
+              <View style={styles.brandLoadingOrbitDot} />
+            </Animated.View>
+            <Animated.View
+              style={[
+                styles.brandLoadingMark,
+                {
+                  transform: [
+                    { translateY: openingPulse.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) },
+                    { scale: openingPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.025] }) },
+                  ],
+                },
+              ]}
+            >
+              <Image
+                alt="Logo Slivadoc"
+                accessibilityLabel="Logo Slivadoc"
+                source={slivadocLogo}
+                style={styles.brandLoadingLogo}
+                resizeMode="contain"
+              />
+            </Animated.View>
+            <View style={[styles.brandLoadingSatellite, styles.brandLoadingSatelliteHealth]}>
+              <Ionicons name="medical" size={15} color={colors.white} />
+            </View>
+            <View style={[styles.brandLoadingSatellite, styles.brandLoadingSatelliteCare]}>
+              <Ionicons name="heart" size={15} color={colors.white} />
+            </View>
           </View>
-          <Text style={styles.brandLoadingTitle}>Menyiapkan Slivadoc</Text>
-          <Text style={styles.brandLoadingCopy}>
-            Menyinkronkan profil pet, marketplace, dan aktivitas Anda.
+          <Text style={styles.brandLoadingTitle}>
+            Satu dunia untuk setiap langkah kecilnya.
           </Text>
-          <ActivityIndicator color={colors.sky600} size="small" />
+          <Text style={styles.brandLoadingCopy}>
+            Kesehatan, care, aktivitas, dan marketplace pet-mu sedang disatukan.
+          </Text>
+          <View style={styles.brandLoadingSignals}>
+            {[
+              ["HEALTH", colors.sky600],
+              ["CARE", colors.mint],
+              ["MARKET", colors.violet],
+            ].map(([label, color]) => (
+              <View key={label} style={styles.brandLoadingSignal}>
+                <View style={[styles.brandLoadingSignalDot, { backgroundColor: color }]} />
+                <Text style={styles.brandLoadingSignalText}>{label}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.brandLoadingProgressWrap}>
+            <View style={styles.brandLoadingProgressMeta}>
+              <Text style={styles.brandLoadingProgressLabel}>Menyiapkan ruang pet-mu</Text>
+              <Text style={styles.brandLoadingProgressLive}>LIVE SYNC</Text>
+            </View>
+            <View style={styles.brandLoadingProgressTrack}>
+              <Animated.View
+                style={[
+                  styles.brandLoadingProgressBar,
+                  {
+                    transform: [{ translateX: openingProgress.interpolate({ inputRange: [0, 1], outputRange: [-130, 330] }) }],
+                  },
+                ]}
+              >
+                <LinearGradient
+                  colors={[colors.sky500, "#59C8F0", colors.mint]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFill}
+                />
+              </Animated.View>
+            </View>
+          </View>
         </SafeAreaView>
       </>
     );
@@ -561,8 +1108,13 @@ function MobileApp() {
           bottomInset={navigationBottom}
           refreshing={refreshing}
           onRefresh={() => void reloadData(true)}
+          unreadNotifications={bootstrap?.unread_notifications ?? 0}
+          chatUnread={signedIn ? chatUnread : 0}
+          openChatInbox={() => {
+            if (requireLogin()) navigateTo("messages");
+          }}
         >
-          <View style={styles.app}>
+          <View style={[styles.app, { width: "100%", maxWidth: layout.contentWidth, alignSelf: "center" }]}>
             {tab !== "home" ? (
               <View style={styles.backBar}>
                 <Pressable
@@ -597,23 +1149,25 @@ function MobileApp() {
             >
               {tab === "home" ? (
                 <HomeScreen
-                  onAction={notify}
-                  onBook={openBooking}
-                  onOpenConsultation={() => openConsultation()}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onExploreService={openServiceCatalog}
+                  onOpenPartner={openPartnerProfile}
+                  onOpenConsultation={openConsultation}
+                  onOpenActivity={openActivity}
+                  onOpenNotifications={openNotifications}
                   onSearchResult={openSearchResult}
                   onNavigate={navigateTo}
                   ownerName={bootstrap?.user.full_name}
                   pet={pet}
+                  pets={pets}
+                  onSelectPet={selectPet}
                   services={services}
-                  activities={bootstrap?.activities ?? []}
+                  activities={activityCenter?.data ?? []}
                 />
               ) : null}
               {tab === "discover" ? (
                 <DiscoverScreen
                   onBook={openBooking}
-                  onAction={notify}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   services={services}
                   favorites={favorites}
                   onToggleFavorite={async (id) => {
@@ -633,6 +1187,7 @@ function MobileApp() {
                       );
                     }
                   }}
+                  intent={serviceIntent}
                 />
               ) : null}
               {tab === "marketplace" ? (
@@ -643,7 +1198,7 @@ function MobileApp() {
                   favorites={favorites}
                   refreshVersion={refreshVersion}
                   onAction={notify}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   onRequireLogin={() => {
                     requireLogin();
                   }}
@@ -669,13 +1224,26 @@ function MobileApp() {
                   }}
                   intent={marketplaceIntent}
                   onIntentHandled={consumeMarketplaceIntent}
+                  onOpenService={(service) => openServiceCatalog(service.category, service.id)}
+                  onExploreServices={(category) => openServiceCatalog(category)}
+                  onOpenOrders={openOrderActivity}
+                />
+              ) : null}
+              {tab === "messages" ? (
+                <ChatInboxScreen
+                  activities={activityCenter?.data ?? []}
+                  refreshVersion={refreshVersion}
+                  onOpenNotifications={openNotifications}
+                  onOpenStore={openStoreChat}
+                  onOpenDoctor={(item) => openActivity(item.type, item.id)}
+                  onAction={notify}
                 />
               ) : null}
               {tab === "world" ? (
                 <WorldScreen
                   refreshVersion={refreshVersion}
                   onAction={notify}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   owner={bootstrap?.user}
                   petName={pet?.name}
                   pet={pet}
@@ -686,14 +1254,23 @@ function MobileApp() {
                     requirePet();
                   }}
                   intent={worldIntent}
+                  onOpenActivity={openActivity}
                 />
               ) : null}
               {tab === "activity" ? (
                 <ActivityScreen
                   authenticated={Boolean(bootstrap)}
-                  refreshVersion={refreshVersion}
+                  activities={activityCenter?.data ?? []}
+                  summary={activityCenter?.summary}
+                  loading={activityLoading}
+                  onReload={() => loadActivityCenter(true)}
+                  hasMore={Boolean(activityCenter?.next_cursor)}
+                  loadingMore={activityLoadingMore}
+                  onLoadMore={() => void loadMoreActivities()}
+                  intent={activityIntent}
+                  onIntentHandled={consumeActivityIntent}
                   onAction={notify}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   onLogin={() => setLoginOpen(true)}
                   hasPet={hasPet}
                   onRequirePet={() => {
@@ -715,16 +1292,15 @@ function MobileApp() {
                     if (requirePet()) reorderProducts(items);
                   }}
                   onReconsult={(itemId) => {
-                    if (requirePet()) openConsultation(itemId);
+                    if (requirePet()) openConsultationPlan(itemId);
                   }}
                   onOpenProduct={openMarketplace}
                 />
               ) : null}
               {tab === "health" ? (
                 <HealthScreen
-                  onAction={notify}
                   onBook={() => openBooking()}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   pet={pet}
                   records={records}
                   loading={recordsLoading}
@@ -734,7 +1310,7 @@ function MobileApp() {
                 <CommunityScreen
                   refreshVersion={refreshVersion}
                   onAction={notify}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   owner={bootstrap?.user}
                   pet={pet}
                   hasPet={hasPet}
@@ -747,18 +1323,24 @@ function MobileApp() {
               {tab === "profile" ? (
                 <ProfileScreen
                   onAction={notify}
-                  onOpenNotifications={() => setNotificationsOpen(true)}
+                  onOpenNotifications={openNotifications}
                   onOpenSupport={openSupportChat}
                   owner={bootstrap?.user}
                   pets={bootstrap?.pets ?? []}
                   petCount={pets.length}
-                  activityCount={bootstrap?.activities.length ?? 0}
+                  activityCount={activityCenter?.data.length ?? 0}
                   points={bootstrap?.points.balance ?? 0}
+                  membership={bootstrap?.points.membership}
                   rewardFormula={bootstrap?.points.formula}
                   onLogin={() => setLoginOpen(true)}
+                  onProfileChanged={async () => {
+                    await refreshAccount();
+                  }}
                   onLogout={async () => {
                     await logoutMobile();
                     setBootstrap(undefined);
+                    setActivityCenter(undefined);
+                    activityExtraRef.current = false;
                     setRecords([]);
                     navigateTo("home", true);
                     notify("Sesi berhasil diakhiri");
@@ -768,46 +1350,19 @@ function MobileApp() {
             </Animated.View>
 
             <View style={[styles.tabBar, { bottom: navigationBottom }]}>
-              {bottomTabs.map((item) => {
-                const active = item.id === tab;
-                return (
-                  <Pressable
-                    key={item.id}
-                    accessibilityRole="tab"
-                    accessibilityLabel={item.label}
-                    accessibilityState={{ selected: active }}
-                    onPress={() => {
-                      setMoreOpen(false);
-                      if (item.id === "marketplace") setMarketplaceIntent(undefined);
-                      navigateTo(item.id);
-                    }}
-                    style={({ pressed }) => [
-                      styles.tabItem,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <View
-                      style={[styles.tabIcon, active && styles.activeTabIcon]}
-                    >
-                      <Ionicons
-                        name={active ? item.activeIcon : item.icon}
-                        size={22}
-                        color={active ? colors.sky600 : colors.muted}
-                      />
-                      {item.id === "activity" &&
-                      Boolean(bootstrap?.activities.length) ? (
-                        <View style={styles.activityDot} />
-                      ) : null}
-                    </View>
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.tabLabel, active && styles.activeTabLabel]}
-                    >
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              {bottomTabs.map((item) => (
+                <AnimatedTabButton
+                  key={item.id}
+                  item={item}
+                  active={item.id === tab}
+                  badge={item.id === "activity" ? needsActionCount : 0}
+                  onPress={() => {
+                    setMoreOpen(false);
+                    if (item.id === "marketplace") setMarketplaceIntent(undefined);
+                    navigateTo(item.id);
+                  }}
+                />
+              ))}
               <Pressable
                 accessibilityRole="tab"
                 accessibilityLabel="Fitur lainnya"
@@ -818,6 +1373,8 @@ function MobileApp() {
                 onPress={() => setMoreOpen(true)}
                 style={({ pressed }) => [
                   styles.tabItem,
+                  (moreOpen || moreTabs.some((item) => item.id === tab)) &&
+                    styles.activeTabItem,
                   pressed && styles.pressed,
                 ]}
               >
@@ -837,7 +1394,7 @@ function MobileApp() {
                     size={22}
                     color={
                       moreOpen || moreTabs.some((item) => item.id === tab)
-                        ? colors.sky600
+                        ? colors.white
                         : "#8294A5"
                     }
                   />
@@ -867,9 +1424,15 @@ function MobileApp() {
           navigateTo(next);
           setMoreOpen(false);
         }}
+        onSelectWorld={(mode) => {
+          openWorldFeature(mode);
+          setMoreOpen(false);
+        }}
       />
       <NotificationModal
+        key={`${notificationsOpen}:${notificationCategory}`}
         visible={notificationsOpen}
+        initialCategory={notificationCategory}
         onClose={() => setNotificationsOpen(false)}
         items={bootstrap?.notifications ?? []}
         onRead={async (item) => {
@@ -880,6 +1443,10 @@ function MobileApp() {
               current
                 ? {
                     ...current,
+                    unread_notifications: Math.max(
+                      0,
+                      (current.unread_notifications ?? 0) - (item.read_at ? 0 : 1),
+                    ),
                     notifications: current.notifications.map((value) =>
                       value.id === item.id
                         ? { ...value, read_at: new Date().toISOString() }
@@ -896,30 +1463,54 @@ function MobileApp() {
             );
           }
         }}
-        onReadAll={async () => {
+        onReadAll={async (category) => {
           if (!bootstrap) return;
-          await readAllMobileNotifications();
-          setBootstrap((current) =>
-            current
-              ? {
-                  ...current,
-                  notifications: current.notifications.map((item) => ({
-                    ...item,
-                    read_at: item.read_at || new Date().toISOString(),
-                  })),
-                }
-              : current,
-          );
+          await readAllMobileNotifications(category);
+          setBootstrap((current) => {
+            if (!current) return current;
+            const cleared = current.notifications.filter(
+              (item) => !item.read_at && (!category || item.category === category),
+            ).length;
+            return {
+              ...current,
+              unread_notifications: category
+                ? Math.max(0, (current.unread_notifications ?? 0) - cleared)
+                : 0,
+              notifications: current.notifications.map((item) =>
+                !category || item.category === category
+                  ? { ...item, read_at: item.read_at || new Date().toISOString() }
+                  : item,
+              ),
+            };
+          });
         }}
         onOpenTarget={(item) => {
+          setNotificationsOpen(false);
+          const threadId = item.metadata?.thread_id;
+          if (typeof threadId === "string" && threadId) {
+            void openNotificationThread(threadId);
+            return;
+          }
+          const activityType = item.metadata?.activity_type;
+          const activityId = item.metadata?.activity_id;
+          if (typeof activityType === "string" && typeof activityId === "string") {
+            openActivity(activityType as MobileActivityType, activityId);
+            return;
+          }
           const route = (String(item.action_route ?? "")
             .split("?")[0] ?? "")
             .split("/")
             .filter(Boolean)
             .at(-1) ?? "home";
-          setNotificationsOpen(false);
+          const petId = item.metadata?.pet_id;
           if (route === "consult") {
             openConsultation();
+          } else if (route === "care") {
+            openCareChat(typeof petId === "string" ? petId : undefined);
+          } else if (route === "support") {
+            setTimeout(openSupportChat, 400);
+          } else if (route === "pawdating" || route === "adoption") {
+            openWorldFeature(route);
           } else {
             navigateTo(searchRouteTabs[route] ?? "home");
           }
@@ -935,11 +1526,27 @@ function MobileApp() {
         onLogin={() => setLoginOpen(true)}
         context={chatContext}
       />
+      {inboxChatThread ? (
+        <MarketplaceChatSheet
+          threadId={inboxChatThread.id}
+          businessId={inboxChatThread.business_id}
+          storeName={inboxChatThread.business_name}
+          storeLogo={inboxChatThread.store_logo_url}
+          storeOnline={inboxChatThread.store_is_online}
+          storeLastSeen={inboxChatThread.store_last_seen_at}
+          onShortcut={openInboxChatShortcut}
+          onAction={notify}
+          onClose={() => setInboxChatThread(undefined)}
+        />
+      ) : null}
       {selectedService && bookingOpen ? (
         <BookingModal
           visible={bookingOpen}
           service={selectedService}
           pet={pet}
+          pets={pets}
+          selectedPetId={pet?.id ?? ""}
+          onSelectPet={selectPet}
           busy={submitting}
           onClose={() => setBookingOpen(false)}
           onDone={async (input) => {
@@ -962,8 +1569,8 @@ function MobileApp() {
                   ),
                 );
               else {
-                await refreshAccount();
-                navigateTo("activity");
+                void refreshAccount().catch(() => undefined);
+                openActivity("booking", result.id);
                 notify(result.message);
               }
               setBookingOpen(false);
@@ -979,14 +1586,15 @@ function MobileApp() {
           }}
         />
       ) : null}
-      <MobileBatpayModal
+      <MobileQrisModal
         payment={payment}
         onClose={() => setPayment(undefined)}
         onPaid={() => {
-          void refreshAccount().then(() => {
-            navigateTo("activity");
-            notify("Pembayaran berhasil, booking sudah dikonfirmasi");
-          });
+          const bookingId = payment?.reference_id;
+          setPayment(undefined);
+          void refreshAccount().catch(() => undefined);
+          if (bookingId) openActivity("booking", bookingId);
+          notify("Pembayaran berhasil, booking sudah dikonfirmasi");
         }}
       />
       <LoginModal
@@ -1094,9 +1702,13 @@ function notificationCategoryLabel(category: string) {
   const labels: Record<string, string> = {
     health: "Kesehatan",
     booking: "Booking",
+    order: "Pesanan",
+    consultation: "Konsultasi",
     event: "Event",
     community: "Komunitas",
     points: "Points",
+    security: "Keamanan",
+    system: "Sistem",
   };
   return labels[category] ?? category;
 }
@@ -1121,6 +1733,12 @@ function notificationVisual(category: string): {
   if (category === "points") {
     return { icon: "sparkles", backgroundColor: colors.yellow50, color: colors.yellow };
   }
+  if (category === "security") {
+    return { icon: "shield-checkmark-outline", backgroundColor: colors.mint50, color: colors.mint };
+  }
+  if (category === "system") {
+    return { icon: "settings-outline", backgroundColor: colors.sky50, color: colors.sky600 };
+  }
   return { icon: "notifications-outline", backgroundColor: colors.sky50, color: colors.sky600 };
 }
 
@@ -1140,15 +1758,17 @@ function MoreModal({
   authenticated,
   onClose,
   onSelect,
+  onSelectWorld,
 }: {
   visible: boolean;
   activeTab: Tab;
   authenticated: boolean;
   onClose: () => void;
   onSelect: (tab: Tab) => void;
+  onSelectWorld: (mode: WorldMode) => void;
 }) {
   return (
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={visible}
       transparent
       animationType="slide"
@@ -1166,8 +1786,14 @@ function MoreModal({
               title="Mau ke mana?"
               onClose={onClose}
             />
-            <View style={styles.moreGrid}>
-              {moreTabs.map((item) => {
+            <ScrollView
+              style={styles.moreScroll}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.moreContent}
+            >
+              <Text style={styles.moreSectionEyebrow}>AKUN & PERAWATAN</Text>
+              <View style={styles.moreGrid}>
+              {moreTabs.filter((item) => item.id !== "world").map((item) => {
                 const active = item.id === activeTab;
                 return (
                   <Pressable
@@ -1206,7 +1832,26 @@ function MoreModal({
                   </Pressable>
                 );
               })}
-            </View>
+              </View>
+              <Text style={styles.moreSectionEyebrow}>SLIVA WORLD</Text>
+              <Text style={styles.moreSectionNote}>Semua fitur komunitas dan gaya hidup pet, langsung sekali tap.</Text>
+              <View style={styles.moreGrid}>
+                {worldFeatures.map((item) => (
+                  <Pressable
+                    key={item.mode}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Buka ${item.label}`}
+                    onPress={() => onSelectWorld(item.mode)}
+                    style={({ pressed }) => [styles.moreCard, pressed && styles.pressed]}
+                  >
+                    <View style={styles.moreCardIcon}>
+                      <Ionicons name={item.icon} size={25} color={colors.sky600} />
+                    </View>
+                    <Text style={styles.moreCardLabel}>{item.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
           </Pressable>
         </SafeAreaView>
       </Pressable>
@@ -1216,6 +1861,7 @@ function MoreModal({
 
 function NotificationModal({
   visible,
+  initialCategory,
   onClose,
   items,
   onRead,
@@ -1223,16 +1869,19 @@ function NotificationModal({
   onOpenTarget,
 }: {
   visible: boolean;
+  initialCategory: string;
   onClose: () => void;
   items: MobileNotification[];
   onRead: (item: MobileNotification) => void | Promise<void>;
-  onReadAll: () => void | Promise<void>;
+  onReadAll: (category?: string) => void | Promise<void>;
   onOpenTarget: (item: MobileNotification) => void;
 }) {
   const { locale } = useI18n();
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(initialCategory);
   const [selectedId, setSelectedId] = useState("");
-  const categories = [...new Set(items.map((item) => item.category))];
+  const categories = [
+    ...new Set([initialCategory, ...items.map((item) => item.category)].filter(Boolean)),
+  ];
   const visibleItems = category
     ? items.filter((item) => item.category === category)
     : items;
@@ -1243,7 +1892,7 @@ function NotificationModal({
     onClose();
   };
   return (
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={visible}
       transparent
       animationType="slide"
@@ -1294,7 +1943,7 @@ function NotificationModal({
                 </ScrollView>
                 <View style={styles.notificationToolbar}>
                   <View style={styles.notificationSummary}><View style={styles.notificationSummaryIcon}><Ionicons name="mail-unread-outline" size={14} color={colors.sky600}/></View><View><Text style={styles.notificationSummaryTitle}>{visibleItems.length} update</Text><Text style={styles.notificationSummaryNote}>{unreadCount} belum dibaca</Text></View></View>
-                  <Pressable accessibilityRole="button" disabled={!items.some((item) => !item.read_at)} onPress={() => void onReadAll()} style={({ pressed }) => [styles.markReadButton, !items.some((item) => !item.read_at) && styles.markReadButtonDisabled, pressed && styles.pressed]}><Ionicons name="checkmark-done" size={14} color={colors.sky600}/><Text style={styles.markRead}>Tandai dibaca</Text></Pressable>
+                  <Pressable accessibilityRole="button" disabled={!visibleItems.some((item) => !item.read_at)} onPress={() => void onReadAll(category)} style={({ pressed }) => [styles.markReadButton, !visibleItems.some((item) => !item.read_at) && styles.markReadButtonDisabled, pressed && styles.pressed]}><Ionicons name="checkmark-done" size={14} color={colors.sky600}/><Text style={styles.markRead}>Tandai dibaca</Text></Pressable>
                 </View>
                 <ScrollView style={styles.notificationList} contentContainerStyle={styles.notificationListContent} showsVerticalScrollIndicator={false}>
                   {visibleItems.length ? visibleItems.map((item) => {
@@ -1379,7 +2028,7 @@ function LoginModal({
       : passwordValid && (mode === "login" || registrationValid));
   return (
     <>
-      <Modal
+      <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
         visible={visible}
         transparent
         animationType="slide"
@@ -1629,7 +2278,7 @@ function LoginModal({
         </Pressable>
       </Modal>
       {policy ? (
-        <Modal
+        <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
           visible
           transparent
           animationType="slide"
@@ -1675,10 +2324,115 @@ function LoginModal({
   );
 }
 
+function NativeServiceGallery({ service }: { service: Service }) {
+  const { width } = useWindowDimensions();
+  const [previewIndex, setPreviewIndex] = useState<number>();
+  const images = Array.from(
+    new Set([...(service.imageUrls ?? []), service.imageUrl].filter(Boolean)),
+  ) as string[];
+  if (!images.length) return null;
+  const galleryWidth = Math.max(260, width - 64);
+  return (
+    <>
+      <View style={styles.bookingServiceGalleryWrap}>
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          style={styles.bookingServiceGallery}
+        >
+          {images.map((uri, index) => (
+            <Pressable
+              key={uri}
+              onPress={() => setPreviewIndex(index)}
+              style={{ width: galleryWidth }}
+              accessibilityRole="imagebutton"
+              accessibilityLabel={`Perbesar foto ${index + 1} ${service.name}`}
+            >
+              <Image
+                source={{ uri }}
+                alt={`Foto ${index + 1} ${service.name}`}
+                accessibilityLabel={`Foto ${index + 1} ${service.name}`}
+                resizeMode="cover"
+                style={styles.bookingServiceGalleryImage}
+              />
+            </Pressable>
+          ))}
+        </ScrollView>
+        {images.length > 1 ? (
+          <View style={styles.bookingServiceGalleryCount}>
+            <Ionicons name="images-outline" size={13} color={colors.white} />
+            <Text style={styles.bookingServiceGalleryCountText}>
+              {images.length} foto · geser
+            </Text>
+          </View>
+        ) : null}
+      </View>
+      <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
+        visible={previewIndex !== undefined}
+        animationType="fade"
+        transparent
+        statusBarTranslucent
+        onRequestClose={() => setPreviewIndex(undefined)}
+      >
+        <SafeAreaView style={styles.bookingServiceViewer}>
+          <Pressable
+            onPress={() => setPreviewIndex(undefined)}
+            style={styles.bookingServiceViewerClose}
+            accessibilityLabel="Tutup galeri"
+          >
+            <Ionicons name="close" size={25} color={colors.white} />
+          </Pressable>
+          <Image
+            source={{ uri: images[previewIndex ?? 0] }}
+            alt={`Foto ${service.name}`}
+            resizeMode="contain"
+            accessibilityLabel={`Foto ${service.name}`}
+            style={styles.bookingServiceViewerImage}
+          />
+          {images.length > 1 ? (
+            <View style={styles.bookingServiceViewerControls}>
+              <Pressable
+                onPress={() =>
+                  setPreviewIndex(
+                    (value) =>
+                      ((value ?? 0) - 1 + images.length) % images.length,
+                  )
+                }
+              >
+                <Ionicons name="chevron-back" size={26} color={colors.white} />
+              </Pressable>
+              <Text style={styles.bookingServiceViewerCount}>
+                {(previewIndex ?? 0) + 1} / {images.length}
+              </Text>
+              <Pressable
+                onPress={() =>
+                  setPreviewIndex(
+                    (value) => ((value ?? 0) + 1) % images.length,
+                  )
+                }
+              >
+                <Ionicons
+                  name="chevron-forward"
+                  size={26}
+                  color={colors.white}
+                />
+              </Pressable>
+            </View>
+          ) : null}
+        </SafeAreaView>
+      </Modal>
+    </>
+  );
+}
+
 function BookingModal({
   visible,
   service,
   pet,
+  pets,
+  selectedPetId,
+  onSelectPet,
   busy,
   onClose,
   onDone,
@@ -1686,6 +2440,9 @@ function BookingModal({
   visible: boolean;
   service: Service;
   pet?: PetView;
+  pets: PetView[];
+  selectedPetId: string;
+  onSelectPet: (petId: string) => void;
   busy: boolean;
   onClose: () => void;
   onDone: (input: {
@@ -1696,19 +2453,38 @@ function BookingModal({
 }) {
   const { formatDate } = useI18n();
   const [step, setStep] = useState(1);
-  const toDate = (value: Date) =>
-    `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
-  const dates = Array.from({ length: 5 }, (_, index) => {
-    const value = new Date();
-    value.setDate(value.getDate() + index + 1);
-    return value;
-  });
-  const [date, setDate] = useState(() => toDate(dates[0] ?? new Date()));
-  const [time, setTime] = useState("16.00");
+  const [availability, setAvailability] = useState<MobileServiceAvailability>();
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState("");
+  const [date, setDate] = useState("");
+  const [startsAt, setStartsAt] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("qris");
   const [notes, setNotes] = useState("");
+  const selectedDay = availability?.data.find((item) => item.date === date);
+  const selectedSlot = selectedDay?.slots.find((item) => item.starts_at === startsAt);
+  useEffect(() => {
+    if (!visible || !service.id || !service.branchId) return;
+    queueMicrotask(() => {
+      setStep(1);
+      setAvailabilityLoading(true);
+      setAvailabilityError("");
+    });
+    void getMobileServiceAvailability(service.id, service.branchId, 14)
+      .then((result) => {
+        setAvailability(result);
+        const firstDay = result.data.find((item) => item.slots.length > 0);
+        setDate(firstDay?.date ?? "");
+        setStartsAt(firstDay?.slots[0]?.starts_at ?? "");
+        if (!firstDay) setAvailabilityError(result.reason || "Belum ada slot dalam 14 hari ke depan.");
+      })
+      .catch((cause) => {
+        setAvailability(undefined);
+        setAvailabilityError(cause instanceof Error ? cause.message : "Jadwal cabang belum dapat dimuat.");
+      })
+      .finally(() => setAvailabilityLoading(false));
+  }, [service.branchId, service.id, visible]);
   return (
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={visible}
       transparent
       animationType="slide"
@@ -1771,28 +2547,23 @@ function BookingModal({
               </View>
               {step === 1 ? (
                 <View>
+                  <View style={styles.bookingStepIntro}>
+                    <View style={styles.bookingStepIntroNumber}><Text style={styles.bookingStepIntroNumberText}>1</Text></View>
+                    <View style={styles.bookingStepIntroCopy}><Text style={styles.bookingStepIntroTitle}>Untuk siapa booking ini?</Text><Text style={styles.bookingStepIntroNote}>Pilih pet agar riwayat layanan tersimpan di profil yang tepat.</Text></View>
+                  </View>
                   <Text style={styles.fieldLabel}>Pilih hewan</Text>
-                  <View style={styles.selectedPet}>
-                    <Text style={styles.selectedPetEmoji}>
-                      {pet?.icon || "🐾"}
-                    </Text>
-                    <View style={styles.selectedPetCopy}>
-                      <Text style={styles.selectedPetName}>
-                        {pet?.name || "Pet"}
-                      </Text>
-                      <Text style={styles.selectedPetMeta}>
-                        {pet?.breed || "Profil pet"} • {pet?.weight || "—"}
-                      </Text>
-                    </View>
-                    <View style={styles.selectedCheck}>
-                      <Ionicons
-                        name="checkmark"
-                        size={12}
-                        color={colors.white}
-                      />
-                    </View>
+                  <View style={styles.bookingPetOptions}>
+                    {pets.map((option) => {
+                      const active = option.id === selectedPetId;
+                      return <Pressable key={option.id} onPress={() => onSelectPet(option.id)} style={[styles.selectedPet, !active && styles.selectedPetInactive]}>
+                        <Text style={styles.selectedPetEmoji}>{option.icon || "🐾"}</Text>
+                        <View style={styles.selectedPetCopy}><Text style={styles.selectedPetName}>{option.name}</Text><Text style={styles.selectedPetMeta}>{option.breed} • {option.weight}</Text></View>
+                        {active ? <View style={styles.selectedCheck}><Ionicons name="checkmark" size={12} color={colors.white} /></View> : null}
+                      </Pressable>;
+                    })}
                   </View>
                   <Text style={styles.fieldLabel}>Layanan yang dipilih</Text>
+                  <NativeServiceGallery service={service} />
                   <View style={styles.selectedService}>
                     <Text style={styles.serviceOptionEmoji}>
                       {service.icon}
@@ -1813,67 +2584,74 @@ function BookingModal({
               ) : null}
               {step === 2 ? (
                 <View>
+                  <View style={styles.bookingStepIntro}>
+                    <View style={styles.bookingStepIntroNumber}><Text style={styles.bookingStepIntroNumberText}>2</Text></View>
+                    <View style={styles.bookingStepIntroCopy}><Text style={styles.bookingStepIntroTitle}>Pilih slot aktual</Text><Text style={styles.bookingStepIntroNote}>Jadwal dan sisa kapasitas berasal langsung dari cabang mitra.</Text></View>
+                  </View>
                   <Text style={styles.fieldLabel}>Pilih tanggal</Text>
-                  <View style={styles.dateRow}>
-                    {dates.map((item) => {
-                      const value = toDate(item);
+                  {availabilityLoading ? <View style={styles.availabilityState}><ActivityIndicator color={colors.sky600} /><Text style={styles.availabilityStateText}>Menyinkronkan jadwal cabang…</Text></View> : null}
+                  {availabilityError && !availabilityLoading ? <View style={styles.availabilityError}><Ionicons name="alert-circle-outline" size={18} color={colors.red} /><Text style={styles.availabilityErrorText}>{availabilityError}</Text></View> : null}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRow}>
+                    {availability?.data.filter((item) => item.slots.length > 0).map((item) => {
+                      const localDate = new Date(`${item.date}T12:00:00`);
                       return (
                         <Pressable
-                          key={value}
-                          onPress={() => setDate(value)}
+                          key={item.date}
+                          onPress={() => { setDate(item.date); setStartsAt(item.slots[0]?.starts_at ?? ""); }}
                           style={[
                             styles.dateOption,
-                            date === value && styles.activeDate,
+                            date === item.date && styles.activeDate,
                           ]}
                         >
                           <Text
                             style={[
                               styles.dateDay,
-                              date === value && styles.activeDateText,
+                              date === item.date && styles.activeDateText,
                             ]}
                           >
-                            {formatDate(item, { weekday: "short" }).toUpperCase()}
+                            {formatDate(localDate, { weekday: "short" }).toUpperCase()}
                           </Text>
                           <Text
                             style={[
                               styles.dateNumber,
-                              date === value && styles.activeDateText,
+                              date === item.date && styles.activeDateText,
                             ]}
                           >
-                            {item.getDate()}
+                            {localDate.getDate()}
                           </Text>
                           <Text
                             style={[
                               styles.dateMonth,
-                              date === value && styles.activeDateText,
+                              date === item.date && styles.activeDateText,
                             ]}
                           >
-                            {formatDate(item, { month: "short" })}
+                            {formatDate(localDate, { month: "short" })}
                           </Text>
                         </Pressable>
                       );
                     })}
-                  </View>
+                  </ScrollView>
                   <Text style={styles.fieldLabel}>Pilih waktu</Text>
                   <View style={styles.timeGrid}>
-                    {["09.00", "10.30", "13.00", "14.30", "16.00", "17.30"].map(
-                      (item) => (
+                    {selectedDay?.slots.map(
+                      (slot) => (
                         <Pressable
-                          key={item}
-                          onPress={() => setTime(item)}
+                          key={slot.starts_at}
+                          onPress={() => setStartsAt(slot.starts_at)}
                           style={[
                             styles.timeOption,
-                            time === item && styles.activeTime,
+                            startsAt === slot.starts_at && styles.activeTime,
                           ]}
                         >
                           <Text
                             style={[
                               styles.timeText,
-                              time === item && styles.activeTimeText,
+                              startsAt === slot.starts_at && styles.activeTimeText,
                             ]}
                           >
-                            {item}
+                            {slot.local_time}
                           </Text>
+                          {slot.remaining_capacity <= 3 ? <Text style={[styles.slotCapacity, startsAt === slot.starts_at && styles.activeTimeText]}>Sisa {slot.remaining_capacity}</Text> : null}
                         </Pressable>
                       ),
                     )}
@@ -1892,6 +2670,10 @@ function BookingModal({
               ) : null}
               {step === 3 ? (
                 <View>
+                  <View style={styles.bookingStepIntro}>
+                    <View style={styles.bookingStepIntroNumber}><Text style={styles.bookingStepIntroNumberText}>3</Text></View>
+                    <View style={styles.bookingStepIntroCopy}><Text style={styles.bookingStepIntroTitle}>Periksa sekali lagi</Text><Text style={styles.bookingStepIntroNote}>Pastikan pet, cabang, jadwal, dan biaya sudah benar.</Text></View>
+                  </View>
                   <View style={styles.bookingSummary}>
                     <View style={styles.summaryIcon}>
                       <Text>{service.icon}</Text>
@@ -1912,7 +2694,7 @@ function BookingModal({
                     <SummaryLine label="Layanan" value={service.name} />
                     <SummaryLine
                       label="Jadwal"
-                      value={`${formatDate(new Date(`${date}T12:00:00`))} • ${time} WIB`}
+                      value={selectedSlot ? `${formatDate(new Date(selectedSlot.starts_at), { day: "numeric", month: "long", year: "numeric" })} • ${selectedSlot.local_time} ${availability?.timezone ?? ""}` : "Belum dipilih"}
                     />
                     <SummaryLine
                       label="Total pembayaran"
@@ -1953,21 +2735,19 @@ function BookingModal({
                   }
                   icon="arrow-forward"
                   onPress={() => {
-                    if (busy) return;
+                    if (busy || (step === 1 && !pet) || (step === 2 && (!startsAt || availabilityLoading))) return;
                     if (step < 3) {
                       setStep(step + 1);
                       return;
                     }
-                    const [hour, minute] = time.split(".");
                     void onDone({
-                      scheduled_at: new Date(
-                        `${date}T${hour}:${minute}:00`,
-                      ).toISOString(),
+                      scheduled_at: startsAt,
                       notes,
                       payment_method: paymentMethod,
                     });
                   }}
-                  style={[styles.footerButton, { opacity: busy ? 0.65 : 1 }]}
+                  disabled={busy || (step === 1 && !pet) || (step === 2 && (!startsAt || availabilityLoading))}
+                  style={[styles.footerButton, { opacity: busy || (step === 2 && (!startsAt || availabilityLoading)) ? 0.65 : 1 }]}
                 />
               </View>
             </ScrollView>
@@ -2004,38 +2784,169 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
+    overflow: "hidden",
     paddingHorizontal: 28,
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.sky25,
+  },
+  brandLoadingSkyOrb: {
+    position: "absolute",
+    top: -130,
+    right: -120,
+    width: 340,
+    height: 340,
+    borderRadius: 170,
+    backgroundColor: "rgba(89,200,240,.18)",
+  },
+  brandLoadingMintOrb: {
+    position: "absolute",
+    left: -140,
+    bottom: -180,
+    width: 380,
+    height: 380,
+    borderRadius: 190,
+    backgroundColor: "rgba(102,214,192,.16)",
+  },
+  brandLoadingEyebrow: {
+    color: colors.sky600,
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 1.7,
+    textAlign: "center",
+  },
+  brandLoadingVisual: {
+    position: "relative",
+    width: 184,
+    height: 184,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+    marginBottom: 18,
+  },
+  brandLoadingHalo: {
+    position: "absolute",
+    inset: 16,
+    borderRadius: 76,
+    backgroundColor: colors.sky100,
+  },
+  brandLoadingOrbit: {
+    position: "absolute",
+    inset: 0,
+    borderWidth: 1,
+    borderColor: "rgba(25,167,242,.24)",
+    borderRadius: 92,
+  },
+  brandLoadingOrbitDot: {
+    position: "absolute",
+    top: 14,
+    right: 24,
+    width: 12,
+    height: 12,
+    borderWidth: 3,
+    borderColor: colors.white,
+    borderRadius: 6,
+    backgroundColor: colors.sky600,
   },
   brandLoadingMark: {
-    width: 112,
-    height: 112,
+    width: 110,
+    height: 110,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.sky100,
-    borderRadius: 32,
-    backgroundColor: colors.white,
+    borderRadius: 37,
+    borderBottomLeftRadius: 19,
+    backgroundColor: "rgba(255,255,255,.96)",
     ...shadow,
   },
-  brandLoadingLogo: { width: 88, height: 88 },
+  brandLoadingLogo: { width: 84, height: 84 },
+  brandLoadingSatellite: {
+    position: "absolute",
+    width: 35,
+    height: 35,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: colors.white,
+    borderRadius: 13,
+    ...shadow,
+  },
+  brandLoadingSatelliteHealth: {
+    top: 18,
+    left: 7,
+    backgroundColor: colors.sky600,
+  },
+  brandLoadingSatelliteCare: {
+    right: 5,
+    bottom: 24,
+    backgroundColor: colors.mint,
+  },
   brandLoadingTitle: {
-    marginTop: 8,
+    maxWidth: 330,
     color: colors.navy,
-    fontSize: typography.sectionTitle,
-    lineHeight: 28,
+    fontSize: 25,
+    lineHeight: 31,
     fontWeight: "700",
+    letterSpacing: -0.55,
     textAlign: "center",
   },
   brandLoadingCopy: {
-    maxWidth: 310,
+    maxWidth: 330,
+    marginTop: 9,
     color: colors.muted,
-    fontSize: typography.body,
-    lineHeight: 23,
+    fontSize: 12,
+    lineHeight: 19,
     textAlign: "center",
   },
-  safeArea: { flex: 1, backgroundColor: colors.canvas },
+  brandLoadingSignals: {
+    flexDirection: "row",
+    gap: 7,
+    marginTop: 18,
+  },
+  brandLoadingSignal: {
+    minHeight: 29,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,.82)",
+  },
+  brandLoadingSignalDot: { width: 6, height: 6, borderRadius: 3 },
+  brandLoadingSignalText: {
+    color: colors.text,
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.7,
+  },
+  brandLoadingProgressWrap: { width: "82%", maxWidth: 330, marginTop: 21 },
+  brandLoadingProgressMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  brandLoadingProgressLabel: { color: colors.muted, fontSize: 9 },
+  brandLoadingProgressLive: {
+    color: colors.mint,
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+  },
+  brandLoadingProgressTrack: {
+    height: 5,
+    overflow: "hidden",
+    borderRadius: 3,
+    backgroundColor: colors.sky100,
+  },
+  brandLoadingProgressBar: {
+    width: 130,
+    height: 5,
+    overflow: "hidden",
+    borderRadius: 3,
+  },
+  safeArea: { flex: 1, backgroundColor: colors.sky25 },
   app: { flex: 1, backgroundColor: colors.canvas },
   screenStage: { flex: 1 },
   backBar: {
@@ -2044,7 +2955,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.sky25,
   },
   backButton: {
     minWidth: 96,
@@ -2067,9 +2978,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 5,
     borderWidth: 1,
-    borderColor: "#DCEAF2",
+    borderColor: colors.sky100,
     borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,.98)",
+    backgroundColor: "rgba(255,255,255,.985)",
     ...shadow,
   },
   tabItem: {
@@ -2080,7 +2991,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 2,
     borderRadius: 16,
+    overflow: "hidden",
   },
+  tabItemPressed: { opacity: 0.82 },
+  activeTabItem: {
+    backgroundColor: colors.sky600,
+    shadowColor: colors.sky600,
+    shadowOpacity: 0.24,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 4,
+    transform: [{ translateY: -1 }],
+  },
+  tabAnimatedContent: { alignItems: "center", justifyContent: "center", gap: 2 },
   tabIcon: {
     position: "relative",
     width: 36,
@@ -2089,20 +3012,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 11,
   },
-  activeTabIcon: { backgroundColor: colors.sky50 },
+  activeTabIcon: { backgroundColor: "transparent" },
   tabLabel: { color: colors.muted, fontSize: 10, fontWeight: "600" },
-  activeTabLabel: { color: colors.sky600, fontWeight: "700" },
-  activityDot: {
+  activeTabLabel: { color: colors.white, fontWeight: "700" },
+  activityBadge: {
     position: "absolute",
-    right: 6,
-    top: 2,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+    right: 0,
+    top: -2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.white,
     backgroundColor: colors.red,
   },
+  activityBadgeText: { color: colors.white, fontSize: 9, fontWeight: "700" },
   toast: {
     position: "absolute",
     left: 18,
@@ -2112,7 +3039,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     paddingHorizontal: 14,
-    borderRadius: 14,
+    borderRadius: 18,
+    borderBottomLeftRadius: 9,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.white,
@@ -2138,15 +3066,15 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(14,32,55,.42)",
   },
-  sheetWrap: { maxHeight: "88%" },
+  sheetWrap: { maxHeight: "88%", width: "100%", maxWidth: 720, alignSelf: "center" },
   sheet: {
     paddingHorizontal: 16,
     paddingBottom: 20,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     backgroundColor: colors.white,
   },
-  notificationSheetWrap: {
+  notificationSheetWrap: {width: "100%", maxWidth: 720, alignSelf: "center",
     height: "86%",
     overflow: "hidden",
     borderTopLeftRadius: 26,
@@ -2159,34 +3087,41 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   notificationSheet: { flex: 1, paddingHorizontal: 16, paddingBottom: 4 },
-  moreSheetWrap: { maxHeight: "84%" },
+  moreSheetWrap: {maxWidth: 720, alignSelf: "center",  width: "100%", maxHeight: "82%" },
   moreSheet: {
+    maxHeight: "100%",
+    flexShrink: 1,
+    overflow: "hidden",
     paddingHorizontal: 16,
     paddingBottom: 16,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     backgroundColor: colors.white,
   },
-  moreGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 14 },
+  moreScroll: { flexShrink: 1 },
+  moreGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 10 },
+  moreContent: { paddingBottom: 10 },
+  moreSectionEyebrow: { marginTop: 10, color: colors.sky600, fontSize: 9, fontWeight: "700", letterSpacing: 1 },
+  moreSectionNote: { marginTop: 4, color: colors.muted, fontSize: 10, lineHeight: 15 },
   moreCard: {
     width: "31%",
-    minHeight: 94,
+    minHeight: 76,
     alignItems: "center",
     justifyContent: "center",
     gap: 7,
     padding: 8,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 16,
+    borderRadius: 13,
     backgroundColor: "#FBFDFE",
   },
   moreCardActive: { borderColor: colors.sky400, backgroundColor: colors.sky50 },
   moreCardIcon: {
-    width: 42,
-    height: 42,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 15,
+    borderRadius: 12,
     backgroundColor: colors.sky50,
   },
   moreCardIconActive: { backgroundColor: colors.sky600 },
@@ -2337,7 +3272,7 @@ const styles = StyleSheet.create({
   notificationDetailActionText: { color: colors.white, fontSize: 11, fontWeight: "700" },
   notificationDetailInfo: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 10, padding: 11, borderRadius: 13, backgroundColor: colors.sky50 },
   notificationDetailInfoText: { flex: 1, color: colors.muted, fontSize: 9, lineHeight: 14 },
-  loginSheetWrap: { maxHeight: "88%" },
+  loginSheetWrap: { maxHeight: "88%", width: "100%", maxWidth: 720, alignSelf: "center",  },
   loginSheet: {
     maxHeight: "100%",
     paddingHorizontal: 16,
@@ -2418,7 +3353,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textDecorationLine: "underline",
   },
-  legalSheetWrap: { maxHeight: "82%" },
+  legalSheetWrap: {width: "100%", maxWidth: 720, alignSelf: "center",  maxHeight: "82%" },
   legalSheet: {
     maxHeight: "100%",
     gap: 16,
@@ -2607,7 +3542,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.sky600,
   },
-  bookingWrap: { maxHeight: "88%" },
+  bookingWrap: { maxHeight: "88%", width: "100%", maxWidth: 720, alignSelf: "center",  },
   bookingSheet: {
     maxHeight: "100%",
     paddingHorizontal: 16,
@@ -2616,6 +3551,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   bookingContent: { paddingBottom: 8 },
+  bookingStepIntro: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4, marginBottom: 9, padding: 10, borderWidth: 1, borderColor: colors.sky100, borderRadius: 15, backgroundColor: colors.sky50 },
+  bookingStepIntroNumber: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: colors.sky600 },
+  bookingStepIntroNumberText: { color: colors.white, fontSize: 11, fontWeight: "700" },
+  bookingStepIntroCopy: { minWidth: 0, flex: 1 },
+  bookingStepIntroTitle: { color: colors.navy, fontSize: 12, fontWeight: "700" },
+  bookingStepIntroNote: { marginTop: 2, color: colors.muted, fontSize: 9, lineHeight: 14 },
   stepper: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -2655,6 +3596,8 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: colors.sky50,
   },
+  bookingPetOptions: { gap: 7 },
+  selectedPetInactive: { borderColor: colors.line, backgroundColor: colors.white },
   selectedPetEmoji: {
     width: 40,
     height: 40,
@@ -2675,6 +3618,72 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.sky600,
+  },
+  bookingServiceGalleryWrap: {
+    position: "relative",
+    overflow: "hidden",
+    marginBottom: 8,
+    borderRadius: 16,
+  },
+  bookingServiceGallery: { borderRadius: 16 },
+  bookingServiceGalleryImage: {
+    width: "100%",
+    height: 170,
+    borderRadius: 16,
+  },
+  bookingServiceGalleryCount: {
+    position: "absolute",
+    right: 10,
+    bottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(7,34,52,.7)",
+  },
+  bookingServiceGalleryCountText: {
+    color: colors.white,
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  bookingServiceViewer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(3,17,26,.96)",
+  },
+  bookingServiceViewerImage: { width: "100%", height: "78%" },
+  bookingServiceViewerClose: {
+    position: "absolute",
+    zIndex: 2,
+    top: 12,
+    right: 14,
+    width: 46,
+    height: 46,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,.12)",
+  },
+  bookingServiceViewerControls: {
+    position: "absolute",
+    bottom: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,.12)",
+  },
+  bookingServiceViewerCount: {
+    minWidth: 46,
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
   },
   selectedService: {
     minHeight: 62,
@@ -2718,9 +3727,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "right",
   },
-  dateRow: { flexDirection: "row", gap: 6 },
+  dateRow: { flexDirection: "row", gap: 6, paddingRight: 10 },
   dateOption: {
-    flex: 1,
+    width: 62,
     minHeight: 60,
     borderWidth: 1,
     borderColor: colors.line,
@@ -2739,6 +3748,10 @@ const styles = StyleSheet.create({
   },
   dateMonth: { color: colors.muted, fontSize: 10 },
   activeDateText: { color: colors.white },
+  availabilityState: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8, borderRadius: 13, backgroundColor: colors.sky50 },
+  availabilityStateText: { color: colors.sky600, fontSize: 10, fontWeight: "600" },
+  availabilityError: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8, padding: 10, borderWidth: 1, borderColor: "#F5C8CE", borderRadius: 13, backgroundColor: colors.red50 },
+  availabilityErrorText: { minWidth: 0, flex: 1, color: colors.red, fontSize: 10, lineHeight: 15 },
   timeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   timeOption: {
     width: "31.5%",
@@ -2751,6 +3764,7 @@ const styles = StyleSheet.create({
   },
   activeTime: { borderColor: colors.sky500, backgroundColor: colors.sky50 },
   timeText: { color: colors.text, fontSize: 11 },
+  slotCapacity: { marginTop: 2, color: colors.red, fontSize: 8 },
   activeTimeText: { color: colors.sky600, fontWeight: "700" },
   notes: {
     minHeight: 76,

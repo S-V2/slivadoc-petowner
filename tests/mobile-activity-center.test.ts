@@ -3,9 +3,20 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const app = readFileSync(new URL("../mobile/App.tsx", import.meta.url), "utf8");
-const api = readFileSync(new URL("../mobile/src/api.ts", import.meta.url), "utf8");
 const activity = readFileSync(
   new URL("../mobile/src/screens/ActivityScreen.tsx", import.meta.url),
+  "utf8",
+);
+const activityPresentation = readFileSync(
+  new URL("../mobile/src/activity.ts", import.meta.url),
+  "utf8",
+);
+const mobileApi = readFileSync(
+  new URL("../mobile/src/api.ts", import.meta.url),
+  "utf8",
+);
+const home = readFileSync(
+  new URL("../mobile/src/screens/HomeScreen.tsx", import.meta.url),
   "utf8",
 );
 const marketplace = readFileSync(
@@ -18,14 +29,21 @@ const world = readFileSync(
 );
 
 test("activity center loads booking, order, and consultation filters from the database API", () => {
-  assert.match(api, /\/api\/v1\/petowner\/activities\?view=center&type=/);
-  assert.match(api, /normalizeLegacyActivity/);
-  assert.match(api, /isDetailedActivityResponse/);
-  assert.match(activity, /getMobileActivityCenter\(typeFilter, stateFilter\)/);
+  assert.match(
+    mobileApi,
+    /petowner\/activities\?view=center&type=all&state=all&limit=100/,
+  );
   assert.match(activity, /id:\s*"booking"/);
   assert.match(activity, /id:\s*"order"/);
   assert.match(activity, /id:\s*"consultation"/);
-  assert.doesNotMatch(activity, /activities:\s*MobileActivity\[\]/);
+});
+
+test("home and activity screens tolerate activity kinds outside the current presentation map", () => {
+  assert.match(activityPresentation, /fallbackActivityTypePresentation/);
+  assert.match(activityPresentation, /getActivityTypePresentation/);
+  assert.match(home, /getActivityTypePresentation\(item\.type\)/);
+  assert.doesNotMatch(home, /activityTypePresentation\[item\.type\]/);
+  assert.doesNotMatch(activity, /activityTypePresentation\[item\.type\]/);
 });
 
 test("every activity exposes details and a contextual repeat action", () => {
@@ -58,4 +76,25 @@ test("activity center stays compact while preserving contextual creation", () =>
   assert.match(activity, /Booking layanan/);
   assert.match(activity, /Belanja produk/);
   assert.match(activity, /Konsultasi dokter/);
+});
+
+test("activity detail cancels eligible bookings, shows home service rows and resubmits documents", () => {
+  assert.match(mobileApi, /"home_service"/);
+  assert.match(mobileApi, /\/api\/v1\/petowner\/bookings\/\$\{id\}\/cancel/);
+  assert.match(mobileApi, /cancelMobileBooking/);
+  assert.match(mobileApi, /\/api\/v1\/pet-document-requests\/\$\{id\}\/documents/);
+  assert.match(mobileApi, /method: "PATCH"/);
+  assert.match(activity, /item\.source !== "clinic"/);
+  assert.match(activity, /openedAt <= Date\.parse\(item\.cancellable_until/);
+  assert.match(activity, /Batalkan booking/);
+  assert.match(activity, /Bisa dibatalkan hingga \$\{item\.cancellation_cutoff_hours\} jam sebelum jadwal/);
+  assert.match(activity, /Dana akan dikembalikan setelah diverifikasi tim finance/);
+  assert.match(activity, /item\.type === "home_service"/);
+  for (const field of ["job_code", "service_type", "pickup_address", "destination_address", "driver_name"])
+    assert.match(activity, new RegExp(`item\\.${field}`));
+  assert.match(activity, /Lengkapi dokumen/);
+  assert.match(activity, /resubmitMobileDocuments\(item\.reference_id/);
+  assert.match(world, /DocumentPhotoPicker/);
+  assert.match(world, /submitted_documents: submittedDocuments/);
+  assert.doesNotMatch(world, /submitted_documents: \[\]/);
 });

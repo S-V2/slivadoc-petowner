@@ -10,12 +10,22 @@ export type Service = {
   rating: string;
   distance: string;
   price: string;
+  originalPrice?: number;
+  discountPercent?: number;
   status: string;
   imageUrl?: string;
+  imageUrls?: string[];
   icon: string;
   tone: "blue" | "mint" | "violet" | "peach";
   priceValue:number;
   address:string;
+  description?: string;
+  durationMinutes?: number;
+  inclusions?: string[];
+  supportedSpecies?: string[];
+  cancellationPolicy?: string;
+  cancellationCutoffHours?: number;
+  licenseStatus?: "not_submitted" | "pending" | "verified" | "rejected";
 };
 
-export type PetView={id:string;name:string;species?:string;breed:string;age:string;weight:string;icon:string;score:number;allergies:string;lastUpdated?:string};
+export type PetView={id:string;name:string;species?:string;breed:string;age:string;weight:string;icon:string;score:number;allergies:string;lastUpdated?:string;shared?:boolean};

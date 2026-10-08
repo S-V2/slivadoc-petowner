@@ -1,0 +1,59 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+const id = "91a9f2b2-3aa4-4e5d-8c77-135d27c26690";
+const branch = "21a9f2b2-3aa4-4e5d-8c77-135d27c26690";
+const product = { id, name: "Makanan Kucing & Kitten", description: "Pakan untuk kucing dari penjual dengan rincian produk lengkap.", category: "Makanan", business_name: "Pet Store", image_url: "https://example.test/cat.jpg", price: 50000, stock: 5, available: true, barcode: "4006381333931" };
+const service = { id, branch_id: branch, business_id: id, business_name: "Pet Care", branch_name: "Papua", name: "Grooming Kucing", category: "grooming", description: "Mandi dan perawatan bulu kucing.", price: 80000, duration_minutes: 45, address: "Alamat cabang", city: "Sorong", province_code: "96", regency_code: "96.71", district_code: "96.71.10", village_code: "96.71.10.1004" };
+
+test("rendered pages expose real products, local services, metadata and merchant feed", async (t) => {
+  const original = globalThis.fetch;
+  t.after(() => { globalThis.fetch = original; });
+  let mode = "full";
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    if (mode === "outage") return new Response(null, { status: 503 });
+    if (url.pathname.endsWith(`/products/${id}`)) return Response.json(product);
+    return Response.json({ data: mode === "empty" ? [] : [url.pathname.endsWith("/products") ? product : service], has_more: false, region_code: url.searchParams.get("region_code") ?? "" });
+  };
+  const { default: worker } = await import("../dist/server/index.js");
+  const render = async (path) => {
+    const response = await worker.fetch(new Request(`http://localhost${path}`, { headers: { accept: "text/html" } }), { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } }, { waitUntil() {}, passThroughOnException() {} });
+    return { response, text: await response.text() };
+  };
+  const category = await render("/belanja/kategori/makanan-kucing");
+  assert.equal(category.response.status, 200);
+  assert.match(category.text, /Makanan Kucing &amp; Kitten/);
+  assert.match(category.text, /rel="canonical"[^>]+\/belanja\/kategori\/makanan-kucing/);
+  assert.match(category.text, /name="twitter:card" content="summary_large_image"/);
+  assert.doesNotMatch(category.text, /name="robots" content="[^"]*noindex/);
+  const local = await render("/wilayah/tanjung-kasuari--96.71.10.1004");
+  assert.equal(local.response.status, 200);
+  assert.match(local.text, /Grooming Kucing/);
+  assert.match(local.text, /Papua Barat Daya/);
+  assert.match(local.text, /\/tempat\/pet-care-papua-/);
+  const grooming = await render("/layanan/grooming-hewan");
+  assert.match(grooming.text, /Mandi dan perawatan bulu kucing/);
+  const merchant = await render("/products-feed.xml");
+  assert.equal(merchant.response.status, 200);
+  assert.match(merchant.text, /<g:price>50000.00 IDR<\/g:price>/);
+  assert.match(merchant.text, /<g:gtin>4006381333931<\/g:gtin>/);
+  assert.match(merchant.text, /Makanan Kucing &amp; Kitten/);
+  const sitemap = await render("/sitemap.xml");
+  assert.match(sitemap.text, /\/belanja\/kategori\/makanan-kucing/);
+  assert.match(sitemap.text, /\/wilayah\/tanjung-kasuari--96.71.10.1004/);
+  const sitemapIndex = await render("/sitemap-index.xml");
+  assert.match(sitemapIndex.text, /<sitemapindex/);
+  assert.equal((await render("/sitemaps/not-a-number.xml")).response.status, 404);
+  assert.equal((await render("/wilayah/fake--99")).response.status, 404);
+  assert.equal((await render("/belanja/kategori/unknown")).response.status, 404);
+  assert.equal((await render("/wilayah/wrong-name--96.71.10.1004")).response.status, 308);
+  mode = "empty";
+  const empty = await render("/wilayah/tanjung-kasuari--96.71.10.1004");
+  assert.match(empty.text, /name="robots" content="[^"]*noindex/);
+  assert.match((await render("/belanja/kategori/makanan-kucing")).text, /name="robots" content="[^"]*noindex/);
+  assert.doesNotMatch((await render("/sitemap.xml")).text, /\/wilayah\/tanjung-kasuari--96.71.10.1004/);
+  mode = "outage";
+  assert.equal((await render("/sitemap-index.xml")).response.status, 503);
+  assert.equal((await render("/products-feed.xml")).response.status, 503);
+});

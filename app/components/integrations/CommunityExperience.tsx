@@ -1,5 +1,10 @@
 "use client";
+import { petOwnerIntlLocale } from "../../lib/petowner-locale";
+import { SlivaFilePicker } from "../SlivaFilePicker";
+import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } from "../LocalizedCopy";
 
+import { usePetOwnerFlow } from "../PetOwnerFlow";
+import { SlivaSelect } from "../SlivaSelect";
 import NextImage from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -8,14 +13,16 @@ import {
   createCommunityGroupMessage,
   createCommunityPost,
   getCommunityComments,
+  getCommunityGroupMembers,
   getCommunityGroupMessages,
   getCommunityGroups,
   getCommunityPosts,
-  isPetOwnerAuthenticated,
   joinCommunityGroup,
   reactCommunityPost,
+  updateCommunityGroupMember,
   type CommunityComment,
   type CommunityGroup,
+  type CommunityGroupMember,
   type CommunityGroupMessage,
   type CommunityPost,
 } from "../../lib/platform-api";
@@ -31,13 +38,9 @@ const categoryMap: Record<string, string> = {
   Adopsi: "adoption",
   "Lost & Found": "lost_found",
 };
-function requireLogin() {
-  if (isPetOwnerAuthenticated()) return true;
-  window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-  return false;
-}
 
 export default function CommunityExperience({ notify, onOpenLocation }: Props) {
+  const { requireLogin, requirePet } = usePetOwnerFlow();
   const [tab, setTab] = useState("Untuk Kamu");
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [groups, setGroups] = useState<CommunityGroup[]>([]);
@@ -74,7 +77,7 @@ export default function CommunityExperience({ notify, onOpenLocation }: Props) {
     return () => window.clearTimeout(timer);
   }, [load, query]);
   async function like(post: CommunityPost) {
-    if (!requireLogin()) return;
+    if (!requirePet()) return;
     try {
       const result = await reactCommunityPost(post.id);
       setPosts((current) =>
@@ -91,7 +94,7 @@ export default function CommunityExperience({ notify, onOpenLocation }: Props) {
     }
   }
   async function join(group: CommunityGroup) {
-    if (!requireLogin()) return;
+    if (!requirePet()) return;
     try {
       const result = await joinCommunityGroup(group.id);
       setGroups((current) =>
@@ -119,78 +122,69 @@ export default function CommunityExperience({ notify, onOpenLocation }: Props) {
     <div className="community-layout">
       <section>
         <div className="community-tabs">
-          {tabs.map((item) => (
-            <button
+          <LocalizedCopy>{tabs.map((item) => (
+            <LocalizedButton
               type="button"
               className={tab === item ? "active" : ""}
               key={item}
               onClick={() => setTab(item)}
             >
-              {item}
-              {item === "Lost & Found" && <i />}
-            </button>
-          ))}
+              <LocalizedCopy>{item}</LocalizedCopy>
+              <LocalizedCopy>{item === "Lost & Found" && <i />}</LocalizedCopy>
+            </LocalizedButton>
+          ))}</LocalizedCopy>
         </div>
         <div className="community-tools-live">
           <label>
             <Icon name="search" size={17} />
-            <input
+            <LocalizedInput
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Cari posting atau pet parent…"
             />
           </label>
           <span>
-            <i /> Percakapan pet parent terbaru
-          </span>
+            <i /><LocalizedCopy>{" Percakapan pet parent terbaru"}</LocalizedCopy></span>
         </div>
         <div className="create-post">
-          <span className="avatar avatar-blue">YOU</span>
-          <button
+          <span className="avatar avatar-blue"><LocalizedCopy>{"YOU"}</LocalizedCopy></span>
+          <LocalizedButton
             type="button"
-            onClick={() => requireLogin() && setComposer(true)}
-          >
-            Bagikan cerita atau pertanyaan tentang pet-mu…
-          </button>
-          <button
+            onClick={() => requirePet() && setComposer(true)}
+          ><LocalizedCopy>{"Bagikan cerita atau pertanyaan tentang pet-mu…"}</LocalizedCopy></LocalizedButton>
+          <LocalizedButton
             type="button"
             aria-label="Tambah foto"
-            onClick={() => requireLogin() && setComposer(true)}
+            onClick={() => requirePet() && setComposer(true)}
           >
             <Icon name="camera" size={19} />
-          </button>
+          </LocalizedButton>
         </div>
-        {loading ? (
+        <LocalizedCopy>{loading ? (
           <div className="empty-state">
             <span className="button-spinner" />
-            <h3>Memuat komunitas…</h3>
+            <h3><LocalizedCopy>{"Memuat komunitas…"}</LocalizedCopy></h3>
           </div>
         ) : posts.length ? (
           posts.map((post) => (
             <article className="community-post" key={post.id}>
               <header>
                 <span className="post-avatar">
-                  {post.author_name.slice(0, 1)}
+                  <LocalizedCopy>{post.author_name.slice(0, 1)}</LocalizedCopy>
                 </span>
                 <div>
-                  <b>{post.author_name}</b>
+                  <b><LocalizedCopy preserve>{post.author_name}</LocalizedCopy></b>
                   <small>
-                    {post.group_name || post.pet_name || "Slivadoc Community"} ·{" "}
-                    {relativeTime(post.created_at)}
+                    <LocalizedCopy>{post.group_name || post.pet_name || "Slivadoc Community"}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                    <LocalizedCopy>{relativeTime(post.created_at)}</LocalizedCopy>
                   </small>
                 </div>
                 <span className="post-tag">
-                  {post.category.replaceAll("_", " ")}
+                  <LocalizedCopy>{post.category.replaceAll("_", " ")}</LocalizedCopy>
                 </span>
-                <button
-                  type="button"
-                  onClick={() => notify("Pilihan moderasi posting dibuka")}
-                >
-                  <Icon name="more" />
-                </button>
               </header>
-              <p>{post.body}</p>
-              {post.image_url ? (
+              <p><LocalizedCopy>{post.body}</LocalizedCopy></p>
+              <LocalizedCopy>{post.image_url ? (
                 <div className="community-photo">
                   <NextImage
                     src={post.image_url}
@@ -200,30 +194,29 @@ export default function CommunityExperience({ notify, onOpenLocation }: Props) {
                     unoptimized
                   />
                 </div>
-              ) : null}
-              {post.location && (
+              ) : null}</LocalizedCopy>
+              <LocalizedCopy>{post.location && (
                 <div className="post-location">
                   <Icon name="map" size={14} />
-                  {post.location}
+                  <LocalizedCopy>{post.location}</LocalizedCopy>
                 </div>
-              )}
+              )}</LocalizedCopy>
               <footer>
-                <button
+                <LocalizedButton
                   type="button"
                   className={post.liked ? "liked" : ""}
                   onClick={() => void like(post)}
                 >
                   <Icon name="heart" size={18} />
-                  {post.like_count}
-                </button>
-                <button
+                  <LocalizedCopy>{post.like_count}</LocalizedCopy>
+                </LocalizedButton>
+                <LocalizedButton
                   type="button"
                   onClick={() => requireLogin() && setComments(post)}
                 >
                   <Icon name="chat" size={18} />
-                  {post.comment_count} komentar
-                </button>
-                <button
+                  <LocalizedCopy>{post.comment_count}</LocalizedCopy><LocalizedCopy>{" komentar"}</LocalizedCopy></LocalizedButton>
+                <LocalizedButton
                   type="button"
                   onClick={() =>
                     navigator.share
@@ -236,32 +229,30 @@ export default function CommunityExperience({ notify, onOpenLocation }: Props) {
                           .then(() => notify("Posting disalin"))
                   }
                 >
-                  <Icon name="arrow" size={18} />
-                  Bagikan
-                </button>
+                  <Icon name="arrow" size={18} /><LocalizedCopy>{"Bagikan"}</LocalizedCopy></LocalizedButton>
               </footer>
             </article>
           ))
         ) : (
           <div className="empty-state">
-            <span>🐾</span>
-            <h3>Belum ada posting pada filter ini</h3>
-            <p>Coba kategori atau pencarian lain.</p>
+            <span><LocalizedCopy>{"🐾"}</LocalizedCopy></span>
+            <h3><LocalizedCopy>{"Belum ada posting pada filter ini"}</LocalizedCopy></h3>
+            <p><LocalizedCopy>{"Coba kategori atau pencarian lain."}</LocalizedCopy></p>
           </div>
-        )}
+        )}</LocalizedCopy>
       </section>
       <aside className="right-stack community-side">
         <section className="panel compact-panel">
           <div className="panel-heading">
-            <h3>Grup komunitas</h3>
-            <button
+            <h3><LocalizedCopy>{"Grup komunitas"}</LocalizedCopy></h3>
+            <LocalizedButton
               className="round-button"
-              onClick={() => requireLogin() && setGroupComposer(true)}
+              onClick={() => requirePet() && setGroupComposer(true)}
             >
               <Icon name="plus" size={16} />
-            </button>
+            </LocalizedButton>
           </div>
-          {groups.map((group) => (
+          <LocalizedCopy>{groups.map((group) => (
             <div
               className={`group-row ${group.owner || group.joined ? "openable" : ""}`}
               key={group.id}
@@ -269,98 +260,86 @@ export default function CommunityExperience({ notify, onOpenLocation }: Props) {
                 if (group.owner || group.joined) setGroupChat(group);
               }}
             >
-              <span>{group.category === "nutrition" ? "🍲" : "🐕"}</span>
+              <span><LocalizedCopy>{group.category === "nutrition" ? "🍲" : "🐕"}</LocalizedCopy></span>
               <p>
                 <b>
-                  {group.name}
-                  {group.owner && <em>Grup kamu</em>}
+                  <LocalizedCopy>{group.name}</LocalizedCopy>
+                  <LocalizedCopy>{group.owner && <em><LocalizedCopy>{"Grup kamu"}</LocalizedCopy></em>}</LocalizedCopy>
                 </b>
                 <small>
-                  {group.member_count.toLocaleString("id-ID")} anggota ·{" "}
-                  {group.city}
+                  <LocalizedCopy>{group.member_count.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" anggota ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                  <LocalizedCopy>{group.city}</LocalizedCopy>
                 </small>
               </p>
-              {group.owner || group.joined ? (
-                <button
+              <LocalizedCopy>{group.owner || group.joined ? (
+                <LocalizedButton
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
                     setGroupChat(group);
                   }}
                 >
-                  <Icon name="chat" size={14} /> Buka
-                </button>
+                  <Icon name="chat" size={14} /><LocalizedCopy>{" Buka"}</LocalizedCopy></LocalizedButton>
               ) : group.membership_status === "pending" ? (
-                <button type="button" disabled>
-                  Menunggu
-                </button>
+                <LocalizedButton type="button" disabled><LocalizedCopy>{"Menunggu"}</LocalizedCopy></LocalizedButton>
               ) : (
-                <button
+                <LocalizedButton
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
                     void join(group);
                   }}
-                >
-                  Gabung
-                </button>
-              )}
+                ><LocalizedCopy>{"Gabung"}</LocalizedCopy></LocalizedButton>
+              )}</LocalizedCopy>
             </div>
-          ))}
+          ))}</LocalizedCopy>
         </section>
         <section className="adoption-card">
-          <span>🐾</span>
-          <h3>Buka rumah, ubah satu kehidupan.</h3>
-          <p>Gunakan tab Adopsi untuk melihat posting relevan.</p>
-          <button type="button" onClick={() => setTab("Adopsi")}>
-            Lihat posting adopsi
-          </button>
+          <span><LocalizedCopy>{"🐾"}</LocalizedCopy></span>
+          <h3><LocalizedCopy>{"Buka rumah, ubah satu kehidupan."}</LocalizedCopy></h3>
+          <p><LocalizedCopy>{"Gunakan tab Adopsi untuk melihat posting relevan."}</LocalizedCopy></p>
+          <LocalizedButton type="button" onClick={() => setTab("Adopsi")}><LocalizedCopy>{"Lihat posting adopsi"}</LocalizedCopy></LocalizedButton>
         </section>
         <section className="panel compact-panel">
-          <h3>Komunitas di sekitar</h3>
-          <p className="muted-copy">
-            Aktifkan lokasi untuk menemukan aktivitas yang relevan dengan area
-            kamu.
-          </p>
-          <button
+          <h3><LocalizedCopy>{"Komunitas di sekitar"}</LocalizedCopy></h3>
+          <p className="muted-copy"><LocalizedCopy>{"Aktifkan lokasi untuk menemukan aktivitas yang relevan dengan area kamu."}</LocalizedCopy></p>
+          <LocalizedButton
             className="full-soft-button"
             type="button"
             onClick={onOpenLocation}
           >
-            <Icon name="map" size={16} />
-            Atur lokasi
-          </button>
+            <Icon name="map" size={16} /><LocalizedCopy>{"Atur lokasi"}</LocalizedCopy></LocalizedButton>
         </section>
       </aside>
-      {composer && (
+      <LocalizedCopy>{composer && (
         <PostComposer
           close={() => setComposer(false)}
           notify={notify}
           created={() => void load()}
         />
-      )}{" "}
-      {comments && (
+      )}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
+      <LocalizedCopy>{comments && (
         <CommentsSheet
           post={comments}
           close={() => setComments(null)}
           notify={notify}
           updated={() => void load()}
         />
-      )}{" "}
-      {groupComposer && (
+      )}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
+      <LocalizedCopy>{groupComposer && (
         <GroupComposer
           close={() => setGroupComposer(false)}
           notify={notify}
           created={() => void load()}
         />
-      )}{" "}
-      {groupChat && (
+      )}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy>
+      <LocalizedCopy>{groupChat && (
         <GroupChat
           group={groupChat}
           close={() => setGroupChat(null)}
           notify={notify}
         />
-      )}
+      )}</LocalizedCopy>
     </div>
   );
 }
@@ -418,25 +397,25 @@ function PostComposer({
         className="modal community-composer"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <LocalizedButton className="modal-close" onClick={close}>
           <Icon name="close" />
-        </button>
-        <span className="section-eyebrow">SLIVADOC COMMUNITY</span>
-        <h2>Buat posting baru</h2>
-        <select value={tag} onChange={(event) => setTag(event.target.value)}>
+        </LocalizedButton>
+        <span className="section-eyebrow"><LocalizedCopy>{"SLIVADOC COMMUNITY"}</LocalizedCopy></span>
+        <h2><LocalizedCopy>{"Buat posting baru"}</LocalizedCopy></h2>
+        <SlivaSelect aria-label="Kategori postingan" value={tag} onChange={(event) => setTag(event.target.value)}>
           {Object.keys(categoryMap).map((item) => (
             <option key={item}>{item}</option>
           ))}
-        </select>
-        <textarea
+        </SlivaSelect>
+        <LocalizedTextarea
           value={body}
           onChange={(event) => setBody(event.target.value)}
           maxLength={3000}
           placeholder="Bagikan pengalaman, tips, atau pertanyaan…"
           autoFocus
         />
-        <div className="composer-counter">{body.length}/3000</div>
-        {preview && (
+        <div className="composer-counter"><LocalizedCopy>{body.length}</LocalizedCopy><LocalizedCopy>{"/3000"}</LocalizedCopy></div>
+        <LocalizedCopy>{preview && (
           <div className="composer-preview">
             <NextImage
               src={preview}
@@ -445,17 +424,17 @@ function PostComposer({
               height={640}
               unoptimized
             />
-            <button
+            <LocalizedButton
               onClick={() => {
                 setFile(null);
                 setPreview("");
               }}
             >
               <Icon name="close" />
-            </button>
+            </LocalizedButton>
           </div>
-        )}
-        <input
+        )}</LocalizedCopy>
+        <SlivaFilePicker
           ref={inputRef}
           hidden
           type="file"
@@ -464,29 +443,25 @@ function PostComposer({
         />
         <label className="composer-location">
           <Icon name="map" />
-          <input
+          <LocalizedInput
             value={location}
             onChange={(event) => setLocation(event.target.value)}
             placeholder="Lokasi (opsional)"
           />
         </label>
         <div className="composer-tools">
-          <button onClick={() => inputRef.current?.click()}>
-            <Icon name="camera" />
-            Tambah foto
-          </button>
+          <LocalizedButton onClick={() => inputRef.current?.click()}>
+            <Icon name="camera" /><LocalizedCopy>{"Tambah foto"}</LocalizedCopy></LocalizedButton>
         </div>
         <footer>
-          <button className="secondary-button" onClick={close}>
-            Batal
-          </button>
-          <button
+          <LocalizedButton className="secondary-button" onClick={close}><LocalizedCopy>{"Batal"}</LocalizedCopy></LocalizedButton>
+          <LocalizedButton
             className="primary-button"
             disabled={busy || body.trim().length < 3}
             onClick={() => void submit()}
           >
-            {busy ? "Menerbitkan…" : "Terbitkan posting"}
-          </button>
+            <LocalizedCopy>{busy ? "Menerbitkan…" : "Terbitkan posting"}</LocalizedCopy>
+          </LocalizedButton>
         </footer>
       </section>
     </div>
@@ -506,6 +481,7 @@ function CommentsSheet({
 }) {
   const [items, setItems] = useState<CommunityComment[]>([]);
   const [text, setText] = useState("");
+  const [replyingTo, setReplyingTo] = useState<CommunityComment | null>(null);
   const [busy, setBusy] = useState(true);
   useEffect(() => {
     void getCommunityComments(post.id)
@@ -523,7 +499,7 @@ function CommentsSheet({
     if (!text.trim()) return;
     setBusy(true);
     try {
-      const result = await createCommunityComment(post.id, text.trim());
+      const result = await createCommunityComment(post.id, text.trim(), replyingTo?.id);
       setItems((current) => [
         ...current,
         {
@@ -531,10 +507,12 @@ function CommentsSheet({
           user_id: "me",
           author_name: "Kamu",
           body: text.trim(),
+          parent_id: replyingTo?.id,
           created_at: result.created_at,
         },
       ]);
       setText("");
+      setReplyingTo(null);
       updated();
     } catch (error) {
       notify(
@@ -550,42 +528,48 @@ function CommentsSheet({
         className="modal comments-modal comments-sheet"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <LocalizedButton className="modal-close" onClick={close}>
           <Icon name="close" />
-        </button>
+        </LocalizedButton>
         <header>
-          <span className="section-eyebrow">DISKUSI KOMUNITAS</span>
-          <h2>{items.length} komentar</h2>
-          <p>{post.body}</p>
+          <span className="section-eyebrow"><LocalizedCopy>{"DISKUSI KOMUNITAS"}</LocalizedCopy></span>
+          <h2><LocalizedCopy>{items.length}</LocalizedCopy><LocalizedCopy>{" komentar"}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{post.body}</LocalizedCopy></p>
         </header>
         <div className="comments-list">
-          {busy && !items.length ? (
-            <p>Memuat komentar…</p>
+          <LocalizedCopy>{busy && !items.length ? (
+            <p><LocalizedCopy>{"Memuat komentar…"}</LocalizedCopy></p>
           ) : items.length ? (
-            items.map((item) => (
-              <div key={item.id}>
-                <span>{item.author_name.slice(0, 1)}</span>
+            items.map((item) => {
+              const parent = item.parent_id
+                ? items.find((candidate) => candidate.id === item.parent_id)
+                : undefined;
+              return (
+              <div key={item.id} className={item.parent_id ? "comment-reply" : "comment-root"}>
+                <span><LocalizedCopy>{item.author_name.slice(0, 1)}</LocalizedCopy></span>
                 <p>
-                  <b>{item.author_name}</b>
-                  <small>{item.body}</small>
-                  <em>{relativeTime(item.created_at)}</em>
+                  <LocalizedCopy>{parent && <mark><Icon name="arrow" size={11} /><LocalizedCopy>{" Membalas "}</LocalizedCopy><LocalizedCopy preserve>{parent.author_name}</LocalizedCopy></mark>}</LocalizedCopy>
+                  <b><LocalizedCopy preserve>{item.author_name}</LocalizedCopy></b>
+                  <small><LocalizedCopy>{item.body}</LocalizedCopy></small>
+                  <em><LocalizedCopy>{relativeTime(item.created_at)}</LocalizedCopy> <LocalizedButton type="button" onClick={() => setReplyingTo(item)}><LocalizedCopy>{"Balas"}</LocalizedCopy></LocalizedButton></em>
                 </p>
               </div>
-            ))
+            );})
           ) : (
-            <div className="empty-state compact">Belum ada komentar.</div>
-          )}
+            <div className="empty-state compact"><LocalizedCopy>{"Belum ada komentar."}</LocalizedCopy></div>
+          )}</LocalizedCopy>
         </div>
+        <LocalizedCopy>{replyingTo && <div className="comment-replying"><span><Icon name="arrow" size={12} /><LocalizedCopy>{" Membalas "}</LocalizedCopy><b><LocalizedCopy preserve>{replyingTo.author_name}</LocalizedCopy></b></span><LocalizedButton type="button" onClick={() => setReplyingTo(null)} aria-label="Batal membalas"><Icon name="close" size={14} /></LocalizedButton></div>}</LocalizedCopy>
         <footer className="comment-input">
-          <input
+          <LocalizedInput
             value={text}
             onChange={(event) => setText(event.target.value)}
-            placeholder="Tulis komentar yang suportif…"
+            placeholder={replyingTo ? `Balas ${replyingTo.author_name}…` : "Tulis komentar yang suportif…"}
             onKeyDown={(event) => event.key === "Enter" && void send()}
           />
-          <button disabled={busy || !text.trim()} onClick={() => void send()}>
+          <LocalizedButton disabled={busy || !text.trim()} onClick={() => void send()}>
             <Icon name="arrow" />
-          </button>
+          </LocalizedButton>
         </footer>
       </section>
     </div>
@@ -631,27 +615,24 @@ function GroupComposer({
         className="modal form-modal group-composer-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <LocalizedButton className="modal-close" onClick={close}>
           <Icon name="close" />
-        </button>
-        <span className="section-eyebrow">GRUP PET OWNER</span>
-        <h2>Buat komunitasmu</h2>
-        <p className="muted-copy">
-          Sebagai pemilik, kamu langsung menjadi anggota dan dapat membuka ruang
-          diskusi.
-        </p>
+        </LocalizedButton>
+        <span className="section-eyebrow"><LocalizedCopy>{"GRUP PET OWNER"}</LocalizedCopy></span>
+        <h2><LocalizedCopy>{"Buat komunitasmu"}</LocalizedCopy></h2>
+        <p className="muted-copy"><LocalizedCopy>{"Sebagai pemilik, kamu langsung menjadi anggota dan dapat membuka ruang diskusi."}</LocalizedCopy></p>
         <form className="world-form" onSubmit={submit}>
           <label>
-            <span>Nama grup</span>
-            <input name="name" minLength={3} required />
+            <span><LocalizedCopy>{"Nama grup"}</LocalizedCopy></span>
+            <LocalizedInput name="name" minLength={3} required />
           </label>
           <label>
-            <span>Deskripsi</span>
-            <textarea name="description" minLength={10} rows={5} required />
+            <span><LocalizedCopy>{"Deskripsi"}</LocalizedCopy></span>
+            <LocalizedTextarea name="description" minLength={10} rows={5} required />
           </label>
           <label>
-            <span>Kategori</span>
-            <select name="category" required>
+            <span><LocalizedCopy>{"Kategori"}</LocalizedCopy></span>
+            <SlivaSelect aria-label="Kategori" name="category" required>
               <option value="breed">Ras & karakter</option>
               <option value="health">Kesehatan</option>
               <option value="nutrition">Nutrisi</option>
@@ -659,22 +640,22 @@ function GroupComposer({
               <option value="rescue">Rescue & adopsi</option>
               <option value="local">Komunitas area</option>
               <option value="other">Lainnya</option>
-            </select>
+            </SlivaSelect>
           </label>
           <label>
-            <span>Kota</span>
-            <input name="city" placeholder="Contoh: Bandung" />
+            <span><LocalizedCopy>{"Kota"}</LocalizedCopy></span>
+            <LocalizedInput name="city" placeholder="Contoh: Bandung" />
           </label>
           <label>
-            <span>Visibilitas</span>
-            <select name="visibility">
+            <span><LocalizedCopy>{"Visibilitas"}</LocalizedCopy></span>
+            <SlivaSelect aria-label="Visibilitas" name="visibility">
               <option value="public">Publik · langsung bergabung</option>
               <option value="private">Privat · perlu persetujuan</option>
-            </select>
+            </SlivaSelect>
           </label>
-          <button className="primary-button full" disabled={busy}>
-            {busy ? "Membuat…" : "Buat grup"}
-          </button>
+          <LocalizedButton className="primary-button full" disabled={busy}>
+            <LocalizedCopy>{busy ? "Membuat…" : "Buat grup"}</LocalizedCopy>
+          </LocalizedButton>
         </form>
       </section>
     </div>
@@ -730,61 +711,112 @@ function GroupChat({
         className="modal group-chat-sheet"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <LocalizedButton className="modal-close" onClick={close}>
           <Icon name="close" />
-        </button>
+        </LocalizedButton>
         <header>
-          <span>{group.category === "nutrition" ? "🍲" : "🐕"}</span>
+          <span><LocalizedCopy>{group.category === "nutrition" ? "🍲" : "🐕"}</LocalizedCopy></span>
           <div>
             <small>
-              {group.owner ? "GRUP MILIKMU" : "RUANG DISKUSI ANGGOTA"}
+              <LocalizedCopy>{group.owner ? "GRUP MILIKMU" : "RUANG DISKUSI ANGGOTA"}</LocalizedCopy>
             </small>
-            <h2>{group.name}</h2>
+            <h2><LocalizedCopy>{group.name}</LocalizedCopy></h2>
             <p>
-              {group.member_count.toLocaleString("id-ID")} anggota · percakapan
-              terlindungi
-            </p>
+              <LocalizedCopy>{group.member_count.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" anggota · percakapan terlindungi"}</LocalizedCopy></p>
           </div>
         </header>
+        <LocalizedCopy>{group.owner && <GroupJoinRequests group={group} notify={notify} />}</LocalizedCopy>
         <div className="group-chat-notice">
-          <Icon name="shield" size={15} /> Nomor telepon, akun media sosial,
-          email, dan tautan tidak dapat dibagikan untuk menjaga privasi anggota.
-        </div>
+          <Icon name="shield" size={15} /><LocalizedCopy>{" Nomor telepon, akun media sosial, email, dan tautan tidak dapat dibagikan untuk menjaga privasi anggota."}</LocalizedCopy></div>
         <div className="group-chat-messages">
-          {busy && !items.length ? (
-            <p>Memuat percakapan…</p>
+          <LocalizedCopy>{busy && !items.length ? (
+            <p><LocalizedCopy>{"Memuat percakapan…"}</LocalizedCopy></p>
           ) : items.length ? (
             items.map((item) => (
               <article className={item.mine ? "mine" : ""} key={item.id}>
-                <b>{item.mine ? "Kamu" : item.sender_name}</b>
-                <p>{item.body}</p>
-                <time>{relativeTime(item.created_at)}</time>
+                <b><LocalizedCopy>{item.mine ? "Kamu" : item.sender_name}</LocalizedCopy></b>
+                <p><LocalizedCopy>{item.body}</LocalizedCopy></p>
+                <time><LocalizedCopy>{relativeTime(item.created_at)}</LocalizedCopy></time>
               </article>
             ))
           ) : (
-            <div className="empty-state compact">
-              Belum ada pesan. Mulai diskusi yang hangat dan bermanfaat.
-            </div>
-          )}
+            <div className="empty-state compact"><LocalizedCopy>{"Belum ada pesan. Mulai diskusi yang hangat dan bermanfaat."}</LocalizedCopy></div>
+          )}</LocalizedCopy>
         </div>
         <footer>
-          <input
+          <LocalizedInput
             autoFocus
             value={text}
             onChange={(event) => setText(event.target.value)}
             onKeyDown={(event) => event.key === "Enter" && void send()}
             placeholder="Tulis pesan untuk anggota…"
           />
-          <button
+          <LocalizedButton
             type="button"
             disabled={busy || !text.trim()}
             onClick={() => void send()}
           >
             <Icon name="arrow" />
-          </button>
+          </LocalizedButton>
         </footer>
       </section>
     </div>
+  );
+}
+
+function GroupJoinRequests({
+  group,
+  notify,
+}: {
+  group: CommunityGroup;
+  notify: (message: string) => void;
+}) {
+  const [pending, setPending] = useState<CommunityGroupMember[]>([]);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(async () => {
+    try {
+      setPending((await getCommunityGroupMembers(group.id, "pending")).data);
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Permintaan bergabung belum dapat dimuat",
+      );
+    }
+  }, [group.id, notify]);
+  useEffect(() => {
+    queueMicrotask(() => void load());
+  }, [load]);
+  async function decide(member: CommunityGroupMember, status: "active" | "blocked") {
+    setBusy(true);
+    try {
+      await updateCommunityGroupMember(group.id, member.user_id, status);
+      notify(
+        status === "active"
+          ? `${member.full_name} disetujui bergabung`
+          : `Permintaan ${member.full_name} ditolak`,
+      );
+      await load();
+    } catch (error) {
+      notify(
+        error instanceof Error ? error.message : "Permintaan belum dapat diproses",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!pending.length) return null;
+  return (
+    <section className="group-join-requests">
+      <b><LocalizedCopy>{"Permintaan bergabung ("}</LocalizedCopy><LocalizedCopy>{pending.length}</LocalizedCopy><LocalizedCopy>{")"}</LocalizedCopy></b>
+      <LocalizedCopy>{pending.map((member) => (
+        <div key={member.user_id}>
+          <span><LocalizedCopy preserve>{member.full_name}</LocalizedCopy></span>
+          <LocalizedButton type="button" disabled={busy} onClick={() => void decide(member, "active")}><LocalizedCopy>{"Setujui"}</LocalizedCopy></LocalizedButton>
+          <LocalizedButton type="button" disabled={busy} onClick={() => void decide(member, "blocked")}><LocalizedCopy>{"Tolak"}</LocalizedCopy></LocalizedButton>
+        </div>
+      ))}</LocalizedCopy>
+    </section>
   );
 }
 

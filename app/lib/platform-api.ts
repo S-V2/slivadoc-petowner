@@ -2,6 +2,7 @@ import {
   apiRequest,
   hasSession,
   getAccessToken,
+  refreshSession,
   getCurrentUserID,
   getCurrentUser,
   clearSession,
@@ -14,6 +15,46 @@ import {
 
 export const PLATFORM_API_URL =
   process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? "http://localhost:8080";
+
+export async function getTransactionInvoiceHTML(
+  referenceType:
+    | "shop_order"
+    | "pos_invoice"
+    | "brand_purchase_order"
+    | "petowner_booking"
+    | "consultation"
+    | "academy_enrollment"
+    | "event_registration"
+    | "document_request"
+    | "fundraiser_donation",
+  referenceID: string,
+) {
+  const path = `/api/v1/transaction-documents/${referenceType}/${referenceID}/invoice`;
+  const send = () =>
+    fetch(`${PLATFORM_API_URL}${path}`, {
+      headers: {
+        Accept: "text/html",
+        ...(getAccessToken()
+          ? { Authorization: `Bearer ${getAccessToken()}` }
+          : {}),
+      },
+    });
+  let response = await send();
+  if (response.status === 401) {
+    await refreshSession();
+    response = await send();
+  }
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      message?: string;
+    };
+    throw new ApiError(
+      payload.message ?? "Invoice belum dapat dimuat",
+      response.status,
+    );
+  }
+  return response.text();
+}
 
 export type PlatformList<T> = {
   data: T[];
@@ -44,6 +85,9 @@ export type PetOwnerPet = {
   medical_record_count: number;
   last_medical_record_at?: string;
   health_score: number;
+  // "owner" for the caller's own pet, otherwise the family access role.
+  access_role?: string;
+  permissions?: string[];
 };
 
 export type PetSpecies = {
@@ -76,26 +120,60 @@ export type NotificationItem = {
   action_route: string;
   read_at?: string | null;
   created_at: string;
+  metadata?: Record<string, unknown>;
 };
 
-export type ActivityItem = {
-  id: string;
-  pet_id: string;
-  category: string;
-  reference_id: string;
-  title: string;
-  description: string;
+export type ActivityType =
+  | "booking"
+  | "order"
+  | "consultation"
+  | "academy"
+  | "event"
+  | "reservation"
+  | "document"
+  | "donation"
+  | "hotel"
+  | "home_service";
+
+export type ActivityShipmentEvent = {
+  status_code: string;
   status: string;
-  action_route: string;
-  action_label: string;
-  metadata: Record<string, string | number | boolean | null>;
-  starts_at?: string;
+  description: string;
+  location: string;
+  journey_type?: string;
+  reference_stt_no?: string;
   occurred_at: string;
+};
+
+export type ActivityShipment = {
+  id: string;
+  shipping_number: string;
+  provider: string;
+  provider_shipment_id: string;
+  stt_no: string;
+  service_code: string;
+  status: string;
+  provider_status: string;
+  pickup_status: string;
+  fee: number;
+  estimated_sla: string;
+  print_url: string;
+  events: ActivityShipmentEvent[];
+};
+
+export type ActivityFulfillment = {
+  id: string;
+  business_id: string;
+  business_name: string;
+  status: string;
+  delivered_at?: string | null;
+  return_until?: string | null;
+  return_requested: boolean;
 };
 
 export type PetOwnerActivityCenterItem = {
   id: string;
-  type: "booking" | "order" | "consultation";
+  type: ActivityType;
   reference_id: string;
   code: string;
   title: string;
@@ -104,13 +182,42 @@ export type PetOwnerActivityCenterItem = {
   payment_status: string;
   amount: number;
   state: "upcoming" | "ongoing" | "history";
+  needs_action: boolean;
+  payable: boolean;
+  payment_reference_type: string;
   scheduled_at?: string | null;
+  ends_at?: string | null;
   occurred_at: string;
   updated_at: string;
   description?: string;
   pet_id?: string;
+  pet_name?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  address?: string;
+  city?: string;
+  // booking
+  service_id?: string;
+  service_name?: string;
+  service_duration_minutes?: number;
+  business_name?: string;
+  branch_name?: string;
+  notes?: string;
+  // order
   item_count?: number;
+  items?: Array<{
+    product_id: string;
+    name: string;
+    quantity: number;
+    line_total: number;
+  }>;
+  subtotal?: number;
+  shipping_fee?: number;
+  discount_amount?: number;
+  points_discount?: number;
   total_amount?: number;
+  shipments?: ActivityShipment[];
+  // consultation
   provider_id?: string | null;
   provider_type?: "trainer" | "veterinarian";
   provider_name?: string;
@@ -131,17 +238,117 @@ export type PetOwnerActivityCenterItem = {
   started_at?: string | null;
   ended_at?: string | null;
   room_key?: string;
-  pet_name?: string;
+  // academy
+  program_id?: string;
+  program_title?: string;
+  academy_name?: string;
+  session_count?: number;
+  progress_percent?: number;
+  progress_notes?: string;
+  last_progress_at?: string | null;
+  participant_name?: string;
+  location?: string;
+  online_url?: string;
+  // event
+  event_id?: string;
+  venue?: string;
+  ticket_quantity?: number;
+  qr_token?: string;
+  paid_at?: string | null;
+  // reservation
+  spot_id?: string;
+  spot_name?: string;
+  spot_category?: string;
+  resource_name?: string;
+  resource_code?: string;
+  guest_count?: number;
+  pet_count?: number;
+  deposit_amount?: number;
+  remaining_amount?: number;
+  hold_expires_at?: string;
+  // document
+  product_name?: string;
+  origin_city?: string;
+  destination_city?: string;
+  departure_at?: string | null;
+  missing_requirements?: string[];
+  issued_document_url?: string;
+  // donation
+  fundraiser_id?: string;
+  fundraiser_title?: string;
+  beneficiary_name?: string;
+  anonymous?: boolean;
+  message?: string;
+  // hotel
+  room_name?: string;
+  checked_in_at?: string | null;
+  checked_out_at?: string | null;
+  // booking cancellation (pet-owner bookings only)
+  source?: "clinic";
+  cancellable_until?: string;
+  cancellation_cutoff_hours?: number;
+  cancellation_policy?: string;
+  // order cancel and return (Pet Shop orders)
+  cancellable?: boolean;
+  fulfillments?: ActivityFulfillment[];
+  // home_service
+  job_code?: string;
+  service_type?: string;
+  pickup_address?: string;
+  destination_address?: string;
+  driver_name?: string;
 };
 
-export type PetOwnerActivityCenterResponse = PlatformList<PetOwnerActivityCenterItem> & {
-  summary: Record<PetOwnerActivityCenterItem["type"], number>;
+export type PetOwnerActivityCenterResponse =
+  PlatformList<PetOwnerActivityCenterItem> & {
+    summary: Record<ActivityType, number>;
+    next_cursor: string | null;
+  };
+
+export type PetOwnerInvoice = {
+  id: string;
+  invoice_number: string;
+  business_name: string;
+  branch_name: string;
+  status: "pending" | "paid" | "void" | "refunded" | "partially_refunded";
+  subtotal: number;
+  discount_amount: number;
+  tax_amount: number;
+  total_amount: number;
+  paid_amount: number;
+  refunded_amount: number;
+  issued_at: string | null;
+  paid_at: string | null;
+};
+
+export type PetOwnerInvoiceDetail = PetOwnerInvoice & {
+  items: Array<{
+    item_type: "product" | "service" | "fee";
+    description: string;
+    quantity: number;
+    unit_price: number;
+    discount_amount: number;
+    line_total: number;
+  }>;
 };
 
 export type FavoriteItem = {
   entity_type: string;
   entity_id: string;
   created_at: string;
+};
+
+export type MembershipLevel = {
+  id: string;
+  name: string;
+  icon: string;
+  min_points: number;
+  max_points: number | null;
+};
+
+export type MembershipStatus = Omit<MembershipLevel, "max_points"> & {
+  next_level_points: number | null;
+  points_to_next: number;
 };
 
 export type RewardFormula = {
@@ -152,6 +359,7 @@ export type RewardFormula = {
   settlement_hold_days?: number;
   max_redemption_bps?: number;
   min_redemption_points?: number;
+  membership_levels?: MembershipLevel[];
   payment_methods?: Array<{
     method: string;
     label: string;
@@ -168,6 +376,7 @@ export type PointsSummary = {
   earned: number;
   redeemed: number;
   pending?: number;
+  membership?: MembershipStatus;
   formula: RewardFormula;
 };
 
@@ -283,7 +492,6 @@ export type PetOwnerBootstrap = {
   pets: PetOwnerPet[];
   notifications: NotificationItem[];
   unread_notifications: number;
-  activities: ActivityItem[];
   favorites: FavoriteItem[];
   points: PointsSummary;
 };
@@ -324,8 +532,11 @@ export type DiscoveryService = {
   name: string;
   category: string;
   image_url: string;
+  image_urls: string[];
   duration_minutes: number;
   price: number;
+  original_price?: number;
+  discount_percent?: number;
   address: string;
   city: string;
   latitude?: number | null;
@@ -333,20 +544,189 @@ export type DiscoveryService = {
   distance_km?: number | null;
   rating?: number | null;
   review_count?: number | null;
+  description: string;
+  inclusions: string[];
+  supported_species: string[];
+  cancellation_policy: string;
+  business_license_status:
+    "not_submitted" | "pending" | "verified" | "rejected";
+  cancellation_cutoff_hours?: number;
+};
+
+export type DiscoveryServiceDetail = DiscoveryService & {
+  capacity: number;
+  phone: string;
+  timezone: string;
+  opening_hours: Record<string, string | string[]>;
+  exclusions: string[];
+  preparation: string[];
+  aftercare: string[];
+  pet_requirements: Record<string, unknown>;
+  reschedule_policy: string;
+  business_license_number: string;
+};
+
+export type ServiceAvailabilitySlot = {
+  starts_at: string;
+  ends_at: string;
+  local_time: string;
+  remaining_capacity: number;
+};
+
+export type ServiceAvailability = {
+  data: Array<{
+    date: string;
+    label: string;
+    slots: ServiceAvailabilitySlot[];
+  }>;
+  service_id: string;
+  branch_id: string;
+  timezone: string;
+  duration_minutes: number;
+  reason: string;
 };
 
 export type DiscoveryProduct = {
   id: string;
+  business_id: string;
+  business_name: string;
+  store_logo_url: string;
+  store_is_online: boolean;
+  store_last_seen_at: string;
+  branch_id?: string;
+  branch_name: string;
+  city: string;
   name: string;
   sku: string;
   barcode: string;
   category: string;
   description: string;
   image_url: string;
+  image_urls: string[];
   price: number;
+  original_price?: number;
+  discount_percent?: number;
   stock: number;
   minimum_stock: number;
   available: boolean;
+  rating: number;
+  review_count: number;
+  sold_count: number;
+  created_at: string;
+  brand_name: string;
+  manufacturer: string;
+  origin_country: string;
+  net_content: string;
+  ingredients: string;
+  usage_instructions: string;
+  storage_instructions: string;
+  warnings: string;
+  package_contents: string;
+  return_policy: string;
+  warranty_policy: string;
+  registration_type: string;
+  registration_number: string;
+  halal_certificate_number: string;
+  sni_number: string;
+  business_license_status:
+    "not_submitted" | "pending" | "verified" | "rejected";
+};
+
+export type PetOwnerSupportTicket = {
+  id: string;
+  ticket_number: string;
+  category: string;
+  priority: string;
+  subject: string;
+  description: string;
+  status: string;
+  resolution: string;
+  reference_type: string;
+  reference_id?: string | null;
+  response_due_at?: string | null;
+  first_response_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  resolved_at?: string | null;
+};
+
+export type ProductReview = {
+  id: string;
+  product_id: string;
+  user_id: string;
+  reviewer_name: string;
+  rating: number;
+  comment: string;
+  verified_purchase: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProductReviewList = PlatformList<ProductReview> & {
+  rating: number;
+};
+
+export type MarketplaceStoreProfile = {
+  id: string;
+  name: string;
+  logo_url: string;
+  banner_url: string;
+  about: string;
+  city: string;
+  joined_at: string;
+  is_online: boolean;
+  last_seen_at: string;
+  product_count: number;
+  category_count: number;
+  rating: number;
+  review_count: number;
+  sold_count: number;
+};
+
+export type MarketplaceStoreReview = {
+  id: string;
+  product_id: string;
+  product_name: string;
+  reviewer_name: string;
+  rating: number;
+  comment: string;
+  updated_at: string;
+};
+
+export type MarketplaceStoreResponse = {
+  store: MarketplaceStoreProfile;
+  categories: Array<{ name: string; product_count: number }>;
+  reviews: MarketplaceStoreReview[];
+};
+
+export type MarketplaceChatThread = {
+  id: string;
+  business_id: string;
+  business_name: string;
+  store_logo_url: string;
+  buyer_user_id: string;
+  buyer_name: string;
+  product_id: string;
+  product_name: string;
+  product_image_url: string;
+  last_message: string;
+  last_message_created_at: string;
+  last_message_at: string;
+  store_is_online: boolean;
+  store_last_seen_at: string;
+  unread_count: number;
+};
+
+export type MarketplaceChatMessage = {
+  id: string;
+  thread_id: string;
+  sender_user_id: string;
+  sender_type: "buyer" | "store";
+  sender_name: string;
+  product_id: string;
+  product_name: string;
+  body: string;
+  created_at: string;
 };
 export type RegionOption = {
   id: string;
@@ -441,12 +821,76 @@ export type AcademyProgram = {
   duration_weeks: number;
   session_count: number;
   price: number;
+  original_price: number;
+  discount_percent: number;
   capacity: number;
+  participant_count: number;
   cover_url: string;
+  image_urls: string[];
   status: string;
   trainer_name: string;
   trainer_rating: number;
   next_schedule: string;
+  running_since: string;
+  rating: number;
+  review_count: number;
+  featured: boolean;
+  supported_species?: string[];
+};
+
+export type AcademyReview = {
+  id: string;
+  reviewer_name: string;
+  pet_name: string;
+  rating: number;
+  comment: string;
+  verified_enrollment: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AcademyTrainer = {
+  id: string;
+  academy_id: string;
+  academy_name: string;
+  full_name: string;
+  bio: string;
+  specialties: string[];
+  pet_types: string[];
+  certification: string;
+  experience_years: number;
+  rating: number;
+  photo_url: string;
+  status: string;
+  program_count?: number;
+  programs?: Array<{
+    id: string;
+    title: string;
+    category: string;
+    level: string;
+    price: number;
+    duration_weeks: number;
+    session_count: number;
+    supported_species: string[];
+  }>;
+};
+
+export type AcademySchedule = {
+  id: string;
+  trainer_id?: string;
+  trainer_name: string;
+  starts_at: string;
+  ends_at: string;
+  location: string;
+  online_url: string;
+  remaining_capacity: number;
+};
+
+export type AcademyProgramDetail = AcademyProgram & {
+  supported_species: string[];
+  trainers: AcademyTrainer[];
+  schedules: AcademySchedule[];
+  reviews: AcademyReview[];
 };
 
 export type PetEvent = {
@@ -456,6 +900,7 @@ export type PetEvent = {
   category: string;
   description: string;
   banner_url: string;
+  image_urls: string[];
   venue: string;
   address: string;
   city: string;
@@ -488,6 +933,7 @@ export type PetSpot = {
   phone: string;
   website_url: string;
   cover_url: string;
+  image_urls: string[];
   pet_facilities: string[];
   opening_hours: Record<string, string>;
   rating: number;
@@ -498,6 +944,20 @@ export type PetSpot = {
   deposit_type?: "percentage" | "fixed";
   deposit_value?: number;
   reservation_policy?: Record<string, unknown>;
+  facility_details?: Array<string | { name: string; description?: string; icon?: string; category?: string }>;
+  supported_events?: Array<{ name: string; description?: string; inclusions?: string[] }>;
+  resources?: PetSpotUnit[];
+  reviews?: PetSpotReview[];
+};
+
+export type PetSpotReview = {
+  id: string;
+  reviewer_name: string;
+  rating: number;
+  comment: string;
+  pet_type: string;
+  verified_visit: boolean;
+  created_at: string;
 };
 
 export type PetSpotUnit = {
@@ -526,15 +986,6 @@ export type PetSpotReservation = {
   hold_expires_at: string;
   reference_type: string;
 };
-export type PetOwnerPetSpotReservation = PetSpotReservation & {
-  spot_name: string;
-  resource_name: string;
-  starts_at: string;
-  ends_at: string;
-  payment_status: string;
-  status: string;
-  category: string;
-};
 
 export type PetHubStream = {
   id: string;
@@ -560,6 +1011,9 @@ export type PetHubPost = {
   author_name: string;
   content: string;
   media_url: string;
+  media_urls?: string[];
+  liked?: boolean;
+  saved?: boolean;
   post_type: string;
   like_count: number;
   comment_count: number;
@@ -633,6 +1087,8 @@ export type TrainerAvailabilitySlot = {
   starts_at: string;
   duration_minutes: number;
 };
+
+export type VeterinarianAvailabilitySlot = TrainerAvailabilitySlot;
 
 export type Consultation = {
   id: string;
@@ -791,8 +1247,8 @@ export type MyFundraiser = {
 
 export type PaymentMethod = {
   code: string;
-  method: "qris" | "virtual_account";
-  bank_code?: string;
+  /** "qris" from the current backend; a backend that predates the cutover may list others. */
+  method: string;
   label: string;
   description: string;
 };
@@ -801,8 +1257,8 @@ export type PaymentIntent = {
   id: string;
   order_id: string;
   provider: string;
-  method: "qris" | "virtual_account";
-  bank_code?: string;
+  /** "qris"; rows written before the cutover can carry other legacy methods. */
+  method: string;
   status: string;
   payment_status: string;
   amount: number;
@@ -812,8 +1268,6 @@ export type PaymentIntent = {
   provider_reference_no?: string;
   qr_string?: string;
   qr_url?: string;
-  va_number?: string;
-  va_name?: string;
   expires_at?: string;
   paid_at?: string;
 };
@@ -831,6 +1285,8 @@ export type PetHubStory = {
   user_id: string;
   author_name: string;
   photo_url: string;
+  media_url?: string;
+  media_type?: "image" | "video";
   caption: string;
   view_count: number;
   expires_at: string;
@@ -849,7 +1305,7 @@ export type PawDatingProfile = {
   weight_kg: number;
   color: string;
   city: string;
-  distance_km?: number;
+  distance_km?: number | null;
   profile_level: number;
   level_name: string;
   pedigree_status: string;
@@ -975,6 +1431,43 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const getAcademyPrograms = () =>
   request<PlatformList<AcademyProgram>>("/api/v1/public/academy/programs");
 
+export const getAcademyProgram = (programId: string) =>
+  request<AcademyProgramDetail>(
+    `/api/v1/public/academy/programs/${programId}`,
+  );
+
+export const getAcademyProgramReviews = (programId: string) =>
+  request<PlatformList<AcademyReview>>(
+    `/api/v1/public/academy/programs/${programId}/reviews`,
+  );
+
+export const saveAcademyProgramReview = (
+  programId: string,
+  input: { rating: number; comment: string },
+) =>
+  request<{ id: string; verified_enrollment: boolean }>(
+    `/api/v1/petowner/academy/programs/${programId}/reviews`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+
+export const getAcademyTrainers = (input?: {
+  academy_id?: string;
+  species?: string;
+  q?: string;
+}) => {
+  const params = new URLSearchParams();
+  if (input?.academy_id) params.set("academy_id", input.academy_id);
+  if (input?.species) params.set("species", input.species);
+  if (input?.q) params.set("q", input.q);
+  const query = params.toString();
+  return request<PlatformList<AcademyTrainer>>(
+    `/api/v1/public/academy/trainers${query ? `?${query}` : ""}`,
+  );
+};
+
+export const getAcademyTrainer = (trainerId: string) =>
+  request<AcademyTrainer>(`/api/v1/public/academy/trainers/${trainerId}`);
+
 export const trackAcademyProgramClick = (programId: string) =>
   request<void>(`/api/v1/public/academy/programs/${programId}/click`, {
     method: "POST",
@@ -984,6 +1477,8 @@ export const enrollAcademy = (input: {
   program_id: string;
   participant_name: string;
   pet_name: string;
+  pet_id?: string;
+  schedule_id?: string;
 }) =>
   request<{ id: string; status: string; amount: number; message: string }>(
     "/api/v1/academy/enrollments",
@@ -1010,10 +1505,10 @@ export const registerEvent = (
     payment_status: "pending" | "paid" | "expired" | "refunded";
     payment_method: "qris";
     pet_name?: string;
-  }>(
-    `/api/v1/events/${eventId}/registrations`,
-    { method: "POST", body: JSON.stringify(input) },
-  );
+  }>(`/api/v1/events/${eventId}/registrations`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 
 export const getPetSpots = (options?: {
   latitude?: number;
@@ -1051,6 +1546,7 @@ export const getPetHubFeed = async (options?: {
   tab?: string;
   type?: string;
   search?: string;
+  post_id?: string;
 }) => {
   const query = new URLSearchParams();
   Object.entries(options ?? {}).forEach(([key, value]) => {
@@ -1072,6 +1568,7 @@ export const createPetHubPost = (input: {
   content: string;
   post_type: string;
   media_url?: string;
+  media_urls?: string[];
 }) =>
   request<{ id: string; message: string }>("/api/v1/pethub/posts", {
     method: "POST",
@@ -1079,9 +1576,12 @@ export const createPetHubPost = (input: {
   });
 
 export const reactPetHubPost = (postId: string) =>
-  request<{ liked: boolean }>(`/api/v1/pethub/posts/${postId}/reactions`, {
+  request<{ liked: boolean; like_count: number }>(`/api/v1/pethub/posts/${postId}/reactions`, {
     method: "POST",
   });
+export const savePetHubPost = (postId: string) => request<{ saved: boolean }>(`/api/v1/pethub/posts/${postId}/save`, { method: "POST" });
+export const likePetHubPost = (postId: string) => request<{ liked: boolean; like_count: number }>(`/api/v1/pethub/posts/${postId}/like`, { method: "PUT" });
+export const viewPetHubStory = (storyId: string) => request<{ view_count: number }>(`/api/v1/pethub/stories/${storyId}/views`, { method: "POST" });
 
 export const togglePetHubChannel = (channelId: string) =>
   request<{ channel_id: string; following: boolean }>(
@@ -1132,6 +1632,9 @@ export const getTrainerConsultationPlans = (
     }),
   );
 
+export const getPetSpot = (spotId: string) =>
+  request<PetSpot>(`/api/v1/public/petspots/${encodeURIComponent(spotId)}`);
+
 export const getPetSpotAvailability = (
   spotId: string,
   startsAt: string,
@@ -1146,7 +1649,7 @@ export const getPetSpotAvailability = (
   return request<PlatformList<PetSpotUnit>>(
     `/api/v1/public/petspots/${encodeURIComponent(spotId)}/availability?${query}`,
     { cache: "no-store" },
-  );
+);
 };
 
 export const createPetSpotReservation = (input: {
@@ -1164,12 +1667,6 @@ export const createPetSpotReservation = (input: {
     body: JSON.stringify(input),
   });
 
-export const getMyPetSpotReservations = () =>
-  request<PlatformList<PetOwnerPetSpotReservation>>(
-    "/api/v1/petowner/petspot-reservations",
-    { cache: "no-store" },
-  );
-
 export const getTrainerAvailability = (trainerId: string, planId: string) =>
   request<
     PlatformList<TrainerAvailabilitySlot> & {
@@ -1179,6 +1676,20 @@ export const getTrainerAvailability = (trainerId: string, planId: string) =>
     }
   >(
     `/api/v1/public/trainers/${trainerId}/availability?plan_id=${encodeURIComponent(planId)}&days=14`,
+  );
+
+export const getVeterinarianAvailability = (
+  veterinarianId: string,
+  planId: string,
+) =>
+  request<
+    PlatformList<VeterinarianAvailabilitySlot> & {
+      timezone: string;
+      from: string;
+      until: string;
+    }
+  >(
+    `/api/v1/public/veterinarians/${veterinarianId}/availability?plan_id=${encodeURIComponent(planId)}&days=14`,
   );
 
 export const createTrainerConsultation = (input: Record<string, unknown>) =>
@@ -1233,8 +1744,83 @@ export const applyAdoption = (
     { method: "POST", body: JSON.stringify(input) },
   );
 
+export type MyAdoptionListing = {
+  id: string;
+  pet_id: string;
+  name: string;
+  species: string;
+  breed: string;
+  city: string;
+  description: string;
+  status: string;
+  applicant_count: number;
+  created_at: string;
+};
+
+export type AdoptionApplicationStatus =
+  | "submitted"
+  | "screening"
+  | "home_visit"
+  | "approved"
+  | "rejected"
+  | "withdrawn"
+  | "completed";
+
+export type AdoptionApplicationRecord = {
+  id: string;
+  listing_id: string;
+  applicant_name: string;
+  phone: string;
+  address: string;
+  housing_type: string;
+  has_other_pets: boolean;
+  experience: string;
+  reason: string;
+  status: AdoptionApplicationStatus;
+  status_note: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MyAdoptionApplication = {
+  id: string;
+  listing_id: string;
+  listing_name: string;
+  listing_status: string;
+  status: AdoptionApplicationStatus;
+  status_note: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export const getMyAdoptionListings = () =>
-  request<PlatformList<Record<string, unknown>>>("/api/v1/petowner/adoptions");
+  request<PlatformList<MyAdoptionListing>>("/api/v1/petowner/adoptions");
+
+export const getAdoptionListingApplications = (listingId: string) =>
+  request<PlatformList<AdoptionApplicationRecord>>(
+    `/api/v1/petowner/adoptions/${listingId}/applications`,
+  );
+
+export const reviewAdoptionApplication = (
+  applicationId: string,
+  status: "screening" | "home_visit" | "approved" | "rejected" | "completed",
+  note: string,
+) =>
+  request<{ id: string; status: AdoptionApplicationStatus }>(
+    `/api/v1/petowner/adoption-applications/${applicationId}/status`,
+    { method: "PATCH", body: JSON.stringify({ status, note }) },
+  );
+
+export const getMyAdoptionApplications = () =>
+  request<PlatformList<MyAdoptionApplication>>(
+    "/api/v1/petowner/adoption-applications",
+  );
+
+export const withdrawAdoptionApplication = (applicationId: string) =>
+  request<{ id: string; status: AdoptionApplicationStatus }>(
+    `/api/v1/petowner/adoption-applications/${applicationId}/withdraw`,
+    { method: "POST" },
+  );
 
 export const createAdoptionListing = (input: Record<string, unknown>) =>
   request<{ id: string; status: string; message: string }>(
@@ -1326,6 +1912,29 @@ export const createDocumentRequest = (input: Record<string, unknown>) =>
     body: JSON.stringify(input),
   });
 
+export const resubmitPetDocuments = (
+  id: string,
+  docs: Array<{
+    requirement: string;
+    url: string;
+    file_name: string;
+    mime_type: string;
+  }>,
+) =>
+  request<{ id: string; status: string }>(
+    `/api/v1/pet-document-requests/${id}/documents`,
+    { method: "PATCH", body: JSON.stringify({ submitted_documents: docs }) },
+  );
+
+export const getMyDocumentRequests = () =>
+  request<
+    PlatformList<{
+      id: string;
+      status: string;
+      submitted_documents: Array<Record<string, unknown>>;
+    }>
+  >("/api/v1/pet-document-requests", { cache: "no-store" });
+
 export const getPetHubComments = (postId: string) =>
   request<PlatformList<PetHubComment>>(
     `/api/v1/pethub/posts/${postId}/comments`,
@@ -1340,10 +1949,10 @@ export const createPetHubComment = (postId: string, content: string) =>
 export const getPetHubStories = () =>
   request<PlatformList<PetHubStory>>("/api/v1/public/pethub/stories");
 
-export const createPetHubStory = (photoUrl: string, caption: string) =>
+export const createPetHubStory = (photoUrl: string, caption: string, mediaType: "image" | "video" = "image") =>
   request<{ id: string; expires_in: number }>("/api/v1/pethub/stories", {
     method: "POST",
-    body: JSON.stringify({ photo_url: photoUrl, caption }),
+    body: JSON.stringify({ photo_url: photoUrl, media_url: photoUrl, media_type: mediaType, caption }),
   });
 
 export const getPawDatingProfiles = (query = "") =>
@@ -1389,7 +1998,7 @@ export const updatePawDatingProfile = (
 ) =>
   request<{ id: string; message: string }>(
     `/api/v1/pawdating/profiles/${profileId}`,
-    { method: "PATCH", body: JSON.stringify(input) },
+    { method: "PUT", body: JSON.stringify(input) },
   );
 
 export const createPawDatingHealthReport = (
@@ -1611,6 +2220,11 @@ export const readAllNotifications = (category = "") =>
     { method: "PATCH" },
   );
 
+export const getPetOwnerFavorites = () =>
+  request<PlatformList<FavoriteItem>>("/api/v1/petowner/favorites", {
+    cache: "no-store",
+  });
+
 export const togglePetOwnerFavorite = (
   entity_type: string,
   entity_id: string,
@@ -1620,13 +2234,23 @@ export const togglePetOwnerFavorite = (
     body: JSON.stringify({ entity_type, entity_id }),
   });
 
-export const getPetOwnerActivities = (category = "") =>
-  request<PlatformList<ActivityItem>>(
-    `/api/v1/petowner/activities?category=${encodeURIComponent(category)}`,
-  );
-export const getPetOwnerActivityCenter = () =>
+export const getPetOwnerActivityCenter = (cursor = "") =>
   request<PetOwnerActivityCenterResponse>(
-    "/api/v1/petowner/activities?view=center&type=all&state=all&limit=100",
+    `/api/v1/petowner/activities?view=center&type=all&state=all&limit=100${
+      cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""
+    }`,
+    { cache: "no-store" },
+  );
+
+export const getPetOwnerInvoices = (limit = 50) =>
+  request<PlatformList<PetOwnerInvoice>>(
+    `/api/v1/petowner/invoices?limit=${limit}`,
+    { cache: "no-store" },
+  );
+
+export const getPetOwnerInvoice = (invoiceId: string) =>
+  request<PetOwnerInvoiceDetail>(
+    `/api/v1/petowner/invoices/${encodeURIComponent(invoiceId)}`,
     { cache: "no-store" },
   );
 
@@ -1663,11 +2287,103 @@ export const getDiscoveryServices = (options?: {
   );
 };
 
+export const getDiscoveryService = (serviceId: string, branchId: string) =>
+  request<DiscoveryServiceDetail>(
+    `/api/v1/public/discovery/services/${encodeURIComponent(serviceId)}?branch_id=${encodeURIComponent(branchId)}`,
+  );
+
+export const getDiscoveryServiceAvailability = (
+  serviceId: string,
+  branchId: string,
+  options?: { from?: string; days?: number },
+) => {
+  const query = new URLSearchParams({ branch_id: branchId });
+  if (options?.from) query.set("from", options.from);
+  if (options?.days) query.set("days", String(options.days));
+  return request<ServiceAvailability>(
+    `/api/v1/public/discovery/services/${encodeURIComponent(serviceId)}/availability?${query}`,
+    { cache: "no-store" },
+  );
+};
+
 export const getDiscoveryProducts = (search = "", category = "") =>
   request<PlatformList<DiscoveryProduct>>(
     `/api/v1/public/discovery/products?search=${encodeURIComponent(
       search,
     )}&category=${encodeURIComponent(category)}`,
+  );
+
+export const getMarketplaceStore = (businessId: string) =>
+  request<MarketplaceStoreResponse>(
+    `/api/v1/public/marketplace/stores/${encodeURIComponent(businessId)}`,
+    { cache: "no-store" },
+  );
+
+export const createMarketplaceChat = (input: {
+  business_id: string;
+  product_id?: string;
+}) =>
+  request<{ id: string; business_id: string; buyer_user_id: string }>(
+    "/api/v1/petowner/marketplace/chats",
+    { method: "POST", body: JSON.stringify(input) },
+  );
+
+export const getMarketplaceChats = () =>
+  request<PlatformList<MarketplaceChatThread>>(
+    "/api/v1/petowner/marketplace/chats",
+    { cache: "no-store" },
+  );
+
+export const getMarketplaceChatMessages = (threadId: string) =>
+  request<
+    PlatformList<MarketplaceChatMessage> & { viewer: "buyer" | "store" }
+  >(`/api/v1/marketplace/chats/${encodeURIComponent(threadId)}/messages`, {
+    cache: "no-store",
+  });
+
+export const sendMarketplaceChatMessage = (
+  threadId: string,
+  input: { body: string; product_id?: string },
+) =>
+  request<MarketplaceChatMessage>(
+    `/api/v1/marketplace/chats/${encodeURIComponent(threadId)}/messages`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+
+export const getPetOwnerSupportTickets = () =>
+  request<PlatformList<PetOwnerSupportTicket>>(
+    "/api/v1/petowner/support-tickets",
+    { cache: "no-store" },
+  );
+
+export const createPetOwnerSupportTicket = (input: {
+  category: string;
+  subject: string;
+  description: string;
+  reference_type: string;
+  reference_id?: string;
+}) =>
+  request<{
+    id: string;
+    ticket_number: string;
+    status: string;
+    response_due_at: string;
+    message: string;
+  }>("/api/v1/petowner/support-tickets", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+export const getProductReviews = (productId: string) =>
+  request<ProductReviewList>(`/api/v1/public/products/${productId}/reviews`);
+
+export const saveProductReview = (
+  productId: string,
+  input: { rating: number; comment: string },
+) =>
+  request<{ id: string; message: string }>(
+    `/api/v1/petowner/products/${productId}/reviews`,
+    { method: "POST", body: JSON.stringify(input) },
   );
 
 export const getPetOwnerProvinces = () =>
@@ -1707,9 +2423,66 @@ export const createPetOwnerBooking = (input: Record<string, unknown>) =>
     body: JSON.stringify(input),
   });
 
+export const cancelPetOwnerBooking = (id: string, reason?: string) =>
+  request<{ id: string; status: string; refund_queued: boolean }>(
+    `/api/v1/petowner/bookings/${id}/cancel`,
+    { method: "POST", body: JSON.stringify(reason ? { reason } : {}) },
+  );
+
+export const cancelPetOwnerOrder = (orderId: string) =>
+  request<{ id: string; status: string; refund_queued: boolean }>(
+    `/api/v1/petowner/orders/${orderId}/cancel`,
+    { method: "POST" },
+  );
+
+export const requestPetOwnerShopReturn = (
+  orderId: string,
+  fulfillmentId: string,
+  reason: string,
+) =>
+  request<{ id: string; ticket_number: string; status: string }>(
+    `/api/v1/petowner/orders/${orderId}/fulfillments/${fulfillmentId}/return-request`,
+    { method: "POST", body: JSON.stringify({ reason }) },
+  );
+
+export type SupportMessage = {
+  id: string;
+  ticket_id: string;
+  sender_id: string;
+  sender_name: string;
+  sender_role: "owner" | "support";
+  body: string;
+  created_at: string;
+};
+
+export const getPetOwnerSupportTicketMessages = (ticketId: string) =>
+  request<PlatformList<SupportMessage>>(
+    `/api/v1/petowner/support-tickets/${ticketId}/messages`,
+    { cache: "no-store" },
+  );
+
+export const sendPetOwnerSupportTicketMessage = (
+  ticketId: string,
+  body: string,
+) =>
+  request<SupportMessage>(
+    `/api/v1/petowner/support-tickets/${ticketId}/messages`,
+    { method: "POST", body: JSON.stringify({ body }) },
+  );
+
+export const getPetOwnerSupportChat = () =>
+  request<{ ticket_id: string | null; messages: SupportMessage[] }>(
+    "/api/v1/petowner/support-chat", { cache: "no-store" },
+  );
+export const sendPetOwnerSupportChatMessage = (body: string) =>
+  request<SupportMessage>("/api/v1/petowner/support-chat", {
+    method: "POST", body: JSON.stringify({ body }),
+  });
+
 export const getPaymentMethods = () =>
   request<PlatformList<PaymentMethod> & { provider: string; currency: string }>(
     "/api/v1/payment-methods",
+    { cache: "no-store" },
   );
 
 export const createPaymentIntent = (
@@ -1784,10 +2557,10 @@ export const getCommunityComments = (postId: string) =>
     `/api/v1/community/posts/${postId}/comments`,
   );
 
-export const createCommunityComment = (postId: string, body: string) =>
+export const createCommunityComment = (postId: string, body: string, parentId?: string) =>
   request<{ id: string; created_at: string; message: string }>(
     `/api/v1/community/posts/${postId}/comments`,
-    { method: "POST", body: JSON.stringify({ body }) },
+    { method: "POST", body: JSON.stringify({ body, parent_id: parentId || undefined }) },
   );
 
 export const getCommunityGroups = (search = "") =>
@@ -1817,6 +2590,37 @@ export const createCommunityGroupMessage = (groupId: string, body: string) =>
     `/api/v1/community/groups/${groupId}/messages`,
     { method: "POST", body: JSON.stringify({ body }) },
   );
+
+export type CommunityGroupMember = {
+  user_id: string;
+  full_name: string;
+  role: "owner" | "moderator" | "member";
+  status: "pending" | "active" | "blocked";
+  joined_at: string;
+};
+
+export const getCommunityGroupMembers = (
+  groupId: string,
+  status: "pending" | "active",
+) =>
+  request<PlatformList<CommunityGroupMember>>(
+    `/api/v1/community/groups/${groupId}/members?status=${status}`,
+  );
+
+export const updateCommunityGroupMember = (
+  groupId: string,
+  userId: string,
+  status: "active" | "blocked",
+) =>
+  request<{
+    group_id: string;
+    user_id: string;
+    status: "active" | "blocked";
+    member_count: number;
+  }>(`/api/v1/community/groups/${groupId}/members/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 
 export const getCareReminders = () =>
   request<PlatformList<CareReminder>>("/api/v1/petowner/reminders");

@@ -12,30 +12,37 @@
     "android": "node ./scripts/start-expo.mjs android",
     "preios": "node ./scripts/ensure-dependencies.mjs",
     "ios": "node ./scripts/start-expo.mjs ios",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
     "doctor": "npx expo-doctor",
     "validate:production-env": "node ./scripts/validate-production-env.mjs",
-    "eas-build-pre-install": "node ./scripts/validate-production-env.mjs"
+    "eas-build-pre-install": "node ./scripts/validate-production-env.mjs",
+    "test": "node --experimental-strip-types --test tests/*.test.mts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
-    "expo": "~57.0.17",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~57.0.26",
     "expo-font": "~57.0.1",
-    "expo-image-picker": "~57.0.14",
-    "expo-linear-gradient": "~57.0.1",
-    "expo-location": "~57.0.14",
-    "expo-secure-store": "~57.0.3",
-    "expo-splash-screen": "~57.0.8",
+    "expo-image-picker": "~57.0.20",
+    "expo-linear-gradient": "~57.0.2",
+    "expo-location": "~57.0.20",
+    "expo-secure-store": "~57.0.4",
+    "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
-    "expo-video": "~57.0.3",
+    "expo-video": "~57.0.5",
     "react": "^19.2.3",
     "react-native": "^0.86.3",
+    "react-native-network-inspector-devtools": "0.5.0",
+    "react-native-qrcode-svg": "6.3.26",
     "react-native-safe-area-context": "~5.7.0",
+    "react-native-svg": "15.15.4",
+    "react-native-webview": "13.16.1",
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
+    "@types/node": "22.19.19",
     "@types/react": "~19.2.0",
-    "typescript": "~5.9.2"
+    "typescript": "~6.0.3"
   },
   "overrides": {
     "uuid": "11.1.1"

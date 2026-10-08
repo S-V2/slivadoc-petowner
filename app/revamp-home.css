@@ -1205,7 +1205,8 @@
   .home-health-section { order: 4; }
   .home-care-section { order: 5; }
   .home-services-section { order: 6; }
-  .home-campaign { order: 7; }
+  .home-doctors-section { order: 7; }
+  .home-campaign { order: 8; }
   .home-rail-dock { display: none; }
 }
 

@@ -1,9 +1,11 @@
+import { LocalizedPressable as Pressable } from "./LocalizedPressable";
+import { useResponsiveLayout } from "../responsive";
 import { createContext, useContext, type PropsWithChildren, type ReactNode } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
+
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -32,15 +34,28 @@ type AppSurfaceContextValue = {
   bottomInset: number;
   refreshing: boolean;
   onRefresh: () => void;
+  unreadNotifications: number;
+  chatUnread: number;
+  openChatInbox: () => void;
 };
 
 const AppSurfaceContext = createContext<AppSurfaceContextValue>({
   bottomInset: 0,
   refreshing: false,
   onRefresh: () => undefined,
+  unreadNotifications: 0,
+  chatUnread: 0,
+  openChatInbox: () => undefined,
 });
-export function AppSurfaceProvider({ children, bottomInset, refreshing, onRefresh }: PropsWithChildren<AppSurfaceContextValue>) {
-  return <AppSurfaceContext.Provider value={{ bottomInset, refreshing, onRefresh }}>{children}</AppSurfaceContext.Provider>;
+export function AppSurfaceProvider({ children, bottomInset, refreshing, onRefresh, unreadNotifications, chatUnread, openChatInbox }: PropsWithChildren<AppSurfaceContextValue>) {
+  return <AppSurfaceContext.Provider value={{ bottomInset, refreshing, onRefresh, unreadNotifications, chatUnread, openChatInbox }}>{children}</AppSurfaceContext.Provider>;
+}
+
+// Store-chat unread total on the header chat button; hidden at 0.
+export function ChatUnreadBadge() {
+  const { chatUnread } = useAppSurface();
+  if (chatUnread <= 0) return null;
+  return <View style={styles.chatBadge} accessibilityLabel={`${chatUnread} chat belum dibaca`}><Text style={styles.chatBadgeText}>{chatUnread > 99 ? "99+" : chatUnread}</Text></View>;
 }
 
 export function useAppSurface() {
@@ -49,10 +64,11 @@ export function useAppSurface() {
 
 export function Screen({ children, contentStyle }: PropsWithChildren<{ contentStyle?: StyleProp<ViewStyle> }>) {
   const { bottomInset, refreshing, onRefresh } = useAppSurface();
+  const layout = useResponsiveLayout();
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={[styles.screenContent, { paddingBottom: bottomInset + 100 }, contentStyle]}
+      contentContainerStyle={[styles.screenContent, { width: "100%", maxWidth: layout.contentWidth, alignSelf: "center", paddingHorizontal: layout.gutter, paddingBottom: bottomInset + 108 }, contentStyle]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.sky500]} tintColor={colors.sky500} progressBackgroundColor={colors.white} />}
@@ -63,16 +79,21 @@ export function Screen({ children, contentStyle }: PropsWithChildren<{ contentSt
 }
 
 export function TopHeader({ title, subtitle, onNotification }: { title: string; subtitle: string; onNotification: () => void }) {
+  const { unreadNotifications, openChatInbox } = useAppSurface();
   return (
     <View style={styles.topHeader}>
-      <View style={styles.brandIcon}><Ionicons name="sparkles" size={17} color={colors.sky600} /></View>
+      <View style={styles.brandIcon}><Ionicons name="sparkles" size={18} color={colors.white} /></View>
       <View style={styles.topHeaderCopy}>
         <Text style={styles.topKicker}>{subtitle}</Text>
         <Text style={styles.topTitle} numberOfLines={1}>{title}</Text>
       </View>
-      <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" style={styles.iconButton} onPress={onNotification}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Buka daftar chat" style={styles.iconButton} onPress={() => openChatInbox()}>
+        <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+        <ChatUnreadBadge />
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Buka notifikasi" style={styles.iconButton} onPress={() => onNotification()}>
         <Ionicons name="notifications-outline" size={20} color={colors.text} />
-        <View style={styles.notificationDot} />
+        {unreadNotifications > 0 ? <View style={styles.notificationDot} /> : null}
       </Pressable>
     </View>
   );
@@ -81,7 +102,7 @@ export function TopHeader({ title, subtitle, onNotification }: { title: string; 
 export function SectionTitle({ eyebrow, title, action, onAction }: { eyebrow?: string; title: string; action?: string; onAction?: () => void }) {
   return (
     <View style={styles.sectionTitle}>
-      <View>
+      <View style={{flex:1,minWidth:0}}>
         {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
         <Text style={styles.sectionHeading}>{title}</Text>
       </View>
@@ -149,7 +170,7 @@ export function AppIcon({
 }
 
 export function Pill({ children, tone = "blue" }: { children: ReactNode; tone?: "blue" | "mint" | "yellow" | "violet" | "red" }) {
-  return <View style={[styles.pill, styles[`${tone}Pill`]]}><Text style={[styles.pillText, styles[`${tone}PillText`]]}>{children}</Text></View>;
+  return <View style={[styles.pill, styles[`${tone}Pill`]]}><Text numberOfLines={2} style={[styles.pillText, styles[`${tone}PillText`]]}>{children}</Text></View>;
 }
 
 export function EmptyState({ icon, title, note, action, onAction }: { icon: keyof typeof Ionicons.glyphMap; title: string; note: string; action: string; onAction: () => void }) {
@@ -192,8 +213,9 @@ export function BoundedBottomSheet({
   onClose: () => void;
   maxHeight?: `${number}%` | number;
 }>) {
+  const layout = useResponsiveLayout();
   return (
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={visible}
       transparent
       animationType="slide"
@@ -204,23 +226,20 @@ export function BoundedBottomSheet({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.sheetRoot}
       >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Tutup panel"
-          onPress={onClose}
-          style={styles.sheetBackdrop}
-        >
+        <View style={styles.sheetBackdrop}>
           <Pressable
-            accessibilityRole="none"
-            onPress={(event) => event.stopPropagation()}
-            style={[styles.sheet, { maxHeight }]}
-          >
+            accessibilityRole="button"
+            accessibilityLabel="Tutup panel"
+            onPress={onClose}
+            style={StyleSheet.absoluteFill}
+          />
+          <View accessible={false} accessibilityViewIsModal style={[styles.sheet, { maxHeight, width: "100%", maxWidth: layout.sheetWidth, alignSelf: "center" }]}>
             <SafeAreaView edges={["bottom", "left", "right"]} style={styles.sheetSafe}>
               <View style={styles.sheetHandle} />
               {children}
             </SafeAreaView>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -229,38 +248,40 @@ export function BoundedBottomSheet({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
   screenContent: { paddingHorizontal: spacing.lg },
-  topHeader: { minHeight: 66, flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 9 },
-  brandIcon: { width: 40, height: 40, borderRadius: 15, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.sky50, alignItems: "center", justifyContent: "center" },
+  topHeader: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },
+  brandIcon: { width: 44, height: 44, borderRadius: 17, borderBottomLeftRadius: 8, borderWidth: 1, borderColor: colors.sky300, backgroundColor: colors.sky600, alignItems: "center", justifyContent: "center", transform: [{ rotate: "-4deg" }], ...shadow },
   topHeaderCopy: { flex: 1, gap: 2 },
   topKicker: { color: colors.muted, fontSize: 11, lineHeight: 15, fontWeight: "600" },
-  topTitle: { color: colors.navy, fontSize: typography.cardTitle, lineHeight: 20, fontWeight: "600" },
-  iconButton: { position: "relative", width: 40, height: 40, borderRadius: 15, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, alignItems: "center", justifyContent: "center", ...shadow },
+  topTitle: { color: colors.inkStrong, fontSize: typography.cardTitle, lineHeight: 20, fontWeight: "700" },
+  iconButton: { position: "relative", width: 44, height: 44, borderRadius: 17, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, alignItems: "center", justifyContent: "center", ...shadow },
   notificationDot: { position: "absolute", right: 8, top: 7, width: 7, height: 7, borderRadius: 4, borderWidth: 1.5, borderColor: colors.white, backgroundColor: colors.red },
-  sectionTitle: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginTop: 22, marginBottom: 11 },
+  chatBadge: { position: "absolute", right: 3, top: 3, minWidth: 17, height: 17, paddingHorizontal: 4, borderRadius: 9, borderWidth: 1.5, borderColor: colors.white, backgroundColor: colors.red, alignItems: "center", justifyContent: "center" },
+  chatBadgeText: { color: colors.white, fontSize: 9, lineHeight: 12, fontWeight: "700" },
+  sectionTitle: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginTop: 26, marginBottom: 12 },
   eyebrow: { color: colors.muted, fontSize: 9, fontWeight: "600", letterSpacing: 1, marginBottom: 3 },
-  sectionHeading: { color: colors.navy, fontSize: typography.sectionTitle, lineHeight: 22, fontWeight: "600", letterSpacing: -0.2 },
+  sectionHeading: { color: colors.inkStrong, fontSize: typography.sectionTitle, lineHeight: 22, fontWeight: "600", letterSpacing: -0.3 },
   sectionAction: { color: colors.sky600, fontSize: 11, fontWeight: "600", paddingBottom: 2 },
   card: { borderRadius: radius.lg, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, ...shadow },
-  primaryButton: { minHeight: 44, paddingHorizontal: 15, borderRadius: radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: colors.sky600, ...shadow },
-  compactButton: { minHeight: 40, borderRadius: 12, paddingHorizontal: 13 },
-  primaryButtonText: { color: colors.white, fontSize: typography.control, fontWeight: "600" },
+  primaryButton: { minHeight: 48, paddingHorizontal: 17, borderRadius: radius.md, borderBottomLeftRadius: 9, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.sky600, ...shadow },
+  compactButton: { minHeight: 42, borderRadius: 14, paddingHorizontal: 14 },
+  primaryButtonText: { flexShrink: 1, textAlign: "center", color: colors.white, fontSize: typography.control, fontWeight: "600" },
   lightButton: { backgroundColor: colors.white, shadowOpacity: 0 },
   lightButtonText: { color: colors.sky600 },
-  softButton: { minHeight: 40, paddingHorizontal: 13, borderWidth: 1, borderColor: colors.sky100, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.sky50 },
-  softButtonText: { color: colors.sky600, fontSize: typography.control, fontWeight: "600" },
+  softButton: { minHeight: 44, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.sky200, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: colors.sky50 },
+  softButtonText: { flexShrink: 1, textAlign: "center", color: colors.sky600, fontSize: typography.control, fontWeight: "600" },
   appIcon: { alignItems: "center", justifyContent: "center" },
   pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
-  pill: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 5, borderRadius: radius.pill },
-  pillText: { fontSize: 9, fontWeight: "600", letterSpacing: 0.15 },
+  pill: { maxWidth: "52%", flexShrink: 0, alignSelf: "flex-start", paddingHorizontal: 9, paddingVertical: 5, borderRadius: radius.pill },
+  pillText: { fontSize: 9, lineHeight: 12, fontWeight: "600", letterSpacing: 0.15, textAlign: "center" },
   bluePill: { backgroundColor: colors.sky50 }, bluePillText: { color: colors.sky600 },
   mintPill: { backgroundColor: colors.mint50 }, mintPillText: { color: "#14836E" },
   yellowPill: { backgroundColor: colors.yellow50 }, yellowPillText: { color: colors.yellow },
   violetPill: { backgroundColor: colors.violet50 }, violetPillText: { color: "#6655C7" },
   redPill: { backgroundColor: colors.red50 }, redPillText: { color: colors.red },
-  empty: { minHeight: 260, alignItems: "center", justifyContent: "center", padding: 24 },
+  empty: { minHeight: 280, alignItems: "center", justifyContent: "center", padding: 26 },
   emptyTitle: { marginTop: 10, color: colors.navy, fontSize: typography.sectionTitle, lineHeight: 22, fontWeight: "600" },
   emptyNote: { maxWidth: 280, marginTop: 5, marginBottom: 14, color: colors.muted, fontSize: typography.body, lineHeight: 19, textAlign: "center" },
-  petRequiredNotice: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12, padding: 12, borderWidth: 1, borderColor: "#DDD7FF", borderRadius: radius.lg, backgroundColor: "#F8F6FF" },
+  petRequiredNotice: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12, padding: 13, borderWidth: 1, borderColor: "#DDD7FF", borderRadius: radius.lg, backgroundColor: colors.lavender50 },
   petRequiredCopy: { minWidth: 0, flex: 1 },
   petRequiredTitle: { color: colors.navy, fontSize: 12, lineHeight: 16, fontWeight: "600" },
   petRequiredText: { marginTop: 2, color: colors.muted, fontSize: 10, lineHeight: 14 },
@@ -274,14 +295,14 @@ const styles = StyleSheet.create({
   },
   sheet: {
     overflow: "hidden",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: colors.sky100,
-    backgroundColor: "#FCFEFF",
+    backgroundColor: colors.sky25,
   },
-  sheetSafe: { minHeight: 120, backgroundColor: colors.white },
+  sheetSafe: { minHeight: 120, flexShrink: 1, backgroundColor: colors.white },
   sheetHandle: {
     alignSelf: "center",
     width: 42,

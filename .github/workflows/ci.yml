@@ -26,9 +26,30 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run lint
-      - run: npx tsc -p tsconfig.app.json
-      - run: npm test
+      - run: npm run typecheck
+      - run: npm run test:coverage
+      # Ratchet against .github/coverage-baseline.json; a PR that raises the
+      # number updates the baseline in the same change.
+      - run: node scripts/js-coverage.mjs coverage/node.lcov --all app --summary "$GITHUB_STEP_SUMMARY" --baseline .github/coverage-baseline.json --key js_lines
+      # The mocked specs check every exchange they fake against
+      # slivadoc-backend's api/openapi.yaml at main (tests/e2e/fixtures.ts).
+      - uses: actions/create-github-app-token@v3
+        id: app
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: S-V2
+          repositories: slivadoc-backend
+      - uses: actions/checkout@v4
+        with:
+          repository: S-V2/slivadoc-backend
+          token: ${{ steps.app.outputs.token }}
+          path: .backend-spec
+          sparse-checkout: api/openapi.yaml
+          sparse-checkout-cone-mode: false
       - run: npm run test:responsive
+        env:
+          OPENAPI_SPEC: .backend-spec/api/openapi.yaml
 
   petowner-api:
     name: Pet Owner API tests
@@ -48,7 +69,7 @@ jobs:
       - run: npm test
 
   mobile:
-    name: Mobile typecheck
+    name: Mobile typecheck and tests
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 15
     defaults:
@@ -63,3 +84,4 @@ jobs:
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - run: npm test

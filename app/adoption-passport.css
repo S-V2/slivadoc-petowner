@@ -1,0 +1,181 @@
+.adoption-hero {
+  background: linear-gradient(125deg, #dff4ff, #e9faf1);
+  border: 1px solid #bfe3ee;
+  color: var(--navy);
+}
+.adoption-hero h2 {
+  max-width: 620px;
+  color: #173f55;
+}
+.adoption-hero p {
+  color: #406175;
+}
+.adoption-hero > div > span,
+.adoption-hero aside {
+  color: #1d6176;
+}
+.adoption-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.adoption-card {
+  border-radius: 20px;
+  border: 1px solid #cee4ea;
+  overflow: hidden;
+  box-shadow: 0 8px 24px #104e6410;
+}
+.adoption-photo {
+  aspect-ratio: 4/4.2;
+  height: auto;
+}
+.adoption-photo img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+.adoption-card h3 {
+  font-size: 24px;
+}
+.adoption-card em {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.adoption-card footer {
+  display: grid;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px dashed #c6e2e6;
+}
+.adoption-card footer b {
+  font-size: 16px;
+}
+.adoption-card .health-checks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.adoption-card .health-checks span {
+  white-space: normal;
+  line-height: 1.5;
+}
+.adoption-modal {
+  max-width: 680px;
+}
+.adoption-passport-gallery {
+  position: relative;
+  margin-bottom: 22px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #e9f6fa;
+}
+.adoption-passport-gallery img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+}
+.adoption-gallery-controls {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  color: white;
+  background: #113b54dd;
+  padding: 5px;
+  border-radius: 30px;
+}
+.adoption-gallery-controls button {
+  color: white;
+  background: transparent;
+  border: 0;
+  min-width: 42px;
+  min-height: 42px;
+  font-size: 24px;
+  cursor: pointer;
+}
+.adoption-passport-placeholder {
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 12px;
+  min-height: 180px;
+  background: #e9f6fa;
+  border-radius: 20px;
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+.adoption-passport-placeholder small {
+  font-size: 14px;
+}
+.adoption-passport-fee {
+  border: 1px solid #c7e8ef;
+  border-radius: 18px;
+  background: #eaf8fd;
+  padding: 20px;
+  margin: 20px 0;
+  display: grid;
+  gap: 8px;
+}
+.adoption-passport-fee strong {
+  font-size: 26px;
+  color: var(--sky-700);
+}
+.adoption-passport-fee small {
+  letter-spacing: 1px;
+  font-weight: 700;
+}
+.adoption-passport-fee p {
+  margin: 0;
+  font-size: 14px;
+}
+.adoption-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.adoption-upload-grid button {
+  position: relative;
+  border: 0;
+  padding: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.adoption-upload-grid img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+.adoption-upload-grid span {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  background: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+}
+@media (max-width: 700px) {
+  .adoption-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .adoption-card h3 {
+    font-size: 20px;
+  }
+  .adoption-card > div:last-child {
+    padding: 14px;
+  }
+  .adoption-card .health-checks {
+    grid-template-columns: 1fr;
+  }
+  .adoption-source {
+    overflow-wrap: anywhere;
+  }
+}

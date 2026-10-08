@@ -1,8 +1,16 @@
 "use client";
+import { petOwnerIntlLocale } from "../../lib/petowner-locale";
+import { SlivaFilePicker } from "../SlivaFilePicker";
+import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } from "../LocalizedCopy";
+import { SlivaDatePicker } from "../SlivaDatePicker";
+import { usePetOwnerFlow } from "../PetOwnerFlow";
+import { SlivaSelect } from "../SlivaSelect";
+import { DiscountBadge } from "../DiscountBadge";
 
 import NextImage from "next/image";
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -14,7 +22,7 @@ import {
   startConsultationMedia,
   type ConsultationMedia,
 } from "../../lib/consultation-sfu";
-import type { Pet } from "../../data/mock";
+import type { Pet } from "../../lib/petowner-domain";
 import {
   applyAdoption,
   createAdoptionListing,
@@ -30,10 +38,10 @@ import {
   getDocumentProducts,
   getMyConsultations,
   getTrainerAvailability,
+  getVeterinarianAvailability,
   getTrainerConsultationPlans,
   getTrainers,
   getVeterinarians,
-  isPetOwnerAuthenticated,
   sendConsultationMessage,
   type AdoptionListing,
   type Consultation,
@@ -44,21 +52,25 @@ import {
   type TrainerAvailabilitySlot,
   type TrainerConsultationPlan,
   type Veterinarian,
+  type VeterinarianAvailabilitySlot,
 } from "../../lib/platform-api";
-import {
-  BatpayPaymentPanel,
-  PaymentMethodPicker,
-} from "../payments/BatpayPayment";
+import { QrisPaymentPanel, PaymentMethodPicker } from "../payments/QrisPayment";
+import { RequirementUploads, type UploadedDocument } from "./DocumentUploads";
+import { MyAdoptionApplications, MyAdoptionListings } from "./AdoptionManager";
+import { AdoptionGallery } from "./AdoptionGallery";
+import { uploadImage } from "../../lib/petowner-api";
 
-type PayableConsultation = Consultation & { batpay?: PaymentIntent };
+type PayableConsultation = Consultation & { qrisPayment?: PaymentIntent };
 type ConsultProviderFilter = "all" | "veterinarian" | "trainer";
 
 type Props = {
   mode: "consult" | "adoption" | "documents";
   pet: Pet;
+  pets?: Pet[];
   notify: (message: string) => void;
+  initialVeterinarianId?: string;
 };
-const money = new Intl.NumberFormat("id-ID", {
+const money = new Intl.NumberFormat(petOwnerIntlLocale(), {
   style: "currency",
   currency: "IDR",
   maximumFractionDigits: 0,
@@ -72,12 +84,6 @@ function planCharge(
 ): number {
   return Math.round((plan.price * (100 - plan.discount_percent)) / 100);
 }
-function requireLogin(notify: (message: string) => void) {
-  if (isPetOwnerAuthenticated()) return true;
-  notify("Silakan login terlebih dahulu untuk melanjutkan.");
-  window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-  return false;
-}
 
 function hasSpecialty(specialties: string[] | undefined, selected: string) {
   return (
@@ -88,7 +94,14 @@ function hasSpecialty(specialties: string[] | undefined, selected: string) {
   );
 }
 
-export default function CareMarketplace({ mode, pet, notify }: Props) {
+export default function CareMarketplace({
+  mode,
+  pet,
+  pets = [pet],
+  notify,
+  initialVeterinarianId,
+}: Props) {
+  const { requireLogin, requirePet } = usePetOwnerFlow();
   const [doctors, setDoctors] = useState<Veterinarian[]>([]);
   const [plans, setPlans] = useState<ConsultationPlan[]>([]);
   const [trainers, setTrainers] = useState<Trainer[]>([]);
@@ -117,13 +130,20 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
   const [consultProvider, setConsultProvider] =
     useState<ConsultProviderFilter>("all");
   const [consultSpecialty, setConsultSpecialty] = useState("all");
+  const [consultQuery, setConsultQuery] = useState("");
   const [adoptionComposer, setAdoptionComposer] = useState(false);
+  const [adoptionVersion, setAdoptionVersion] = useState(0);
   const [adoptionSearch, setAdoptionSearch] = useState("");
+  const [adoptionTab, setAdoptionTab] = useState<
+    "browse" | "listings" | "applications"
+  >("browse");
   const [species, setSpecies] = useState("all");
   const [sex, setSex] = useState("all");
   const [size, setSize] = useState("all");
   const [city, setCity] = useState("all");
   const [health, setHealth] = useState("all");
+  const deferredConsultQuery = useDeferredValue(consultQuery);
+  const handledInitialVeterinarian = useRef("");
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -158,6 +178,29 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
       cancelled = true;
     };
   }, [mode, notify]);
+  useEffect(() => {
+    if (
+      mode !== "consult" ||
+      !initialVeterinarianId ||
+      !doctors.length ||
+      handledInitialVeterinarian.current === initialVeterinarianId
+    )
+      return;
+    handledInitialVeterinarian.current = initialVeterinarianId;
+    const doctor = doctors.find((item) => item.id === initialVeterinarianId);
+    if (!doctor) {
+      notify(
+        "Dokter yang dipilih sudah tidak tersedia. Silakan pilih dokter lain.",
+      );
+      return;
+    }
+    queueMicrotask(() => {
+      setConsultProvider("veterinarian");
+      setConsultSpecialty("all");
+      setSelectedPlan(null);
+      setSelectedDoctor(doctor);
+    });
+  }, [doctors, initialVeterinarianId, mode, notify]);
   const doctorPlans = useMemo(
     () =>
       selectedDoctor
@@ -192,28 +235,44 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
       left[1].localeCompare(right[1], "id"),
     );
   }, [consultProvider, doctors, trainers]);
-  const filteredDoctors = useMemo(
-    () =>
-      consultProvider === "trainer"
-        ? []
-        : doctors.filter(
-            (doctor) =>
-              (filter === "all" || doctor.availability_status === "online") &&
-              hasSpecialty(doctor.specialties, consultSpecialty),
-          ),
-    [consultProvider, consultSpecialty, doctors, filter],
-  );
-  const filteredTrainers = useMemo(
-    () =>
-      consultProvider === "veterinarian"
-        ? []
-        : trainers.filter(
-            (trainer) =>
-              (filter === "all" || trainer.availability_status === "online") &&
-              hasSpecialty(trainer.specialties, consultSpecialty),
-          ),
-    [consultProvider, consultSpecialty, filter, trainers],
-  );
+  const filteredDoctors = useMemo(() => {
+    if (consultProvider === "trainer") return [];
+    const query = deferredConsultQuery.trim().toLocaleLowerCase("id");
+    return doctors.filter(
+      (doctor) =>
+        (filter === "all" || doctor.availability_status === "online") &&
+        hasSpecialty(doctor.specialties, consultSpecialty) &&
+        (!query ||
+          `${doctor.full_name} ${doctor.strv_number} ${(doctor.specialties ?? []).join(" ")} ${(doctor.languages ?? []).join(" ")} ${doctor.bio}`
+            .toLocaleLowerCase("id")
+            .includes(query)),
+    );
+  }, [
+    consultProvider,
+    consultSpecialty,
+    deferredConsultQuery,
+    doctors,
+    filter,
+  ]);
+  const filteredTrainers = useMemo(() => {
+    if (consultProvider === "veterinarian") return [];
+    const query = deferredConsultQuery.trim().toLocaleLowerCase("id");
+    return trainers.filter(
+      (trainer) =>
+        (filter === "all" || trainer.availability_status === "online") &&
+        hasSpecialty(trainer.specialties, consultSpecialty) &&
+        (!query ||
+          `${trainer.full_name} ${trainer.certification} ${(trainer.specialties ?? []).join(" ")} ${(trainer.languages ?? []).join(" ")} ${trainer.bio}`
+            .toLocaleLowerCase("id")
+            .includes(query)),
+    );
+  }, [
+    consultProvider,
+    consultSpecialty,
+    deferredConsultQuery,
+    filter,
+    trainers,
+  ]);
   const chooseConsultProvider = (provider: ConsultProviderFilter) => {
     setConsultProvider(provider);
     setConsultSpecialty("all");
@@ -251,25 +310,19 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
       <>
         <section className="care-hero">
           <div>
-            <span>SLIVADOC CONSULTATION</span>
-            <h2>Dokter dan pet trainer, sedekat layar kamu.</h2>
-            <p>
-              Pilih chat, telepon, video call, atau paket bundling dengan dokter
-              maupun trainer terverifikasi. Jadwal dan pembayaran tersimpan
-              otomatis untuk {pet.name}.
-            </p>
+            <span><LocalizedCopy>{"SLIVADOC CONSULTATION"}</LocalizedCopy></span>
+            <h2><LocalizedCopy>{"Dokter dan pet trainer, sedekat layar kamu."}</LocalizedCopy></h2>
+            <p><LocalizedCopy>{"Pilih chat, telepon, video call, atau paket bundling dengan dokter maupun trainer terverifikasi. Jadwal dan pembayaran tersimpan otomatis untuk "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy><LocalizedCopy>{"."}</LocalizedCopy></p>
             <div>
-              <button
+              <LocalizedButton
                 className="primary-button"
                 onClick={() =>
                   document
                     .querySelector("#consult-provider-list")
                     ?.scrollIntoView({ behavior: "smooth" })
                 }
-              >
-                Cari provider online
-              </button>
-              <button
+              ><LocalizedCopy>{"Cari provider online"}</LocalizedCopy></LocalizedButton>
+              <LocalizedButton
                 className="secondary-button"
                 onClick={() => {
                   void getMyConsultations()
@@ -298,71 +351,76 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
                       ),
                     );
                 }}
-              >
-                Konsultasi saya
-              </button>
+              ><LocalizedCopy>{"Konsultasi saya"}</LocalizedCopy></LocalizedButton>
             </div>
           </div>
           <aside>
-            <b>24/7</b>
-            <small>provider terverifikasi</small>
-            <span>Chat langsung · Telepon privat · Video call</span>
+            <b><LocalizedCopy>{"24/7"}</LocalizedCopy></b>
+            <small><LocalizedCopy>{"provider terverifikasi"}</LocalizedCopy></small>
+            <span><LocalizedCopy>{"Chat langsung · Telepon privat · Video call"}</LocalizedCopy></span>
           </aside>
         </section>
         <div className="care-trust">
-          <span>✓ Dokter & trainer terverifikasi</span>
-          <span>🔒 Room privat</span>
-          <span>📅 Slot jadwal real-time</span>
-          <span>⚡ Provider online saat ini</span>
+          <span><LocalizedCopy>{"✓ Dokter & trainer terverifikasi"}</LocalizedCopy></span>
+          <span><LocalizedCopy>{"🔒 Room privat"}</LocalizedCopy></span>
+          <span><LocalizedCopy>{"📅 Slot jadwal real-time"}</LocalizedCopy></span>
+          <span><LocalizedCopy>{"⚡ Provider online saat ini"}</LocalizedCopy></span>
         </div>
+        <aside className="consult-safety-note" role="note">
+          <b><LocalizedCopy>{"Butuh pertolongan darurat?"}</LocalizedCopy></b>
+          <span><LocalizedCopy>{"Konsultasi online bukan layanan gawat darurat. Segera bawa pet ke klinik atau rumah sakit hewan terdekat bila sulit bernapas, kejang, perdarahan berat, atau tidak sadar."}</LocalizedCopy></span>
+        </aside>
         <section
           id="consult-provider-list"
           className="section-title-world consult-section-title"
         >
           <div>
             <span>
-              {consultProvider === "trainer"
+              <LocalizedCopy>{consultProvider === "trainer"
                 ? "PET TRAINER TERSEDIA"
                 : consultProvider === "veterinarian"
                   ? "DOKTER HEWAN TERSEDIA"
-                  : "PROVIDER KONSULTASI TERSEDIA"}
+                  : "PROVIDER KONSULTASI TERSEDIA"}</LocalizedCopy>
             </span>
             <h2>
-              {consultProvider === "trainer"
+              <LocalizedCopy>{consultProvider === "trainer"
                 ? "Pilih pet trainer"
                 : consultProvider === "veterinarian"
                   ? "Pilih dokter hewan"
-                  : "Pilih dokter atau pet trainer"}{" "}
-              untuk {pet.name}
+                  : "Pilih dokter atau pet trainer"}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"untuk "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy>
             </h2>
           </div>
           <div className="consult-toolbar">
+            <label className="consult-provider-search">
+              <span className="sr-only"><LocalizedCopy>{"Cari provider konsultasi"}</LocalizedCopy></span>
+              <LocalizedInput
+                type="search"
+                value={consultQuery}
+                onChange={(event) => setConsultQuery(event.target.value)}
+                placeholder="Cari nama, spesialisasi, gejala, atau bahasa…"
+                aria-label="Cari dokter hewan atau pet trainer"
+              />
+            </label>
             <div className="hub-tabs" aria-label="Jenis provider konsultasi">
-              <button
+              <LocalizedButton
                 className={consultProvider === "all" ? "active" : ""}
                 aria-pressed={consultProvider === "all"}
                 onClick={() => chooseConsultProvider("all")}
-              >
-                Semua
-              </button>
-              <button
+              ><LocalizedCopy>{"Semua"}</LocalizedCopy></LocalizedButton>
+              <LocalizedButton
                 className={consultProvider === "veterinarian" ? "active" : ""}
                 aria-pressed={consultProvider === "veterinarian"}
                 onClick={() => chooseConsultProvider("veterinarian")}
-              >
-                Dokter Hewan
-              </button>
-              <button
+              ><LocalizedCopy>{"Dokter Hewan"}</LocalizedCopy></LocalizedButton>
+              <LocalizedButton
                 className={consultProvider === "trainer" ? "active" : ""}
                 aria-pressed={consultProvider === "trainer"}
                 onClick={() => chooseConsultProvider("trainer")}
-              >
-                Pet Trainer
-              </button>
+              ><LocalizedCopy>{"Pet Trainer"}</LocalizedCopy></LocalizedButton>
             </div>
             <label className="consult-specialty-filter">
-              <span>Spesialisasi</span>
-              <select
+              <span><LocalizedCopy>{"Spesialisasi"}</LocalizedCopy></span>
+              <SlivaSelect
                 aria-label="Filter spesialisasi konsultasi"
                 value={consultSpecialty}
                 onChange={(event) => setConsultSpecialty(event.target.value)}
@@ -373,34 +431,30 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
                     {label}
                   </option>
                 ))}
-              </select>
+              </SlivaSelect>
             </label>
             <div className="hub-tabs" aria-label="Status provider">
-              <button
+              <LocalizedButton
                 className={filter === "all" ? "active" : ""}
                 aria-pressed={filter === "all"}
                 onClick={() => setFilter("all")}
-              >
-                Semua
-              </button>
-              <button
+              ><LocalizedCopy>{"Semua"}</LocalizedCopy></LocalizedButton>
+              <LocalizedButton
                 className={filter === "online" ? "active" : ""}
                 aria-pressed={filter === "online"}
                 onClick={() => setFilter("online")}
-              >
-                Online
-              </button>
+              ><LocalizedCopy>{"Online"}</LocalizedCopy></LocalizedButton>
             </div>
           </div>
         </section>
         {filteredDoctors.length > 0 && (
           <section className="consult-provider-section">
-            {consultProvider === "all" && <h3>Dokter Hewan</h3>}
+            <LocalizedCopy>{consultProvider === "all" && <h3><LocalizedCopy>{"Dokter Hewan"}</LocalizedCopy></h3>}</LocalizedCopy>
             <div className="doctor-grid">
-              {filteredDoctors.map((doctor, index) => (
+              <LocalizedCopy>{filteredDoctors.map((doctor, index) => (
                 <article className="doctor-card" key={doctor.id}>
                   <div className={`doctor-photo doctor-${index % 3}`}>
-                    {doctor.photo_url ? (
+                    <LocalizedCopy>{doctor.photo_url ? (
                       <NextImage
                         src={doctor.photo_url}
                         alt={doctor.full_name}
@@ -409,52 +463,54 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
                         unoptimized
                       />
                     ) : (
-                      <span>👩🏻‍⚕️</span>
-                    )}
+                      <span><LocalizedCopy>{"👩🏻‍⚕️"}</LocalizedCopy></span>
+                    )}</LocalizedCopy>
                     <i className={doctor.availability_status}>
-                      {doctor.availability_status === "online"
+                      <LocalizedCopy>{doctor.availability_status === "online"
                         ? "● Online"
-                        : doctor.availability_status}
+                        : doctor.availability_status}</LocalizedCopy>
                     </i>
                   </div>
                   <div>
-                    <small>✓ DOKTER TERVERIFIKASI</small>
-                    <h3>{doctor.full_name}</h3>
-                    <p>{doctor.specialties.join(" · ")}</p>
+                    <small><LocalizedCopy>{"✓ DOKTER TERVERIFIKASI"}</LocalizedCopy></small>
+                    <h3><LocalizedCopy preserve>{doctor.full_name}</LocalizedCopy></h3>
+                    <p><LocalizedCopy>{doctor.specialties.join(" · ")}</LocalizedCopy></p>
                     <div className="doctor-rating">
-                      <b>★ {doctor.rating}</b>
+                      <b><LocalizedCopy>{"★ "}</LocalizedCopy><LocalizedCopy>{doctor.rating}</LocalizedCopy></b>
                       <span>
-                        {doctor.consultation_count.toLocaleString("id-ID")}{" "}
-                        konsultasi
-                      </span>
-                      <span>{doctor.experience_years} tahun</span>
+                        <LocalizedCopy>{doctor.consultation_count.toLocaleString(petOwnerIntlLocale())}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"konsultasi"}</LocalizedCopy></span>
+                      <span><LocalizedCopy>{doctor.experience_years}</LocalizedCopy><LocalizedCopy>{" tahun"}</LocalizedCopy></span>
                     </div>
-                    <em>{doctor.bio}</em>
+                    <span className="consult-provider-credential"><LocalizedCopy>{"STRV "}</LocalizedCopy><LocalizedCopy>{doctor.strv_number}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedCopy>{(doctor.languages ?? []).join(", ") ||
+                        "Bahasa Indonesia"}</LocalizedCopy>
+                    </span>
+                    <em><LocalizedCopy>{doctor.bio}</LocalizedCopy></em>
                     <footer>
-                      <span>
-                        Mulai <b>{money.format(doctor.starting_price)}</b>
+                      <span><LocalizedCopy>{"Mulai "}</LocalizedCopy><b><LocalizedCopy>{money.format(doctor.starting_price)}</LocalizedCopy></b>
                       </span>
-                      <button
+                      <LocalizedButton
                         className="primary-button"
-                        onClick={() => setSelectedDoctor(doctor)}
-                      >
-                        Lihat paket
-                      </button>
+                        onClick={() => {
+                          setSelectedPlan(null);
+                          setSelectedDoctor(doctor);
+                        }}
+                      ><LocalizedCopy>{"Lihat paket"}</LocalizedCopy></LocalizedButton>
                     </footer>
                   </div>
                 </article>
-              ))}
+              ))}</LocalizedCopy>
             </div>
           </section>
         )}
         {filteredTrainers.length > 0 && (
           <section className="consult-provider-section">
-            {consultProvider === "all" && <h3>Pet Trainer</h3>}
+            <LocalizedCopy>{consultProvider === "all" && <h3><LocalizedCopy>{"Pet Trainer"}</LocalizedCopy></h3>}</LocalizedCopy>
             <div className="doctor-grid">
-              {filteredTrainers.map((trainer, index) => (
+              <LocalizedCopy>{filteredTrainers.map((trainer, index) => (
                 <article className="doctor-card" key={trainer.id}>
                   <div className={`doctor-photo doctor-${index % 3}`}>
-                    {trainer.photo_url ? (
+                    <LocalizedCopy>{trainer.photo_url ? (
                       <NextImage
                         src={trainer.photo_url}
                         alt={trainer.full_name}
@@ -463,124 +519,125 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
                         unoptimized
                       />
                     ) : (
-                      <span>🐾</span>
-                    )}
+                      <span><LocalizedCopy>{"🐾"}</LocalizedCopy></span>
+                    )}</LocalizedCopy>
                     <i className={trainer.availability_status}>
-                      {trainer.availability_status === "online"
+                      <LocalizedCopy>{trainer.availability_status === "online"
                         ? "● Online"
-                        : trainer.availability_status}
+                        : trainer.availability_status}</LocalizedCopy>
                     </i>
                   </div>
                   <div>
-                    <small>✓ PET TRAINER TERVERIFIKASI</small>
-                    <h3>{trainer.full_name}</h3>
-                    <p>{trainer.specialties.join(" · ")}</p>
+                    <small><LocalizedCopy>{"✓ PET TRAINER TERVERIFIKASI"}</LocalizedCopy></small>
+                    <h3><LocalizedCopy preserve>{trainer.full_name}</LocalizedCopy></h3>
+                    <p><LocalizedCopy>{trainer.specialties.join(" · ")}</LocalizedCopy></p>
                     <div className="doctor-rating">
-                      <b>★ {trainer.rating}</b>
+                      <b><LocalizedCopy>{"★ "}</LocalizedCopy><LocalizedCopy>{trainer.rating}</LocalizedCopy></b>
                       <span>
-                        {trainer.consultation_count.toLocaleString("id-ID")}{" "}
-                        sesi
-                      </span>
-                      <span>{trainer.experience_years} tahun</span>
+                        <LocalizedCopy>{trainer.consultation_count.toLocaleString(petOwnerIntlLocale())}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"sesi"}</LocalizedCopy></span>
+                      <span><LocalizedCopy>{trainer.experience_years}</LocalizedCopy><LocalizedCopy>{" tahun"}</LocalizedCopy></span>
                     </div>
-                    <em>{trainer.bio}</em>
+                    <span className="consult-provider-credential">
+                      <LocalizedCopy>{trainer.certification || "Trainer terverifikasi"}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedCopy>{(trainer.languages ?? []).join(", ") ||
+                        "Bahasa Indonesia"}</LocalizedCopy>
+                    </span>
+                    <em><LocalizedCopy>{trainer.bio}</LocalizedCopy></em>
                     <footer>
-                      <span>
-                        Mulai <b>{money.format(trainer.starting_price)}</b>
+                      <span><LocalizedCopy>{"Mulai "}</LocalizedCopy><b><LocalizedCopy>{money.format(trainer.starting_price)}</LocalizedCopy></b>
                       </span>
-                      <button
+                      <LocalizedButton
                         className="primary-button"
                         onClick={() => {
                           setSelectedTrainer(trainer);
                           setSelectedTrainerPlan(null);
                         }}
-                      >
-                        Lihat paket
-                      </button>
+                      ><LocalizedCopy>{"Lihat paket"}</LocalizedCopy></LocalizedButton>
                     </footer>
                   </div>
                 </article>
-              ))}
+              ))}</LocalizedCopy>
             </div>
           </section>
         )}
         {filteredDoctors.length === 0 && filteredTrainers.length === 0 && (
           <div className="consult-filter-empty" role="status">
-            <span>🔎</span>
+            <span><LocalizedCopy>{"🔎"}</LocalizedCopy></span>
             <div>
-              <h3>Provider belum ditemukan</h3>
-              <p>
-                Coba pilih jenis provider, spesialisasi, atau status yang lain.
-              </p>
+              <h3><LocalizedCopy>{"Provider belum ditemukan"}</LocalizedCopy></h3>
+              <p><LocalizedCopy>{"Coba pilih jenis provider, spesialisasi, atau status yang lain."}</LocalizedCopy></p>
             </div>
           </div>
         )}
         {selectedDoctor && (
           <div
             className="modal-overlay"
-            onMouseDown={() => setSelectedDoctor(null)}
+            onMouseDown={() => {
+              setSelectedDoctor(null);
+              setSelectedPlan(null);
+            }}
           >
             <section
               className="modal care-modal"
               onMouseDown={(e) => e.stopPropagation()}
             >
-              <button
+              <LocalizedButton
                 className="modal-close"
-                onClick={() => setSelectedDoctor(null)}
-              >
-                ×
-              </button>
+                onClick={() => {
+                  setSelectedDoctor(null);
+                  setSelectedPlan(null);
+                }}
+              ><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
               <div className="care-doctor-head">
-                <span>👩🏻‍⚕️</span>
+                <span><LocalizedCopy>{"👩🏻‍⚕️"}</LocalizedCopy></span>
                 <div>
-                  <small>✓ STRV {selectedDoctor.strv_number}</small>
-                  <h2>{selectedDoctor.full_name}</h2>
-                  <p>{selectedDoctor.specialties.join(" · ")}</p>
+                  <small><LocalizedCopy>{"✓ STRV "}</LocalizedCopy><LocalizedCopy>{selectedDoctor.strv_number}</LocalizedCopy></small>
+                  <h2><LocalizedCopy preserve>{selectedDoctor.full_name}</LocalizedCopy></h2>
+                  <p><LocalizedCopy>{selectedDoctor.specialties.join(" · ")}</LocalizedCopy></p>
                 </div>
               </div>
-              <h3>Pilih cara konsultasi</h3>
+              <h3><LocalizedCopy>{"Pilih cara konsultasi"}</LocalizedCopy></h3>
               <div className="plan-grid">
-                {doctorPlans.map((plan) => (
-                  <button
+                <LocalizedCopy catalogue>{doctorPlans.map((plan) => (
+                  <LocalizedButton
                     key={plan.id}
                     className={selectedPlan?.id === plan.id ? "active" : ""}
-                    onClick={() => setSelectedPlan(plan)}
+                    onClick={() => requirePet() && setSelectedPlan(plan)}
                   >
                     <i>
-                      {plan.mode === "chat"
+                      <LocalizedCopy>{plan.mode === "chat"
                         ? "💬"
                         : plan.mode === "voice"
                           ? "📞"
                           : plan.mode === "video"
                             ? "🎥"
-                            : "✦"}
+                            : "✦"}</LocalizedCopy>
                     </i>
                     <span>
-                      <b>{plan.name}</b>
-                      <small>{plan.description}</small>
+                      <b><LocalizedCopy catalogue>{plan.name}</LocalizedCopy></b>
+                      <small><LocalizedCopy catalogue>{plan.description}</LocalizedCopy></small>
                       <em>
-                        {plan.duration_minutes >= 60 && plan.mode === "chat"
+                        <LocalizedCopy>{plan.duration_minutes >= 60 && plan.mode === "chat"
                           ? "24 jam"
-                          : `${plan.duration_minutes} menit`}{" "}
-                        · follow-up {plan.followup_days} hari
-                      </em>
+                          : `${plan.duration_minutes} menit`}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"· follow-up "}</LocalizedCopy><LocalizedCopy>{plan.followup_days}</LocalizedCopy><LocalizedCopy>{" hari"}</LocalizedCopy></em>
                     </span>
-                    {plan.discount_percent > 0 ? (
+                    <LocalizedCopy>{plan.discount_percent > 0 ? (
                       <strong className="plan-price-discounted">
-                        <s>{money.format(plan.price)}</s>
-                        <span>{money.format(planCharge(plan))}</span>
+                        <s><LocalizedCopy>{money.format(plan.price)}</LocalizedCopy></s>
+                        <span><LocalizedCopy>{money.format(planCharge(plan))}</LocalizedCopy></span>
                       </strong>
                     ) : (
-                      <strong>{money.format(plan.price)}</strong>
-                    )}
-                    {plan.discount_percent > 0 && (
-                      <mark>Hemat {plan.discount_percent}%</mark>
-                    )}
-                  </button>
-                ))}
+                      <strong><LocalizedCopy>{money.format(plan.price)}</LocalizedCopy></strong>
+                    )}</LocalizedCopy>
+                    <LocalizedCopy>{plan.discount_percent > 0 && (
+                      <DiscountBadge percent={plan.discount_percent} />
+                    )}</LocalizedCopy>
+                  </LocalizedButton>
+                ))}</LocalizedCopy>
               </div>
-              {selectedPlan && (
+              <LocalizedCopy>{selectedPlan && (
                 <ConsultBooking
+                  key={selectedPlan.id}
                   pet={pet}
                   doctor={selectedDoctor}
                   plan={selectedPlan}
@@ -591,7 +648,7 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
                     setSelectedPlan(null);
                   }}
                 />
-              )}
+              )}</LocalizedCopy>
             </section>
           </div>
         )}
@@ -604,65 +661,61 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
               className="modal care-modal"
               onMouseDown={(event) => event.stopPropagation()}
             >
-              <button
+              <LocalizedButton
                 className="modal-close"
                 onClick={() => setSelectedTrainer(null)}
                 aria-label="Tutup pilihan trainer"
-              >
-                ×
-              </button>
+              ><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
               <div className="care-doctor-head">
-                <span>🐾</span>
+                <span><LocalizedCopy>{"🐾"}</LocalizedCopy></span>
                 <div>
-                  <small>
-                    ✓ TRAINER TERVERIFIKASI · {selectedTrainer.certification}
+                  <small><LocalizedCopy>{"✓ TRAINER TERVERIFIKASI · "}</LocalizedCopy><LocalizedCopy>{selectedTrainer.certification}</LocalizedCopy>
                   </small>
-                  <h2>{selectedTrainer.full_name}</h2>
-                  <p>{selectedTrainer.specialties.join(" · ")}</p>
+                  <h2><LocalizedCopy preserve>{selectedTrainer.full_name}</LocalizedCopy></h2>
+                  <p><LocalizedCopy>{selectedTrainer.specialties.join(" · ")}</LocalizedCopy></p>
                 </div>
               </div>
-              <h3>Pilih cara konsultasi</h3>
+              <h3><LocalizedCopy>{"Pilih cara konsultasi"}</LocalizedCopy></h3>
               <div className="plan-grid">
-                {selectedTrainerPlans.map((plan) => (
-                  <button
+                <LocalizedCopy catalogue>{selectedTrainerPlans.map((plan) => (
+                  <LocalizedButton
                     key={plan.id}
                     className={
                       selectedTrainerPlan?.id === plan.id ? "active" : ""
                     }
-                    onClick={() => setSelectedTrainerPlan(plan)}
+                    onClick={() => requirePet() && setSelectedTrainerPlan(plan)}
                   >
                     <i>
-                      {plan.mode === "chat"
+                      <LocalizedCopy>{plan.mode === "chat"
                         ? "💬"
                         : plan.mode === "voice"
                           ? "📞"
                           : plan.mode === "video"
                             ? "🎥"
-                            : "✦"}
+                            : "✦"}</LocalizedCopy>
                     </i>
                     <span>
-                      <b>{plan.name}</b>
-                      <small>{plan.description}</small>
+                      <b><LocalizedCopy catalogue>{plan.name}</LocalizedCopy></b>
+                      <small><LocalizedCopy catalogue>{plan.description}</LocalizedCopy></small>
                       <em>
-                        {plan.duration_minutes} menit · follow-up{" "}
-                        {plan.followup_days} hari
-                      </em>
+                        <LocalizedCopy>{plan.duration_minutes}</LocalizedCopy><LocalizedCopy>{" menit · follow-up"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                        <LocalizedCopy>{plan.followup_days}</LocalizedCopy><LocalizedCopy>{" hari"}</LocalizedCopy></em>
                     </span>
-                    {plan.discount_percent > 0 ? (
+                    <LocalizedCopy>{plan.discount_percent > 0 ? (
                       <strong className="plan-price-discounted">
-                        <s>{money.format(plan.price)}</s>
-                        <span>{money.format(planCharge(plan))}</span>
+                        <s><LocalizedCopy>{money.format(plan.price)}</LocalizedCopy></s>
+                        <span><LocalizedCopy>{money.format(planCharge(plan))}</LocalizedCopy></span>
                       </strong>
                     ) : (
-                      <strong>{money.format(plan.price)}</strong>
-                    )}
-                    {plan.discount_percent > 0 && (
-                      <mark>Hemat {plan.discount_percent}%</mark>
-                    )}
-                  </button>
-                ))}
+                      <strong><LocalizedCopy>{money.format(plan.price)}</LocalizedCopy></strong>
+                    )}</LocalizedCopy>
+                    <LocalizedCopy>{plan.discount_percent > 0 && (
+                      <DiscountBadge percent={plan.discount_percent} />
+                    )}</LocalizedCopy>
+                  </LocalizedButton>
+                ))}</LocalizedCopy>
               </div>
-              {selectedTrainerPlan && (
+              <LocalizedCopy>{selectedTrainerPlan && (
                 <TrainerConsultBooking
                   key={selectedTrainerPlan.id}
                   pet={pet}
@@ -675,7 +728,7 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
                     setSelectedTrainerPlan(null);
                   }}
                 />
-              )}
+              )}</LocalizedCopy>
             </section>
           </div>
         )}
@@ -704,26 +757,20 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
       <>
         <section className="adoption-hero">
           <div>
-            <span>ADOPT WITH CONFIDENCE</span>
-            <h2>Dari pet parent, untuk keluarga baru.</h2>
-            <p>
-              Pet owner dapat mengajukan pet miliknya. Tim pendamping memeriksa
-              identitas, kesehatan, kesiapan adopter, dan proses serah terima.
-            </p>
-            <button
+            <span><LocalizedCopy>{"SLIVA HOME · PET PASSPORT"}</LocalizedCopy></span>
+            <h2><LocalizedCopy>{"Rumah baru. Cerita bahagia berikutnya."}</LocalizedCopy></h2>
+            <p><LocalizedCopy>{"Pet owner dapat mengajukan pet miliknya. Tim pendamping memeriksa identitas, kesehatan, kesiapan adopter, dan proses serah terima."}</LocalizedCopy></p>
+            <LocalizedButton
               className="primary-button"
-              onClick={() => requireLogin(notify) && setAdoptionComposer(true)}
-            >
-              Ajukan pet saya
-            </button>
+              onClick={() => requirePet() && setAdoptionComposer(true)}
+            ><LocalizedCopy>{"Ajukan pet saya"}</LocalizedCopy></LocalizedButton>
           </div>
-          <aside>
-            ♡<b>Responsible adoption</b>
-            <small>Bukan jual beli hewan</small>
+          <aside><LocalizedCopy>{"♡"}</LocalizedCopy><b><LocalizedCopy>{"Responsible adoption"}</LocalizedCopy></b>
+            <small><LocalizedCopy>{"Pengajuan + biaya tetap. Tanpa lelang."}</LocalizedCopy></small>
           </aside>
         </section>
         <div className="adoption-steps">
-          {[
+          <LocalizedCopy>{[
             "Pilih pet",
             "Isi screening",
             "Interview & home visit",
@@ -731,146 +778,183 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
             "Serah terima",
           ].map((item, i) => (
             <span key={item}>
-              <i>{i + 1}</i>
-              <b>{item}</b>
+              <i><LocalizedCopy>{i + 1}</LocalizedCopy></i>
+              <b><LocalizedCopy>{item}</LocalizedCopy></b>
             </span>
-          ))}
+          ))}</LocalizedCopy>
         </div>
-        <section className="adoption-filter-panel" aria-label="Filter adopsi">
-          <label className="adoption-search">
-            <span>⌕</span>
-            <input
-              value={adoptionSearch}
-              onChange={(event) => setAdoptionSearch(event.target.value)}
-              placeholder="Cari nama, ras, kota, atau karakter pet…"
-            />
-          </label>
-          <select
-            value={species}
-            onChange={(event) => setSpecies(event.target.value)}
-            aria-label="Jenis hewan"
-          >
-            <option value="all">Semua hewan</option>
-            <option value="dog">Anjing</option>
-            <option value="cat">Kucing</option>
-          </select>
-          <select
-            value={sex}
-            onChange={(event) => setSex(event.target.value)}
-            aria-label="Jenis kelamin"
-          >
-            <option value="all">Semua gender</option>
-            <option value="male">Jantan</option>
-            <option value="female">Betina</option>
-          </select>
-          <select
-            value={size}
-            onChange={(event) => setSize(event.target.value)}
-            aria-label="Ukuran"
-          >
-            <option value="all">Semua ukuran</option>
-            <option value="small">Small</option>
-            <option value="medium">Medium</option>
-            <option value="large">Large</option>
-          </select>
-          <select
-            value={city}
-            onChange={(event) => setCity(event.target.value)}
-            aria-label="Kota"
-          >
-            <option value="all">Semua kota</option>
-            {adoptionCities.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-          <select
-            value={health}
-            onChange={(event) => setHealth(event.target.value)}
-            aria-label="Standar kesehatan"
-          >
-            <option value="all">Semua kesehatan</option>
-            <option value="vaccinated">Sudah vaksin</option>
-            <option value="sterilized">Sudah steril</option>
-          </select>
-        </section>
-        <div className="adoption-result-count">
-          <b>{filteredAdoptions.length} pet</b>
-          <span>sesuai filter dan siap dikenalkan</span>
+        <div className="hub-tabs adoption-tabs" aria-label="Menu adopsi">
+          <LocalizedCopy>{(
+            [
+              ["browse", "Jelajahi"],
+              ["listings", "Listing saya"],
+              ["applications", "Lamaran saya"],
+            ] as const
+          ).map(([key, label]) => (
+            <LocalizedButton
+              key={key}
+              className={adoptionTab === key ? "active" : ""}
+              aria-pressed={adoptionTab === key}
+              onClick={() =>
+                (key === "browse" || requireLogin()) &&
+                setAdoptionTab(key)
+              }
+            >
+              <LocalizedCopy>{label}</LocalizedCopy>
+            </LocalizedButton>
+          ))}</LocalizedCopy>
         </div>
-        <div className="adoption-grid">
-          {filteredAdoptions.map((item, index) => (
-            <article className="adoption-card" key={item.id}>
-              <div className={`adoption-photo adoption-${index % 3}`}>
-                {item.photo_urls?.[0] ? (
-                  <NextImage
-                    src={item.photo_urls[0]}
-                    alt={item.name}
-                    width={640}
-                    height={480}
-                    unoptimized
-                  />
-                ) : (
-                  <span>
-                    {item.species.toLowerCase() === "cat" ? "🐈" : "🐕"}
-                  </span>
-                )}
-                {item.featured && <i>PILIHAN</i>}
+        {adoptionTab === "listings" && (
+          <MyAdoptionListings key={adoptionVersion} notify={notify} />
+        )}
+        {adoptionTab === "applications" && (
+          <MyAdoptionApplications notify={notify} />
+        )}
+        {adoptionTab === "browse" && (
+          <>
+            <section
+              className="adoption-filter-panel"
+              aria-label="Filter adopsi"
+            >
+              <label className="adoption-search">
+                <span><LocalizedCopy>{"⌕"}</LocalizedCopy></span>
+                <LocalizedInput
+                  value={adoptionSearch}
+                  onChange={(event) => setAdoptionSearch(event.target.value)}
+                  placeholder="Cari nama, ras, kota, atau karakter pet…"
+                />
+              </label>
+              <SlivaSelect
+                value={species}
+                onChange={(event) => setSpecies(event.target.value)}
+                aria-label="Jenis hewan"
+              >
+                <option value="all">Semua hewan</option>
+                <option value="dog">Anjing</option>
+                <option value="cat">Kucing</option>
+              </SlivaSelect>
+              <SlivaSelect
+                value={sex}
+                onChange={(event) => setSex(event.target.value)}
+                aria-label="Jenis kelamin"
+              >
+                <option value="all">Semua gender</option>
+                <option value="male">Jantan</option>
+                <option value="female">Betina</option>
+              </SlivaSelect>
+              <SlivaSelect
+                value={size}
+                onChange={(event) => setSize(event.target.value)}
+                aria-label="Ukuran"
+              >
+                <option value="all">Semua ukuran</option>
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </SlivaSelect>
+              <SlivaSelect
+                value={city}
+                onChange={(event) => setCity(event.target.value)}
+                aria-label="Kota"
+              >
+                <option value="all">Semua kota</option>
+                {adoptionCities.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </SlivaSelect>
+              <SlivaSelect
+                value={health}
+                onChange={(event) => setHealth(event.target.value)}
+                aria-label="Standar kesehatan"
+              >
+                <option value="all">Semua kesehatan</option>
+                <option value="vaccinated">Sudah vaksin</option>
+                <option value="sterilized">Sudah steril</option>
+              </SlivaSelect>
+            </section>
+            <div className="adoption-result-count">
+              <b><LocalizedCopy>{filteredAdoptions.length}</LocalizedCopy><LocalizedCopy>{" pet"}</LocalizedCopy></b>
+              <span><LocalizedCopy>{"sesuai filter dan siap dikenalkan"}</LocalizedCopy></span>
+            </div>
+            <div className="adoption-grid">
+              <LocalizedCopy>{filteredAdoptions.map((item, index) => (
+                <article className="adoption-card" key={item.id}>
+                  <div className={`adoption-photo adoption-${index % 3}`}>
+                    <LocalizedCopy>{item.photo_urls?.[0] ? (
+                      <NextImage
+                        src={item.photo_urls[0]}
+                        alt={item.name}
+                        width={640}
+                        height={480}
+                        unoptimized
+                      />
+                    ) : (
+                      <span>
+                        <LocalizedCopy>{item.species.toLowerCase() === "cat" ? "🐈" : "🐕"}</LocalizedCopy>
+                      </span>
+                    )}</LocalizedCopy>
+                    <LocalizedCopy>{item.featured && <i><LocalizedCopy>{"PILIHAN"}</LocalizedCopy></i>}</LocalizedCopy>
+                  </div>
+                  <div>
+                    <small><LocalizedCopy>{"⌖ "}</LocalizedCopy><LocalizedCopy>{item.city}</LocalizedCopy></small>
+                    <span className="adoption-source">
+                      <LocalizedCopy>{item.source_type === "pet_owner"
+                        ? "Diajukan pet owner"
+                        : "Mitra penyelamat"}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"· "}</LocalizedCopy><LocalizedCopy>{item.submitted_by_name}</LocalizedCopy>
+                    </span>
+                    <h3><LocalizedCopy>{item.name}</LocalizedCopy></h3>
+                    <p>
+                      <LocalizedCopy>{item.breed}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedCopy>{item.age_months < 12
+                        ? `${item.age_months} bulan`
+                        : `${Math.floor(item.age_months / 12)} tahun`}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedCopy>{item.sex === "male"
+                        ? "Jantan"
+                        : item.sex === "female"
+                          ? "Betina"
+                          : item.sex}</LocalizedCopy>
+                    </p>
+                    <em><LocalizedCopy>{item.description}</LocalizedCopy></em>
+                    <div className="pet-tags">
+                      <LocalizedCopy>{item.personality.map((x) => (
+                        <span key={x}><LocalizedCopy>{x}</LocalizedCopy></span>
+                      ))}</LocalizedCopy>
+                    </div>
+                    <div className="health-checks">
+                      <span className={item.vaccinated ? "pass" : "pending"}>
+                        <LocalizedCopy>{item.vaccinated
+                          ? "✓ Sudah vaksin"
+                          : "Vaksin belum dikonfirmasi"}</LocalizedCopy>
+                      </span>
+                      <span className={item.sterilized ? "pass" : "pending"}>
+                        <LocalizedCopy>{item.sterilized
+                          ? "✓ Sudah steril"
+                          : "Sterilisasi belum dikonfirmasi"}</LocalizedCopy>
+                      </span>
+                    </div>
+                    <footer>
+                      <b>
+                        <LocalizedCopy>{item.adoption_fee
+                          ? `Biaya tetap ${money.format(item.adoption_fee)}`
+                          : "Tanpa biaya"}</LocalizedCopy>
+                      </b>
+                      <LocalizedButton
+                        className="primary-button"
+                        onClick={() => setSelectedAdoption(item)}
+                      ><LocalizedCopy>{"Kenalan"}</LocalizedCopy></LocalizedButton>
+                    </footer>
+                  </div>
+                </article>
+              ))}</LocalizedCopy>
+            </div>
+            {filteredAdoptions.length === 0 && (
+              <div className="empty-state">
+                <span><LocalizedCopy>{"🐾"}</LocalizedCopy></span>
+                <h3><LocalizedCopy>{"Belum ada pet yang cocok"}</LocalizedCopy></h3>
+                <p><LocalizedCopy>{"Ubah kombinasi filter untuk melihat kandidat adopsi lain."}</LocalizedCopy></p>
               </div>
-              <div>
-                <small>⌖ {item.city}</small>
-                <span className="adoption-source">
-                  {item.source_type === "pet_owner"
-                    ? "Diajukan pet owner"
-                    : "Mitra penyelamat"}{" "}
-                  · {item.submitted_by_name}
-                </span>
-                <h3>{item.name}</h3>
-                <p>
-                  {item.breed} · {Math.max(1, Math.round(item.age_months / 12))}{" "}
-                  tahun ·{" "}
-                  {item.sex === "male"
-                    ? "Jantan"
-                    : item.sex === "female"
-                      ? "Betina"
-                      : item.sex}
-                </p>
-                <em>{item.description}</em>
-                <div className="pet-tags">
-                  {item.personality.map((x) => (
-                    <span key={x}>{x}</span>
-                  ))}
-                </div>
-                <div className="health-checks">
-                  <span className={item.vaccinated ? "pass" : "pending"}>
-                    ✓ {item.vaccinated ? "Vaksin lengkap" : "Vaksin proses"}
-                  </span>
-                  <span className={item.sterilized ? "pass" : "pending"}>
-                    ✓ {item.sterilized ? "Steril" : "Belum steril"}
-                  </span>
-                </div>
-                <footer>
-                  <b>
-                    {item.adoption_fee
-                      ? `Donasi ${money.format(item.adoption_fee)}`
-                      : "Tanpa biaya"}
-                  </b>
-                  <button
-                    className="primary-button"
-                    onClick={() => setSelectedAdoption(item)}
-                  >
-                    Kenalan
-                  </button>
-                </footer>
-              </div>
-            </article>
-          ))}
-        </div>
-        {filteredAdoptions.length === 0 && (
-          <div className="empty-state">
-            <span>🐾</span>
-            <h3>Belum ada pet yang cocok</h3>
-            <p>Ubah kombinasi filter untuk melihat kandidat adopsi lain.</p>
-          </div>
+            )}
+          </>
         )}
         {selectedAdoption && (
           <AdoptionModal
@@ -882,9 +966,15 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
         {adoptionComposer && (
           <AdoptionListingModal
             pet={pet}
+            pets={pets.filter(
+              (item) => !item.accessRole || item.accessRole === "owner",
+            )}
             close={() => setAdoptionComposer(false)}
             notify={notify}
-            created={async () => setAdoptions((await getAdoptions()).data)}
+            created={async () => {
+              setAdoptionVersion((v) => v + 1);
+              setAdoptionTab("listings");
+            }}
           />
         )}
       </>
@@ -893,70 +983,63 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
     <>
       <section className="document-hero">
         <div>
-          <span>SLIVADOC PET DOCUMENT CONCIERGE</span>
-          <h2>Urus dokumen pet tanpa bingung.</h2>
-          <p>
-            Akte pet, surat kesehatan, vaksin, microchip, karantina, hingga izin
-            perjalanan pesawat dan kapal—dipandu checklist dan status yang
-            transparan.
-          </p>
+          <span><LocalizedCopy>{"SLIVADOC PET DOCUMENT CONCIERGE"}</LocalizedCopy></span>
+          <h2><LocalizedCopy>{"Urus dokumen pet tanpa bingung."}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Akte pet, surat kesehatan, vaksin, microchip, karantina, hingga izin perjalanan pesawat dan kapal—dipandu checklist dan status yang transparan."}</LocalizedCopy></p>
         </div>
         <aside>
-          <span>▤</span>
-          <b>Dokumen terverifikasi</b>
-          <small>Diproses bersama dokter & partner resmi</small>
+          <span><LocalizedCopy>{"▤"}</LocalizedCopy></span>
+          <b><LocalizedCopy>{"Dokumen terverifikasi"}</LocalizedCopy></b>
+          <small><LocalizedCopy>{"Diproses bersama dokter & partner resmi"}</LocalizedCopy></small>
         </aside>
       </section>
       <section className="document-assurance">
-        <span>✓ Checklist sesuai kebutuhan</span>
-        <span>✓ Status transparan</span>
-        <span>✓ Dokumen digital tersimpan</span>
+        <span><LocalizedCopy>{"✓ Checklist sesuai kebutuhan"}</LocalizedCopy></span>
+        <span><LocalizedCopy>{"✓ Status transparan"}</LocalizedCopy></span>
+        <span><LocalizedCopy>{"✓ Dokumen digital tersimpan"}</LocalizedCopy></span>
       </section>
       <div className="document-product-grid">
-        {documents.map((item, index) => (
+        <LocalizedCopy>{documents.map((item, index) => (
           <article className="document-product-card" key={item.id}>
             <span className={`document-product-icon doc-${index % 4}`}>
-              {item.category.includes("flight")
+              <LocalizedCopy>{item.category.includes("flight")
                 ? "✈"
                 : item.category === "ship"
                   ? "⚓"
-                  : "▤"}
+                  : "▤"}</LocalizedCopy>
             </span>
             <div>
               <small>
-                {item.code} · ESTIMASI {item.processing_days} HARI KERJA
-              </small>
-              <h3>{item.name}</h3>
-              <p>{item.description}</p>
-              <b className="requirement-title">Yang perlu disiapkan</b>
+                <LocalizedCopy>{item.code}</LocalizedCopy><LocalizedCopy>{" · ESTIMASI "}</LocalizedCopy><LocalizedCopy>{item.processing_days}</LocalizedCopy><LocalizedCopy>{" HARI KERJA"}</LocalizedCopy></small>
+              <h3><LocalizedCopy>{item.name}</LocalizedCopy></h3>
+              <p><LocalizedCopy>{item.description}</LocalizedCopy></p>
+              <b className="requirement-title"><LocalizedCopy>{"Yang perlu disiapkan"}</LocalizedCopy></b>
               <ul>
-                {item.requirements.slice(0, 4).map((req) => (
-                  <li key={req}>✓ {req}</li>
-                ))}
+                <LocalizedCopy>{item.requirements.slice(0, 4).map((req) => (
+                  <li key={req}><LocalizedCopy>{"✓ "}</LocalizedCopy><LocalizedCopy>{req}</LocalizedCopy></li>
+                ))}</LocalizedCopy>
               </ul>
               <footer>
                 <span>
-                  <small>Estimasi total</small>
-                  <b>{money.format(item.total_fee)}</b>
+                  <small><LocalizedCopy>{"Estimasi total"}</LocalizedCopy></small>
+                  <b><LocalizedCopy>{money.format(item.total_fee)}</LocalizedCopy></b>
                 </span>
-                <button
+                <LocalizedButton
                   className="primary-button"
                   onClick={() => setSelectedDocument(item)}
-                >
-                  Lihat & ajukan
-                </button>
+                ><LocalizedCopy>{"Lihat & ajukan"}</LocalizedCopy></LocalizedButton>
               </footer>
             </div>
           </article>
-        ))}
+        ))}</LocalizedCopy>
       </div>
       <section className="document-process">
         <header>
-          <small>ALUR PENGAJUAN</small>
-          <h2>Satu timeline, status selalu jelas</h2>
+          <small><LocalizedCopy>{"ALUR PENGAJUAN"}</LocalizedCopy></small>
+          <h2><LocalizedCopy>{"Satu timeline, status selalu jelas"}</LocalizedCopy></h2>
         </header>
         <div>
-          {[
+          <LocalizedCopy>{[
             "Draft & checklist",
             "Verifikasi dokumen",
             "Pemeriksaan",
@@ -964,17 +1047,17 @@ export default function CareMarketplace({ mode, pet, notify }: Props) {
             "Dokumen terbit",
           ].map((item, i) => (
             <span key={item}>
-              <i>{i + 1}</i>
-              <b>{item}</b>
+              <i><LocalizedCopy>{i + 1}</LocalizedCopy></i>
+              <b><LocalizedCopy>{item}</LocalizedCopy></b>
               <small>
-                {i === 0
+                <LocalizedCopy>{i === 0
                   ? "Lengkapi persyaratan dengan panduan"
                   : i === 4
                     ? "Unduh dokumen digital"
-                    : "Notifikasi setiap perubahan"}
+                    : "Notifikasi setiap perubahan"}</LocalizedCopy>
               </small>
             </span>
-          ))}
+          ))}</LocalizedCopy>
         </div>
       </section>
       {selectedDocument && (
@@ -1006,12 +1089,10 @@ function ConsultationPayment({
         className="modal payment-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
-          ×
-        </button>
-        {consultation.batpay ? (
-          <BatpayPaymentPanel
-            payment={consultation.batpay}
+        <LocalizedButton className="modal-close" onClick={close}><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
+        <LocalizedCopy>{consultation.qrisPayment ? (
+          <QrisPaymentPanel
+            payment={consultation.qrisPayment}
             onPaid={() => {
               notify("Pembayaran berhasil. Ruang konsultasi sudah aktif.");
               openRoom({
@@ -1023,10 +1104,10 @@ function ConsultationPayment({
           />
         ) : (
           <>
-            <h2>Pembayaran belum dibuat</h2>
-            <p>Tutup dialog dan pilih paket kembali.</p>
+            <h2><LocalizedCopy>{"Pembayaran belum dibuat"}</LocalizedCopy></h2>
+            <p><LocalizedCopy>{"Tutup dialog dan pilih paket kembali."}</LocalizedCopy></p>
           </>
-        )}
+        )}</LocalizedCopy>
       </section>
     </div>
   );
@@ -1045,11 +1126,46 @@ function ConsultBooking({
   notify: (m: string) => void;
   complete: (c: PayableConsultation) => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [busy, setBusy] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [slots, setSlots] = useState<VeterinarianAvailabilitySlot[]>([]);
+  const [timezone, setTimezone] = useState("Asia/Jakarta");
+  const [selectedSlot, setSelectedSlot] = useState("");
+  const [availabilityLoading, setAvailabilityLoading] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    getVeterinarianAvailability(doctor.id, plan.id)
+      .then((result) => {
+        if (cancelled) return;
+        setSlots(result.data);
+        setTimezone(result.timezone || "Asia/Jakarta");
+      })
+      .catch((error) => {
+        if (!cancelled)
+          notify(
+            error instanceof Error
+              ? error.message
+              : "Slot jadwal dokter belum dapat dimuat",
+          );
+      })
+      .finally(() => {
+        if (!cancelled) setAvailabilityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [doctor.id, notify, plan.id]);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!requireLogin(notify)) return;
+    if (!requirePet()) return;
+    if (planCharge(plan) > 0 && !paymentMethod) return;
+    if (plan.mode !== "chat" && !selectedSlot) {
+      notify("Pilih slot jadwal yang tersedia untuk telepon atau video call.");
+      return;
+    }
     setBusy(true);
     const v = Object.fromEntries(new FormData(event.currentTarget));
     try {
@@ -1061,11 +1177,9 @@ function ConsultBooking({
         symptoms: String(v.symptoms || "")
           .split(",")
           .filter(Boolean),
-        scheduled_at: v.scheduled_at
-          ? new Date(String(v.scheduled_at)).toISOString()
-          : undefined,
+        scheduled_at: selectedSlot || undefined,
       });
-      const batpay =
+      const qrisPayment =
         result.amount > 0
           ? await createPaymentIntent("consultation", result.id, paymentMethod)
           : undefined;
@@ -1076,11 +1190,12 @@ function ConsultBooking({
       );
       complete({
         ...result,
-        batpay,
+        qrisPayment,
         doctor_name: doctor.full_name,
         plan_name: plan.name,
         mode: plan.mode,
         pet_name: pet.name,
+        scheduled_at: selectedSlot || undefined,
       });
     } catch (error) {
       notify(
@@ -1095,8 +1210,8 @@ function ConsultBooking({
   return (
     <form className="consult-booking" onSubmit={submit}>
       <label>
-        <span>Keluhan utama {pet.name}</span>
-        <textarea
+        <span><LocalizedCopy>{"Keluhan utama "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy></span>
+        <LocalizedTextarea
           name="complaint"
           placeholder="Ceritakan gejala, sejak kapan, pola makan, dan perubahan perilaku…"
           required
@@ -1105,39 +1220,71 @@ function ConsultBooking({
       </label>
       <div>
         <label>
-          <span>Gejala (pisahkan koma)</span>
-          <input name="symptoms" placeholder="gatal, nafsu makan turun" />
+          <span><LocalizedCopy>{"Gejala (pisahkan koma)"}</LocalizedCopy></span>
+          <LocalizedInput name="symptoms" placeholder="gatal, nafsu makan turun" />
         </label>
         <label>
-          <span>Jadwal</span>
-          <input name="scheduled_at" type="datetime-local" required />
+          <span><LocalizedCopy>{"Slot jadwal · "}</LocalizedCopy><LocalizedCopy>{timezone}</LocalizedCopy></span>
+          <SlivaSelect aria-label={`Slot jadwal · ${timezone}`}
+            value={selectedSlot}
+            onChange={(event) => setSelectedSlot(event.target.value)}
+            required={plan.mode !== "chat"}
+            disabled={availabilityLoading}
+          >
+            {plan.mode === "chat" && <option value="">Mulai segera</option>}
+            {plan.mode !== "chat" && <option value="">Pilih jadwal</option>}
+            {slots.map((slot) => (
+              <option value={slot.starts_at} key={slot.starts_at}>
+                {new Intl.DateTimeFormat(petOwnerIntlLocale(), {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  timeZone: timezone,
+                }).format(new Date(slot.starts_at))}{" "}
+                · {slot.duration_minutes} menit
+              </option>
+            ))}
+          </SlivaSelect>
         </label>
       </div>
+      <LocalizedCopy>{!availabilityLoading && plan.mode !== "chat" && slots.length === 0 && (
+        <p className="consult-slot-empty"><LocalizedCopy>{"Belum ada slot dokter untuk 14 hari ke depan. Pilih paket chat atau dokter lain."}</LocalizedCopy></p>
+      )}</LocalizedCopy>
       <div className="checkout-line">
-        <span>Total paket</span>
-        {plan.discount_percent > 0 ? (
+        <span><LocalizedCopy>{"Total paket"}</LocalizedCopy></span>
+        <LocalizedCopy>{plan.discount_percent > 0 ? (
           <b className="plan-price-discounted">
-            <s>{money.format(plan.price)}</s>
-            <span>{money.format(planCharge(plan))}</span>
+            <s><LocalizedCopy>{money.format(plan.price)}</LocalizedCopy></s>
+            <span><LocalizedCopy>{money.format(planCharge(plan))}</LocalizedCopy></span>
           </b>
         ) : (
-          <b>{money.format(plan.price)}</b>
-        )}
+          <b><LocalizedCopy>{money.format(plan.price)}</LocalizedCopy></b>
+        )}</LocalizedCopy>
       </div>
-      {planCharge(plan) > 0 && (
+      <LocalizedCopy>{planCharge(plan) > 0 && (
         <PaymentMethodPicker
           value={paymentMethod}
           onChange={setPaymentMethod}
           disabled={busy}
         />
-      )}
-      <button className="primary-button full" disabled={busy}>
-        {busy
+      )}</LocalizedCopy>
+      <LocalizedButton
+        className="primary-button full"
+        disabled={
+          busy ||
+          availabilityLoading ||
+          (planCharge(plan) > 0 && !paymentMethod) ||
+          (plan.mode !== "chat" && !slots.length)
+        }
+      >
+        <LocalizedCopy>{busy
           ? "Membuat pembayaran…"
           : planCharge(plan) > 0
             ? "Lanjut ke pembayaran"
-            : "Mulai konsultasi gratis"}
-      </button>
+            : "Mulai konsultasi gratis"}</LocalizedCopy>
+      </LocalizedButton>
     </form>
   );
 }
@@ -1155,12 +1302,13 @@ function TrainerConsultBooking({
   notify: (message: string) => void;
   complete: (consultation: PayableConsultation) => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [busy, setBusy] = useState(false);
   const [slots, setSlots] = useState<TrainerAvailabilitySlot[]>([]);
   const [timezone, setTimezone] = useState("Asia/Jakarta");
   const [selectedSlot, setSelectedSlot] = useState("");
   const [availabilityLoading, setAvailabilityLoading] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [paymentMethod, setPaymentMethod] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -1188,7 +1336,8 @@ function TrainerConsultBooking({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!requireLogin(notify)) return;
+    if (!requirePet()) return;
+    if (planCharge(plan) > 0 && !paymentMethod) return;
     if (plan.mode !== "chat" && !selectedSlot) {
       notify("Pilih slot jadwal yang tersedia untuk telepon atau video call.");
       return;
@@ -1207,7 +1356,7 @@ function TrainerConsultBooking({
           .filter(Boolean),
         scheduled_at: selectedSlot || undefined,
       });
-      const batpay =
+      const qrisPayment =
         result.amount > 0
           ? await createPaymentIntent("consultation", result.id, paymentMethod)
           : undefined;
@@ -1218,7 +1367,7 @@ function TrainerConsultBooking({
       );
       complete({
         ...result,
-        batpay,
+        qrisPayment,
         doctor_name: trainer.full_name,
         trainer_name: trainer.full_name,
         provider_name: trainer.full_name,
@@ -1242,8 +1391,8 @@ function TrainerConsultBooking({
   return (
     <form className="consult-booking" onSubmit={submit}>
       <label>
-        <span>Tujuan latihan {pet.name}</span>
-        <textarea
+        <span><LocalizedCopy>{"Tujuan latihan "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy></span>
+        <LocalizedTextarea
           name="goal"
           placeholder="Contoh: mengurangi reaktivitas saat bertemu anjing lain…"
           required
@@ -1252,15 +1401,15 @@ function TrainerConsultBooking({
       </label>
       <div>
         <label>
-          <span>Catatan perilaku (pisahkan koma)</span>
-          <input
+          <span><LocalizedCopy>{"Catatan perilaku (pisahkan koma)"}</LocalizedCopy></span>
+          <LocalizedInput
             name="behavior_notes"
             placeholder="menarik leash, mudah terdistraksi"
           />
         </label>
         <label>
-          <span>Slot jadwal · {timezone}</span>
-          <select
+          <span><LocalizedCopy>{"Slot jadwal · "}</LocalizedCopy><LocalizedCopy>{timezone}</LocalizedCopy></span>
+          <SlivaSelect aria-label={`Slot jadwal · ${timezone}`}
             value={selectedSlot}
             onChange={(event) => setSelectedSlot(event.target.value)}
             required={plan.mode !== "chat"}
@@ -1270,7 +1419,7 @@ function TrainerConsultBooking({
             {plan.mode !== "chat" && <option value="">Pilih jadwal</option>}
             {slots.map((slot) => (
               <option value={slot.starts_at} key={slot.starts_at}>
-                {new Intl.DateTimeFormat("id-ID", {
+                {new Intl.DateTimeFormat(petOwnerIntlLocale(), {
                   weekday: "short",
                   day: "numeric",
                   month: "short",
@@ -1281,45 +1430,45 @@ function TrainerConsultBooking({
                 · {slot.duration_minutes} menit
               </option>
             ))}
-          </select>
+          </SlivaSelect>
         </label>
       </div>
-      {!availabilityLoading && plan.mode !== "chat" && slots.length === 0 && (
-        <p className="consult-slot-empty">
-          Belum ada slot untuk 14 hari ke depan. Pilih paket chat atau trainer
-          lain.
-        </p>
-      )}
+      <LocalizedCopy>{!availabilityLoading && plan.mode !== "chat" && slots.length === 0 && (
+        <p className="consult-slot-empty"><LocalizedCopy>{"Belum ada slot untuk 14 hari ke depan. Pilih paket chat atau trainer lain."}</LocalizedCopy></p>
+      )}</LocalizedCopy>
       <div className="checkout-line">
-        <span>Total paket</span>
-        {plan.discount_percent > 0 ? (
+        <span><LocalizedCopy>{"Total paket"}</LocalizedCopy></span>
+        <LocalizedCopy>{plan.discount_percent > 0 ? (
           <b className="plan-price-discounted">
-            <s>{money.format(plan.price)}</s>
-            <span>{money.format(planCharge(plan))}</span>
+            <s><LocalizedCopy>{money.format(plan.price)}</LocalizedCopy></s>
+            <span><LocalizedCopy>{money.format(planCharge(plan))}</LocalizedCopy></span>
           </b>
         ) : (
-          <b>{money.format(plan.price)}</b>
-        )}
+          <b><LocalizedCopy>{money.format(plan.price)}</LocalizedCopy></b>
+        )}</LocalizedCopy>
       </div>
-      {planCharge(plan) > 0 && (
+      <LocalizedCopy>{planCharge(plan) > 0 && (
         <PaymentMethodPicker
           value={paymentMethod}
           onChange={setPaymentMethod}
           disabled={busy}
         />
-      )}
-      <button
+      )}</LocalizedCopy>
+      <LocalizedButton
         className="primary-button full"
         disabled={
-          busy || availabilityLoading || (plan.mode !== "chat" && !slots.length)
+          busy ||
+          availabilityLoading ||
+          (planCharge(plan) > 0 && !paymentMethod) ||
+          (plan.mode !== "chat" && !slots.length)
         }
       >
-        {busy
+        <LocalizedCopy>{busy
           ? "Membuat pembayaran…"
           : planCharge(plan) > 0
             ? "Booking & lanjut pembayaran"
-            : "Booking konsultasi gratis"}
-      </button>
+            : "Booking konsultasi gratis"}</LocalizedCopy>
+      </LocalizedButton>
     </form>
   );
 }
@@ -1571,29 +1720,27 @@ function ConsultationRoom({
   return (
     <div className="modal-overlay">
       <section className="modal consult-room-modal">
-        <button className="modal-close" onClick={close}>
-          ×
-        </button>
+        <LocalizedButton className="modal-close" onClick={close}><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
         <header>
           <div>
-            <small>{state}</small>
+            <small><LocalizedCopy>{state}</LocalizedCopy></small>
             <h2>
-              {consultation.provider_name ||
+              <LocalizedCopy>{consultation.provider_name ||
                 consultation.trainer_name ||
-                consultation.doctor_name}
+                consultation.doctor_name}</LocalizedCopy>
             </h2>
             <p>
-              {consultation.pet_name} · {consultation.plan_name}
+              <LocalizedCopy preserve>{consultation.pet_name}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{consultation.plan_name}</LocalizedCopy>
             </p>
           </div>
           <div>
-            {voiceAllowed && (
-              <button onClick={() => void startCall(false)}>📞</button>
-            )}
-            {videoAllowed && (
-              <button onClick={() => void startCall(true)}>🎥</button>
-            )}
-            <button
+            <LocalizedCopy>{voiceAllowed && (
+              <LocalizedButton onClick={() => void startCall(false)}><LocalizedCopy>{"📞"}</LocalizedCopy></LocalizedButton>
+            )}</LocalizedCopy>
+            <LocalizedCopy>{videoAllowed && (
+              <LocalizedButton onClick={() => void startCall(true)}><LocalizedCopy>{"🎥"}</LocalizedCopy></LocalizedButton>
+            )}</LocalizedCopy>
+            <LocalizedButton
               className="danger"
               onClick={() => {
                 socketRef.current?.emit("call:end", {
@@ -1601,9 +1748,7 @@ function ConsultationRoom({
                 });
                 endCall();
               }}
-            >
-              ×
-            </button>
+            ><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
           </div>
         </header>
         <div
@@ -1630,12 +1775,10 @@ function ConsultationRoom({
               background: "#102f45",
             }}
           />
-          {call === "ringing" && (
+          <LocalizedCopy>{call === "ringing" && (
             <div className="inline-actions">
-              <button className="primary-button" onClick={() => void accept()}>
-                Terima panggilan
-              </button>
-              <button
+              <LocalizedButton className="primary-button" onClick={() => void accept()}><LocalizedCopy>{"Terima panggilan"}</LocalizedCopy></LocalizedButton>
+              <LocalizedButton
                 className="secondary-button"
                 onClick={() => {
                   socketRef.current?.emit("call:reject", {
@@ -1643,30 +1786,26 @@ function ConsultationRoom({
                   });
                   endCall();
                 }}
-              >
-                Tolak
-              </button>
+              ><LocalizedCopy>{"Tolak"}</LocalizedCopy></LocalizedButton>
             </div>
-          )}
+          )}</LocalizedCopy>
         </div>
         <div className="consult-messages">
-          {messages.length === 0 && (
+          <LocalizedCopy>{messages.length === 0 && (
             <div className="room-welcome">
-              <span>🩺</span>
-              <b>Ruang konsultasi privat</b>
-              <small>
-                Pesan disimpan aman dan dirangkum ke medical record.
-              </small>
+              <span><LocalizedCopy>{"🩺"}</LocalizedCopy></span>
+              <b><LocalizedCopy>{"Ruang konsultasi privat"}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Pesan disimpan aman dan dirangkum ke medical record."}</LocalizedCopy></small>
             </div>
-          )}
-          {messages.map((m) => (
+          )}</LocalizedCopy>
+          <LocalizedCopy>{messages.map((m) => (
             <p className={m.mine ? "mine" : ""} key={m.id}>
-              {m.body}
+              <LocalizedCopy>{m.body}</LocalizedCopy>
             </p>
-          ))}
+          ))}</LocalizedCopy>
         </div>
         <footer>
-          <input
+          <LocalizedInput
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
@@ -1674,7 +1813,7 @@ function ConsultationRoom({
             }}
             placeholder="Tulis pesan untuk dokter…"
           />
-          <button onClick={send}>Kirim</button>
+          <LocalizedButton onClick={send}><LocalizedCopy>{"Kirim"}</LocalizedCopy></LocalizedButton>
         </footer>
       </section>
     </div>
@@ -1683,23 +1822,54 @@ function ConsultationRoom({
 
 function AdoptionListingModal({
   pet,
+  pets,
   close,
   notify,
   created,
 }: {
   pet: Pet;
+  pets: Pet[];
   close: () => void;
   notify: (m: string) => void;
   created: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
+  const [petID, setPetID] = useState(
+    pets.some((item) => item.id === pet.id) ? pet.id : (pets[0]?.id ?? ""),
+  );
+  const selectedPet = pets.find((item) => item.id === petID);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  async function upload(files: FileList | null) {
+    if (!files || uploading) return;
+    if (photos.length + files.length > 10) {
+      notify("Maksimal 10 foto");
+      return;
+    }
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/"))
+          throw new Error("Gunakan file foto");
+        const result = await uploadImage(file);
+        setPhotos((current) => [...current, result.url]);
+      }
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Upload foto gagal");
+    } finally {
+      setUploading(false);
+    }
+  }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending.current || uploading || !selectedPet) return;
+    pending.current = true;
     setBusy(true);
     const values = Object.fromEntries(new FormData(event.currentTarget));
     try {
       await createAdoptionListing({
-        pet_id: pet.id,
+        pet_id: selectedPet.id,
         city: values.city,
         description: values.description,
         personality: String(values.personality || "")
@@ -1709,7 +1879,11 @@ function AdoptionListingModal({
         health_status: values.health_status,
         vaccinated: values.vaccinated === "yes",
         sterilized: values.sterilized === "yes",
-        photo_urls: pet.photoUrl ? [pet.photoUrl] : [],
+        photo_urls: photos.length
+          ? photos
+          : selectedPet.photoUrl
+            ? [selectedPet.photoUrl]
+            : [],
         adoption_fee: Number(values.adoption_fee || 0),
       });
       await created();
@@ -1720,6 +1894,7 @@ function AdoptionListingModal({
         error instanceof Error ? error.message : "Pengajuan belum dapat dibuat",
       );
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   }
@@ -1727,29 +1902,87 @@ function AdoptionListingModal({
     <div className="modal-overlay" onMouseDown={close}>
       <section
         className="modal form-modal adoption-listing-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Ajukan pet untuk adopsi"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
-          ×
-        </button>
-        <span className="section-eyebrow">AJUKAN PET SAYA</span>
-        <h2>Carikan keluarga baru untuk {pet.name}</h2>
-        <p className="muted-copy">
-          Hanya pet milikmu yang dapat diajukan. Data identitas dan kesehatan
-          akan diperiksa sebelum listing tampil.
-        </p>
+        <LocalizedButton className="modal-close" onClick={close}><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
+        <span className="section-eyebrow"><LocalizedCopy>{"AJUKAN PET SAYA"}</LocalizedCopy></span>
+        <h2><LocalizedCopy>{"Mulai pet passport adopsi"}</LocalizedCopy></h2>
+        <p className="muted-copy"><LocalizedCopy>{"Hanya pet milikmu yang dapat diajukan. Data identitas dan kesehatan akan diperiksa sebelum listing tampil."}</LocalizedCopy></p>
         <form className="world-form" onSubmit={submit}>
           <label>
-            <span>Pet</span>
-            <input value={`${pet.name} · ${pet.breed}`} readOnly />
+            <span><LocalizedCopy>{"Pet"}</LocalizedCopy></span>
+            <SlivaSelect aria-label="Pet"
+              value={petID}
+              disabled={uploading || busy}
+              onChange={(event) => {
+                setPetID(event.target.value);
+                setPhotos([]);
+              }}
+              required
+            >
+              <option value="" disabled>
+                Pilih pet dari koleksi
+              </option>
+              {pets.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} · {item.breed}
+                </option>
+              ))}
+            </SlivaSelect>
           </label>
           <label>
-            <span>Kota domisili</span>
-            <input name="city" minLength={2} required />
+            <span><LocalizedCopy>{"Galeri foto (maksimal 10)"}</LocalizedCopy></span>
+            <SlivaFilePicker
+              type="file"
+              accept="image/*"
+              multiple
+              disabled={uploading || busy}
+              onChange={(event) => void upload(event.target.files)}
+            />
+            <small>
+              <LocalizedCopy>{uploading
+                ? "Mengunggah foto…"
+                : photos.length
+                  ? `${photos.length} foto diunggah`
+                  : "Foto profil pet dipakai jika tidak menambah foto."}</LocalizedCopy>
+            </small>
+          </label>
+          <LocalizedCopy>{photos.length > 0 && (
+            <div className="adoption-upload-grid">
+              <LocalizedCopy>{photos.map((url, index) => (
+                <LocalizedButton
+                  type="button"
+                  key={url}
+                  onClick={() =>
+                    setPhotos((current) =>
+                      current.filter((_, i) => i !== index),
+                    )
+                  }
+                  aria-label={`Hapus foto ${index + 1}`}
+                  disabled={uploading || busy}
+                >
+                  <NextImage
+                    src={url}
+                    alt={`Foto pet ${index + 1}`}
+                    width={120}
+                    height={120}
+                    unoptimized
+                  />
+                  <span><LocalizedCopy>{"×"}</LocalizedCopy></span>
+                </LocalizedButton>
+              ))}</LocalizedCopy>
+            </div>
+          )}</LocalizedCopy>
+          <label>
+            <span><LocalizedCopy>{"Kota domisili"}</LocalizedCopy></span>
+            <LocalizedInput name="city" minLength={2} required />
           </label>
           <label>
-            <span>Cerita & alasan adopsi</span>
-            <textarea
+            <span><LocalizedCopy>{"Cerita & alasan adopsi"}</LocalizedCopy></span>
+            <LocalizedTextarea
               name="description"
               minLength={20}
               placeholder="Ceritakan kebutuhan, kebiasaan, dan alasan mencari keluarga baru tanpa membagikan kontak pribadi."
@@ -1757,44 +1990,51 @@ function AdoptionListingModal({
             />
           </label>
           <label>
-            <span>Karakter (pisahkan koma)</span>
-            <input name="personality" placeholder="ramah, tenang, indoor" />
+            <span><LocalizedCopy>{"Karakter (pisahkan koma)"}</LocalizedCopy></span>
+            <LocalizedInput name="personality" placeholder="ramah, tenang, indoor" />
           </label>
           <label>
-            <span>Kondisi kesehatan</span>
-            <textarea
+            <span><LocalizedCopy>{"Kondisi kesehatan"}</LocalizedCopy></span>
+            <LocalizedTextarea
               name="health_status"
               placeholder="Pemeriksaan terakhir, obat rutin, atau kebutuhan khusus"
             />
           </label>
           <div className="form-two">
             <label>
-              <span>Status vaksin</span>
-              <select name="vaccinated">
-                <option value="yes">Lengkap</option>
-                <option value="no">Belum lengkap</option>
-              </select>
+              <span><LocalizedCopy>{"Status vaksin"}</LocalizedCopy></span>
+              <SlivaSelect aria-label="Status vaksin" name="vaccinated">
+                <option value="no">Belum dikonfirmasi</option>
+                <option value="yes">Sudah vaksin</option>
+              </SlivaSelect>
             </label>
             <label>
-              <span>Sterilisasi</span>
-              <select name="sterilized">
+              <span><LocalizedCopy>{"Sterilisasi"}</LocalizedCopy></span>
+              <SlivaSelect aria-label="Sterilisasi" name="sterilized">
+                <option value="no">Belum dikonfirmasi</option>
                 <option value="yes">Sudah</option>
-                <option value="no">Belum</option>
-              </select>
+              </SlivaSelect>
             </label>
           </div>
           <label>
-            <span>Donasi biaya perawatan (opsional)</span>
-            <input name="adoption_fee" type="number" min="0" defaultValue="0" />
+            <span><LocalizedCopy>{"Biaya adopsi tetap (Rp) · 0 jika gratis"}</LocalizedCopy></span>
+            <LocalizedInput
+              name="adoption_fee"
+              type="number"
+              min="0"
+              max="100000000"
+              step="1"
+              defaultValue="0"
+            />
+            <small><LocalizedCopy>{"Jelaskan alasan biaya di cerita pet. Tidak ada penawaran harga atau pembayaran saat screening."}</LocalizedCopy></small>
           </label>
-          <div className="adoption-review-note">
-            Setelah dikirim: pemeriksaan oleh tim Operasional & Pendamping
-            Adopsi → publikasi → screening calon adopter → persetujuan pet owner
-            → serah terima terpantau.
-          </div>
-          <button className="primary-button full" disabled={busy}>
-            {busy ? "Mengirim pengajuan…" : "Kirim untuk diperiksa"}
-          </button>
+          <div className="adoption-review-note"><LocalizedCopy>{"Setelah dikirim: pemeriksaan oleh tim Operasional & Pendamping Adopsi → publikasi → screening calon adopter → persetujuan pet owner → serah terima terpantau."}</LocalizedCopy></div>
+          <LocalizedButton
+            className="primary-button full"
+            disabled={busy || uploading || !selectedPet}
+          >
+            <LocalizedCopy>{busy ? "Mengirim pengajuan…" : "Kirim untuk diperiksa"}</LocalizedCopy>
+          </LocalizedButton>
         </form>
       </section>
     </div>
@@ -1810,10 +2050,16 @@ function AdoptionModal({
   close: () => void;
   notify: (m: string) => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [step, setStep] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!requireLogin(notify)) return;
+    if (!requirePet()) return;
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
     const v = Object.fromEntries(new FormData(event.currentTarget));
     try {
       await applyAdoption(item.id, {
@@ -1828,120 +2074,138 @@ function AdoptionModal({
           ? error.message
           : "Pengajuan belum dapat dikirim",
       );
+    } finally {
+      pending.current = false;
+      setBusy(false);
     }
   }
   return (
     <div className="modal-overlay" onMouseDown={close}>
       <section
         className="modal adoption-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Pet passport ${item.name}`}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
-          ×
-        </button>
-        {step === 2 ? (
+        <LocalizedButton className="modal-close" onClick={close}><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
+        <LocalizedCopy>{step !== 2 && (
+          <AdoptionGallery photos={item.photo_urls ?? []} name={item.name} />
+        )}</LocalizedCopy>
+        <LocalizedCopy>{step === 2 ? (
           <div className="world-success">
-            <span>✓</span>
-            <h2>Pengajuan terkirim</h2>
-            <p>
-              Tim pendamping dan pet owner akan meninjau kesiapan adopter
-              sebelum menjadwalkan meet & greet bersama {item.name}.
-            </p>
-            <button className="primary-button" onClick={close}>
-              Selesai
-            </button>
+            <span><LocalizedCopy>{"✓"}</LocalizedCopy></span>
+            <h2><LocalizedCopy>{"Pengajuan terkirim"}</LocalizedCopy></h2>
+            <p><LocalizedCopy>{"Tim pendamping dan pet owner akan meninjau kesiapan adopter sebelum menjadwalkan meet & greet bersama "}</LocalizedCopy><LocalizedCopy>{item.name}</LocalizedCopy><LocalizedCopy>{"."}</LocalizedCopy></p>
+            <LocalizedButton className="primary-button" onClick={close}><LocalizedCopy>{"Selesai"}</LocalizedCopy></LocalizedButton>
           </div>
         ) : (
           <>
             <div className="care-doctor-head">
-              <span>{item.species.toLowerCase() === "cat" ? "🐈" : "🐕"}</span>
+              <span><LocalizedCopy>{item.species.toLowerCase() === "cat" ? "🐈" : "🐕"}</LocalizedCopy></span>
               <div>
-                <small>
-                  RESPONSIBLE ADOPTION ·{" "}
-                  {item.source_type === "pet_owner" ? "PET OWNER" : "MITRA"}
+                <small><LocalizedCopy>{"RESPONSIBLE ADOPTION ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                  <LocalizedCopy>{item.source_type === "pet_owner" ? "PET OWNER" : "MITRA"}</LocalizedCopy>
                 </small>
-                <h2>Kenalan dengan {item.name}</h2>
+                <h2><LocalizedCopy>{"Kenalan dengan "}</LocalizedCopy><LocalizedCopy>{item.name}</LocalizedCopy></h2>
                 <p>
-                  {item.breed} · {item.city}
+                  <LocalizedCopy>{item.breed}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{item.city}</LocalizedCopy>
                 </p>
               </div>
             </div>
             {step === 0 ? (
               <>
-                <p>{item.description}</p>
+                <p><LocalizedCopy>{item.description}</LocalizedCopy></p>
+                <div className="adoption-passport-fee">
+                  <small><LocalizedCopy>{"BIAYA ADOPSI TETAP"}</LocalizedCopy></small>
+                  <strong>
+                    <LocalizedCopy>{item.adoption_fee
+                      ? money.format(item.adoption_fee)
+                      : "Tanpa biaya"}</LocalizedCopy>
+                  </strong>
+                  <p><LocalizedCopy>{"Pengajuan screening gratis. Biaya tidak ditarik otomatis dan bukan penawaran lelang."}</LocalizedCopy></p>
+                </div>
+                <div className="pet-tags">
+                  <LocalizedCopy>{item.personality.map((trait) => (
+                    <span key={trait}><LocalizedCopy>{trait}</LocalizedCopy></span>
+                  ))}</LocalizedCopy>
+                </div>
                 <div className="world-detail-grid">
                   <span>
-                    <small>Diajukan oleh</small>
-                    <b>{item.submitted_by_name}</b>
+                    <small><LocalizedCopy>{"Diajukan oleh"}</LocalizedCopy></small>
+                    <b><LocalizedCopy>{item.submitted_by_name}</LocalizedCopy></b>
                   </span>
                   <span>
-                    <small>Kesehatan</small>
-                    <b>{item.health_status}</b>
+                    <small><LocalizedCopy>{"Kesehatan"}</LocalizedCopy></small>
+                    <b><LocalizedCopy>{item.health_status}</LocalizedCopy></b>
                   </span>
                   <span>
-                    <small>Vaksin</small>
-                    <b>{item.vaccinated ? "Lengkap" : "Dalam proses"}</b>
+                    <small><LocalizedCopy>{"Vaksin"}</LocalizedCopy></small>
+                    <b>
+                      <LocalizedCopy>{item.vaccinated ? "Sudah vaksin" : "Belum dikonfirmasi"}</LocalizedCopy>
+                    </b>
                   </span>
                   <span>
-                    <small>Sterilisasi</small>
-                    <b>{item.sterilized ? "Sudah" : "Belum"}</b>
+                    <small><LocalizedCopy>{"Sterilisasi"}</LocalizedCopy></small>
+                    <b><LocalizedCopy>{item.sterilized ? "Sudah" : "Belum dikonfirmasi"}</LocalizedCopy></b>
                   </span>
                 </div>
-                <button
+                <div className="adoption-review-note"><LocalizedCopy>{"1. Screening kesiapan keluarga · 2. Tinjauan pet owner & pendamping · 3. Meet & greet · 4. Persetujuan dan serah terima. Pengajuan bukan jaminan langsung diterima."}</LocalizedCopy></div>
+                <LocalizedButton
                   className="primary-button full"
-                  onClick={() => setStep(1)}
-                >
-                  Mulai screening adopter
-                </button>
+                  onClick={() => requirePet() && setStep(1)}
+                ><LocalizedCopy>{"Mulai screening adopter"}</LocalizedCopy></LocalizedButton>
               </>
             ) : (
               <form className="world-form" onSubmit={submit}>
+                <LocalizedButton
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setStep(0)}
+                ><LocalizedCopy>{"← Kembali ke pet passport"}</LocalizedCopy></LocalizedButton>
                 <label>
-                  <span>Nama lengkap</span>
-                  <input name="applicant_name" required />
+                  <span><LocalizedCopy>{"Nama lengkap"}</LocalizedCopy></span>
+                  <LocalizedInput name="applicant_name" required />
                 </label>
                 <label>
-                  <span>Nomor untuk verifikasi privat</span>
-                  <input name="phone" inputMode="tel" required />
+                  <span><LocalizedCopy>{"Nomor untuk verifikasi privat"}</LocalizedCopy></span>
+                  <LocalizedInput name="phone" inputMode="tel" required />
                 </label>
                 <label>
-                  <span>Alamat tempat tinggal</span>
-                  <textarea name="address" required />
+                  <span><LocalizedCopy>{"Alamat tempat tinggal"}</LocalizedCopy></span>
+                  <LocalizedTextarea name="address" required />
                 </label>
                 <label>
-                  <span>Tipe hunian</span>
-                  <select name="housing_type">
+                  <span><LocalizedCopy>{"Tipe hunian"}</LocalizedCopy></span>
+                  <SlivaSelect aria-label="Tipe hunian" name="housing_type">
                     <option>Rumah milik</option>
                     <option>Rumah sewa</option>
                     <option>Apartemen</option>
-                  </select>
+                  </SlivaSelect>
                 </label>
                 <label>
-                  <span>Memiliki pet lain?</span>
-                  <select name="has_other_pets">
+                  <span><LocalizedCopy>{"Memiliki pet lain?"}</LocalizedCopy></span>
+                  <SlivaSelect aria-label="Memiliki pet lain?" name="has_other_pets">
                     <option value="no">Tidak</option>
                     <option value="yes">Ya</option>
-                  </select>
+                  </SlivaSelect>
                 </label>
                 <label>
-                  <span>Mengapa ingin mengadopsi {item.name}?</span>
-                  <textarea name="reason" required />
+                  <span><LocalizedCopy>{"Mengapa ingin mengadopsi "}</LocalizedCopy><LocalizedCopy>{item.name}</LocalizedCopy><LocalizedCopy>{"?"}</LocalizedCopy></span>
+                  <LocalizedTextarea name="reason" minLength={10} required />
                 </label>
                 <label>
-                  <span>Pengalaman merawat pet</span>
-                  <textarea name="experience" />
+                  <span><LocalizedCopy>{"Pengalaman merawat pet"}</LocalizedCopy></span>
+                  <LocalizedTextarea name="experience" />
                 </label>
-                <p className="muted-copy">
-                  Kontak disimpan untuk proses verifikasi dan tidak tampil pada
-                  posting atau percakapan publik.
-                </p>
-                <button className="primary-button full">
-                  Kirim pengajuan screening
-                </button>
+                <p className="muted-copy"><LocalizedCopy>{"Kontak disimpan untuk proses verifikasi dan tidak tampil pada posting atau percakapan publik."}</LocalizedCopy></p>
+                <LocalizedButton className="primary-button full" disabled={busy}>
+                  <LocalizedCopy>{busy ? "Mengirim pengajuan…" : "Kirim pengajuan screening"}</LocalizedCopy>
+                </LocalizedButton>
               </form>
             )}
           </>
-        )}
+        )}</LocalizedCopy>
       </section>
     </div>
   );
@@ -1958,14 +2222,21 @@ function DocumentModal({
   close: () => void;
   notify: (m: string) => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [done, setDone] = useState("");
   const [busy, setBusy] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [requestNumber, setRequestNumber] = useState("");
+  const [requestId, setRequestId] = useState("");
+  const [uploaded, setUploaded] = useState<UploadedDocument[]>([]);
+  const allUploaded = item.requirements.every((req) =>
+    uploaded.some((doc) => doc.requirement === req),
+  );
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!requireLogin(notify)) return;
+    if (!requirePet()) return;
+    if (item.total_fee > 0 && !paymentMethod) return;
     setBusy(true);
     const v = Object.fromEntries(new FormData(event.currentTarget));
     try {
@@ -1978,9 +2249,10 @@ function DocumentModal({
           ? new Date(String(v.departure_at)).toISOString()
           : undefined,
         transport_type: v.transport_type,
-        submitted_documents: [],
+        submitted_documents: uploaded,
       });
       setRequestNumber(result.request_number);
+      setRequestId(result.id);
       if (result.amount > 0)
         setPayment(
           await createPaymentIntent(
@@ -1989,7 +2261,7 @@ function DocumentModal({
             paymentMethod,
           ),
         );
-      else setDone(result.request_number);
+      else { close(); notify("Permohonan dokumen tersimpan di Aktivitas."); }
       notify(
         result.amount > 0
           ? "Permohonan dibuat, selesaikan pembayaran"
@@ -2011,98 +2283,106 @@ function DocumentModal({
         className="modal document-modal"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
-          ×
-        </button>
-        {done ? (
+        <LocalizedButton className="modal-close" onClick={close}><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
+        <LocalizedCopy>{done ? (
           <div className="world-success">
-            <span>▤</span>
-            <h2>Permohonan dibuat</h2>
-            <p>
-              Nomor {done}. Checklist dan status proses tersedia di Aktivitas.
-            </p>
-            <button className="primary-button" onClick={close}>
-              Pantau dokumen
-            </button>
+            <span><LocalizedCopy>{"▤"}</LocalizedCopy></span>
+            <h2><LocalizedCopy>{"Permohonan dibuat"}</LocalizedCopy></h2>
+            <p><LocalizedCopy>{"Nomor "}</LocalizedCopy><LocalizedCopy>{done}</LocalizedCopy><LocalizedCopy>{". Checklist dan status proses tersedia di Aktivitas."}</LocalizedCopy></p>
+            <LocalizedButton
+              className="primary-button"
+              onClick={() => {
+                close();
+                window.dispatchEvent(
+                  new CustomEvent("slivadoc:open-activity", {
+                    detail: { type: "document", id: requestId },
+                  }),
+                );
+              }}
+            ><LocalizedCopy>{"Pantau dokumen"}</LocalizedCopy></LocalizedButton>
           </div>
         ) : payment ? (
-          <BatpayPaymentPanel
+          <QrisPaymentPanel
             payment={payment}
             onPaid={() => setDone(requestNumber)}
           />
         ) : (
           <>
             <small className="world-kicker">
-              {item.code} · {item.processing_days} HARI KERJA
-            </small>
-            <h2>{item.name}</h2>
-            <p>{item.description}</p>
+              <LocalizedCopy>{item.code}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{item.processing_days}</LocalizedCopy><LocalizedCopy>{" HARI KERJA"}</LocalizedCopy></small>
+            <h2><LocalizedCopy>{item.name}</LocalizedCopy></h2>
+            <p><LocalizedCopy>{item.description}</LocalizedCopy></p>
             <form className="world-form" onSubmit={submit}>
               <label>
-                <span>Pet</span>
-                <input value={`${pet.name} · ${pet.breed}`} readOnly />
+                <span><LocalizedCopy>{"Pet"}</LocalizedCopy></span>
+                <LocalizedInput value={`${pet.name} · ${pet.breed}`} readOnly />
               </label>
-              {item.category !== "birth_certificate" && (
+              <LocalizedCopy>{item.category !== "birth_certificate" && (
                 <>
                   <div className="form-two">
                     <label>
-                      <span>Kota asal</span>
-                      <input name="origin_city" required />
+                      <span><LocalizedCopy>{"Kota asal"}</LocalizedCopy></span>
+                      <LocalizedInput name="origin_city" required />
                     </label>
                     <label>
-                      <span>Kota / negara tujuan</span>
-                      <input name="destination_city" required />
+                      <span><LocalizedCopy>{"Kota / negara tujuan"}</LocalizedCopy></span>
+                      <LocalizedInput name="destination_city" required />
                     </label>
                   </div>
                   <div className="form-two">
                     <label>
-                      <span>Tanggal berangkat</span>
-                      <input
+                      <span><LocalizedCopy>{"Tanggal berangkat"}</LocalizedCopy></span>
+                      <SlivaDatePicker
                         name="departure_at"
                         type="datetime-local"
                         required
                       />
                     </label>
                     <label>
-                      <span>Transportasi</span>
-                      <select name="transport_type">
+                      <span><LocalizedCopy>{"Transportasi"}</LocalizedCopy></span>
+                      <SlivaSelect aria-label="Transportasi" name="transport_type">
                         <option value="flight">Pesawat</option>
                         <option value="ship">Kapal</option>
-                      </select>
+                      </SlivaSelect>
                     </label>
                   </div>
                 </>
-              )}
-              <div className="requirement-upload">
-                {item.requirements.map((req) => (
-                  <label key={req}>
-                    <span>✓ {req}</span>
-                    <input type="file" accept="image/*,.pdf" />
-                    <button type="button">Unggah</button>
-                  </label>
-                ))}
-              </div>
+              )}</LocalizedCopy>
+              <RequirementUploads
+                requirements={item.requirements}
+                value={uploaded}
+                onChange={setUploaded}
+                disabled={busy}
+              />
               <div className="checkout-line">
-                <span>Estimasi biaya</span>
-                <b>{money.format(item.total_fee)}</b>
+                <span><LocalizedCopy>{"Estimasi biaya"}</LocalizedCopy></span>
+                <b><LocalizedCopy>{money.format(item.total_fee)}</LocalizedCopy></b>
               </div>
-              {item.total_fee > 0 && (
+              <LocalizedCopy>{item.total_fee > 0 && (
                 <PaymentMethodPicker
                   value={paymentMethod}
                   onChange={setPaymentMethod}
                   disabled={busy}
                 />
-              )}
-              <button className="primary-button full" disabled={busy}>
-                {busy
+              )}</LocalizedCopy>
+              <LocalizedCopy>{!allUploaded && (
+                <small className="requirement-upload-hint"><LocalizedCopy>{"Unggah semua dokumen persyaratan"}</LocalizedCopy></small>
+              )}</LocalizedCopy>
+              <LocalizedButton
+                className="primary-button full"
+                disabled={
+                  busy || !allUploaded || (item.total_fee > 0 && !paymentMethod)
+                }
+              >
+                <LocalizedCopy>{busy
                   ? "Membuat pembayaran…"
                   : item.total_fee > 0
                     ? "Ajukan & lanjut pembayaran"
-                    : "Ajukan dokumen"}
-              </button>
+                    : "Ajukan dokumen"}</LocalizedCopy>
+              </LocalizedButton>
             </form>
           </>
-        )}
+        )}</LocalizedCopy>
       </section>
     </div>
   );

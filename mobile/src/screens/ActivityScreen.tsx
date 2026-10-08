@@ -1,49 +1,83 @@
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
+import { SlivaAlert } from "../components/SlivaAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   Modal,
-  Pressable,
+
   ScrollView,
   StyleSheet,
   View,
 } from "react-native";
+import QRCode from "react-native-qrcode-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { WebView } from "react-native-webview";
 
 import {
-  getMobileActivityCenter,
-  getMobilePetSpotReservations,
+  cancelMobileBooking,
+  cancelMobileOrder,
+  MobileApiError,
   createMobilePaymentIntent,
   getMobileTransactionInvoiceHTML,
-  type MobilePetSpotReservation,
+  requestMobileOrderReturn,
+  resubmitMobileDocuments,
   type MobilePaymentIntent,
   type MobileActivityCenterItem,
   type MobileActivityOrderItem,
   type MobileActivityState,
   type MobileActivityType,
+  type MobileOrderFulfillment,
 } from "../api";
+import {
+  activityAttentionReason,
+  activityStatusLabel,
+  activityStatusTone,
+  activityTypePresentation,
+  emptyActivitySummary,
+  getActivityTypePresentation,
+} from "../activity";
 import {
   BoundedBottomSheet,
   Card,
+  ChatUnreadBadge,
   EmptyState,
   PetRequiredNotice,
   Pill,
   PrimaryButton,
   Screen,
+  useAppSurface,
 } from "../components/ui";
-import { MobileBatpayModal, MobilePaymentMethods } from "../components/BatpayPayment";
-import { LocalizedText as Text, useI18n } from "../i18n";
+import { MobileQrisModal } from "../components/QrisPayment";
+import {
+  completeDocuments,
+  DocumentPhotoPicker,
+  type DocumentPhotos,
+} from "../components/DocumentPhotoPicker";
+import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
 import { colors, shadow, typography } from "../theme";
 
 type TypeFilter = MobileActivityType | "all";
-type PillTone = "blue" | "mint" | "yellow" | "violet" | "red";
+type ActivityKey = { type: MobileActivityType; id: string };
+type SelectedActivity = ActivityKey & {
+  autoPay: boolean;
+  fallback: MobileActivityCenterItem;
+};
 
 type ActivityScreenProps = {
   authenticated: boolean;
   hasPet: boolean;
-  refreshVersion: number;
+  activities: MobileActivityCenterItem[];
+  summary?: Record<MobileActivityType, number>;
+  loading: boolean;
+  onReload: () => Promise<void>;
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
+  // Without an id the intent only applies the type filter.
+  intent?: { token: number; type: MobileActivityType; id?: string };
+  onIntentHandled: (token: number) => void;
   onAction: (message: string) => void;
   onOpenNotifications: () => void;
   onLogin: () => void;
@@ -63,9 +97,16 @@ const typeOptions: Array<{
   icon: keyof typeof Ionicons.glyphMap;
 }> = [
   { id: "all", label: "Semua", icon: "sparkles-outline" },
-  { id: "booking", label: "Booking", icon: "calendar-outline" },
-  { id: "order", label: "Belanja", icon: "bag-handle-outline" },
-  { id: "consultation", label: "Konsultasi", icon: "chatbubbles-outline" },
+  { id: "booking", ...activityTypePresentation.booking },
+  { id: "order", ...activityTypePresentation.order },
+  { id: "consultation", ...activityTypePresentation.consultation },
+  { id: "academy", ...activityTypePresentation.academy },
+  { id: "event", ...activityTypePresentation.event },
+  { id: "reservation", ...activityTypePresentation.reservation },
+  { id: "document", ...activityTypePresentation.document },
+  { id: "donation", ...activityTypePresentation.donation },
+  { id: "hotel", ...activityTypePresentation.hotel },
+  { id: "home_service", ...activityTypePresentation.home_service },
 ];
 
 const stateOptions: Array<{ id: MobileActivityState; label: string }> = [
@@ -74,6 +115,12 @@ const stateOptions: Array<{ id: MobileActivityState; label: string }> = [
   { id: "ongoing", label: "Berjalan" },
   { id: "history", label: "Riwayat" },
 ];
+
+const repeatLabels: Partial<Record<MobileActivityType, string>> = {
+  booking: "Booking lagi",
+  order: "Beli lagi",
+  consultation: "Konsultasi ulang",
+};
 
 function formatActivityDate(value: string | null | undefined, locale: string) {
   if (!value) return "Belum dijadwalkan";
@@ -86,57 +133,14 @@ function formatActivityDate(value: string | null | undefined, locale: string) {
       }).format(parsed);
 }
 
-function typePresentation(type: MobileActivityType) {
-  if (type === "booking") {
-    return {
-      label: "Booking",
-      icon: "calendar-outline" as const,
-      color: colors.sky600,
-      surface: colors.sky50,
-    };
-  }
-  if (type === "order") {
-    return {
-      label: "Belanja",
-      icon: "bag-handle-outline" as const,
-      color: "#6655C7",
-      surface: colors.violet50,
-    };
-  }
-  return {
-    label: "Konsultasi",
-    icon: "chatbubbles-outline" as const,
-    color: "#14836E",
-    surface: colors.mint50,
-  };
-}
-
-function statusPresentation(status: string): { label: string; tone: PillTone } {
-  const normalized = status.toLowerCase();
-  const labels: Record<string, string> = {
-    pending_payment: "Menunggu pembayaran",
-    requested: "Menunggu konfirmasi",
-    confirmed: "Terkonfirmasi",
-    scheduled: "Terjadwal",
-    waiting: "Menunggu dokter",
-    active: "Sedang berlangsung",
-    in_progress: "Sedang berlangsung",
-    processing: "Diproses",
-    shipped: "Dikirim",
-    completed: "Selesai",
-    cancelled: "Dibatalkan",
-    no_show: "Tidak hadir",
-  };
-  if (normalized === "completed") return { label: "Selesai", tone: "mint" };
-  if (normalized === "cancelled" || normalized === "no_show")
-    return { label: labels[normalized] ?? status, tone: "red" };
-  if (["active", "in_progress", "processing", "shipped"].includes(normalized)) {
-    return { label: labels[normalized] ?? status, tone: "blue" };
-  }
-  return {
-    label: labels[normalized] ?? status.replaceAll("_", " "),
-    tone: "yellow",
-  };
+function formatActivityRange(
+  start: string | null | undefined,
+  end: string | null | undefined,
+  locale: string,
+) {
+  if (!start) return undefined;
+  const from = formatActivityDate(start, locale);
+  return end ? `${from} – ${formatActivityDate(end, locale)}` : from;
 }
 
 const shipmentSteps = ["Diproses", "Pickup", "Dalam perjalanan", "Selesai"];
@@ -144,7 +148,9 @@ const shipmentSteps = ["Diproses", "Pickup", "Dalam perjalanan", "Selesai"];
 function shipmentPresentation(status: string): { label: string; stage: number } {
   const normalized = status.toLowerCase();
   if (normalized === "delivered") return { label: "Sudah diterima", stage: 3 };
-  if (["in_transit", "exception", "returning", "returned"].includes(normalized)) {
+  if (normalized === "returning") return { label: "Dalam perjalanan retur", stage: 2 };
+  if (normalized === "returned") return { label: "Diretur ke pengirim", stage: 2 };
+  if (["in_transit", "exception"].includes(normalized)) {
     return {
       label: normalized === "exception" ? "Ada kendala pengiriman" : "Dalam perjalanan",
       stage: 2,
@@ -157,12 +163,6 @@ function shipmentPresentation(status: string): { label: string; stage: number } 
   return { label: "Sedang diproses", stage: 0 };
 }
 
-function repeatLabel(item: MobileActivityCenterItem) {
-  if (item.type === "booking") return "Booking lagi";
-  if (item.type === "order") return "Beli lagi";
-  return "Konsultasi ulang";
-}
-
 function ActivityCard({
   item,
   onDetail,
@@ -173,8 +173,9 @@ function ActivityCard({
   onRepeat: () => void;
 }) {
   const { formatCurrency, locale } = useI18n();
-  const presentation = typePresentation(item.type);
-  const status = statusPresentation(item.status);
+  const presentation = getActivityTypePresentation(item.type);
+  const repeatLabel = repeatLabels[item.type];
+  const amount = item.total_amount ?? item.amount;
   const when = item.scheduled_at || item.occurred_at;
   return (
     <Card style={styles.activityCard}>
@@ -201,7 +202,9 @@ function ActivityCard({
             <Text style={[styles.activityType, { color: presentation.color }]}>
               {presentation.label} · {item.code}
             </Text>
-            <Pill tone={status.tone}>{status.label}</Pill>
+            <Pill tone={activityStatusTone(item)}>
+              {activityStatusLabel(item)}
+            </Pill>
           </View>
           <Text numberOfLines={1} style={styles.activityTitle}>
             {item.title}
@@ -214,10 +217,14 @@ function ActivityCard({
             <Text numberOfLines={1} style={styles.dateInlineText}>
               {formatActivityDate(when, locale)}
             </Text>
-            <Text style={styles.metaDivider}>•</Text>
-            <Text numberOfLines={1} style={styles.amountInline}>
-              {formatCurrency(item.total_amount ?? item.amount)}
-            </Text>
+            {amount > 0 ? (
+              <>
+                <Text style={styles.metaDivider}>•</Text>
+                <Text numberOfLines={1} style={styles.amountInline}>
+                  {formatCurrency(amount)}
+                </Text>
+              </>
+            ) : null}
           </View>
         </View>
         <Ionicons name="chevron-forward" size={17} color={colors.muted} />
@@ -235,17 +242,19 @@ function ActivityCard({
               : item.pet_name || "Pet kamu"}
           </Text>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onRepeat}
-          style={({ pressed }) => [
-            styles.repeatButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Ionicons name="refresh-outline" size={14} color={colors.sky600} />
-          <Text style={styles.repeatText}>{repeatLabel(item)}</Text>
-        </Pressable>
+        {repeatLabel ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onRepeat}
+            style={({ pressed }) => [
+              styles.repeatButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons name="refresh-outline" size={14} color={colors.sky600} />
+            <Text style={styles.repeatText}>{repeatLabel}</Text>
+          </Pressable>
+        ) : null}
       </View>
     </Card>
   );
@@ -366,30 +375,283 @@ function DetailRow({
   );
 }
 
+// Retur is offered only for delivered packages still inside the return window.
+function ReturnRequest({
+  orderId,
+  fulfillment,
+  onReload,
+}: {
+  orderId: string;
+  fulfillment: MobileOrderFulfillment;
+  onReload: () => Promise<void>;
+}) {
+  const { formatDate } = useI18n();
+  const [openedAt] = useState(() => Date.now());
+  const [formOpen, setFormOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (fulfillment.return_requested)
+    return (
+      <View style={styles.returnRequested}>
+        <Ionicons name="checkmark-circle-outline" size={15} color={colors.mint} />
+        <Text style={styles.returnNote}>
+          Retur diajukan · {fulfillment.business_name}
+        </Text>
+      </View>
+    );
+  if (
+    fulfillment.status !== "delivered" ||
+    !fulfillment.return_until ||
+    Date.parse(fulfillment.return_until) <= openedAt
+  )
+    return null;
+  const submit = async () => {
+    const text = reason.trim();
+    if (text.length < 10 || text.length > 1000) {
+      setError("Alasan retur wajib diisi 10–1000 karakter.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const result = await requestMobileOrderReturn(orderId, fulfillment.id, text);
+      setFormOpen(false);
+      setReason("");
+      await onReload();
+      SlivaAlert.alert(`Permintaan retur terkirim (${result.ticket_number})`);
+    } catch (cause) {
+      if (cause instanceof MobileApiError && cause.code === "return_already_requested")
+        void onReload();
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Permintaan retur belum dapat dikirim.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <View style={styles.returnCard}>
+      <Text style={styles.returnTitle}>Paket dari {fulfillment.business_name}</Text>
+      <Text style={styles.returnNote}>
+        Retur dapat diajukan hingga{" "}
+        {formatDate(fulfillment.return_until, { dateStyle: "medium" })}.
+      </Text>
+      {formOpen ? (
+        <>
+          <TextInput
+            multiline
+            maxLength={1000}
+            value={reason}
+            onChangeText={setReason}
+            placeholder="Ceritakan alasan retur (minimal 10 karakter)"
+            placeholderTextColor={colors.muted}
+            style={styles.returnInput}
+          />
+          {error ? <Text style={styles.returnError}>{error}</Text> : null}
+          <PrimaryButton
+            compact
+            disabled={busy}
+            label={busy ? "Mengirim…" : "Kirim permintaan retur"}
+            icon="send-outline"
+            onPress={() => void submit()}
+          />
+        </>
+      ) : (
+        <PrimaryButton
+          compact
+          light
+          label="Ajukan retur"
+          icon="return-down-back-outline"
+          onPress={() => setFormOpen(true)}
+        />
+      )}
+    </View>
+  );
+}
+
 function ActivityDetailSheet({
   item,
+  autoPay,
   onClose,
   onOpenProduct,
   onRepeat,
+  onReload,
 }: {
-  item?: MobileActivityCenterItem;
+  item: MobileActivityCenterItem;
+  autoPay: boolean;
   onClose: () => void;
   onOpenProduct: (productId: string) => void;
   onRepeat: () => void;
+  onReload: () => Promise<void>;
 }) {
   const { formatCurrency, locale } = useI18n();
   const [invoiceBusy, setInvoiceBusy] = useState(false);
-  if (!item) return null;
-  const presentation = typePresentation(item.type);
-  const status = statusPresentation(item.status);
+  const [invoiceHTML, setInvoiceHTML] = useState("");
+  const [payment, setPayment] = useState<MobilePaymentIntent>();
+  const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+  const autoPayStarted = useRef(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [orderCancelBusy, setOrderCancelBusy] = useState(false);
+  const [documentPhotos, setDocumentPhotos] = useState<DocumentPhotos>({});
+  const [resubmitBusy, setResubmitBusy] = useState(false);
+  const bookingCancellable =
+    item.type === "booking" && item.source !== "clinic";
+  // Read once per opened sheet; the backend re-checks the cutoff on cancel.
+  const [openedAt] = useState(() => Date.now());
+  const cancellable =
+    bookingCancellable &&
+    Boolean(item.cancellable_until) &&
+    openedAt <= Date.parse(item.cancellable_until ?? "");
+  const cancelHint =
+    bookingCancellable && item.cancellation_cutoff_hours !== undefined
+      ? `Bisa dibatalkan hingga ${item.cancellation_cutoff_hours} jam sebelum jadwal`
+      : undefined;
+  const confirmCancel = () =>
+    SlivaAlert.alert(
+      "Batalkan booking?",
+      [item.cancellation_policy, cancelHint].filter(Boolean).join("\n\n"),
+      [
+        { text: "Kembali", style: "cancel" },
+        {
+          text: "Batalkan booking",
+          style: "destructive",
+          onPress: () => {
+            setCancelBusy(true);
+            cancelMobileBooking(item.reference_id)
+              .then(async (result) => {
+                await onReload();
+                SlivaAlert.alert(
+                  result.refund_queued
+                    ? "Booking dibatalkan. Dana akan dikembalikan setelah diverifikasi tim finance."
+                    : "Booking dibatalkan.",
+                );
+              })
+              .catch((cause) =>
+                SlivaAlert.alert(
+                  "Booking belum dapat dibatalkan",
+                  cause instanceof Error
+                    ? cause.message
+                    : "Silakan coba lagi beberapa saat.",
+                ),
+              )
+              .finally(() => setCancelBusy(false));
+          },
+        },
+      ],
+    );
+  const confirmCancelOrder = () =>
+    SlivaAlert.alert(
+      "Batalkan pesanan?",
+      "Pesanan akan dibatalkan sebelum diproses penjual dan dana masuk antrean pengembalian.",
+      [
+        { text: "Kembali", style: "cancel" },
+        {
+          text: "Batalkan pesanan",
+          style: "destructive",
+          onPress: () => {
+            setOrderCancelBusy(true);
+            cancelMobileOrder(item.reference_id)
+              .then(async (result) => {
+                await onReload();
+                SlivaAlert.alert(
+                  result.refund_queued
+                    ? "Pesanan dibatalkan. Dana akan dikembalikan setelah diverifikasi tim finance."
+                    : "Pesanan dibatalkan.",
+                );
+              })
+              .catch((cause) => {
+                // Order state moved on (e.g. seller started processing): resync so the button disappears.
+                if (cause instanceof MobileApiError && cause.code === "order_not_cancellable")
+                  void onReload();
+                SlivaAlert.alert(
+                  "Pesanan belum dapat dibatalkan",
+                  cause instanceof Error
+                    ? cause.message
+                    : "Silakan coba lagi beberapa saat.",
+                );
+              })
+              .finally(() => setOrderCancelBusy(false));
+          },
+        },
+      ],
+    );
+  const resubmit = async () => {
+    const documents = completeDocuments(
+      item.missing_requirements ?? [],
+      documentPhotos,
+    );
+    if (!documents) {
+      SlivaAlert.alert("Unggah foto untuk semua dokumen yang kurang");
+      return;
+    }
+    setResubmitBusy(true);
+    try {
+      await resubmitMobileDocuments(item.reference_id, documents);
+      setDocumentPhotos({});
+      await onReload();
+      SlivaAlert.alert("Dokumen dikirim ulang dan akan ditinjau kembali.");
+    } catch (cause) {
+      SlivaAlert.alert(
+        "Dokumen belum dapat dikirim",
+        cause instanceof Error
+          ? cause.message
+          : "Silakan coba lagi beberapa saat.",
+      );
+    } finally {
+      setResubmitBusy(false);
+    }
+  };
+  const { payable, payment_reference_type, reference_id } = item;
+  const pay = useCallback(async () => {
+    setPaymentBusy(true);
+    setPaymentError("");
+    try {
+      setPayment(
+        await createMobilePaymentIntent(
+          payment_reference_type,
+          reference_id,
+          "qris",
+        ),
+      );
+    } catch (cause) {
+      setPaymentError(
+        (cause instanceof Error && cause.message) ||
+          "Pembayaran belum dapat dibuka",
+      );
+    } finally {
+      setPaymentBusy(false);
+    }
+  }, [payment_reference_type, reference_id]);
+  useEffect(() => {
+    if (!autoPay || !payable || autoPayStarted.current) return;
+    autoPayStarted.current = true;
+    queueMicrotask(() => void pay());
+  }, [autoPay, pay, payable]);
+
+  const presentation = getActivityTypePresentation(item.type);
+  const repeatLabel = repeatLabels[item.type];
+  const amount = item.total_amount ?? item.amount;
   const invoiceReferenceType =
-    item.type === "booking"
-      ? "petowner_booking"
-      : item.type === "consultation"
-        ? "consultation"
-        : "shop_order";
-  return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    item.payment_status === "paid" &&
+    item.payment_reference_type &&
+    item.payment_reference_type !== "petspot_reservation"
+      ? (item.payment_reference_type as Parameters<
+          typeof getMobileTransactionInvoiceHTML
+        >[0])
+      : undefined;
+  const showTicket =
+    item.type === "event" &&
+    item.payment_status === "paid" &&
+    (item.status === "confirmed" || item.status === "checked_in");
+  const hasCoordinates =
+    typeof item.latitude === "number" && typeof item.longitude === "number";
+  const place = [item.address, item.city].filter(Boolean).join(", ");
+  return <>
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <SafeAreaView
           edges={["bottom", "left", "right"]}
@@ -442,13 +704,33 @@ function ActivityDetailSheet({
                   { backgroundColor: presentation.surface },
                 ]}
               >
-                <Pill tone={status.tone}>{status.label}</Pill>
+                <Pill tone={activityStatusTone(item)}>
+                  {activityStatusLabel(item)}
+                </Pill>
                 <Text style={styles.detailTitle}>{item.title}</Text>
                 <Text style={styles.detailSubtitle}>{item.subtitle}</Text>
-                <Text style={styles.detailAmount}>
-                  {formatCurrency(item.total_amount ?? item.amount)}
-                </Text>
+                {amount > 0 ? (
+                  <Text style={styles.detailAmount}>
+                    {formatCurrency(amount)}
+                  </Text>
+                ) : null}
               </View>
+
+              {showTicket && item.qr_token ? (
+                <View
+                  accessible
+                  accessibilityLabel="Tiket QR"
+                  style={styles.ticket}
+                >
+                  <QRCode value={item.qr_token} size={180} ecl="M" />
+                  <Text style={styles.ticketCode}>
+                    {item.qr_token.slice(0, 13).toUpperCase()}
+                  </Text>
+                  <Text style={styles.ticketNote}>
+                    Tunjukkan QR ini ke petugas saat check-in.
+                  </Text>
+                </View>
+              ) : null}
 
               {item.type === "booking" ? (
                 <View style={styles.detailSection}>
@@ -459,6 +741,11 @@ function ActivityDetailSheet({
                     icon="calendar-outline"
                     label="Jadwal"
                     value={formatActivityDate(item.scheduled_at, locale)}
+                  />
+                  <DetailRow
+                    icon="cut-outline"
+                    label="Layanan"
+                    value={item.service_name}
                   />
                   <DetailRow
                     icon="time-outline"
@@ -481,16 +768,28 @@ function ActivityDetailSheet({
                       .filter(Boolean)
                       .join(" · ")}
                   />
-                  <DetailRow
-                    icon="location-outline"
-                    label="Lokasi"
-                    value={[item.address, item.city].filter(Boolean).join(", ")}
-                  />
+                  <DetailRow icon="location-outline" label="Lokasi" value={place} />
                   <DetailRow
                     icon="document-text-outline"
                     label="Catatan"
                     value={item.notes || "Tidak ada catatan tambahan"}
                   />
+                  <DetailRow
+                    icon="shield-checkmark-outline"
+                    label="Pembatalan"
+                    value={cancelHint}
+                  />
+                  {cancellable ? (
+                    <PrimaryButton
+                      compact
+                      light
+                      disabled={cancelBusy}
+                      label={cancelBusy ? "Membatalkan…" : "Batalkan booking"}
+                      icon="close-circle-outline"
+                      onPress={confirmCancel}
+                      style={styles.detailAction}
+                    />
+                  ) : null}
                 </View>
               ) : null}
 
@@ -509,7 +808,7 @@ function ActivityDetailSheet({
                         />
                       </View>
                       <View style={styles.productCopy}>
-                        <Text numberOfLines={2} style={styles.productName}>
+                        <Text catalogue numberOfLines={2} style={styles.productName}>
                           {product.name}
                         </Text>
                         <Text style={styles.productStore}>
@@ -666,6 +965,26 @@ function ActivityDetailSheet({
                       ))}
                     </View>
                   ))}
+                  {(item.fulfillments ?? []).map((fulfillment) => (
+                    <ReturnRequest
+                      key={fulfillment.id}
+                      orderId={item.reference_id}
+                      fulfillment={fulfillment}
+                      onReload={onReload}
+                    />
+                  ))}
+                  {item.cancellable ? (
+                    <View style={styles.orderAction}>
+                      <PrimaryButton
+                        compact
+                        light
+                        disabled={orderCancelBusy}
+                        label={orderCancelBusy ? "Membatalkan…" : "Batalkan pesanan"}
+                        icon="close-circle-outline"
+                        onPress={confirmCancelOrder}
+                      />
+                    </View>
+                  ) : null}
                 </View>
               ) : null}
 
@@ -755,73 +1074,497 @@ function ActivityDetailSheet({
                 </View>
               ) : null}
 
-              <View style={styles.paymentCard}>
-                <View style={styles.paymentIcon}>
-                  <Ionicons
-                    name="wallet-outline"
-                    size={18}
-                    color={colors.sky600}
+              {item.type === "academy" ? (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>Informasi kelas</Text>
+                  <DetailRow
+                    icon="school-outline"
+                    label="Program"
+                    value={item.program_title}
+                  />
+                  <DetailRow
+                    icon="business-outline"
+                    label="Academy"
+                    value={item.academy_name}
+                  />
+                  <DetailRow
+                    icon="person-outline"
+                    label="Trainer"
+                    value={item.trainer_name}
+                  />
+                  <DetailRow
+                    icon="calendar-outline"
+                    label="Sesi berikutnya"
+                    value={
+                      item.scheduled_at
+                        ? [
+                            formatActivityRange(item.scheduled_at, item.ends_at, locale),
+                            item.location || item.online_url,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")
+                        : undefined
+                    }
+                  />
+                  {typeof item.progress_percent === "number" ? (
+                    <View style={styles.detailRow}>
+                      <View style={styles.detailRowIcon}>
+                        <Ionicons
+                          name="trending-up-outline"
+                          size={16}
+                          color={colors.sky600}
+                        />
+                      </View>
+                      <View style={styles.detailRowCopy}>
+                        <Text style={styles.detailRowLabel}>Progres</Text>
+                        <View style={styles.progressTrack}>
+                          <View
+                            style={[
+                              styles.progressFill,
+                              {
+                                width: `${Math.min(100, Math.max(0, item.progress_percent))}%`,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.detailRowValue}>
+                          {`${item.progress_percent}%${item.progress_notes ? ` · ${item.progress_notes}` : ""}`}
+                        </Text>
+                        {item.last_progress_at ? (
+                          <Text style={styles.progressNote}>
+                            {formatActivityDate(item.last_progress_at, locale)}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  ) : null}
+                  <DetailRow
+                    icon="people-outline"
+                    label="Peserta"
+                    value={[item.participant_name, item.pet_name]
+                      .filter(Boolean)
+                      .join(" · ")}
                   />
                 </View>
-                <View style={styles.paymentCopy}>
-                  <Text style={styles.paymentLabel}>Status pembayaran</Text>
-                  <Text style={styles.paymentValue}>
-                    {item.payment_status.replaceAll("_", " ")}
+              ) : null}
+
+              {item.type === "event" ? (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>Informasi event</Text>
+                  <DetailRow
+                    icon="calendar-outline"
+                    label="Waktu"
+                    value={formatActivityRange(item.scheduled_at, item.ends_at, locale)}
+                  />
+                  <DetailRow
+                    icon="location-outline"
+                    label="Lokasi"
+                    value={[item.venue, place].filter(Boolean).join(" · ")}
+                  />
+                  <DetailRow
+                    icon="ticket-outline"
+                    label="Tiket"
+                    value={
+                      item.ticket_quantity
+                        ? `${item.ticket_quantity} tiket`
+                        : undefined
+                    }
+                  />
+                  <DetailRow icon="paw-outline" label="Pet" value={item.pet_name} />
+                  <DetailRow
+                    icon="checkmark-circle-outline"
+                    label="Check-in"
+                    value={
+                      item.status === "checked_in"
+                        ? "Sudah check-in"
+                        : showTicket
+                          ? "Belum check-in"
+                          : undefined
+                    }
+                  />
+                </View>
+              ) : null}
+
+              {item.type === "reservation" ? (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>
+                    Informasi reservasi
+                  </Text>
+                  <DetailRow
+                    icon="storefront-outline"
+                    label="Tempat"
+                    value={[item.spot_name, item.resource_name]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  />
+                  <DetailRow
+                    icon="calendar-outline"
+                    label="Waktu"
+                    value={formatActivityRange(item.scheduled_at, item.ends_at, locale)}
+                  />
+                  <DetailRow
+                    icon="people-outline"
+                    label="Tamu"
+                    value={
+                      typeof item.guest_count === "number"
+                        ? `${item.guest_count} orang · ${item.pet_count ?? 0} pet`
+                        : undefined
+                    }
+                  />
+                  <DetailRow
+                    icon="wallet-outline"
+                    label="DP"
+                    value={
+                      item.deposit_amount
+                        ? formatCurrency(item.deposit_amount)
+                        : undefined
+                    }
+                  />
+                  <DetailRow
+                    icon="cash-outline"
+                    label="Sisa dibayar di lokasi"
+                    value={
+                      item.remaining_amount
+                        ? formatCurrency(item.remaining_amount)
+                        : undefined
+                    }
+                  />
+                  <DetailRow icon="location-outline" label="Lokasi" value={place} />
+                </View>
+              ) : null}
+
+              {item.type === "document" ? (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>
+                    Informasi dokumen
+                  </Text>
+                  <DetailRow
+                    icon="document-text-outline"
+                    label="Layanan"
+                    value={item.product_name}
+                  />
+                  <DetailRow
+                    icon="airplane-outline"
+                    label="Rute"
+                    value={
+                      item.origin_city && item.destination_city
+                        ? `${item.origin_city} → ${item.destination_city}`
+                        : undefined
+                    }
+                  />
+                  <DetailRow
+                    icon="calendar-outline"
+                    label="Keberangkatan"
+                    value={
+                      item.departure_at
+                        ? formatActivityDate(item.departure_at, locale)
+                        : undefined
+                    }
+                  />
+                  <DetailRow
+                    icon="alert-circle-outline"
+                    label="Persyaratan kurang"
+                    value={
+                      item.status === "need_revision"
+                        ? (item.missing_requirements ?? [])
+                            .map((requirement) => `• ${requirement}`)
+                            .join("\n")
+                        : undefined
+                    }
+                  />
+                  <DetailRow icon="paw-outline" label="Pet" value={item.pet_name} />
+                  {item.status === "need_revision" &&
+                  item.missing_requirements?.length ? (
+                    <View style={styles.detailResubmit}>
+                      <Text style={styles.detailSectionTitle}>
+                        Lengkapi dokumen
+                      </Text>
+                      <DocumentPhotoPicker
+                        requirements={item.missing_requirements}
+                        photos={documentPhotos}
+                        onChange={(requirement, document) =>
+                          setDocumentPhotos((current) => ({
+                            ...current,
+                            [requirement]: document,
+                          }))
+                        }
+                        onAction={(message) => SlivaAlert.alert(message)}
+                        disabled={resubmitBusy}
+                      />
+                      <PrimaryButton
+                        compact
+                        disabled={resubmitBusy}
+                        label={resubmitBusy ? "Mengirim…" : "Kirim ulang dokumen"}
+                        icon="cloud-upload-outline"
+                        onPress={() => void resubmit()}
+                        style={styles.detailAction}
+                      />
+                    </View>
+                  ) : null}
+                  {item.status === "issued" && item.issued_document_url ? (
+                    <PrimaryButton
+                      compact
+                      light
+                      label="Buka dokumen terbit"
+                      icon="open-outline"
+                      onPress={() =>
+                        void Linking.openURL(item.issued_document_url ?? "")
+                      }
+                      style={styles.detailAction}
+                    />
+                  ) : null}
+                </View>
+              ) : null}
+
+              {item.type === "donation" ? (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>Informasi donasi</Text>
+                  <DetailRow
+                    icon="megaphone-outline"
+                    label="Campaign"
+                    value={item.fundraiser_title}
+                  />
+                  <DetailRow
+                    icon="paw-outline"
+                    label="Penerima"
+                    value={item.beneficiary_name}
+                  />
+                  <DetailRow
+                    icon="chatbubble-outline"
+                    label="Pesan"
+                    value={item.message}
+                  />
+                  <DetailRow
+                    icon="eye-off-outline"
+                    label="Anonim"
+                    value={
+                      item.anonymous === undefined
+                        ? undefined
+                        : item.anonymous
+                          ? "Ya"
+                          : "Tidak"
+                    }
+                  />
+                  <DetailRow
+                    icon="checkmark-circle-outline"
+                    label="Dibayar"
+                    value={
+                      item.paid_at
+                        ? formatActivityDate(item.paid_at, locale)
+                        : undefined
+                    }
+                  />
+                </View>
+              ) : null}
+
+              {item.type === "hotel" ? (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>
+                    Informasi pet hotel
+                  </Text>
+                  <DetailRow icon="bed-outline" label="Kamar" value={item.room_name} />
+                  <DetailRow
+                    icon="storefront-outline"
+                    label="Klinik"
+                    value={[item.business_name, item.branch_name]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  />
+                  <DetailRow
+                    icon="log-in-outline"
+                    label="Check-in"
+                    value={[
+                      item.scheduled_at
+                        ? `Rencana ${formatActivityDate(item.scheduled_at, locale)}`
+                        : "",
+                      item.checked_in_at
+                        ? `Aktual ${formatActivityDate(item.checked_in_at, locale)}`
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  />
+                  <DetailRow
+                    icon="log-out-outline"
+                    label="Check-out"
+                    value={[
+                      item.ends_at
+                        ? `Rencana ${formatActivityDate(item.ends_at, locale)}`
+                        : "",
+                      item.checked_out_at
+                        ? `Aktual ${formatActivityDate(item.checked_out_at, locale)}`
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  />
+                  <DetailRow icon="paw-outline" label="Pet" value={item.pet_name} />
+                </View>
+              ) : null}
+
+              {item.type === "home_service" ? (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>
+                    Informasi layanan jemput
+                  </Text>
+                  <DetailRow icon="barcode-outline" label="Kode" value={item.job_code} />
+                  <DetailRow icon="cut-outline" label="Layanan" value={item.service_type} />
+                  <DetailRow icon="location-outline" label="Jemput" value={item.pickup_address} />
+                  <DetailRow icon="flag-outline" label="Tujuan" value={item.destination_address} />
+                  <DetailRow
+                    icon="calendar-outline"
+                    label="Jadwal"
+                    value={formatActivityDate(item.scheduled_at, locale)}
+                  />
+                  <DetailRow icon="person-outline" label="Driver" value={item.driver_name} />
+                  <DetailRow icon="paw-outline" label="Pet" value={item.pet_name} />
+                </View>
+              ) : null}
+
+              {item.amount > 0 ? (
+                <View style={styles.paymentCard}>
+                  <View style={styles.paymentIcon}>
+                    <Ionicons
+                      name="wallet-outline"
+                      size={18}
+                      color={colors.sky600}
+                    />
+                  </View>
+                  <View style={styles.paymentCopy}>
+                    <Text style={styles.paymentLabel}>Status pembayaran</Text>
+                    <Text style={styles.paymentValue}>
+                      {activityStatusLabel({
+                        payable: item.payable,
+                        status: item.payment_status,
+                        payment_status: item.payment_status,
+                      })}
+                    </Text>
+                  </View>
+                  <Text style={styles.paymentAmount}>
+                    {formatCurrency(item.amount)}
                   </Text>
                 </View>
-                <Text style={styles.paymentAmount}>
-                  {formatCurrency(item.amount)}
-                </Text>
-              </View>
-              <PrimaryButton
-                compact
-                disabled={invoiceBusy}
-                label={
-                  invoiceBusy ? "Membuka invoice…" : "Buka invoice Slivadoc"
-                }
-                icon="document-text-outline"
-                onPress={() => {
-                  setInvoiceBusy(true);
-                  void getMobileTransactionInvoiceHTML(
-                    invoiceReferenceType,
-                    item.id,
-                  )
-                    .then((html) =>
-                      Linking.openURL(
-                        `data:text/html;charset=utf-8,${encodeURIComponent(html)}`,
-                      ),
+              ) : null}
+              {item.payable ? (
+                <PrimaryButton
+                  compact
+                  disabled={paymentBusy}
+                  label={paymentBusy ? "Membuka pembayaran…" : "Bayar sekarang"}
+                  icon="qr-code-outline"
+                  onPress={() => void pay()}
+                  style={styles.detailAction}
+                />
+              ) : null}
+              {paymentError ? (
+                <Text style={styles.paymentError}>{paymentError}</Text>
+              ) : null}
+              {invoiceReferenceType ? (
+                <PrimaryButton
+                  compact
+                  light
+                  disabled={invoiceBusy}
+                  label={
+                    invoiceBusy ? "Membuka invoice…" : "Buka invoice Slivadoc"
+                  }
+                  icon="document-text-outline"
+                  style={styles.detailAction}
+                  onPress={() => {
+                    setInvoiceBusy(true);
+                    void getMobileTransactionInvoiceHTML(
+                      invoiceReferenceType,
+                      item.reference_id,
                     )
-                    .catch((cause) =>
-                      Alert.alert(
-                        "Invoice belum dapat dibuka",
-                        cause instanceof Error
-                          ? cause.message
-                          : "Silakan coba lagi beberapa saat.",
-                      ),
+                      .then(setInvoiceHTML)
+                      .catch((cause) =>
+                        SlivaAlert.alert(
+                          "Invoice belum dapat dibuka",
+                          cause instanceof Error
+                            ? cause.message
+                            : "Silakan coba lagi beberapa saat.",
+                        ),
+                      )
+                      .finally(() => setInvoiceBusy(false));
+                  }}
+                />
+              ) : null}
+              {hasCoordinates ? (
+                <PrimaryButton
+                  compact
+                  light
+                  label="Petunjuk arah"
+                  icon="navigate-outline"
+                  style={styles.detailAction}
+                  onPress={() =>
+                    void Linking.openURL(
+                      `https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`,
                     )
-                    .finally(() => setInvoiceBusy(false));
-                }}
-              />
+                  }
+                />
+              ) : null}
               <Text style={styles.createdAt}>
                 Dibuat {formatActivityDate(item.occurred_at, locale)}
               </Text>
-              <PrimaryButton
-                label={repeatLabel(item)}
-                icon="refresh-outline"
-                onPress={onRepeat}
-              />
+              {repeatLabel ? (
+                <PrimaryButton
+                  label={repeatLabel}
+                  icon="refresh-outline"
+                  onPress={onRepeat}
+                />
+              ) : null}
             </ScrollView>
+            <MobileQrisModal
+              payment={payment}
+              onClose={() => setPayment(undefined)}
+              onPaid={() => void onReload()}
+            />
           </Pressable>
         </SafeAreaView>
       </Pressable>
     </Modal>
-  );
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
+      visible={Boolean(invoiceHTML)}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      statusBarTranslucent={false}
+      onRequestClose={() => setInvoiceHTML("")}
+    >
+      <SafeAreaView edges={["top", "bottom", "left", "right"]} style={styles.invoicePage}>
+        <View style={styles.invoiceHeader}>
+          <View style={styles.invoiceHeaderIcon}><Ionicons name="document-text" size={20} color={colors.white} /></View>
+          <View style={styles.invoiceHeaderCopy}>
+            <Text style={styles.invoiceHeaderEyebrow}>DOKUMEN TRANSAKSI</Text>
+            <Text numberOfLines={1} style={styles.invoiceHeaderTitle}>{item.code}</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Tutup invoice" onPress={() => setInvoiceHTML("")} style={styles.invoiceClose}>
+            <Ionicons name="close" size={22} color={colors.navy} />
+          </Pressable>
+        </View>
+        {invoiceHTML ? (
+          <WebView
+            source={{ html: invoiceHTML, baseUrl: "https://slivadoc.com" }}
+            originWhitelist={["about:blank", "https://*"]}
+            setSupportMultipleWindows={false}
+            javaScriptEnabled={false}
+            style={styles.invoiceWebView}
+          />
+        ) : null}
+      </SafeAreaView>
+    </Modal>
+  </>;
 }
 
 export function ActivityScreen({
   authenticated,
   hasPet,
-  refreshVersion,
+  activities,
+  summary = emptyActivitySummary,
+  hasMore,
+  loadingMore,
+  onLoadMore,
+  loading,
+  onReload,
+  intent,
+  onIntentHandled,
   onAction,
   onOpenNotifications,
   onLogin,
@@ -834,86 +1577,54 @@ export function ActivityScreen({
   onReconsult,
   onOpenProduct,
 }: ActivityScreenProps) {
+  const { formatDate } = useI18n();
+  const { unreadNotifications, openChatInbox } = useAppSurface();
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [stateFilter, setStateFilter] = useState<MobileActivityState>("all");
-  const [activities, setActivities] = useState<MobileActivityCenterItem[]>([]);
-  const [housingReservations, setHousingReservations] = useState<MobilePetSpotReservation[]>([]);
-  const [housingPayment, setHousingPayment] = useState<MobilePaymentIntent>();
-  const [housingPaymentMethod, setHousingPaymentMethod] = useState("qris");
-  const [housingBusy, setHousingBusy] = useState(false);
-  const [summary, setSummary] = useState({
-    booking: 0,
-    order: 0,
-    consultation: 0,
-  });
-  const [selected, setSelected] = useState<MobileActivityCenterItem>();
+  const [selected, setSelected] = useState<SelectedActivity>();
   const [createOpen, setCreateOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const requestSequence = useRef(0);
 
-  const loadActivities = useCallback(async (silent = false) => {
-    if (!authenticated) return;
-    const request = requestSequence.current + 1;
-    requestSequence.current = request;
-    if (!silent) setLoading(true);
-    try {
-      const result = await getMobileActivityCenter(typeFilter, stateFilter);
-      if (requestSequence.current !== request) return;
-      setActivities(result.data);
-      setSummary(result.summary);
-      setSelected((current) =>
-        current
-          ? result.data.find((activity) => activity.id === current.id) ?? current
-          : current,
-      );
-    } catch (cause) {
-      if (requestSequence.current !== request) return;
-      onAction(
-        cause instanceof Error ? cause.message : "Aktivitas belum dapat dimuat",
-      );
-    } finally {
-      if (!silent && requestSequence.current === request) setLoading(false);
-    }
-  }, [authenticated, onAction, stateFilter, typeFilter]);
+  const handledIntent = useRef(0);
+
+  const openDetail = (item: MobileActivityCenterItem, autoPay = false) =>
+    setSelected({ type: item.type, id: item.id, autoPay, fallback: item });
+  const detailItem = selected
+    ? (activities.find(
+        (item) => item.type === selected.type && item.id === selected.id,
+      ) ?? selected.fallback)
+    : undefined;
 
   useEffect(() => {
-    queueMicrotask(() => void loadActivities());
-  }, [loadActivities, refreshVersion]);
-  const loadHousing = useCallback(async () => {
-    if (!authenticated) return;
-    try {
-      const result = await getMobilePetSpotReservations();
-      setHousingReservations(result.data.filter((item) => item.category === "boarding_house" || item.category === "apartment"));
-    } catch (cause) {
-      onAction(cause instanceof Error ? cause.message : "Booking hunian belum dapat dimuat");
-    }
-  }, [authenticated, onAction]);
-  useEffect(() => { queueMicrotask(() => void loadHousing()); }, [loadHousing, refreshVersion]);
-  const payHousing = async (id: string) => {
-    setHousingBusy(true);
-    try { setHousingPayment(await createMobilePaymentIntent("petspot_reservation", id, housingPaymentMethod)); }
-    catch (cause) { onAction(cause instanceof Error ? cause.message : "Pembayaran DP belum dapat dibuka"); }
-    finally { setHousingBusy(false); }
-  };
-
-  useEffect(() => {
-    if (!authenticated) return;
-    const timer = setInterval(() => void loadActivities(true), 60_000);
-    return () => clearInterval(timer);
-  }, [authenticated, loadActivities]);
+    if (!intent || handledIntent.current === intent.token) return;
+    handledIntent.current = intent.token;
+    const { token, type, id } = intent;
+    queueMicrotask(() => {
+      // Without an id the intent only filters, e.g. the marketplace "Pesanan" shortcut.
+      if (!id) {
+        setTypeFilter(type);
+        onIntentHandled(token);
+        return;
+      }
+      const item = activities.find(
+        (activity) => activity.type === type && activity.id === id,
+      );
+      if (item) {
+        setStateFilter(item.state);
+        setTypeFilter("all");
+        setSelected({ type, id, autoPay: false, fallback: item });
+      } else {
+        onAction("Aktivitas belum tersedia. Coba lagi sebentar.");
+      }
+      onIntentHandled(token);
+    });
+  }, [activities, intent, onAction, onIntentHandled]);
 
   const repeat = useCallback(
     (item: MobileActivityCenterItem) => {
       setSelected(undefined);
-      if (item.type === "booking") {
-        onRebook(item.service_id);
-        return;
-      }
-      if (item.type === "order") {
-        onReorder(item.items ?? []);
-        return;
-      }
-      onReconsult(item.plan_id);
+      if (item.type === "booking") onRebook(item.service_id);
+      else if (item.type === "order") onReorder(item.items ?? []);
+      else if (item.type === "consultation") onReconsult(item.plan_id);
     },
     [onRebook, onReconsult, onReorder],
   );
@@ -927,8 +1638,14 @@ export function ActivityScreen({
 
   const typeCount = (type: TypeFilter) =>
     type === "all"
-      ? summary.booking + summary.order + summary.consultation
+      ? Object.values(summary).reduce((total, count) => total + count, 0)
       : summary[type];
+  const attention = activities.filter((item) => item.needs_action);
+  const visible = activities.filter(
+    (item) =>
+      (typeFilter === "all" || item.type === typeFilter) &&
+      (stateFilter === "all" || item.state === stateFilter),
+  );
 
   if (!authenticated) {
     return (
@@ -940,8 +1657,17 @@ export function ActivityScreen({
           </View>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Buka daftar chat"
+            onPress={() => openChatInbox()}
+            style={styles.headerButton}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+            <ChatUnreadBadge />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Buka notifikasi"
-            onPress={onOpenNotifications}
+            onPress={() => onOpenNotifications()}
             style={styles.headerButton}
           >
             <Ionicons
@@ -977,8 +1703,17 @@ export function ActivityScreen({
           </View>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Buka daftar chat"
+            onPress={() => openChatInbox()}
+            style={styles.headerButton}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+            <ChatUnreadBadge />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Buka notifikasi"
-            onPress={onOpenNotifications}
+            onPress={() => onOpenNotifications()}
             style={styles.headerButton}
           >
             <Ionicons
@@ -986,69 +1721,114 @@ export function ActivityScreen({
               size={20}
               color={colors.text}
             />
-            <View style={styles.notificationDot} />
+            {unreadNotifications > 0 ? <View style={styles.notificationDot} /> : null}
           </Pressable>
         </View>
 
         {!hasPet ? <PetRequiredNotice onAddPet={onRequirePet} /> : null}
-        {(typeFilter === "all" || typeFilter === "booking") && housingReservations.length ? <Card style={styles.housingActivity}>
-          <Text style={styles.housingTitle}>Booking kosan & apartemen</Text>
-          <Text style={styles.headerSubtitle}>Jadwal tinggal, status DP, dan unit yang kamu pesan.</Text>
-          {housingReservations.some((item) => item.payment_status === "pending" && item.status === "pending_payment") ?
-            <MobilePaymentMethods value={housingPaymentMethod} onChange={setHousingPaymentMethod} disabled={housingBusy} /> : null}
-          {housingReservations.map((item) => <View key={item.id} style={styles.housingBooking}>
-            <Text style={styles.housingTitle}>{item.spot_name} · {item.resource_name || "Unit"}</Text>
-            <Text style={styles.headerSubtitle}>{item.reservation_number} · {item.status.replaceAll("_", " ")}</Text>
-            <Text style={styles.headerSubtitle}>{item.starts_at ? new Date(item.starts_at).toLocaleDateString("id-ID") : ""} – {item.ends_at ? new Date(item.ends_at).toLocaleDateString("id-ID") : ""}</Text>
-            <Text style={styles.headerSubtitle}>DP {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(item.deposit_amount)} · {item.payment_status}</Text>
-            {item.payment_status === "pending" && item.status === "pending_payment" && new Date(item.hold_expires_at) > new Date() ?
-              <PrimaryButton compact label={housingBusy ? "Memproses…" : "Bayar DP"} onPress={() => void payHousing(item.id)} disabled={housingBusy} /> : null}
-          </View>)}
-        </Card> : null}
+
+        {attention.length ? (
+          <Card style={styles.attentionCard}>
+            <View style={styles.attentionHeader}>
+              <Text style={styles.attentionTitle}>Perlu tindakan</Text>
+              <View style={styles.typeCount}>
+                <Text style={styles.typeCountText}>{attention.length}</Text>
+              </View>
+            </View>
+            {attention.map((item) => {
+              const presentation = getActivityTypePresentation(item.type);
+              const reason = activityAttentionReason(item, (value) =>
+                formatDate(value, { weekday: "short", hour: "2-digit", minute: "2-digit" }),
+              );
+              return (
+                <View key={`${item.type}-${item.id}`} style={styles.attentionRow}>
+                  <View
+                    style={[
+                      styles.attentionIcon,
+                      { backgroundColor: presentation.surface },
+                    ]}
+                  >
+                    <Ionicons
+                      name={presentation.icon}
+                      size={18}
+                      color={presentation.color}
+                    />
+                  </View>
+                  <View style={styles.activityCopy}>
+                    <Text numberOfLines={1} style={styles.attentionItemTitle}>
+                      {item.title}
+                    </Text>
+                    <Text numberOfLines={1} style={styles.activitySubtitle}>
+                      {reason}
+                    </Text>
+                  </View>
+                  <PrimaryButton
+                    compact
+                    label={
+                      item.payable
+                        ? "Bayar"
+                        : item.type === "event"
+                          ? "Tiket QR"
+                          : "Lihat detail"
+                    }
+                    onPress={() => openDetail(item, item.payable)}
+                  />
+                </View>
+              );
+            })}
+          </Card>
+        ) : null}
 
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.typeFilters}
         >
-          {typeOptions.map((option) => {
-            const active = option.id === typeFilter;
-            return (
-              <Pressable
-                key={option.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                onPress={() => setTypeFilter(option.id)}
-                style={[styles.typeChip, active && styles.typeChipActive]}
-              >
-                <Ionicons
-                  name={option.icon}
-                  size={14}
-                  color={active ? colors.white : colors.sky600}
-                />
-                <Text
-                  style={[
-                    styles.typeChipText,
-                    active && styles.typeChipTextActive,
-                  ]}
+          {typeOptions
+            .filter(
+              (option) =>
+                option.id === "all" ||
+                option.id === typeFilter ||
+                typeCount(option.id) > 0,
+            )
+            .map((option) => {
+              const active = option.id === typeFilter;
+              return (
+                <Pressable
+                  key={option.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => setTypeFilter(option.id)}
+                  style={[styles.typeChip, active && styles.typeChipActive]}
                 >
-                  {option.label}
-                </Text>
-                <View
-                  style={[styles.typeCount, active && styles.typeCountActive]}
-                >
+                  <Ionicons
+                    name={option.icon}
+                    size={14}
+                    color={active ? colors.white : colors.sky600}
+                  />
                   <Text
                     style={[
-                      styles.typeCountText,
-                      active && styles.typeCountTextActive,
+                      styles.typeChipText,
+                      active && styles.typeChipTextActive,
                     ]}
                   >
-                    {typeCount(option.id)}
+                    {option.label}
                   </Text>
-                </View>
-              </Pressable>
-            );
-          })}
+                  <View
+                    style={[styles.typeCount, active && styles.typeCountActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.typeCountText,
+                        active && styles.typeCountTextActive,
+                      ]}
+                    >
+                      {typeCount(option.id)}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
         </ScrollView>
 
         <View style={styles.stateTabs}>
@@ -1078,9 +1858,7 @@ export function ActivityScreen({
         <View style={styles.activityToolbar}>
           <View>
             <Text style={styles.sectionEyebrow}>DATA AKUNMU</Text>
-            <Text style={styles.sectionTitle}>
-              {activities.length} aktivitas
-            </Text>
+            <Text style={styles.sectionTitle}>{visible.length} aktivitas</Text>
           </View>
           <PrimaryButton
             compact
@@ -1091,18 +1869,18 @@ export function ActivityScreen({
           />
         </View>
 
-        {loading ? (
+        {loading && !activities.length ? (
           <View style={styles.loadingState}>
             <ActivityIndicator color={colors.sky600} />
             <Text style={styles.loadingText}>Mengambil aktivitas terbaru…</Text>
           </View>
-        ) : activities.length ? (
+        ) : visible.length ? (
           <View style={styles.activityList}>
-            {activities.map((item) => (
+            {visible.map((item) => (
               <ActivityCard
                 key={`${item.type}-${item.id}`}
                 item={item}
-                onDetail={() => setSelected(item)}
+                onDetail={() => openDetail(item)}
                 onRepeat={() => repeat(item)}
               />
             ))}
@@ -1111,11 +1889,9 @@ export function ActivityScreen({
           <Card style={styles.emptyCard}>
             <EmptyState
               icon={
-                typeFilter === "order"
-                  ? "bag-handle-outline"
-                  : typeFilter === "consultation"
-                    ? "chatbubbles-outline"
-                    : "calendar-outline"
+                typeFilter === "all"
+                  ? "calendar-outline"
+                  : getActivityTypePresentation(typeFilter).icon
               }
               title="Belum ada aktivitas"
               note="Filter ini masih kosong. Mulai aktivitas baru dan progresnya akan tampil otomatis di sini."
@@ -1124,18 +1900,32 @@ export function ActivityScreen({
             />
           </Card>
         )}
+        {hasMore ? (
+          <PrimaryButton
+            compact
+            light
+            disabled={loadingMore}
+            label={loadingMore ? "Memuat…" : "Muat lebih banyak"}
+            icon="chevron-down"
+            onPress={onLoadMore}
+            style={styles.loadMore}
+          />
+        ) : null}
       </Screen>
-      <MobileBatpayModal payment={housingPayment} onClose={() => setHousingPayment(undefined)}
-        onPaid={() => { setHousingPayment(undefined); void loadHousing(); void loadActivities(true); }} />
-      <ActivityDetailSheet
-        item={selected}
-        onClose={() => setSelected(undefined)}
-        onOpenProduct={(productId) => {
-          setSelected(undefined);
-          onOpenProduct(productId);
-        }}
-        onRepeat={() => selected && repeat(selected)}
-      />
+      {selected && detailItem ? (
+        <ActivityDetailSheet
+          key={`${selected.type}-${selected.id}`}
+          item={detailItem}
+          autoPay={selected.autoPay}
+          onClose={() => setSelected(undefined)}
+          onOpenProduct={(productId) => {
+            setSelected(undefined);
+            onOpenProduct(productId);
+          }}
+          onRepeat={() => repeat(detailItem)}
+          onReload={onReload}
+        />
+      ) : null}
       <CreateActivitySheet
         visible={createOpen}
         onClose={() => setCreateOpen(false)}
@@ -1148,10 +1938,66 @@ export function ActivityScreen({
 }
 
 const styles = StyleSheet.create({
-  housingActivity: { gap: 12, marginBottom: 16, padding: 16 },
-  housingBooking: { gap: 5, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.line },
-  housingTitle: { color: colors.navy, fontSize: 15, fontWeight: "700" },
   screenContent: { paddingTop: 4 },
+  attentionCard: {
+    gap: 10,
+    marginTop: 4,
+    padding: 14,
+    borderColor: "#F3D8A6",
+    borderRadius: 20,
+    backgroundColor: "#FFFAF0",
+  },
+  attentionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  attentionTitle: { color: colors.navy, fontSize: 15, fontWeight: "700" },
+  attentionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 10,
+    borderRadius: 14,
+    backgroundColor: colors.white,
+  },
+  attentionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attentionItemTitle: { color: colors.navy, fontSize: 12, fontWeight: "700" },
+  ticket: {
+    alignItems: "center",
+    gap: 6,
+    marginTop: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#C9D8E3",
+    borderRadius: 16,
+  },
+  ticketCode: {
+    color: colors.navy,
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  ticketNote: { color: colors.muted, fontSize: 10, textAlign: "center" },
+  progressTrack: {
+    height: 8,
+    marginTop: 6,
+    overflow: "hidden",
+    borderRadius: 4,
+    backgroundColor: "#E7EEF4",
+  },
+  progressFill: { height: "100%", backgroundColor: "#19A37F" },
+  progressNote: { marginTop: 2, color: colors.muted, fontSize: 9 },
+  detailAction: { marginTop: 12 },
+  detailResubmit: { gap: 8, marginTop: 12 },
+  paymentError: { marginTop: 8, color: colors.red, fontSize: 11 },
   header: {
     minHeight: 78,
     flexDirection: "row",
@@ -1302,12 +2148,16 @@ const styles = StyleSheet.create({
   activityCopy: { minWidth: 0, flex: 1 },
   activityMetaRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 6,
   },
   activityType: {
+    minWidth: 0,
+    flex: 1,
+    flexShrink: 1,
     fontSize: 9,
+    lineHeight: 14,
     fontWeight: "600",
     letterSpacing: 0.7,
     textTransform: "uppercase",
@@ -1432,7 +2282,15 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(10,38,58,.38)",
   },
-  sheetSafeArea: { width: "100%", maxHeight: "88%" },
+  sheetSafeArea: {maxWidth: 720, alignSelf: "center",  width: "100%", maxHeight: "88%" },
+  invoicePage: { flex: 1, backgroundColor: colors.white },
+  invoiceHeader: { minHeight: 66, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.sky100, backgroundColor: colors.sky25 },
+  invoiceHeaderIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.sky600 },
+  invoiceHeaderCopy: { minWidth: 0, flex: 1 },
+  invoiceHeaderEyebrow: { color: colors.sky600, fontSize: 8, fontWeight: "700", letterSpacing: 1 },
+  invoiceHeaderTitle: { marginTop: 2, color: colors.navy, fontSize: 14, fontWeight: "700" },
+  invoiceClose: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.white },
+  invoiceWebView: { flex: 1, backgroundColor: colors.white },
   sheet: {
     overflow: "hidden",
     maxHeight: "100%",
@@ -1590,6 +2448,31 @@ const styles = StyleSheet.create({
     borderColor: "#CCE9F8",
     backgroundColor: colors.sky50,
   },
+  orderAction: { gap: 8, marginTop: 14 },
+  returnCard: {
+    gap: 8,
+    marginTop: 12,
+    padding: 13,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    backgroundColor: colors.white,
+  },
+  returnTitle: { color: colors.navy, fontSize: 12, fontWeight: "700" },
+  returnNote: { color: colors.muted, fontSize: 10, lineHeight: 15 },
+  returnInput: {
+    minHeight: 92,
+    padding: 11,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 13,
+    color: colors.text,
+    fontSize: 12,
+    textAlignVertical: "top",
+  },
+  returnError: { color: colors.red, fontSize: 10, lineHeight: 15 },
+  returnRequested: { flexDirection: "row", alignItems: "center", gap: 6 },
+  loadMore: { marginTop: 12 },
   trackingReadOnlyNote: {
     flexDirection: "row",
     alignItems: "center",

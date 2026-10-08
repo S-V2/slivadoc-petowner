@@ -1,8 +1,10 @@
+import { LocalizedPressable as Pressable } from "./LocalizedPressable";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform,  ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { askSlivaCare, REALTIME_API_URL, realtime, type AssistantMessage, type MobileOwner } from "../api";
+import { askSlivaCare, getMobileSupportChat, petownerRealtime, sendMobileSupportChatMessage, type AssistantMessage, type MobileOwner, type MobileSupportMessage } from "../api";
+import { uniqueById } from "../collections";
 import type { PetView } from "../data";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../i18n";
 import { colors, shadow } from "../theme";
@@ -17,7 +19,9 @@ type Props = {
   onLogin: () => void;
   context?: ChatContext;
 };
-type TeamMessage = { id: string; senderId: string; senderName: string; body: string; createdAt: string };
+type TeamMessage = { id: string; mine: boolean; body: string; createdAt: string };
+type CareMessage = { id: string; senderId: string; body: string; createdAt: string };
+const fromSupport = (item: MobileSupportMessage): TeamMessage => ({ id: item.id, mine: item.sender_role === "owner", body: item.body, createdAt: item.created_at });
 
 export function SlivaCareModal({ visible, onClose, onAction, owner, pet, onLogin, context = "care" }: Props) {
   const [mode, setMode] = useState<"assistant" | "team">("assistant");
@@ -30,33 +34,61 @@ export function SlivaCareModal({ visible, onClose, onAction, owner, pet, onLogin
   const [connected, setConnected] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const supportMode = context === "support";
-  const conversationId = supportMode ? (owner ? `support-${owner.id}` : "") : pet ? `care-${pet.id}` : "";
+  const ownerId = owner?.id;
 
   useEffect(() => {
     if (!visible) return;
     setMode(supportMode ? "team" : "assistant");
     setMessage("");
+    setTeamMessages([]);
+    setConnected(false);
   }, [supportMode, visible]);
 
   useEffect(() => {
-    if (!visible || !owner || !conversationId || !REALTIME_API_URL) return;
-    const join = () => { setConnected(true); realtime.emit("chat:join", { conversationId }); };
-    const disconnect = () => setConnected(false);
-    const history = (items: TeamMessage[]) => setTeamMessages(items);
-    const incoming = (item: TeamMessage) => setTeamMessages((current) => current.some((existing) => existing.id === item.id) ? current : [...current, item]);
-    realtime.on("connect", join);
-    realtime.on("disconnect", disconnect);
-    realtime.on("chat:history", history);
-    realtime.on("chat:message", incoming);
-    realtime.connect();
-    if (realtime.connected) join();
-    return () => {
-      realtime.off("connect", join);
-      realtime.off("disconnect", disconnect);
-      realtime.off("chat:history", history);
-      realtime.off("chat:message", incoming);
+    if (!visible || !ownerId || !supportMode) return;
+    let active = true;
+    const load = async (silent: boolean) => {
+      try {
+        const chat = await getMobileSupportChat();
+        if (!active) return;
+        setConnected(true);
+        setTeamMessages(chat.messages.map(fromSupport));
+      } catch (cause) {
+        if (!active) return;
+        setConnected(false);
+        if (!silent) onAction(cause instanceof Error ? cause.message : "Chat support belum dapat dimuat");
+      }
     };
-  }, [conversationId, owner, visible]);
+    void load(false);
+    const timer = setInterval(() => void load(true), 15_000);
+    return () => { active = false; clearInterval(timer); };
+  }, [onAction, ownerId, supportMode, visible]);
+
+  useEffect(() => {
+    if (!visible || !ownerId || supportMode || !pet?.id) return;
+    const conversationId = `care-${pet.id}`;
+    const socket = petownerRealtime();
+    const join = () => socket.emit("chat:join", { conversationId });
+    const connect = () => { setConnected(true); join(); };
+    const disconnect = () => setConnected(false);
+    const fromCare = (item: CareMessage): TeamMessage => ({ id: item.id, mine: item.senderId === ownerId, body: item.body, createdAt: item.createdAt });
+    const history = (items: CareMessage[]) => setTeamMessages(uniqueById(items.map(fromCare)));
+    const incoming = (item: CareMessage) => setTeamMessages((current) => current.some((existing) => existing.id === item.id) ? current : [...current, fromCare(item)]);
+    socket.on("connect", connect);
+    socket.on("disconnect", disconnect);
+    socket.on("chat:history", history);
+    socket.on("chat:message", incoming);
+    socket.connect();
+    if (socket.connected) connect();
+    const timer = setInterval(() => { if (socket.connected) join(); }, 15_000);
+    return () => {
+      clearInterval(timer);
+      socket.off("connect", connect);
+      socket.off("disconnect", disconnect);
+      socket.off("chat:history", history);
+      socket.off("chat:message", incoming);
+    };
+  }, [ownerId, pet?.id, supportMode, visible]);
 
   const send = async () => {
     const body = message.trim();
@@ -64,8 +96,19 @@ export function SlivaCareModal({ visible, onClose, onAction, owner, pet, onLogin
     setMessage("");
     if (mode === "team") {
       if (!owner || (!supportMode && !pet)) { onLogin(); onAction("Login diperlukan untuk menghubungi tim Slivadoc"); return; }
-      if (!REALTIME_API_URL) { onAction("Layanan realtime belum dikonfigurasi untuk build ini"); return; }
-      realtime.emit("chat:send", { conversationId, body }, (result: { ok: boolean; error?: string }) => {
+      if (supportMode) {
+        setLoading(true);
+        try {
+          await sendMobileSupportChatMessage(body);
+          setTeamMessages((await getMobileSupportChat()).messages.map(fromSupport));
+        } catch (cause) {
+          onAction(cause instanceof Error ? cause.message : "Pesan belum terkirim");
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+      petownerRealtime().emit("chat:send", { conversationId: `care-${pet?.id}`, body }, (result: { ok: boolean; error?: string }) => {
         if (!result?.ok) onAction(result?.error ?? "Pesan belum terkirim");
       });
       return;
@@ -88,13 +131,14 @@ export function SlivaCareModal({ visible, onClose, onAction, owner, pet, onLogin
   const teamName = supportMode ? "Customer Support" : "SlivaCare Team";
   const teamTab = supportMode ? "Customer Support" : "Care Team";
   const agentIcon = mode === "assistant" ? "sparkles" : supportMode ? "headset" : "medical";
+  const teamSender = supportMode ? "Tim Slivadoc" : "Care Team";
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.page}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboard}>
           <View style={styles.header}>
             <View style={styles.avatar}><Ionicons name={agentIcon} size={19} color={colors.sky600}/><View style={[styles.dot, connected && styles.dotOnline]}/></View>
-            <View style={styles.headerCopy}><Text style={styles.name}>{mode === "assistant" ? "SlivaCare Assistant" : teamName}</Text><Text style={styles.status}>{mode === "assistant" ? "AI khusus topik hewan" : !REALTIME_API_URL ? "Realtime belum dikonfigurasi" : connected ? "Realtime • terhubung" : "Menghubungkan..."}</Text></View>
+            <View style={styles.headerCopy}><Text style={styles.name}>{mode === "assistant" ? "SlivaCare Assistant" : teamName}</Text><Text style={styles.status}>{mode === "assistant" ? "AI khusus topik hewan" : connected ? (supportMode ? "Online • terhubung" : "Realtime • terhubung") : "Menghubungkan..."}</Text></View>
             <Pressable accessibilityRole="button" accessibilityLabel="Tutup" onPress={onClose} style={styles.iconButton}><Ionicons name="close" size={21} color={colors.text}/></Pressable>
           </View>
           {!supportMode ? <View style={styles.tabs}><Pressable accessibilityRole="tab" accessibilityState={{ selected: mode === "assistant" }} onPress={() => setMode("assistant")} style={[styles.tab, mode === "assistant" && styles.activeTab]}><Ionicons name="sparkles-outline" size={15} color={mode === "assistant" ? colors.sky600 : colors.muted}/><Text style={[styles.tabText, mode === "assistant" && styles.activeTabText]}>AI Assistant</Text></Pressable><Pressable accessibilityRole="tab" accessibilityState={{ selected: mode === "team" }} onPress={() => { if (!owner) { onLogin(); return; } setMode("team"); }} style={[styles.tab, mode === "team" && styles.activeTab]}><Ionicons name="chatbubbles-outline" size={15} color={mode === "team" ? colors.sky600 : colors.muted}/><Text style={[styles.tabText, mode === "team" && styles.activeTabText]}>{teamTab}</Text></Pressable></View> : null}
@@ -106,14 +150,14 @@ export function SlivaCareModal({ visible, onClose, onAction, owner, pet, onLogin
           <ScrollView keyboardShouldPersistTaps="handled" ref={scrollRef} onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })} contentContainerStyle={styles.messages}>
             {mode === "assistant" ? <View style={styles.scope}><Ionicons name="shield-checkmark" size={16} color={colors.sky600}/><Text style={styles.scopeText}>Pertanyaan di luar topik hewan otomatis ditolak. Jawaban bukan pengganti diagnosis dokter.</Text></View> : supportMode ? <View style={styles.scope}><Ionicons name="headset-outline" size={16} color={colors.sky600}/><Text style={styles.scopeText}>Ceritakan kendalanya secara detail. Tim support akan membantu akun, booking, pembayaran, dan penggunaan aplikasi.</Text></View> : null}
             {activeMessages.map((item, index) => {
-              const assistant = "role" in item ? item.role === "assistant" : item.senderId !== owner?.id;
+              const assistant = "role" in item ? item.role === "assistant" : !item.mine;
               const content = "content" in item ? item.content : item.body;
-              return <View key={("id" in item && item.id) || `${content}-${index}`} style={[styles.messageRow, !assistant && styles.messageRowMe]}>{assistant ? <View style={styles.messageAvatar}><Ionicons name={agentIcon} size={14} color={colors.sky600}/></View> : null}<View style={[styles.bubble, !assistant && styles.bubbleMe]}><Text style={[styles.messageText, !assistant && styles.messageTextMe]}>{content}</Text></View></View>;
+              return <View key={("id" in item && item.id) || `${content}-${index}`} style={[styles.messageRow, !assistant && styles.messageRowMe]}>{assistant ? <View style={styles.messageAvatar}><Ionicons name={agentIcon} size={14} color={colors.sky600}/></View> : null}<View style={[styles.bubble, !assistant && styles.bubbleMe]}>{assistant && mode === "team" ? <Text style={styles.senderLabel}>{teamSender}</Text> : null}<Text style={[styles.messageText, !assistant && styles.messageTextMe]}>{content}</Text></View></View>;
             })}
             {loading ? <ActivityIndicator color={colors.sky600} style={styles.loader}/> : null}
             {mode === "assistant" ? <View style={styles.quick}><Pressable style={styles.quickButton} onPress={() => setMessage("Pet saya muntah, apa yang harus diperhatikan?")}><Ionicons name="medical-outline" size={15} color={colors.sky600}/><Text style={styles.quickText}>Konsultasi gejala</Text></Pressable><Pressable style={styles.quickButton} onPress={() => setMessage("Hewan saya sesak dan sangat lemas")}><Ionicons name="alert-circle-outline" size={15} color={colors.red}/><Text style={styles.quickText}>Darurat</Text></Pressable></View> : supportMode && !activeMessages.length ? <View style={styles.quick}><Pressable style={styles.quickButton} onPress={() => setMessage("Saya butuh bantuan terkait akun saya")}><Ionicons name="person-outline" size={15} color={colors.sky600}/><Text style={styles.quickText}>Masalah akun</Text></Pressable><Pressable style={styles.quickButton} onPress={() => setMessage("Saya butuh bantuan terkait booking atau pembayaran")}><Ionicons name="receipt-outline" size={15} color={colors.sky600}/><Text style={styles.quickText}>Booking & pembayaran</Text></Pressable></View> : null}
           </ScrollView>
-          <View style={styles.composer}><Pressable accessibilityRole="button" accessibilityLabel="Lampirkan foto" onPress={() => onAction("Pilih foto pendukung dari perangkat")} style={styles.attach}><Ionicons name="add" size={22} color={colors.muted}/></Pressable><TextInput value={message} onChangeText={setMessage} placeholder={mode === "assistant" ? "Tanya seputar hewan..." : supportMode ? "Tulis kendalamu..." : "Pesan ke care team..."} placeholderTextColor={colors.muted} style={styles.input} onSubmitEditing={send}/><Pressable accessibilityRole="button" accessibilityLabel="Kirim pesan" disabled={loading} onPress={send} style={[styles.send, loading && styles.disabled]}><Ionicons name="arrow-up" size={19} color={colors.white}/></Pressable></View>
+          <View style={styles.composer}><TextInput value={message} onChangeText={setMessage} placeholder={mode === "assistant" ? "Tanya seputar hewan..." : supportMode ? "Tulis kendalamu..." : "Pesan ke care team..."} placeholderTextColor={colors.muted} style={styles.input} onSubmitEditing={send}/><Pressable accessibilityRole="button" accessibilityLabel="Kirim pesan" disabled={loading} onPress={send} style={[styles.send, loading && styles.disabled]}><Ionicons name="arrow-up" size={19} color={colors.white}/></Pressable></View>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
@@ -127,4 +171,5 @@ const styles = StyleSheet.create({
   context: { flexDirection: "row", alignItems: "center", gap: 9, padding: 8, paddingHorizontal: 14, backgroundColor: "#F7FBFD" }, pet: { width: 35, height: 35, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: colors.yellow50 }, contextCopy: { minWidth: 0, flex: 1 }, contextLabel: { color: colors.muted, fontSize: 9, fontWeight: "600" }, contextName: { marginTop: 2, color: colors.navy, fontSize: 11, lineHeight: 16, fontWeight: "600" }, petOnly: { paddingHorizontal: 7, paddingVertical: 5, borderRadius: 9, backgroundColor: colors.mint50 }, petOnlyText: { color: colors.mint, fontSize: 9, fontWeight: "600" },
   messages: { flexGrow: 1, padding: 14, paddingBottom: 18, backgroundColor: colors.canvas }, scope: { flexDirection: "row", gap: 7, padding: 11, marginBottom: 9, borderWidth: 1, borderColor: colors.sky100, borderRadius: 16, backgroundColor: colors.sky50 }, scopeText: { flex: 1, color: colors.muted, fontSize: 10, lineHeight: 16 }, messageRow: { flexDirection: "row", alignItems: "flex-end", gap: 6, marginTop: 9 }, messageRowMe: { justifyContent: "flex-end" }, messageAvatar: { width: 26, height: 26, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: colors.mint50 }, bubble: { maxWidth: "84%", padding: 11, borderWidth: 1, borderColor: colors.sky100, borderRadius: 17, borderBottomLeftRadius: 5, backgroundColor: colors.white, ...shadow }, bubbleMe: { borderWidth: 0, borderBottomLeftRadius: 17, borderTopRightRadius: 5, backgroundColor: colors.sky600 }, messageText: { color: colors.text, fontSize: 13, lineHeight: 19 }, messageTextMe: { color: colors.white }, loader: { alignSelf: "flex-start", margin: 12 }, quick: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 11, paddingLeft: 31 }, quickButton: { minHeight: 38, flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center", paddingHorizontal: 10, borderWidth: 1, borderColor: colors.sky100, borderRadius: 14, backgroundColor: colors.white }, quickText: { color: colors.text, fontSize: 10, fontWeight: "600" },
   composer: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: colors.sky100, backgroundColor: colors.white }, attach: { width: 40, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky50 }, input: { flex: 1, minHeight: 42, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: 16, backgroundColor: colors.canvas, color: colors.text, fontSize: 13 }, send: { width: 42, height: 42, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: colors.sky600, ...shadow },
+  senderLabel: { marginBottom: 3, color: colors.sky600, fontSize: 10, fontWeight: "700" },
 });

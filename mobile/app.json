@@ -3,7 +3,7 @@
     "name": "Slivadoc",
     "slug": "slivadoc-pet-owner",
     "version": "0.1.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "userInterfaceStyle": "light",
     "scheme": "slivadoc",
     "androidStatusBar": {
@@ -28,7 +28,7 @@
         "backgroundColor": "#EAF8FF"
       },
       "predictiveBackGestureEnabled": true,
-      "softwareKeyboardLayoutMode": "pan",
+      "softwareKeyboardLayoutMode": "resize",
       "permissions": [
         "CAMERA",
         "ACCESS_COARSE_LOCATION",
@@ -40,8 +40,8 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash.png",
-          "imageWidth": 220,
-          "backgroundColor": "#EAF8FF"
+          "imageWidth": 176,
+          "backgroundColor": "#F6FBFF"
         }
       ],
       [
@@ -55,7 +55,9 @@
         {
           "photosPermission": "Izinkan Slivadoc memilih foto hewan dan dokumen kesehatan."
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-video"
     ]
   }
 }

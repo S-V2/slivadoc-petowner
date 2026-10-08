@@ -1,4 +1,7 @@
+import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
+import { useResponsiveLayout } from "../responsive";
 import { Ionicons } from "@expo/vector-icons";
+import { DiscountBadge } from "../components/DiscountBadge";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -8,24 +11,32 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
+
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
   createMobileOrder,
+  createMobileMarketplaceChat,
+  MobileApiError,
   createMobilePaymentIntent,
   getMobileDistricts,
   getMobileProductReviews,
   getMobileProducts,
+  getMobileMarketplaceChatMessages,
+  getMobileMarketplaceStore,
   getMobileProvinces,
   getMobileRegencies,
   getMobileVillages,
   quoteMobileOrder,
   saveMobileProductReview,
+  sendMobileMarketplaceChatMessage,
+  type MobileMarketplaceChatMessage,
+  type MobileMarketplaceStoreResponse,
   type MobileOrderQuote,
   type MobileOrderInput,
   type MobilePaymentIntent,
@@ -34,16 +45,18 @@ import {
   type MobileRegionOption,
 } from "../api";
 import {
-  MobileBatpayModal,
+  MobileQrisModal,
   MobilePaymentMethods,
-} from "../components/BatpayPayment";
+} from "../components/QrisPayment";
 import { RegionSelectSheet } from "../components/RegionSelectSheet";
 import {
+  ChatUnreadBadge,
   EmptyState,
   PetRequiredNotice,
   Pill,
   PrimaryButton,
   Screen,
+  useAppSurface,
 } from "../components/ui";
 import type { Service } from "../data";
 import {
@@ -65,7 +78,29 @@ import {
 } from "../shipping";
 import { colors, shadow } from "../theme";
 
-type SortMode = "recommended" | "popular" | "rating" | "price";
+type SortMode =
+  | "recommended"
+  | "popular"
+  | "bestseller"
+  | "rating"
+  | "newest"
+  | "price"
+  | "price_desc";
+type StoreSection = "products" | "services" | "categories" | "reviews" | "about";
+export type MarketplaceChatShortcut = "products" | "services" | "pet_hotel" | "orders";
+
+const MARKETPLACE_CHAT_SHORTCUTS: ReadonlyArray<{
+  id: MarketplaceChatShortcut;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}> = [
+  { id: "products", label: "Produk", icon: "bag-handle-outline" },
+  { id: "services", label: "Layanan", icon: "heart-outline" },
+  { id: "pet_hotel", label: "Pet Hotel", icon: "bed-outline" },
+  { id: "orders", label: "Pesanan", icon: "receipt-outline" },
+];
+
+const MARKETPLACE_CHAT_EMOJIS = ["😊", "😍", "🙏", "👍", "🐾", "🐶", "🐱", "❤️"];
 
 const REGION_LEVELS: readonly ShippingRegionLevel[] = [
   "province",
@@ -118,10 +153,15 @@ type MarketplaceScreenProps = {
   onRequireLogin: () => void;
   onRequirePet: () => void;
   onToggleFavorite: (id: string) => Promise<void> | void;
+  onOpenService: (service: Service) => void;
+  onExploreServices: (category?: string) => void;
+  onOpenOrders: () => void;
   onIntentHandled: (token: number) => void;
   intent?: {
     token: number;
     productId?: string;
+    businessId?: string;
+    storeSection?: "products" | "services";
     items?: Array<{ product_id: string; quantity: number }>;
   };
 };
@@ -134,6 +174,31 @@ function productIcon(product: MobileProduct): keyof typeof Ionicons.glyphMap {
   if (/toy|mainan/.test(value)) return "game-controller-outline";
   if (/cat|kucing|dog|anjing/.test(value)) return "paw-outline";
   return "cube-outline";
+}
+
+function productDiscount(product: MobileProduct) {
+  if (product.discount_percent && product.discount_percent > 0) {
+    return Math.round(product.discount_percent);
+  }
+  if (product.original_price && product.original_price > product.price) {
+    return Math.round((1 - product.price / product.original_price) * 100);
+  }
+  return 0;
+}
+
+function serviceGradient(tone: Service["tone"]): [string, string] {
+  if (tone === "mint") return ["#DDFBF3", "#F4FFFC"];
+  if (tone === "violet") return ["#ECE7FF", "#F8F6FF"];
+  if (tone === "peach") return ["#FFF0E5", "#FFF9F4"];
+  return ["#DDF3FF", "#F3FBFF"];
+}
+
+function serviceIcon(service: Pick<Service, "category" | "name">): keyof typeof Ionicons.glyphMap {
+  const value = `${service.category} ${service.name}`.toLowerCase();
+  if (/home|rumah/.test(value)) return "home-outline";
+  if (/hotel|boarding|penitipan/.test(value)) return "bed-outline";
+  if (/groom|mandi/.test(value)) return "cut-outline";
+  return "medical-outline";
 }
 
 function compactNumber(value: number) {
@@ -158,6 +223,56 @@ function Stars({ value, size = 12 }: { value: number; size?: number }) {
   );
 }
 
+function StoreAvatar({
+  name,
+  logo,
+  online,
+  large = false,
+}: {
+  name: string;
+  logo?: string;
+  online?: boolean;
+  large?: boolean;
+}) {
+  return (
+    <View style={[styles.storeAvatar, large && styles.storeAvatarLarge]}>
+      {logo ? (
+        <Image
+          source={{ uri: logo }}
+          style={styles.storeAvatarImage}
+          accessibilityLabel={`Logo toko ${name}`}
+          alt={`Logo toko ${name}`}
+        />
+      ) : (
+        <Text style={[styles.storeAvatarInitial, large && styles.storeAvatarInitialLarge]}>
+          {name.trim().slice(0, 1).toUpperCase() || "S"}
+        </Text>
+      )}
+      <View style={[styles.storePresenceDot, online && styles.storePresenceDotOnline]} />
+    </View>
+  );
+}
+
+function storePresenceLabel(
+  online: boolean,
+  lastSeen: string | undefined,
+  formatDate: (
+    value: Date | string | number,
+    options?: Intl.DateTimeFormatOptions,
+  ) => string,
+) {
+  if (online) return "Online sekarang";
+  if (!lastSeen) return "Terakhir online belum tersedia";
+  const date = new Date(lastSeen);
+  if (Number.isNaN(date.getTime())) return "Terakhir online belum tersedia";
+  return `Terakhir online ${formatDate(date, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
+}
+
 function ProductVisual({
   product,
   large = false,
@@ -165,12 +280,50 @@ function ProductVisual({
   product: MobileProduct;
   large?: boolean;
 }) {
-  if (product.image_url) {
+  const { sheetWidth: width } = useResponsiveLayout();
+  const [previewIndex, setPreviewIndex] = useState<number>();
+  const [activeImage, setActiveImage] = useState(0);
+  const galleryRef = useRef<ScrollView>(null);
+  const images = Array.from(new Set([...(product.image_urls ?? []), product.image_url].filter(Boolean)));
+  const galleryWidth = Math.max(260, width - 48);
+  useEffect(() => {
+    if (!large || images.length < 2) return;
+    const timer = setInterval(() => {
+      setActiveImage((current) => {
+        const next = (current + 1) % images.length;
+        galleryRef.current?.scrollTo({ x: next * galleryWidth, animated: true });
+        return next;
+      });
+    }, 1_000);
+    return () => clearInterval(timer);
+  }, [galleryWidth, images.length, large, product.id]);
+  if (images.length) {
+    if (large) {
+      return <>
+        <View>
+          <ScrollView ref={galleryRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.productGallery} onMomentumScrollEnd={(event) => setActiveImage(Math.round(event.nativeEvent.contentOffset.x / galleryWidth))}>
+            {images.map((uri, index) => (
+              <Pressable key={uri} onPress={() => setPreviewIndex(index)} style={{ width: galleryWidth }} accessibilityRole="imagebutton" accessibilityLabel={`Perbesar foto ${index + 1} ${product.name}`}>
+                <Image alt={`Foto ${index + 1} ${product.name}`} accessibilityLabel={`Foto ${index + 1} ${product.name}`} source={{ uri }} resizeMode="cover" style={styles.productImageLarge} />
+              </Pressable>
+            ))}
+          </ScrollView>
+          {images.length > 1 ? <View style={styles.productGalleryBadge}><Ionicons name="images-outline" size={13} color={colors.white} /><Text style={styles.productGalleryBadgeText}>{activeImage + 1}/{images.length} · otomatis</Text></View> : null}
+        </View>
+        <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible={previewIndex !== undefined} animationType="fade" statusBarTranslucent transparent onRequestClose={() => setPreviewIndex(undefined)}>
+          <SafeAreaView style={styles.productViewer}>
+            <Pressable accessibilityRole="button" hitSlop={10} onPress={() => setPreviewIndex(undefined)} style={styles.productViewerClose} accessibilityLabel="Tutup galeri"><Ionicons name="close" size={24} color={colors.white} /></Pressable>
+            <Image alt={`Foto ${product.name}`} accessibilityLabel={`Foto ${product.name}`} source={{ uri: images[previewIndex ?? 0] }} resizeMode="contain" style={styles.productViewerImage} />
+            {images.length > 1 ? <View style={styles.productViewerControls}><Pressable onPress={() => setPreviewIndex((value) => ((value ?? 0) - 1 + images.length) % images.length)}><Ionicons name="chevron-back" size={24} color={colors.white} /></Pressable><Text style={styles.productViewerCount}>{(previewIndex ?? 0) + 1} / {images.length}</Text><Pressable onPress={() => setPreviewIndex((value) => ((value ?? 0) + 1) % images.length)}><Ionicons name="chevron-forward" size={24} color={colors.white} /></Pressable></View> : null}
+          </SafeAreaView>
+        </Modal>
+      </>;
+    }
     return (
       <Image
         alt={`Foto ${product.name}`}
         accessibilityLabel={`Foto ${product.name}`}
-        source={{ uri: product.image_url }}
+        source={{ uri: images[0] }}
         resizeMode="cover"
         style={[styles.productImage, large && styles.productImageLarge]}
       />
@@ -196,22 +349,24 @@ function ProductCard({
   product,
   favorite,
   onOpen,
-  onAdd,
+  onStore,
   onFavorite,
 }: {
   product: MobileProduct;
   favorite: boolean;
   onOpen: () => void;
-  onAdd: () => void;
+  onStore: () => void;
   onFavorite: () => void;
 }) {
-  const { formatCurrency } = useI18n();
+  const { formatCurrency, formatDate, formatNumber } = useI18n();
+  const layout = useResponsiveLayout();
+  const discount = productDiscount(product);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Buka ${product.name}`}
       onPress={onOpen}
-      style={({ pressed }) => [styles.productCard, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.productCard, { width: `${100 / layout.columns - 1.5}%` }, pressed && styles.pressed]}
     >
       <View style={styles.productVisualWrap}>
         <ProductVisual product={product} />
@@ -238,19 +393,41 @@ function ProductCard({
             <Text style={styles.soldOutText}>Stok habis</Text>
           </View>
         ) : null}
+        {discount ? (
+          <DiscountBadge percent={discount} />
+        ) : null}
       </View>
       <View style={styles.productCardBody}>
-        <Text numberOfLines={2} style={styles.productName}>
+        <Text numberOfLines={1} style={styles.productCategory}>
+          {product.category}
+        </Text>
+        <Text catalogue numberOfLines={2} style={styles.productName}>
           {product.name}
         </Text>
-        <View style={styles.productStoreBadge}>
-          <Ionicons name="storefront-outline" size={12} color={colors.sky600} />
-          <Text numberOfLines={1} style={styles.storeName}>
-            {product.business_name}
-          </Text>
-        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Buka toko ${product.business_name}`}
+          onPress={(event) => {
+            event.stopPropagation();
+            onStore();
+          }}
+          style={styles.productStoreBadge}
+        >
+          <StoreAvatar name={product.business_name} logo={product.store_logo_url} online={product.store_is_online} />
+          <View style={styles.productStoreCopy}>
+            <Text numberOfLines={1} style={styles.storeName}>{product.business_name}</Text>
+            <Text numberOfLines={1} style={styles.storePresenceText}>
+              {storePresenceLabel(product.store_is_online, product.store_last_seen_at, formatDate)}
+            </Text>
+          </View>
+        </Pressable>
         <View style={styles.productCommerceRow}>
           <View style={styles.productCommerceCopy}>
+            {product.original_price && product.original_price > product.price ? (
+              <Text style={styles.productOriginalPrice}>
+                {formatCurrency(product.original_price)}
+              </Text>
+            ) : null}
             <Text style={styles.productPrice}>
               {formatCurrency(product.price)}
             </Text>
@@ -265,22 +442,23 @@ function ProductCard({
               </Text>
             </View>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            disabled={!product.available}
-            onPress={(event) => {
-              event.stopPropagation();
-              onAdd();
-            }}
-            style={({ pressed }) => [
-              styles.addButton,
-              !product.available && styles.disabledButton,
-              pressed && product.available && styles.pressed,
-            ]}
-          >
-            <Ionicons name="bag-add-outline" size={16} color={colors.white} />
-            <Text style={styles.addButtonText}>Tambah</Text>
-          </Pressable>
+        </View>
+        <View style={styles.productFulfillment}>
+          <View style={styles.productFulfillmentItem}>
+            <Ionicons name="location-outline" size={10} color={colors.muted} />
+            <Text numberOfLines={1} style={styles.productFulfillmentText}>
+              {product.city || "Indonesia"}
+            </Text>
+          </View>
+          <Text style={styles.productStockText}>
+            {product.available ? `Stok ${compactNumber(product.stock)}` : "Habis"}
+          </Text>
+        </View>
+        <View style={styles.productReward}>
+          <Ionicons name="sparkles-outline" size={11} color="#087B68" />
+          <Text numberOfLines={1} style={styles.productRewardText}>
+            +{formatNumber(Math.max(0, Math.floor(product.price / 1000)))} Sliva Point
+          </Text>
         </View>
       </View>
     </Pressable>
@@ -298,24 +476,57 @@ export function MarketplaceScreen({
   onRequireLogin,
   onRequirePet,
   onToggleFavorite,
+  onOpenService,
+  onExploreServices,
+  onOpenOrders,
   onIntentHandled,
   intent,
 }: MarketplaceScreenProps) {
+  const { unreadNotifications, openChatInbox } = useAppSurface();
   const [products, setProducts] = useState<MobileProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Semua");
-  const [store, setStore] = useState("Semua toko");
+  const [store, setStore] = useState("");
   const [sort, setSort] = useState<SortMode>("recommended");
   const [selected, setSelected] = useState<MobileProduct>();
+  const [selectedStoreId, setSelectedStoreId] = useState("");
+  const [storeInitialSection, setStoreInitialSection] = useState<StoreSection>("products");
+  const [storeResponse, setStoreResponse] =
+    useState<MobileMarketplaceStoreResponse>();
+  const storeRequest = useRef(0);
+  const [storeLoading, setStoreLoading] = useState(false);
+  const [storeError, setStoreError] = useState("");
+  const [chat, setChat] = useState<{
+    threadId: string;
+    businessId: string;
+    storeName: string;
+    storeLogo: string;
+    storeOnline: boolean;
+    storeLastSeen: string;
+    product?: MobileProduct;
+  }>();
+  const [chatOpening, setChatOpening] = useState(false);
   const [cart, setCart] = useState<Record<string, number>>({});
+  const [addingProductId, setAddingProductId] = useState("");
+  const [cartAddedProductId, setCartAddedProductId] = useState("");
+  const cartAddedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [directBuyCart, setDirectBuyCart] = useState<Record<string, number> | null>(
+    null,
+  );
+  const directCheckoutRef = useRef(false);
+  const pendingOrder = useRef<{
+    id: string;
+    orderNumber: string;
+    key: string;
+  } | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [reviews, setReviews] = useState<MobileProductReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [payment, setPayment] = useState<MobilePaymentIntent>();
   const [voucher, setVoucher] = useState("");
   const [points, setPoints] = useState("");
@@ -545,17 +756,21 @@ export function MarketplaceScreen({
     [catalogProducts],
   );
   const stores = useMemo(
-    () => [
-      { id: "Semua toko", name: "Semua toko", city: "" },
-      ...Array.from(
+    () =>
+      Array.from(
         new Map(
           catalogProducts.map((item) => [
             item.business_id,
-            { id: item.business_id, name: item.business_name, city: item.city },
+            {
+              id: item.business_id,
+              name: item.business_name,
+              city: item.city,
+              logo: item.store_logo_url,
+              online: item.store_is_online,
+            },
           ]),
         ).values(),
       ),
-    ],
     [catalogProducts],
   );
   const visibleProducts = useMemo(() => {
@@ -563,7 +778,7 @@ export function MarketplaceScreen({
     const result = catalogProducts.filter(
       (item) =>
         (category === "Semua" || item.category === category) &&
-        (store === "Semua toko" || item.business_id === store) &&
+        (!store || item.business_id === store) &&
         (!needle ||
           `${item.name} ${item.category} ${item.business_name}`
             .toLowerCase()
@@ -573,6 +788,9 @@ export function MarketplaceScreen({
       if (sort === "popular") return right.sold_count - left.sold_count;
       if (sort === "rating") return right.rating - left.rating;
       if (sort === "price") return left.price - right.price;
+      if (sort === "price_desc") return right.price - left.price;
+      if (sort === "newest")
+        return Date.parse(right.created_at || "") - Date.parse(left.created_at || "");
       return (
         Number(right.available) - Number(left.available) ||
         right.review_count - left.review_count
@@ -583,15 +801,19 @@ export function MarketplaceScreen({
     () => new Map(catalogProducts.map((product) => [product.id, product])),
     [catalogProducts],
   );
+  const checkoutCart = directBuyCart ?? cart;
   const cartItems = useMemo(
     () =>
-      Object.entries(cart).flatMap(([id, quantity]) => {
+      Object.entries(checkoutCart).flatMap(([id, quantity]) => {
         const product = productsById.get(id);
         return product && quantity > 0 ? [{ product, quantity }] : [];
       }),
-    [cart, productsById],
+    [checkoutCart, productsById],
   );
-  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const cartCount = Object.values(cart).reduce(
+    (sum, quantity) => sum + quantity,
+    0,
+  );
   const localSubtotal = cartItems.reduce(
     (sum, item) => sum + item.product.price * item.quantity,
     0,
@@ -603,30 +825,53 @@ export function MarketplaceScreen({
         0,
         Math.min(Math.floor(product.stock), quantity),
       );
-      setCart((current) => {
+      const update = (current: Record<string, number>) => {
         if (!safeQuantity) {
           const next = { ...current };
           delete next[product.id];
           return next;
         }
         return { ...current, [product.id]: safeQuantity };
-      });
+      };
+      if (directBuyCart) {
+        setDirectBuyCart((current) => update(current ?? {}));
+      } else {
+        setCart(update);
+      }
       invalidateQuote();
     },
-    [invalidateQuote],
+    [directBuyCart, invalidateQuote],
+  );
+
+  useEffect(
+    () => () => {
+      if (cartAddedTimer.current) clearTimeout(cartAddedTimer.current);
+    },
+    [],
   );
 
   const addToCart = useCallback(
-    (product: MobileProduct) => {
-      if (!product.available) return;
+    async (product: MobileProduct) => {
+      if (!product.available || addingProductId === product.id) return;
       if (!hasPet) {
         onRequirePet();
         return;
       }
-      setQuantity(product, (cart[product.id] ?? 0) + 1);
-      onAction(`${product.name} masuk keranjang`);
+      setAddingProductId(product.id);
+      try {
+        setQuantity(product, (cart[product.id] ?? 0) + 1);
+        await new Promise((resolve) => setTimeout(resolve, 480));
+        setCartAddedProductId(product.id);
+        if (cartAddedTimer.current) clearTimeout(cartAddedTimer.current);
+        cartAddedTimer.current = setTimeout(
+          () => setCartAddedProductId(""),
+          1_650,
+        );
+      } finally {
+        setAddingProductId("");
+      }
     },
-    [cart, hasPet, onAction, onRequirePet, setQuantity],
+    [addingProductId, cart, hasPet, onRequirePet, setQuantity],
   );
 
   const loadReviews = useCallback(async (product: MobileProduct) => {
@@ -648,6 +893,84 @@ export function MarketplaceScreen({
     void loadReviews(product);
   };
 
+  const openStore = useCallback(
+    async (businessId: string, initialSection: StoreSection = "products") => {
+      const requestId = ++storeRequest.current;
+      setSelected(undefined);
+      setStoreResponse(undefined);
+      setStoreInitialSection(initialSection);
+      setSelectedStoreId(businessId);
+      setStoreLoading(true);
+      setStoreError("");
+      try {
+        const result = await getMobileMarketplaceStore(businessId);
+        if (requestId === storeRequest.current) setStoreResponse(result);
+      } catch (cause) {
+        if (requestId === storeRequest.current)
+          setStoreError(
+            cause instanceof Error ? cause.message : "Etalase toko belum dapat dimuat",
+          );
+      } finally {
+        if (requestId === storeRequest.current) setStoreLoading(false);
+      }
+    },
+    [],
+  );
+
+  const openChat = useCallback(
+    async (product?: MobileProduct) => {
+      if (!authenticated) {
+        onRequireLogin();
+        return;
+      }
+      if (!hasPet) {
+        onRequirePet();
+        return;
+      }
+      const storeProduct =
+        product ?? catalogProducts.find((item) => item.business_id === selectedStoreId);
+      const businessId = product?.business_id || selectedStoreId;
+      if (!businessId || chatOpening) return;
+      setChatOpening(true);
+      try {
+        const thread = await createMobileMarketplaceChat({
+          business_id: businessId,
+          product_id: product?.id,
+        });
+        const profile =
+          storeResponse?.store.id === businessId ? storeResponse.store : undefined;
+        setChat({
+          threadId: thread.id,
+          businessId,
+          product,
+          storeName:
+            profile?.name || storeProduct?.business_name || "Toko Slivadoc",
+          storeLogo:
+            profile?.logo_url || storeProduct?.store_logo_url || "",
+          storeOnline:
+            profile?.is_online ?? Boolean(storeProduct?.store_is_online),
+          storeLastSeen:
+            profile?.last_seen_at || storeProduct?.store_last_seen_at || "",
+        });
+      } catch (cause) {
+        onAction(cause instanceof Error ? cause.message : "Chat toko belum dapat dibuka");
+      } finally {
+        setChatOpening(false);
+      }
+    },
+    [
+      authenticated,
+      catalogProducts,
+      chatOpening,
+      hasPet,
+      onAction,
+      onRequireLogin,
+      onRequirePet,
+      selectedStoreId,
+      storeResponse,
+    ],
+  );
+
   useEffect(() => {
     if (!intent || loading || handledIntent.current === intent.token) return;
     queueMicrotask(() => {
@@ -663,6 +986,10 @@ export function MarketplaceScreen({
         setReviewComment("");
         setReviewRating(5);
         void loadReviews(product);
+        return;
+      }
+      if (intent.businessId) {
+        void openStore(intent.businessId, intent.storeSection ?? "services");
         return;
       }
       if (intent.items?.length) {
@@ -696,6 +1023,7 @@ export function MarketplaceScreen({
     onIntentHandled,
     productsById,
     invalidateQuote,
+    openStore,
   ]);
 
   const quoteItems = useMemo(
@@ -914,18 +1242,41 @@ export function MarketplaceScreen({
       onAction("Lengkapi tujuan dan tunggu ongkir selesai dihitung");
       return;
     }
+    if (!paymentMethod) {
+      onAction("Tunggu hingga pembayaran QRIS tersedia.");
+      return;
+    }
     setCheckoutBusy(true);
     try {
       const orderInput = buildOrderInput(shippingSelectionsRef.current);
-      const order = await createMobileOrder(orderInput);
-      const intent = await createMobilePaymentIntent(
-        "shop_order",
-        order.id,
-        paymentMethod,
-      );
+      // The order outlives a failed payment intent: retry pays it again
+      // instead of creating a second order. A cart change alters the key.
+      const key = JSON.stringify(orderInput);
+      let order =
+        pendingOrder.current?.key === key ? pendingOrder.current : null;
+      if (!order) {
+        const created = await createMobileOrder(orderInput);
+        order = { id: created.id, orderNumber: created.order_number, key };
+        pendingOrder.current = order;
+      }
+      let intent: MobilePaymentIntent;
+      try {
+        intent = await createMobilePaymentIntent(
+          "shop_order",
+          order.id,
+          paymentMethod,
+        );
+      } catch (cause) {
+        // A 4xx means the order can no longer be paid (closed or expired).
+        if (cause instanceof MobileApiError && cause.status < 500)
+          pendingOrder.current = null;
+        throw cause;
+      }
       setPayment(intent);
       setCartOpen(false);
-      onAction(`Pesanan ${order.order_number} siap dibayar`);
+      directCheckoutRef.current = Boolean(directBuyCart);
+      if (directBuyCart) setDirectBuyCart(null);
+      onAction(`Pesanan ${order.orderNumber} siap dibayar`);
     } catch (cause) {
       onAction(
         cause instanceof Error
@@ -979,8 +1330,17 @@ export function MarketplaceScreen({
           </View>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Buka daftar chat"
+            onPress={() => openChatInbox()}
+            style={styles.headerButton}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+            <ChatUnreadBadge />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Buka notifikasi"
-            onPress={onOpenNotifications}
+            onPress={() => onOpenNotifications()}
             style={styles.headerButton}
           >
             <Ionicons
@@ -988,7 +1348,7 @@ export function MarketplaceScreen({
               size={20}
               color={colors.text}
             />
-            <View style={styles.notificationDot} />
+            {unreadNotifications > 0 ? <View style={styles.notificationDot} /> : null}
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -1058,7 +1418,7 @@ export function MarketplaceScreen({
             </Text>
           </View>
           <Text style={styles.sectionCount}>
-            {Math.max(0, stores.length - 1)} toko
+            {stores.length} toko
           </Text>
         </View>
         <ScrollView
@@ -1066,7 +1426,7 @@ export function MarketplaceScreen({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.storeRow}
         >
-          {stores.map((item, index) => {
+          {stores.map((item) => {
             const active = store === item.id;
             return (
               <Pressable
@@ -1074,18 +1434,16 @@ export function MarketplaceScreen({
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={`${item.name}${item.city ? `, ${item.city}` : ""}`}
                 key={item.id}
-                onPress={() => setStore(item.id)}
+                onPress={() =>
+                  setStore((current) => (current === item.id ? "" : item.id))
+                }
                 style={[styles.storeChip, active && styles.storeChipActive]}
               >
-                <View
-                  style={[styles.storeIcon, active && styles.storeIconActive]}
-                >
-                  <Ionicons
-                    name={index ? "storefront-outline" : "sparkles-outline"}
-                    size={20}
-                    color={active ? colors.sky600 : "#8B4A20"}
-                  />
-                </View>
+                <StoreAvatar
+                  name={item.name}
+                  logo={item.logo}
+                  online={item.online}
+                />
                 <View style={styles.storeChipCopy}>
                   <Text
                     numberOfLines={1}
@@ -1103,7 +1461,7 @@ export function MarketplaceScreen({
                       active && styles.storeChipCityActive,
                     ]}
                   >
-                    {index ? item.city || "Toko resmi" : "Lihat semuanya"}
+                    {item.city || "Toko resmi"}
                   </Text>
                 </View>
               </Pressable>
@@ -1157,8 +1515,10 @@ export function MarketplaceScreen({
             [
               ["recommended", "Rekomendasi"],
               ["popular", "Terlaris"],
+              ["newest", "Terbaru"],
               ["rating", "Rating"],
               ["price", "Harga termurah"],
+              ["price_desc", "Harga termahal"],
             ] as Array<[SortMode, string]>
           ).map(([id, label]) => (
             <Pressable
@@ -1188,7 +1548,7 @@ export function MarketplaceScreen({
                 product={product}
                 favorite={favorites.includes(product.id)}
                 onOpen={() => openProduct(product)}
-                onAdd={() => addToCart(product)}
+                onStore={() => void openStore(product.business_id)}
                 onFavorite={() => {
                   if (!authenticated) return onRequireLogin();
                   void onToggleFavorite(product.id);
@@ -1205,7 +1565,7 @@ export function MarketplaceScreen({
             onAction={() => {
               setQuery("");
               setCategory("Semua");
-              setStore("Semua toko");
+              setStore("");
             }}
           />
         )}
@@ -1218,18 +1578,85 @@ export function MarketplaceScreen({
         rating={reviewRating}
         comment={reviewComment}
         reviewBusy={reviewBusy}
+        adding={Boolean(selected && addingProductId === selected.id)}
+        added={Boolean(selected && cartAddedProductId === selected.id)}
         onRating={setReviewRating}
         onComment={setReviewComment}
         onClose={() => setSelected(undefined)}
-        onAdd={() => selected && addToCart(selected)}
+        onStore={() => selected && void openStore(selected.business_id)}
+        onChat={() => selected && void openChat(selected)}
+        onAdd={() => selected && void addToCart(selected)}
         onBuy={() => {
           if (!selected) return;
-          addToCart(selected);
+          if (!hasPet) {
+            onRequirePet();
+            return;
+          }
+          setDirectBuyCart({ [selected.id]: 1 });
+          invalidateQuote();
           setSelected(undefined);
           setCartOpen(true);
         }}
         onSubmitReview={() => void submitReview()}
       />
+
+      <StorefrontSheet
+        key={selectedStoreId || "storefront"}
+        visible={Boolean(selectedStoreId)}
+        response={storeResponse}
+        products={catalogProducts.filter(
+          (product) => product.business_id === selectedStoreId,
+        )}
+        services={partners.filter((service) => service.businessId === selectedStoreId)}
+        initialSection={storeInitialSection}
+        loading={storeLoading}
+        error={storeError}
+        favorites={favorites}
+        onClose={() => {
+          storeRequest.current += 1;
+          setSelectedStoreId("");
+          setStoreResponse(undefined);
+        }}
+        onOpenProduct={(product) => {
+          storeRequest.current += 1;
+          setSelectedStoreId("");
+          setStoreResponse(undefined);
+          openProduct(product);
+        }}
+        onOpenService={(service) => {
+          storeRequest.current += 1;
+          setSelectedStoreId("");
+          setStoreResponse(undefined);
+          onOpenService(service);
+        }}
+        onChat={() => void openChat()}
+        onFavorite={(product) => {
+          if (!authenticated) return onRequireLogin();
+          void onToggleFavorite(product.id);
+        }}
+      />
+
+      {chat ? (
+        <MarketplaceChatSheet
+          {...chat}
+          onShortcut={(shortcut) => {
+            const businessId = chat.businessId;
+            setChat(undefined);
+            if (shortcut === "products" || shortcut === "services") {
+              void openStore(
+                businessId,
+                shortcut === "services" ? "services" : "products",
+              );
+            } else if (shortcut === "pet_hotel") {
+              onExploreServices("Pet Hotel");
+            } else {
+              onOpenOrders();
+            }
+          }}
+          onAction={onAction}
+          onClose={() => setChat(undefined)}
+        />
+      ) : null}
 
       <CartSheet
         visible={cartOpen}
@@ -1310,17 +1737,21 @@ export function MarketplaceScreen({
           setRegionPicker(undefined);
           invalidateQuote(false);
           setCartOpen(false);
+          setDirectBuyCart(null);
         }}
         onQuantity={setQuantity}
         onQuote={() => void refreshQuote(undefined, true)}
         onCheckout={() => void checkout()}
       />
 
-      <MobileBatpayModal
+      <MobileQrisModal
         payment={payment}
         onClose={() => setPayment(undefined)}
         onPaid={() => {
-          setCart({});
+          pendingOrder.current = null;
+          if (!directCheckoutRef.current) setCart({});
+          directCheckoutRef.current = false;
+          setDirectBuyCart(null);
           invalidateQuote();
           void loadProducts();
           onAction("Pembayaran berhasil, pesanan sedang disiapkan toko");
@@ -1334,17 +1765,19 @@ function SheetFrame({
   visible,
   title,
   eyebrow,
+  fill = false,
   onClose,
   children,
 }: {
   visible: boolean;
   title: string;
   eyebrow: string;
+  fill?: boolean;
   onClose: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <Modal
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={visible}
       transparent
       animationType="slide"
@@ -1356,9 +1789,9 @@ function SheetFrame({
       >
         <SafeAreaView
           edges={["top", "left", "right"]}
-          style={styles.sheetSafeArea}
+          style={[styles.sheetSafeArea, fill && styles.sheetSafeAreaFill]}
         >
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, fill && styles.sheetFill]}>
             <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeaderCopy}>
@@ -1391,9 +1824,13 @@ function ProductDetailSheet({
   rating,
   comment,
   reviewBusy,
+  adding,
+  added,
   onRating,
   onComment,
   onClose,
+  onStore,
+  onChat,
   onAdd,
   onBuy,
   onSubmitReview,
@@ -1404,15 +1841,28 @@ function ProductDetailSheet({
   rating: number;
   comment: string;
   reviewBusy: boolean;
+  adding: boolean;
+  added: boolean;
   onRating: (value: number) => void;
   onComment: (value: string) => void;
   onClose: () => void;
+  onStore: () => void;
+  onChat: () => void;
   onAdd: () => void;
   onBuy: () => void;
   onSubmitReview: () => void;
 }) {
-  const { formatCurrency, formatDate } = useI18n();
+  const { formatCurrency, formatDate, formatNumber } = useI18n();
   if (!product) return null;
+  const discount = productDiscount(product);
+  const reviewAverage = reviews.length
+    ? reviews.reduce((total, review) => total + review.rating, 0) /
+      reviews.length
+    : product.rating;
+  const reviewDistribution = [5, 4, 3, 2, 1].map((score) => ({
+    score,
+    count: reviews.filter((review) => review.rating === score).length,
+  }));
   return (
     <SheetFrame
       visible
@@ -1425,20 +1875,57 @@ function ProductDetailSheet({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.detailContent}
       >
-        <ProductVisual product={product} large />
-        <View style={styles.detailStoreRow}>
-          <View style={styles.detailStoreIcon}>
-            <Ionicons name="storefront-outline" size={19} color="#8B4A20" />
-          </View>
+        <View><ProductVisual product={product} large /><DiscountBadge percent={discount} /></View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Buka toko ${product.business_name}`}
+          onPress={onStore}
+          style={styles.detailStoreRow}
+        >
+          <StoreAvatar
+            name={product.business_name}
+            logo={product.store_logo_url}
+            online={product.store_is_online}
+          />
           <View style={styles.detailStoreCopy}>
             <Text style={styles.detailStoreName}>{product.business_name}</Text>
             <Text style={styles.detailStoreMeta}>
               {product.branch_name} · {product.city || "Indonesia"}
             </Text>
+            <Text style={[styles.detailStorePresence, product.store_is_online && styles.detailStorePresenceOnline]}>
+              {storePresenceLabel(product.store_is_online, product.store_last_seen_at, formatDate)}
+            </Text>
           </View>
-          <Pill tone="mint">Terverifikasi</Pill>
+          <Ionicons name="chevron-forward" size={17} color={colors.muted} />
+        </Pressable>
+        <View style={styles.detailStoreActions}>
+          <Pressable onPress={onChat} style={styles.detailStoreActionPrimary}>
+            <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.white} />
+            <Text style={styles.detailStoreActionPrimaryText}>Chat toko</Text>
+          </Pressable>
+          <Pressable onPress={onStore} style={styles.detailStoreActionSecondary}>
+            <Ionicons name="storefront-outline" size={16} color={colors.sky600} />
+            <Text style={styles.detailStoreActionSecondaryText}>Kunjungi toko</Text>
+          </Pressable>
         </View>
-        <Text style={styles.detailPrice}>{formatCurrency(product.price)}</Text>
+        <View style={styles.detailPriceBlock}>
+          {discount ? (
+            <View style={styles.detailPromoPill}>
+              <Text style={styles.detailPromoPillText}>PROMO {discount}%</Text>
+            </View>
+          ) : null}
+          {product.original_price && product.original_price > product.price ? (
+            <Text style={styles.detailOriginalPrice}>
+              {formatCurrency(product.original_price)}
+            </Text>
+          ) : null}
+          <Text style={styles.detailPrice}>{formatCurrency(product.price)}</Text>
+          {discount && product.original_price ? (
+            <Text style={styles.detailSaving}>
+              Hemat {formatCurrency(product.original_price - product.price)}
+            </Text>
+          ) : null}
+        </View>
         <View style={styles.detailMetaRow}>
           <Stars value={product.rating} />
           <Text style={styles.detailMetaText}>
@@ -1456,10 +1943,37 @@ function ProductDetailSheet({
           </Text>
         </View>
         <Text style={styles.detailSectionTitle}>Tentang produk</Text>
-        <Text style={styles.detailDescription}>
+        <Text catalogue style={styles.detailDescription}>
           {product.description ||
             "Produk pilihan dari partner Slivadoc untuk kebutuhan harian pet-mu."}
         </Text>
+
+        <View style={styles.detailFacts}>
+          <View style={styles.detailFact}>
+            <Text style={styles.detailFactLabel}>SKU</Text>
+            <Text numberOfLines={1} style={styles.detailFactValue}>
+              {product.sku || "-"}
+            </Text>
+          </View>
+          <View style={styles.detailFact}>
+            <Text style={styles.detailFactLabel}>Kategori</Text>
+            <Text numberOfLines={1} style={styles.detailFactValue}>
+              {product.category}
+            </Text>
+          </View>
+          <View style={styles.detailFact}>
+            <Text style={styles.detailFactLabel}>Dikirim dari</Text>
+            <Text numberOfLines={1} style={styles.detailFactValue}>
+              {product.city || "Indonesia"}
+            </Text>
+          </View>
+          <View style={styles.detailFact}>
+            <Text style={styles.detailFactLabel}>Sliva Point</Text>
+            <Text numberOfLines={1} style={styles.detailFactValue}>
+              +{formatNumber(Math.max(0, Math.floor(product.price / 1000)))} poin
+            </Text>
+          </View>
+        </View>
 
         <View style={styles.reviewHeader}>
           <View>
@@ -1469,6 +1983,33 @@ function ProductDetailSheet({
             </Text>
           </View>
           <Text style={styles.reviewCount}>{reviews.length}</Text>
+        </View>
+        <View style={styles.reviewSummary}>
+          <View style={styles.reviewSummaryScore}>
+            <Text style={styles.reviewSummaryValue}>
+              {reviews.length ? reviewAverage.toFixed(1) : "–"}
+            </Text>
+            <Text style={styles.reviewSummaryLabel}>dari 5</Text>
+            <Stars value={reviewAverage} size={10} />
+          </View>
+          <View style={styles.reviewDistribution}>
+            {reviewDistribution.map(({ score, count }) => (
+              <View key={score} style={styles.reviewDistributionRow}>
+                <Text style={styles.reviewDistributionScore}>{score}★</Text>
+                <View style={styles.reviewDistributionTrack}>
+                  <View
+                    style={[
+                      styles.reviewDistributionFill,
+                      {
+                        width: `${reviews.length ? (count / reviews.length) * 100 : 0}%`,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.reviewDistributionCount}>{count}</Text>
+              </View>
+            ))}
+          </View>
         </View>
         {reviewsLoading ? (
           <ActivityIndicator
@@ -1502,7 +2043,7 @@ function ProductDetailSheet({
             </View>
             <View style={styles.reviewBody}>
               <View style={styles.reviewerLine}>
-                <Text style={styles.reviewerName}>{review.reviewer_name}</Text>
+                <Text translate={false} style={styles.reviewerName}>{review.reviewer_name}</Text>
                 {review.verified_purchase ? (
                   <Pill tone="mint">Pembelian valid</Pill>
                 ) : null}
@@ -1560,15 +2101,23 @@ function ProductDetailSheet({
       </ScrollView>
       <View style={styles.detailActions}>
         <Pressable
-          disabled={!product.available}
+          accessibilityRole="button"
+          accessibilityLabel={adding ? "Menambahkan ke keranjang" : "Tambah ke keranjang"}
+          disabled={!product.available || adding}
           onPress={onAdd}
           style={[
             styles.secondaryAction,
-            !product.available && styles.disabledButton,
+            (!product.available || adding) && styles.disabledButton,
           ]}
         >
-          <Ionicons name="bag-add-outline" size={18} color={colors.sky600} />
-          <Text style={styles.secondaryActionText}>+ Keranjang</Text>
+          {adding ? (
+            <ActivityIndicator size="small" color={colors.sky600} />
+          ) : (
+            <Ionicons name="bag-add-outline" size={18} color={colors.sky600} />
+          )}
+          <Text style={styles.secondaryActionText}>
+            {adding ? "Menambahkan…" : "+ Keranjang"}
+          </Text>
         </Pressable>
         <Pressable
           disabled={!product.available}
@@ -1581,6 +2130,707 @@ function ProductDetailSheet({
           <Text style={styles.primaryActionText}>
             {product.available ? "Beli sekarang" : "Stok habis"}
           </Text>
+        </Pressable>
+      </View>
+      {added ? (
+        <View
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+          pointerEvents="none"
+          style={styles.cartAddedNotice}
+        >
+          <View style={styles.cartAddedCheck}>
+            <Ionicons name="checkmark" size={28} color={colors.white} />
+          </View>
+          <Text style={styles.cartAddedText}>Ditambahkan ke keranjang</Text>
+        </View>
+      ) : null}
+    </SheetFrame>
+  );
+}
+
+function StorefrontSheet({
+  visible,
+  response,
+  products,
+  services,
+  initialSection,
+  loading,
+  error,
+  favorites,
+  onClose,
+  onOpenProduct,
+  onOpenService,
+  onChat,
+  onFavorite,
+}: {
+  visible: boolean;
+  response?: MobileMarketplaceStoreResponse;
+  products: MobileProduct[];
+  services: Service[];
+  initialSection: StoreSection;
+  loading: boolean;
+  error: string;
+  favorites: string[];
+  onClose: () => void;
+  onOpenProduct: (product: MobileProduct) => void;
+  onOpenService: (service: Service) => void;
+  onChat: () => void;
+  onFavorite: (product: MobileProduct) => void;
+}) {
+  const { formatDate } = useI18n();
+  const { height: windowHeight } = useWindowDimensions();
+  const [section, setSection] = useState<StoreSection>(initialSection);
+  const [sort, setSort] = useState<SortMode>("popular");
+  const [category, setCategory] = useState("Semua");
+  const fallback = products[0];
+  const fallbackService = services[0];
+  const store = response?.store ?? {
+    id: fallback?.business_id ?? fallbackService?.businessId ?? "",
+    name: fallback?.business_name ?? fallbackService?.businessName ?? "Toko Slivadoc",
+    logo_url: fallback?.store_logo_url ?? "",
+    banner_url: "",
+    about: "Katalog partner marketplace Slivadoc.",
+    city: fallback?.city ?? fallbackService?.city ?? "Indonesia",
+    joined_at: "",
+    is_online: Boolean(fallback?.store_is_online),
+    last_seen_at: fallback?.store_last_seen_at ?? "",
+    product_count: products.length,
+    category_count: new Set(products.map((item) => item.category)).size,
+    rating:
+      products.reduce((total, item) => total + item.rating, 0) /
+      Math.max(1, products.length),
+    review_count: products.reduce(
+      (total, item) => total + item.review_count,
+      0,
+    ),
+    sold_count: products.reduce((total, item) => total + item.sold_count, 0),
+  };
+  const categories =
+    response?.categories ??
+    Array.from(new Set(products.map((item) => item.category))).map((name) => ({
+      name,
+      product_count: products.filter((product) => product.category === name)
+        .length,
+    }));
+  const visibleProducts = useMemo(() => {
+    const filtered = products.filter(
+      (product) => category === "Semua" || product.category === category,
+    );
+    return [...filtered].sort((left, right) => {
+      if (sort === "newest")
+        return (
+          Date.parse(right.created_at || "") - Date.parse(left.created_at || "")
+        );
+      if (sort === "price") return left.price - right.price;
+      if (sort === "price_desc") return right.price - left.price;
+      if (sort === "rating")
+        return (
+          right.rating - left.rating || right.review_count - left.review_count
+        );
+      if (sort === "bestseller") return right.sold_count - left.sold_count;
+      return (
+        right.sold_count + right.review_count * 2 + right.rating * 5 -
+        (left.sold_count + left.review_count * 2 + left.rating * 5)
+      );
+    });
+  }, [category, products, sort]);
+
+  return (
+    <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
+      visible={visible}
+      transparent
+      statusBarTranslucent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.storefrontBackdrop} onPress={onClose}>
+        <Pressable
+          accessibilityRole="none"
+          onPress={(event) => event.stopPropagation()}
+          style={[
+            styles.storefrontSheet,
+            { height: Math.min(860, windowHeight * 0.92) },
+          ]}
+        >
+          <SafeAreaView
+            edges={["bottom", "left", "right"]}
+            style={styles.storefrontSafeArea}
+          >
+            <View style={styles.storefrontHandle} />
+        <View style={styles.storefrontHeader}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Kembali ke marketplace"
+            onPress={onClose}
+            style={styles.storefrontBack}
+          >
+            <Ionicons name="arrow-back" size={20} color={colors.text} />
+          </Pressable>
+          <View style={styles.storefrontHeaderCopy}>
+            <Text style={styles.storefrontHeaderEyebrow}>SLIVA MARKET</Text>
+            <Text numberOfLines={1} style={styles.storefrontHeaderTitle}>
+              {store.name}
+            </Text>
+          </View>
+          <Pressable onPress={onChat} style={styles.storefrontHeaderChat}>
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={19}
+              color={colors.sky600}
+            />
+          </Pressable>
+        </View>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.storefrontContent}
+        >
+          <LinearGradient
+            colors={[colors.sky600, "#6ECDF0", "#BDEFE3"]}
+            style={styles.storefrontHero}
+          >
+            <View style={styles.storefrontHeroGlow} />
+            <StoreAvatar
+              name={store.name}
+              logo={store.logo_url}
+              online={store.is_online}
+              large
+            />
+            <View style={styles.storefrontIdentity}>
+              <View style={styles.storefrontVerified}>
+                <Ionicons name="shield-checkmark" size={12} color="#087B68" />
+                <Text style={styles.storefrontVerifiedText}>
+                  PARTNER TERVERIFIKASI
+                </Text>
+              </View>
+              <Text style={styles.storefrontName}>{store.name}</Text>
+              <Text style={styles.storefrontMeta}>
+                {store.city || "Indonesia"} ·{" "}
+                {storePresenceLabel(store.is_online, store.last_seen_at, formatDate)}
+              </Text>
+            </View>
+            <Pressable onPress={onChat} style={styles.storefrontChatButton}>
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={16}
+                color={colors.white}
+              />
+              <Text style={styles.storefrontChatButtonText}>Chat toko</Text>
+            </Pressable>
+          </LinearGradient>
+
+          <View style={styles.storefrontStats}>
+            {[
+              [String(store.product_count), "Produk"],
+              [String(services.length), "Layanan"],
+              [store.rating ? store.rating.toFixed(1) : "Baru", "Rating"],
+              [compactNumber(store.sold_count), "Terjual"],
+            ].map(([value, label]) => (
+              <View key={label} style={styles.storefrontStat}>
+                <Text style={styles.storefrontStatValue}>{value}</Text>
+                <Text style={styles.storefrontStatLabel}>{label}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.storefrontTabs}>
+            {(
+              [
+                ["products", "Produk"],
+                ["services", "Layanan"],
+                ["categories", "Kategori"],
+                ["reviews", `Ulasan (${store.review_count})`],
+                ["about", "Tentang"],
+              ] as const
+            ).map(([id, label]) => (
+              <Pressable
+                key={id}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: section === id }}
+                onPress={() => setSection(id)}
+                style={[
+                  styles.storefrontTab,
+                  section === id && styles.storefrontTabActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.storefrontTabText,
+                    section === id && styles.storefrontTabTextActive,
+                  ]}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {loading && !fallback && !fallbackService ? (
+            <View style={styles.storefrontState}>
+              <ActivityIndicator color={colors.sky600} />
+              <Text style={styles.loadingText}>Menyiapkan etalase toko…</Text>
+            </View>
+          ) : error && !fallback && !fallbackService ? (
+            <EmptyState
+              icon="alert-circle-outline"
+              title="Etalase belum dapat dibuka"
+              note={error}
+              action="Kembali"
+              onAction={onClose}
+            />
+          ) : null}
+
+          {section === "products" ? (
+            <>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.storefrontSortRow}
+              >
+                {(
+                  [
+                    ["popular", "Populer"],
+                    ["newest", "Terbaru"],
+                    ["bestseller", "Terlaris"],
+                    ["price", "Termurah"],
+                    ["price_desc", "Termahal"],
+                  ] as Array<[SortMode, string]>
+                ).map(([id, label]) => (
+                  <Pressable
+                    key={id}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: sort === id }}
+                    onPress={() => setSort(id)}
+                    style={[
+                      styles.sortChip,
+                      sort === id && styles.sortChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.sortText,
+                        sort === id && styles.sortTextActive,
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryRow}
+              >
+                {["Semua", ...categories.map((item) => item.name)].map(
+                  (item) => (
+                    <Pressable
+                      key={item}
+                      onPress={() => setCategory(item)}
+                      style={[
+                        styles.categoryChip,
+                        category === item && styles.categoryChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryText,
+                          category === item && styles.categoryTextActive,
+                        ]}
+                      >
+                        {item}
+                      </Text>
+                    </Pressable>
+                  ),
+                )}
+              </ScrollView>
+              <View style={styles.productGrid}>
+                {visibleProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    favorite={favorites.includes(product.id)}
+                    onOpen={() => onOpenProduct(product)}
+                    onStore={() => undefined}
+                    onFavorite={() => onFavorite(product)}
+                  />
+                ))}
+              </View>
+            </>
+          ) : null}
+
+          {section === "services" ? (
+            <View style={styles.storefrontServiceList}>
+              <View style={styles.storefrontServiceHeading}>
+                <View>
+                  <Text style={styles.sectionEyebrow}>LAYANAN PARTNER</Text>
+                  <Text style={styles.sectionTitle}>Pilih layanan dari toko ini</Text>
+                </View>
+                <Text style={styles.sectionCount}>{services.length} layanan</Text>
+              </View>
+              {services.length ? services.map((service) => (
+                <Pressable
+                  key={service.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Lihat detail ${service.name}`}
+                  onPress={() => onOpenService(service)}
+                  style={({ pressed }) => [styles.storefrontServiceCard, pressed && styles.pressed]}
+                >
+                  <LinearGradient colors={serviceGradient(service.tone)} style={styles.storefrontServiceVisual}>
+                    {service.imageUrl ? <Image source={{ uri: service.imageUrl }} alt={`Foto ${service.name}`} style={styles.storefrontServiceImage} /> : <Ionicons name={serviceIcon(service)} size={27} color={colors.sky600} />}
+                  </LinearGradient>
+                  <View style={styles.storefrontServiceCopy}>
+                    <Text style={styles.productCategory}>{service.category}</Text>
+                    <Text catalogue numberOfLines={2} style={styles.storefrontServiceName}>{service.name}</Text>
+                    <Text numberOfLines={1} style={styles.storefrontServiceMeta}>{service.durationMinutes ? `${service.durationMinutes} menit · ` : ""}{service.price}</Text>
+                  </View>
+                  <View style={styles.storefrontServiceArrow}><Ionicons name="chevron-forward" size={16} color={colors.sky600} /></View>
+                </Pressable>
+              )) : (
+                <EmptyState icon="medical-outline" title="Belum ada layanan" note="Partner ini belum menerbitkan layanan aktif." action="Lihat produk" onAction={() => setSection("products")} />
+              )}
+            </View>
+          ) : null}
+
+          {section === "categories" ? (
+            <View style={styles.storefrontCategoryGrid}>
+              {categories.map((item) => (
+                <Pressable
+                  key={item.name}
+                  onPress={() => {
+                    setCategory(item.name);
+                    setSection("products");
+                  }}
+                  style={styles.storefrontCategoryCard}
+                >
+                  <View style={styles.storefrontCategoryIcon}>
+                    <Ionicons name="grid-outline" size={24} color={colors.sky600} />
+                  </View>
+                  <Text style={styles.storefrontCategoryName}>{item.name}</Text>
+                  <Text style={styles.storefrontCategoryCount}>
+                    {item.product_count} produk
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
+          {section === "reviews" ? (
+            <View style={styles.storefrontReviewList}>
+              {response?.reviews.length ? (
+                response.reviews.map((review) => (
+                  <View key={review.id} style={styles.storefrontReviewCard}>
+                    <View style={styles.reviewerAvatar}>
+                      <Text style={styles.reviewerAvatarText}>
+                        {review.reviewer_name.slice(0, 1).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={styles.reviewBody}>
+                      <Text translate={false} style={styles.reviewerName}>
+                        {review.reviewer_name}
+                      </Text>
+                      <Stars value={review.rating} size={11} />
+                      <Text style={styles.reviewComment}>{review.comment}</Text>
+                      <Text style={styles.reviewDate}>{review.product_name}</Text>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <EmptyState
+                  icon="chatbubble-ellipses-outline"
+                  title="Belum ada ulasan toko"
+                  note="Ulasan pembelian terverifikasi akan tampil di sini."
+                  action="Lihat produk"
+                  onAction={() => setSection("products")}
+                />
+              )}
+            </View>
+          ) : null}
+
+          {section === "about" ? (
+            <View style={styles.storefrontAbout}>
+              <View style={styles.storefrontAboutIcon}>
+                <Ionicons name="storefront" size={28} color={colors.sky600} />
+              </View>
+              <Text style={styles.storefrontAboutTitle}>Tentang {store.name}</Text>
+              <Text style={styles.storefrontAboutCopy}>{store.about}</Text>
+              <View style={styles.storefrontAboutFact}>
+                <Text style={styles.storefrontAboutLabel}>Lokasi</Text>
+                <Text style={styles.storefrontAboutValue}>
+                  {store.city || "Indonesia"}
+                </Text>
+              </View>
+              <View style={styles.storefrontAboutFact}>
+                <Text style={styles.storefrontAboutLabel}>Status</Text>
+                <Text style={styles.storefrontAboutValue}>
+                  {store.is_online ? "Online sekarang" : "Sedang offline"}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+        </ScrollView>
+          </SafeAreaView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+export function MarketplaceChatSheet({
+  threadId,
+  storeName,
+  storeLogo,
+  storeOnline,
+  storeLastSeen,
+  product,
+  onShortcut,
+  onAction,
+  onClose,
+}: {
+  threadId: string;
+  businessId: string;
+  storeName: string;
+  storeLogo: string;
+  storeOnline: boolean;
+  storeLastSeen: string;
+  product?: MobileProduct;
+  onShortcut: (shortcut: MarketplaceChatShortcut) => void;
+  onAction: (message: string) => void;
+  onClose: () => void;
+}) {
+  const { formatDate } = useI18n();
+  const [messages, setMessages] = useState<MobileMarketplaceChatMessage[]>([]);
+  const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [composerTray, setComposerTray] = useState<"attachments" | "emoji">();
+  const messageList = useRef<ScrollView>(null);
+  const stickToLatest = useRef(true);
+  const hasDraft = Boolean(draft.trim());
+
+  const loadMessages = useCallback(async () => {
+    try {
+      const result = await getMobileMarketplaceChatMessages(threadId);
+      setMessages(result.data);
+    } catch (cause) {
+      onAction(cause instanceof Error ? cause.message : "Pesan belum dapat dimuat");
+    } finally {
+      setLoading(false);
+    }
+  }, [onAction, threadId]);
+
+  useEffect(() => {
+    const initial = setTimeout(() => void loadMessages(), 0);
+    const interval = setInterval(() => void loadMessages(), 4_000);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
+  }, [loadMessages]);
+
+  const send = async () => {
+    const body = draft.trim();
+    if (!body || sending) return;
+    setSending(true);
+    try {
+      const message = await sendMobileMarketplaceChatMessage(threadId, {
+        body,
+        product_id: product?.id,
+      });
+      setMessages((current) => [...current, message]);
+      setDraft("");
+      setComposerTray(undefined);
+      stickToLatest.current = true;
+    } catch (cause) {
+      onAction(cause instanceof Error ? cause.message : "Pesan belum dapat dikirim");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <SheetFrame visible fill title={storeName} eyebrow="CHAT TOKO · TEKS SAJA" onClose={onClose}>
+      <View style={styles.chatStorePresence}>
+        <StoreAvatar name={storeName} logo={storeLogo} online={storeOnline} />
+        <Text style={[styles.chatStorePresenceText, storeOnline && styles.chatStorePresenceOnline]}>
+          {storePresenceLabel(storeOnline, storeLastSeen, formatDate)}
+        </Text>
+      </View>
+      {product ? (
+        <View style={styles.chatProductContext}>
+          <View style={styles.chatProductThumb}>
+            <Ionicons name={productIcon(product)} size={24} color={colors.sky600} />
+          </View>
+          <View style={styles.chatProductCopy}>
+            <Text style={styles.chatProductLabel}>TANYAKAN PRODUK INI</Text>
+            <Text catalogue numberOfLines={1} style={styles.chatProductName}>
+              {product.name}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+      <View style={styles.chatSafety}>
+        <Ionicons name="shield-checkmark-outline" size={15} color={colors.sky600} />
+        <Text style={styles.chatSafetyText}>
+          Pesan teks saja. Jangan bagikan OTP atau kata sandi.
+        </Text>
+      </View>
+      <ScrollView
+        ref={messageList}
+        style={styles.chatMessageScroller}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.chatMessages}
+        scrollEventThrottle={16}
+        onContentSizeChange={() => {
+          if (stickToLatest.current)
+            messageList.current?.scrollToEnd({ animated: true });
+        }}
+        onScroll={(event) => {
+          const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+          stickToLatest.current =
+            contentSize.height - contentOffset.y - layoutMeasurement.height < 72;
+        }}
+      >
+        {loading ? <ActivityIndicator color={colors.sky600} /> : null}
+        {!loading && !messages.length ? (
+          <View style={styles.chatEmpty}>
+            <View style={styles.chatEmptyIcon}>
+              <Ionicons name="hand-left-outline" size={25} color={colors.sky600} />
+            </View>
+            <Text style={styles.chatEmptyTitle}>Mulai obrolan dengan toko</Text>
+            <Text style={styles.chatEmptyNote}>
+              Tanyakan stok, ukuran, kandungan, atau detail produk.
+            </Text>
+          </View>
+        ) : null}
+        {messages.map((message) => {
+          const mine = message.sender_type === "buyer";
+          return (
+            <View
+              key={message.id}
+              style={[styles.chatBubble, mine && styles.chatBubbleMine]}
+            >
+              <Text style={[styles.chatSender, mine && styles.chatTextMine]}>
+                {mine ? "Kamu" : message.sender_name}
+              </Text>
+              <Text style={[styles.chatBody, mine && styles.chatTextMine]}>
+                {message.body}
+              </Text>
+              <Text style={[styles.chatTime, mine && styles.chatTextMine]}>
+                {formatDate(message.created_at, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </Text>
+            </View>
+          );
+        })}
+      </ScrollView>
+      {composerTray === "attachments" ? (
+        <View style={styles.chatShortcutGrid}>
+          {MARKETPLACE_CHAT_SHORTCUTS.map((shortcut, index) => (
+            <Pressable
+              key={shortcut.id}
+              accessibilityRole="button"
+              accessibilityLabel={shortcut.label}
+              onPress={() => onShortcut(shortcut.id)}
+              style={styles.chatShortcut}
+            >
+              <View
+                style={[
+                  styles.chatShortcutIcon,
+                  index === 1 && styles.chatShortcutIconMint,
+                  index === 2 && styles.chatShortcutIconViolet,
+                  index === 3 && styles.chatShortcutIconYellow,
+                ]}
+              >
+                <Ionicons name={shortcut.icon} size={19} color={colors.sky600} />
+              </View>
+              <Text style={styles.chatShortcutLabel}>{shortcut.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+      {composerTray === "emoji" ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chatEmojiRow}
+        >
+          {MARKETPLACE_CHAT_EMOJIS.map((emoji) => (
+            <Pressable
+              key={emoji}
+              accessibilityRole="button"
+              accessibilityLabel={`Gunakan emoji ${emoji}`}
+              onPress={() => {
+                setDraft((current) => `${current}${emoji}`);
+                setComposerTray(undefined);
+              }}
+              style={styles.chatEmojiChoice}
+            >
+              <Text style={styles.chatEmojiChoiceText}>{emoji}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : null}
+      <View style={styles.chatComposer}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Buka pilihan chat"
+          accessibilityState={{ expanded: composerTray === "attachments" }}
+          onPress={() =>
+            setComposerTray((current) =>
+              current === "attachments" ? undefined : "attachments",
+            )
+          }
+          style={[
+            styles.chatComposerButton,
+            composerTray === "attachments" && styles.chatComposerButtonActive,
+          ]}
+        >
+          <Ionicons name="add" size={23} color={colors.sky600} />
+        </Pressable>
+        <TextInput
+          accessibilityLabel="Pesan untuk toko"
+          multiline={false}
+          maxLength={2000}
+          placeholder="Tulis pesan ke toko…"
+          placeholderTextColor={colors.muted}
+          value={draft}
+          onChangeText={(value) => {
+            setDraft(value);
+            if (value.trim()) setComposerTray(undefined);
+          }}
+          returnKeyType="send"
+          onSubmitEditing={() => {
+            if (hasDraft) void send();
+          }}
+          style={styles.chatInput}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={hasDraft ? "Kirim pesan" : "Buka pilihan emoji"}
+          accessibilityState={hasDraft ? { disabled: sending } : { expanded: composerTray === "emoji" }}
+          disabled={hasDraft && sending}
+          onPress={() => {
+            if (hasDraft) void send();
+            else
+              setComposerTray((current) =>
+                current === "emoji" ? undefined : "emoji",
+              );
+          }}
+          style={[
+            styles.chatComposerButton,
+            hasDraft && styles.chatSend,
+            !hasDraft && composerTray === "emoji" && styles.chatComposerButtonActive,
+            hasDraft && sending && styles.disabledButton,
+          ]}
+        >
+          {hasDraft ? (
+            <Ionicons name="send" size={18} color={colors.white} />
+          ) : (
+            <Text style={styles.chatComposerEmoji}>😊</Text>
+          )}
         </Pressable>
       </View>
     </SheetFrame>
@@ -1734,7 +2984,7 @@ function CartSheet({
                 />
               </View>
               <View style={styles.cartItemCopy}>
-                <Text numberOfLines={2} style={styles.cartItemName}>
+                <Text catalogue numberOfLines={2} style={styles.cartItemName}>
                   {product.name}
                 </Text>
                 <Text numberOfLines={1} style={styles.cartItemStore}>
@@ -2058,7 +3308,7 @@ function CartSheet({
             </View>
           </View>
           <PrimaryButton
-            disabled={checkoutBusy || !checkoutReady}
+            disabled={checkoutBusy || !checkoutReady || !paymentMethod}
             label={
               checkoutBusy
                 ? "Menyiapkan pembayaran…"
@@ -2314,11 +3564,19 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     rowGap: 14,
   },
-  productCard: { width: "48.5%", overflow: "hidden", borderRadius: 22, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, ...shadow },
+  productCard: { width: "48.5%", overflow: "hidden", borderRadius: 16, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, ...shadow },
   pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
   productVisualWrap: { position: "relative", height: 122 },
   productImage: { width: "100%", height: "100%" },
   productImageLarge: { height: 230, borderRadius: 18 },
+  productGallery: { borderRadius: 18 },
+  productGalleryBadge: { position: "absolute", right: 10, bottom: 10, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(8,33,49,.68)" },
+  productGalleryBadgeText: { color: colors.white, fontSize: 9, fontWeight: "700" },
+  productViewer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(3,17,26,.96)" },
+  productViewerImage: { width: "100%", height: "78%" },
+  productViewerClose: { position: "absolute", zIndex: 2, top: 24, right: 24, width: 48, height: 48, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,.24)", borderRadius: 17, backgroundColor: "rgba(7,35,57,.72)" },
+  productViewerControls: { position: "absolute", bottom: 24, flexDirection: "row", alignItems: "center", gap: 20, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, backgroundColor: "rgba(255,255,255,.12)" },
+  productViewerCount: { minWidth: 46, color: colors.white, fontSize: 12, fontWeight: "700", textAlign: "center" },
   productFallback: {
     width: "100%",
     height: "100%",
@@ -2353,7 +3611,7 @@ const styles = StyleSheet.create({
   },
   favoriteButton: {
     position: "absolute",
-    right: 9,
+    left: 9,
     top: 9,
     width: 34,
     height: 34,
@@ -2368,14 +3626,25 @@ const styles = StyleSheet.create({
   soldOutBadge: {
     position: "absolute",
     left: 8,
-    top: 8,
+    bottom: 8,
     paddingHorizontal: 7,
     paddingVertical: 4,
     borderRadius: 7,
     backgroundColor: "rgba(21,59,91,.82)",
   },
   soldOutText: { color: colors.white, fontSize: 8, fontWeight: "600" },
+  productPromoBadge: { position: "absolute", left: 8, bottom: 8, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "#F16F5A" },
+  productPromoBadgeText: { color: colors.white, fontSize: 9, fontWeight: "700" },
   productCardBody: { padding: 11 },
+  productCategory: {
+    marginBottom: 3,
+    color: colors.sky600,
+    fontSize: 8,
+    lineHeight: 11,
+    fontWeight: "700",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+  },
   productName: {
     minHeight: 36,
     color: colors.navy,
@@ -2391,11 +3660,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 5,
     marginTop: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 5,
     borderRadius: 10,
     backgroundColor: colors.sky50,
   },
+  productStoreCopy: { minWidth: 0, flex: 1 },
   storeName: {
     minWidth: 0,
     flex: 1,
@@ -2404,6 +3674,35 @@ const styles = StyleSheet.create({
     lineHeight: 13,
     fontWeight: "600",
   },
+  storePresenceText: { color: colors.muted, fontSize: 7, lineHeight: 10 },
+  storeAvatar: {
+    position: "relative",
+    width: 28,
+    height: 28,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.white,
+    backgroundColor: "#DFF5FF",
+  },
+  storeAvatarLarge: { width: 66, height: 66, borderRadius: 21 },
+  storeAvatarImage: { width: "100%", height: "100%" },
+  storeAvatarInitial: { color: colors.sky600, fontSize: 11, fontWeight: "700" },
+  storeAvatarInitialLarge: { fontSize: 24 },
+  storePresenceDot: {
+    position: "absolute",
+    right: 1,
+    bottom: 1,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: colors.white,
+    backgroundColor: "#A6BAC5",
+  },
+  storePresenceDotOnline: { backgroundColor: "#36C99A" },
   productCommerceRow: {
     minWidth: 0,
     flexDirection: "row",
@@ -2412,6 +3711,7 @@ const styles = StyleSheet.create({
     marginTop: 9,
   },
   productCommerceCopy: { minWidth: 0, flex: 1 },
+  productOriginalPrice: { color: colors.muted, fontSize: 8, lineHeight: 11, textDecorationLine: "line-through" },
   productPrice: {
     color: colors.sky600,
     fontSize: 14,
@@ -2432,18 +3732,49 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
     backgroundColor: colors.line,
   },
-  addButton: {
-    minWidth: 68,
-    height: 38,
+  productFulfillment: {
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    paddingHorizontal: 9,
-    borderRadius: 13,
-    backgroundColor: colors.sky600,
+    justifyContent: "space-between",
+    gap: 5,
+    marginTop: 8,
   },
-  addButtonText: { color: colors.white, fontSize: 9, fontWeight: "600" },
+  productFulfillmentItem: {
+    minWidth: 0,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  productFulfillmentText: {
+    minWidth: 0,
+    flex: 1,
+    color: colors.muted,
+    fontSize: 8,
+  },
+  productStockText: {
+    color: colors.muted,
+    fontSize: 8,
+    fontWeight: "600",
+  },
+  productReward: {
+    minHeight: 25,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 7,
+    paddingHorizontal: 7,
+    borderRadius: 9,
+    backgroundColor: "#EDFBF7",
+  },
+  productRewardText: {
+    minWidth: 0,
+    flex: 1,
+    color: "#087B68",
+    fontSize: 8,
+    fontWeight: "700",
+  },
   disabledButton: { opacity: 0.42 },
   stars: { flexDirection: "row", alignItems: "center", gap: 1 },
   modalBackdrop: {
@@ -2451,7 +3782,8 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(13,35,54,.45)",
   },
-  sheetSafeArea: { maxHeight: "88%" },
+  sheetSafeArea: {maxWidth: 720, alignSelf: "center",  width: "100%", maxHeight: "88%" },
+  sheetSafeAreaFill: { height: "88%" },
   sheet: {
     overflow: "hidden",
     maxHeight: "100%",
@@ -2460,6 +3792,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     ...shadow,
   },
+  sheetFill: { flex: 1 },
   sheetHandle: {
     alignSelf: "center",
     width: 42,
@@ -2521,13 +3854,52 @@ const styles = StyleSheet.create({
   detailStoreCopy: { minWidth: 0, flex: 1 },
   detailStoreName: { color: colors.navy, fontSize: 12, fontWeight: "700" },
   detailStoreMeta: { marginTop: 3, color: colors.muted, fontSize: 9 },
+  detailStorePresence: { marginTop: 2, color: colors.muted, fontSize: 8 },
+  detailStorePresenceOnline: { color: "#13856D" },
+  detailStoreActions: { flexDirection: "row", gap: 8, marginTop: 10 },
+  detailStoreActionPrimary: {
+    minHeight: 38,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 12,
+    backgroundColor: colors.sky600,
+  },
+  detailStoreActionPrimaryText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  detailStoreActionSecondary: {
+    minHeight: 38,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.sky500,
+  },
+  detailStoreActionSecondaryText: {
+    color: colors.sky600,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  detailPriceBlock: { alignItems: "flex-start", marginTop: 14 },
+  detailPromoPill: { marginBottom: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 7, backgroundColor: "#FFF0ED" },
+  detailPromoPillText: { color: "#D55443", fontSize: 9, fontWeight: "700", letterSpacing: 0.5 },
+  detailOriginalPrice: { color: colors.muted, fontSize: 10, textDecorationLine: "line-through" },
   detailPrice: {
-    marginTop: 14,
+    marginTop: 1,
     color: colors.sky600,
     fontSize: 22,
     lineHeight: 28,
     fontWeight: "700",
   },
+  detailSaving: { marginTop: 2, color: "#128464", fontSize: 10, fontWeight: "700" },
   detailMetaRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -2549,6 +3921,26 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 17,
   },
+  detailFacts: {
+    overflow: "hidden",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    backgroundColor: colors.line,
+    gap: 1,
+  },
+  detailFact: {
+    width: "49.8%",
+    minWidth: 0,
+    gap: 3,
+    padding: 10,
+    backgroundColor: colors.white,
+  },
+  detailFactLabel: { color: colors.muted, fontSize: 8 },
+  detailFactValue: { color: colors.navy, fontSize: 10, fontWeight: "700" },
   reviewHeader: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -2571,6 +3963,62 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     textAlign: "center",
+  },
+  reviewSummary: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 15,
+    backgroundColor: colors.sky50,
+  },
+  reviewSummaryScore: {
+    width: 82,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRightWidth: 1,
+    borderRightColor: colors.line,
+  },
+  reviewSummaryValue: {
+    color: colors.navy,
+    fontSize: 27,
+    lineHeight: 31,
+    fontWeight: "700",
+  },
+  reviewSummaryLabel: { marginBottom: 3, color: colors.muted, fontSize: 8 },
+  reviewDistribution: { minWidth: 0, flex: 1, gap: 4 },
+  reviewDistributionRow: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  reviewDistributionScore: {
+    width: 18,
+    color: colors.navy,
+    fontSize: 8,
+    fontWeight: "600",
+  },
+  reviewDistributionTrack: {
+    minWidth: 0,
+    height: 5,
+    flex: 1,
+    overflow: "hidden",
+    borderRadius: 3,
+    backgroundColor: "#DFEAF0",
+  },
+  reviewDistributionFill: {
+    height: "100%",
+    borderRadius: 3,
+    backgroundColor: colors.yellow,
+  },
+  reviewDistributionCount: {
+    width: 17,
+    color: colors.muted,
+    fontSize: 8,
+    textAlign: "right",
   },
   reviewLoader: { marginVertical: 18 },
   emptyReviews: {
@@ -2679,6 +4127,466 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sky600,
   },
   primaryActionText: { color: colors.white, fontSize: 12, fontWeight: "700" },
+  cartAddedNotice: {
+    position: "absolute",
+    zIndex: 20,
+    top: "38%",
+    left: 46,
+    right: 46,
+    minHeight: 154,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 13,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 26,
+    backgroundColor: "rgba(255,255,255,.98)",
+    ...shadow,
+  },
+  cartAddedCheck: {
+    width: 62,
+    height: 62,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 31,
+    backgroundColor: colors.mint,
+  },
+  cartAddedText: {
+    color: colors.navy,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  storefrontBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(14,32,55,.46)",
+  },
+  storefrontSheet: {width: "100%", maxWidth: 720, alignSelf: "center",
+    overflow: "hidden",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: colors.canvas,
+    ...shadow,
+  },
+  storefrontSafeArea: { flex: 1, backgroundColor: colors.canvas },
+  storefrontHandle: {
+    alignSelf: "center",
+    width: 44,
+    height: 5,
+    marginTop: 8,
+    marginBottom: 4,
+    borderRadius: 999,
+    backgroundColor: "#D7E6EE",
+  },
+  storefrontHeader: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+    backgroundColor: colors.white,
+  },
+  storefrontBack: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 13,
+    backgroundColor: colors.canvas,
+  },
+  storefrontHeaderCopy: { minWidth: 0, flex: 1 },
+  storefrontHeaderEyebrow: {
+    color: colors.sky600,
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  storefrontHeaderTitle: {
+    marginTop: 2,
+    color: colors.navy,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  storefrontHeaderChat: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    backgroundColor: colors.sky50,
+  },
+  storefrontContent: { gap: 12, padding: 14, paddingBottom: 36 },
+  storefrontHero: {
+    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 11,
+    padding: 16,
+    borderRadius: 22,
+  },
+  storefrontHeroGlow: {
+    position: "absolute",
+    right: -30,
+    top: -45,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "rgba(255,255,255,.25)",
+  },
+  storefrontIdentity: { minWidth: 0, flex: 1 },
+  storefrontVerified: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,.82)",
+  },
+  storefrontVerifiedText: {
+    color: "#087B68",
+    fontSize: 7,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+  },
+  storefrontName: {
+    marginTop: 6,
+    color: colors.white,
+    fontSize: 19,
+    lineHeight: 23,
+    fontWeight: "700",
+  },
+  storefrontMeta: {
+    marginTop: 3,
+    color: "rgba(255,255,255,.9)",
+    fontSize: 8,
+    lineHeight: 12,
+  },
+  storefrontChatButton: {
+    alignSelf: "flex-end",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 11,
+    backgroundColor: colors.navy,
+  },
+  storefrontChatButtonText: {
+    color: colors.white,
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  storefrontStats: {
+    overflow: "hidden",
+    flexDirection: "row",
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 17,
+    backgroundColor: colors.white,
+  },
+  storefrontStat: {
+    flex: 1,
+    alignItems: "center",
+    gap: 2,
+    paddingVertical: 11,
+    borderRightWidth: 1,
+    borderRightColor: colors.sky100,
+  },
+  storefrontStatValue: { color: colors.navy, fontSize: 13, fontWeight: "700" },
+  storefrontStatLabel: { color: colors.muted, fontSize: 8 },
+  storefrontTabs: {
+    width: "100%",
+    flexDirection: "row",
+    gap: 6,
+    padding: 5,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 15,
+    backgroundColor: colors.white,
+  },
+  storefrontTab: {
+    minWidth: 0,
+    minHeight: 42,
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+    borderRadius: 10,
+  },
+  storefrontTabActive: { backgroundColor: colors.sky50 },
+  storefrontTabText: { color: colors.muted, fontSize: 10, lineHeight: 14, fontWeight: "700", textAlign: "center" },
+  storefrontTabTextActive: { color: colors.sky600 },
+  storefrontState: { minHeight: 220, alignItems: "center", justifyContent: "center", gap: 9 },
+  storefrontSortRow: { gap: 7 },
+  storefrontServiceList: { gap: 9 },
+  storefrontServiceHeading: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  storefrontServiceCard: {
+    minHeight: 92,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 9,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 18,
+    backgroundColor: colors.white,
+  },
+  storefrontServiceVisual: {
+    width: 74,
+    height: 74,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+  },
+  storefrontServiceImage: { width: "100%", height: "100%" },
+  storefrontServiceCopy: { minWidth: 0, flex: 1 },
+  storefrontServiceName: { marginTop: 3, color: colors.navy, fontSize: 12, lineHeight: 17, fontWeight: "700" },
+  storefrontServiceMeta: { marginTop: 6, color: colors.sky600, fontSize: 10, fontWeight: "700" },
+  storefrontServiceArrow: { width: 30, height: 30, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: colors.sky50 },
+  storefrontCategoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
+  storefrontCategoryCard: {
+    width: "48.5%",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 18,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 17,
+    backgroundColor: colors.white,
+  },
+  storefrontCategoryIcon: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    backgroundColor: colors.sky50,
+  },
+  storefrontCategoryName: { color: colors.navy, fontSize: 11, fontWeight: "700" },
+  storefrontCategoryCount: { color: colors.muted, fontSize: 8 },
+  storefrontReviewList: { gap: 9 },
+  storefrontReviewCard: {
+    flexDirection: "row",
+    gap: 9,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 15,
+    backgroundColor: colors.white,
+  },
+  storefrontAbout: {
+    alignItems: "center",
+    gap: 8,
+    padding: 17,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 19,
+    backgroundColor: colors.white,
+  },
+  storefrontAboutIcon: {
+    width: 58,
+    height: 58,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 19,
+    backgroundColor: colors.sky50,
+  },
+  storefrontAboutTitle: { color: colors.navy, fontSize: 15, fontWeight: "700" },
+  storefrontAboutCopy: {
+    color: colors.text,
+    fontSize: 10,
+    lineHeight: 16,
+    textAlign: "center",
+  },
+  storefrontAboutFact: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: 10,
+    borderRadius: 11,
+    backgroundColor: colors.canvas,
+  },
+  storefrontAboutLabel: { color: colors.muted, fontSize: 9 },
+  storefrontAboutValue: { color: colors.navy, fontSize: 9, fontWeight: "700" },
+  chatStorePresence: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  chatStorePresenceText: { color: colors.muted, fontSize: 9 },
+  chatStorePresenceOnline: { color: "#13856D", fontWeight: "700" },
+  chatProductContext: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    marginHorizontal: 14,
+    marginTop: 10,
+    padding: 9,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 13,
+    backgroundColor: colors.sky50,
+  },
+  chatProductThumb: {
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: colors.white,
+  },
+  chatProductCopy: { minWidth: 0, flex: 1 },
+  chatProductLabel: {
+    color: colors.sky600,
+    fontSize: 7,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  chatProductName: { marginTop: 3, color: colors.navy, fontSize: 10, fontWeight: "700" },
+  chatSafety: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 14,
+    marginTop: 8,
+    padding: 8,
+    borderRadius: 10,
+    backgroundColor: colors.sky50,
+  },
+  chatSafetyText: { minWidth: 0, flex: 1, color: colors.muted, fontSize: 8 },
+  chatMessageScroller: { minHeight: 0, flex: 1 },
+  chatMessages: { flexGrow: 1, gap: 8, padding: 14 },
+  chatEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4, padding: 28 },
+  chatEmptyIcon: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    backgroundColor: colors.sky50,
+  },
+  chatEmptyTitle: { color: colors.navy, fontSize: 12, fontWeight: "700" },
+  chatEmptyNote: { color: colors.muted, fontSize: 9, lineHeight: 13, textAlign: "center" },
+  chatBubble: {
+    maxWidth: "82%",
+    alignSelf: "flex-start",
+    gap: 3,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: 15,
+    borderTopLeftRadius: 5,
+    backgroundColor: colors.canvas,
+  },
+  chatBubbleMine: {
+    alignSelf: "flex-end",
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 5,
+    backgroundColor: colors.sky600,
+  },
+  chatSender: { color: colors.muted, fontSize: 7, fontWeight: "700" },
+  chatBody: { color: colors.text, fontSize: 10, lineHeight: 15 },
+  chatTime: { alignSelf: "flex-end", color: colors.muted, fontSize: 7 },
+  chatTextMine: { color: colors.white },
+  chatComposer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    backgroundColor: colors.white,
+  },
+  chatInput: {
+    height: 44,
+    flex: 1,
+    paddingHorizontal: 11,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    color: colors.text,
+    backgroundColor: colors.canvas,
+    fontSize: 14,
+    textAlignVertical: "center",
+  },
+  chatComposerButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+    backgroundColor: colors.sky50,
+  },
+  chatComposerButtonActive: {
+    borderWidth: 1,
+    borderColor: colors.sky300,
+    backgroundColor: colors.sky100,
+  },
+  chatComposerEmoji: { fontSize: 20 },
+  chatSend: {
+    backgroundColor: colors.sky600,
+  },
+  chatShortcutGrid: {
+    flexDirection: "row",
+    gap: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    backgroundColor: colors.white,
+  },
+  chatShortcut: { minWidth: 0, flex: 1, alignItems: "center", gap: 5 },
+  chatShortcutIcon: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 13,
+    backgroundColor: colors.sky50,
+  },
+  chatShortcutIconMint: { backgroundColor: colors.mint50 },
+  chatShortcutIconViolet: { backgroundColor: colors.violet50 },
+  chatShortcutIconYellow: { backgroundColor: colors.yellow50 },
+  chatShortcutLabel: { color: colors.text, fontSize: 9, fontWeight: "700" },
+  chatEmojiRow: {
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    backgroundColor: colors.white,
+  },
+  chatEmojiChoice: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 11,
+    backgroundColor: colors.canvas,
+  },
+  chatEmojiChoiceText: { fontSize: 19 },
   cartContent: { gap: 10, padding: 16, paddingBottom: 26 },
   cartNotice: {
     flexDirection: "row",
@@ -2805,7 +4713,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   regionFieldWrap: { gap: 5 },
-  regionFieldLabel: { color: colors.text, fontSize: 9, fontWeight: "600" },
+  regionFieldLabel: { color: colors.text, fontSize: 12, fontWeight: "600" },
   regionField: {
     minHeight: 42,
     flexDirection: "row",
@@ -2920,7 +4828,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   shippingRateSla: { marginTop: 2, color: colors.muted, fontSize: 8 },
-  inputLabel: { color: colors.text, fontSize: 9, fontWeight: "600" },
+  inputLabel: { color: colors.text, fontSize: 12, fontWeight: "600" },
   promoRow: { flexDirection: "row", gap: 7 },
   promoInput: {
     minWidth: 0,

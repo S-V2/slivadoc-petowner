@@ -29,7 +29,7 @@ export default function Home() {
   return (
     <>
       <JsonLd data={[organization, website]} />
-      <PetOwnerApp />
+        <PetOwnerApp />
       <div className="app-home-seo">
         <DiscoveryLinks />
       </div>

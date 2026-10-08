@@ -61,6 +61,14 @@ Buka alamat lokal yang ditampilkan Vite, biasanya `http://localhost:5173`.
 Fitur Sliva Academy, Pet Event, PetSpot, dan PetHub membaca data dari API utama
 Slivadoc di `NEXT_PUBLIC_PLATFORM_API_URL` (default `http://localhost:8080`).
 
+### PetSpot dan PetHub
+
+PetSpot memakai grid dua kolom, galeri foto venue dari DB (berganti setiap 1 detik), detail fasilitas/jam buka/aturan/ulasan, dan reservasi meja atau unit berdasarkan ketersediaan API. Foto belum diunggah akan ditandai, bukan diganti foto venue lain. Pengelola dapat mengunggah hingga 12 foto melalui dashboard Kebijakan & Integrasi.
+
+Booking disimpan sebagai `pending_payment` sebelum QRIS dibuat; hanya pembayaran terverifikasi yang mengonfirmasi booking. Dashboard pemilik memeriksa revisi DB tiap 2 detik ketika terbuka, melewati cache, lalu memuat ulang daftar hanya jika datanya berubah. Ini sinkronisasi polling otomatis, bukan WebSocket. Data dan draft form tetap terpisah.
+
+PetHub menempatkan interaksi feed di bawah media/caption dan Reels pada panel vertikal kanan. Video dirender sebagai video dengan kontrol pemutaran, bukan elemen gambar.
+
 ## 3. Menjalankan mobile Android/iOS
 
 Buka terminal ketiga:
@@ -93,6 +101,32 @@ Isi juga `EXPO_PUBLIC_PLATFORM_API_URL` dengan host backend utama pada port
 HP dan komputer harus berada di Wi-Fi yang sama. Jalankan backend pada host `0.0.0.0`, bukan hanya `127.0.0.1`, dan pastikan port `8080` serta `8090` tidak diblokir firewall. Setelah mengubah `.env`, jalankan ulang Metro dengan `npx expo start -c`.
 
 Untuk menguji login di Expo Go, scan QR dari `npm start`, buka menu **Lainnya → Masuk ke akun**, lalu gunakan akun Pet Owner yang tersedia pada backend yang sedang dijalankan. Tarik layar dari atas untuk memuat ulang data tanpa berpindah tab. Tombol Back Android menutup popup terlebih dahulu, kembali ke halaman sebelumnya bila ada, dan mengikuti perilaku sistem saat sudah berada di Beranda.
+
+### Network logger Android/iOS
+
+Network inspector aktif otomatis saat menjalankan Expo dalam development dan
+build EAS `development`/`preview`. Ketuk tombol kecil dengan ikon pulse/network
+yang mengambang di kiri bawah, di atas bottom bar, untuk membuka **Dev Tool → Logs**.
+Tombol ditempatkan di atas navigasi bawah, mengikuti safe area perangkat.
+
+Lakukan aksi yang bermasalah, lalu buka log dan cari endpoint/method-nya.
+Request gagal ditandai merah. Ketuk request untuk melihat URL API sebenarnya,
+HTTP status, durasi, request/response headers dan body, termasuk `code`,
+`message`, serta request ID dari backend. Gunakan **Clear** untuk membersihkan
+log dan **Export** pada detail untuk membagikan laporan melalui share sheet.
+
+Jika error terjadi dalam detail/modal, tutup detail terlebih dahulu lalu buka
+logger; request tetap tersimpan selama sesi aplikasi tersebut.
+
+Inspector mendukung native `fetch` Expo pada Android/iOS. Token, cookie,
+password, OTP, dan secret disamarkan sebelum masuk ke panel/export; request
+asli tetap dikirim tanpa perubahan. Log hanya berada di memori perangkat dan
+tidak dikirim ke server lain. Panel juga menyediakan mock untuk QA, tetapi
+tidak ada mock yang aktif secara default.
+
+Production tidak mengaktifkan inspector. Untuk build QA tersendiri, isi
+`EXPO_PUBLIC_NETWORK_LOGGER_ENABLED=1` sebelum build. Setelah memasang dependency
+baru, mulai ulang Metro sekali dengan `cd mobile && npm run start:clear`.
 
 ## Setup Cloudinary
 
@@ -131,6 +165,7 @@ Development memakai geolocation browser/native serta OpenStreetMap/Nominatim mel
 | --- | --- |
 | Health/config | `GET /health`, `GET /api/config/status` |
 | Upload foto | `POST /api/uploads/images` multipart |
+| Upload dokumen | `POST /api/uploads/documents` multipart, PDF/JPG/PNG maks 10 MB, disimpan apa adanya (Cloudinary `raw`) |
 | Lokasi | `GET /api/location/search`, `GET /api/location/reverse` |
 | SlivaCare | `POST /api/assistant/chat` |
 | Komunitas | `GET/POST /api/community/posts`, like, comments |
@@ -168,3 +203,13 @@ services/petowner-api/      Express + Socket.IO integration gateway
   knowledge/pet-care.json   curated pet-care knowledge
 public/                     web assets
 ```
+
+## Bahasa Inggris dan terjemahan konten
+
+Web dan Expo memakai kamus bersama di `shared/english-*.ts`. Kamus kurasi didahulukan daripada hasil mesin. Komponen teks berlangganan cache terjemahan sehingga konten produk/layanan baru diperbarui setelah respons datang; identitas pet/pemilik dan nilai formulir tetap asli.
+
+`POST /api/translations` menerima `{ "sources": ["Deskripsi produk"], "target": "en" }`. Gateway membatasi ukuran, laju request, dan pekerjaan inference, lalu menyimpan hasil berdasarkan hash teks dan versi model pada `DATA_DIR/translations`. Teks sumber asli tidak diubah. Jika layanan sedang gagal, UI tetap menampilkan sumber asli; hasil mesin tetap perlu ditinjau untuk istilah medis dan nama produk.
+
+Produksi memakai overlay `compose.override.yaml` dari repository infrastructure. LibreTranslate/Argos Indonesia–Inggris berjalan pada jaringan Docker privat, tanpa port publik atau API vendor berbayar. Model tersimpan pada volume terpisah; unduhan pertama membutuhkan internet dan waktu startup. Workflow deployment memeriksa akses repository infrastructure, memvalidasi overlay di bawah deployment lock, menunggu health model, dan menjalankan inference sebelum menandai deploy sukses.
+
+Untuk pengembangan jalankan engine lokal dan isi `SLIVA_TRANSLATION_URL` pada gateway (contoh `http://127.0.0.1:15000`). Tidak diperlukan kredensial baru. Native orientation dan keyboard resize pada `mobile/app.json` memerlukan build aplikasi baru; export JavaScript tidak memperbarui binary yang sudah dipasang.

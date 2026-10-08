@@ -6,6 +6,7 @@ const app = await readFile(new URL("../mobile/App.tsx", import.meta.url), "utf8"
 const i18n = await readFile(new URL("../mobile/src/i18n.tsx", import.meta.url), "utf8");
 const profile = await readFile(new URL("../mobile/src/screens/ProfileScreen.tsx", import.meta.url), "utf8");
 const marketplace = await readFile(new URL("../mobile/src/screens/MarketplaceScreen.tsx", import.meta.url), "utf8");
+const sharedCopy = await readFile(new URL("../shared/english-copy.ts", import.meta.url), "utf8");
 const theme = await readFile(new URL("../mobile/src/theme.ts", import.meta.url), "utf8");
 const ui = await readFile(new URL("../mobile/src/components/ui.tsx", import.meta.url), "utf8");
 
@@ -22,11 +23,11 @@ const localizedScreens = await Promise.all([
   "WorldScreen.tsx",
 ].map((name) => readFile(new URL(`../mobile/src/screens/${name}`, import.meta.url), "utf8")));
 
-test("mobile language preference supports Indonesian, English, and Simplified Chinese", () => {
-  assert.match(i18n, /export type AppLanguage = "id" \| "en" \| "zh"/);
+test("mobile language preference supports Indonesian and English", () => {
+  assert.match(i18n, /export type AppLanguage = "id" \| "en"/);
   assert.match(i18n, /nativeLabel: "Bahasa Indonesia"/);
   assert.match(i18n, /nativeLabel: "English"/);
-  assert.match(i18n, /nativeLabel: "简体中文"/);
+  assert.doesNotMatch(i18n, /code: "zh"/);
   assert.match(i18n, /SecureStore\.getItemAsync\(LANGUAGE_KEY\)/);
   assert.match(i18n, /SecureStore\.setItemAsync\(LANGUAGE_KEY/);
   assert.match(app, /<LanguageProvider>/);
@@ -39,15 +40,15 @@ test("language selector is available for both guest and authenticated accounts",
   assert.match(profile, /BoundedBottomSheet[^>]*maxHeight="72%"/);
 });
 
-test("core journeys include curated English and Chinese copy", () => {
+test("core journeys include curated English copy", () => {
   for (const phrase of [
-    '"Beranda": ["Home", "首页"]',
-    '"Belanja kebutuhan pet": ["Shop pet essentials", "选购宠物用品"]',
-    '"Aktivitas": ["Activity", "活动"]',
-    '"Kesehatan": ["Health", "健康"]',
-    '"Komunitas": ["Community", "社区"]',
-    '"Privasi & keamanan": ["Privacy & security", "隐私与安全"]',
-  ]) assert.ok(i18n.includes(phrase), `${phrase} must be translated`);
+    '"Beranda": ["Home",',
+    '"Belanja kebutuhan pet": ["Shop pet essentials",',
+    '"Aktivitas": ["Activity",',
+    '"Kesehatan": ["Health",',
+    '"Komunitas": ["Community",',
+    '"Privasi & keamanan": ["Privacy & security",',
+  ]) assert.ok(sharedCopy.includes(phrase.replace(': [', ': ').replace(/,$/, '')), `${phrase} must be translated`);
 });
 
 test("all primary mobile screens render localized text primitives", () => {
@@ -64,18 +65,18 @@ test("all primary mobile screens render localized text primitives", () => {
 test("locale-aware formatters replace hard-coded Indonesian formatting", () => {
   assert.match(i18n, /"id-ID"/);
   assert.match(i18n, /"en-US"/);
-  assert.match(i18n, /"zh-CN"/);
+  assert.doesNotMatch(i18n, /zh:\s*"zh-CN"/);
   assert.match(i18n, /currency:\s*"IDR"/);
   assert.doesNotMatch([app, ...localizedScreens].join("\n"), /toLocaleString\("id-ID"/);
 });
 
 test("marketplace cards use a compact smooth commerce hierarchy", () => {
-  assert.match(marketplace, /productCard:[^\n]*borderRadius:\s*22/);
+  assert.match(marketplace, /productCard:[^\n]*borderRadius:\s*16/);
   assert.match(marketplace, /productCard:[^\n]*borderColor:\s*colors\.sky100/);
   assert.match(marketplace, /productCommerceRow/);
   assert.match(marketplace, /productStoreBadge/);
-  assert.match(marketplace, />Tambah<\/Text>/);
-  assert.match(marketplace, /name="bag-add-outline"/);
+  assert.doesNotMatch(marketplace, />Tambah<\/Text>/);
+  assert.doesNotMatch(marketplace, /name="cart-outline"/);
 });
 
 test("shared surfaces consistently use Slivadoc sky styling", () => {

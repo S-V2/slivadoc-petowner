@@ -27,21 +27,26 @@ test("Pet Owner web dan mobile memakai master logo Slivadoc", async () => {
 });
 
 test("Pet Owner mengunci loading brand dan skala tipografi responsif", async () => {
-  const [component, loading, layout, css, mobile] = await Promise.all([
+  const [component, loading, opening, layout, css, mobile] = await Promise.all([
     readFile(new URL("app/components/BrandLogo.tsx", root), "utf8"),
     readFile(new URL("app/loading.tsx", root), "utf8"),
+    readFile(new URL("app/components/OpeningExperience.tsx", root), "utf8"),
     readFile(new URL("app/layout.tsx", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
     readFile(new URL("mobile/App.tsx", root), "utf8"),
   ]);
 
   assert.match(component, /\/brand\/slivadoc-logo\.png/);
-  assert.match(loading, /<BrandLogo markOnly priority/);
+  assert.match(loading, /<OpeningExperience/);
+  assert.match(opening, /<BrandLogo markOnly priority/);
+  assert.match(opening, /Satu dunia untuk setiap langkah kecilnya/);
   assert.match(layout, /slivadoc-favicon\.png/);
   assert.match(css, /--type-page-title:\s*22px/);
   assert.match(css, /--sky-500:\s*#19A7F2/i);
   assert.match(css, /--navy:\s*#153B5B/i);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(mobile, /assets\/slivadoc-logo\.png/);
-  assert.match(mobile, /Menyiapkan Slivadoc/);
+  assert.match(mobile, /Satu dunia untuk setiap langkah kecilnya/);
+  assert.match(mobile, /Animated\.loop/);
+  assert.match(css, /opening-orbit/);
 });

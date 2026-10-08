@@ -1,0 +1,50 @@
+/* Web journeys follow the native Pet Owner navigation and prerequisites. */
+.petowner-world-nav {
+  display: flex;
+  gap: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 4px 2px 12px;
+  margin-bottom: 14px;
+  scrollbar-width: thin;
+}
+.petowner-world-nav button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+  color: var(--text);
+  font-weight: 600;
+}
+.petowner-world-nav button.active {
+  background: var(--sky-50);
+  border-color: var(--sky-300);
+  color: var(--sky-600);
+}
+.pet-required-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 18px;
+  background: var(--sky-50);
+  border: 1px solid var(--sky-200);
+  border-radius: 18px;
+}
+.pet-required-icon { color: var(--sky-600); }
+.pet-required-notice > div { flex: 1; min-width: 0; }
+.pet-required-notice strong { color: var(--navy); }
+.pet-required-notice p { margin: 3px 0 0; color: var(--muted); }
+.notification-detail { display: grid; gap: 16px; padding: 20px; }
+.notification-detail .ghost-text { justify-self: start; }
+.notification-detail h2, .notification-detail p { margin: 0; }
+.notification-detail p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.notification-detail time { color: var(--muted); font-size: 12px; }
+@media (max-width: 520px) {
+  .pet-required-notice { flex-wrap: wrap; }
+  .pet-required-notice > button { width: 100%; justify-content: center; }
+}
+
+.profile-guest { display: grid; gap: 16px; max-width: 720px; }

@@ -1,18 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
+import {
+  marketplaceProduct,
+  paymentIntent,
+  paymentMethods,
+  petOwner,
+  petOwnerBootstrap,
+} from "./mock-data";
 
-const product = {
-  id: "payment-test-product",
+const product = marketplaceProduct({
+  id: "52000000-0000-4000-8000-000000000201",
   name: "Test Food",
-  sku: "TEST",
-  barcode: "",
-  category: "Food",
-  description: "",
-  image_url: "",
-  price: 35_000,
-  stock: 10,
-  minimum_stock: 1,
-  available: true,
-};
+});
 
 const address = {
   id: "address-1",
@@ -31,7 +29,7 @@ const address = {
   is_primary: true,
 };
 
-const quote = {
+const pricing = {
   subtotal: 35_000,
   platform_fee: 0,
   shipping_fee: 0,
@@ -47,70 +45,112 @@ const quote = {
   point_value_rupiah: 0,
   min_redemption_points: 0,
   max_redemption_bps: 0,
-  shipping_ready: false,
-  shipping_quotes: [],
 };
 
-const pendingPayment = {
-  id: "payment-1",
-  order_id: "order-1",
-  provider: "mock",
-  method: "qris",
-  status: "pending",
-  payment_status: "pending",
-  amount: 35_000,
-  currency: "IDR",
-  reference_type: "shop_order",
-  reference_id: "order-1",
-  qr_string: "test",
-};
+// The quote also reports Lion Parcel readiness; the created order only its pricing.
+const quote = { ...pricing, shipping_ready: false, shipping_quotes: [] };
+
+const orderID = "6a000000-0000-4000-8000-000000000001";
+
+const pendingPayment = paymentIntent({
+  id: "6b000000-0000-4000-8000-000000000001",
+  reference_id: orderID,
+  amount: pricing.total_amount,
+});
+
+test("QRIS waits for the API, hides configuration errors, and recovers on retry", async ({ page }) => {
+  await page.addInitScript((productID) => {
+    localStorage.setItem("slivadoc.access_token", "payment-test-token");
+    localStorage.setItem("slivadoc.refresh_token", "payment-test-refresh");
+    localStorage.setItem("slivadoc.access_expires_at", String(Date.now() + 3_600_000));
+    localStorage.setItem("slivadoc.cart", JSON.stringify({ [productID]: 1 }));
+  }, product.id);
+
+  let methodRequests = 0;
+  let createdOrders = 0;
+  let releaseFirstRequest: () => void = () => undefined;
+  const firstRequest = new Promise<void>((resolve) => { releaseFirstRequest = resolve; });
+  await page.route("**/api/v1/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+    if (path === "/api/v1/auth/me") return json({ ...petOwner, role: "pet_owner" });
+    if (path === "/api/v1/petowner/bootstrap") return json(petOwnerBootstrap({ withPet: true }));
+    if (path === "/api/v1/public/discovery/products") return json({ data: [product], count: 1 });
+    if (path === "/api/v1/public/discovery/services" || path === "/api/v1/public/campaigns") return json({ data: [], count: 0 });
+    if (path === "/api/v1/petowner/shipping-addresses") return json({ addresses: [address] });
+    if (path === "/api/v1/petowner/orders/quote") return json(quote);
+    if (path === "/api/v1/petowner/orders") { createdOrders += 1; return json({ ...pricing, id: orderID, order_number: "SHOP-QRIS-RETRY", status: "pending_payment", payment_status: "pending", reference_type: "shop_order" }, 201); }
+    if (path === "/api/v1/payment-methods") {
+      expect(request.headers().authorization).toBe("Bearer payment-test-token");
+      methodRequests += 1;
+      if (methodRequests === 1) {
+        await firstRequest;
+        return json({ code: "yokke_not_configured", message: "konfigurasi Yokke belum lengkap: YOKKE_CLIENT_SECRET, YOKKE_PRIVATE_KEY_BASE64" }, 503);
+      }
+      if (methodRequests === 2) return json({ ...paymentMethods(), data: [] });
+      const methods = paymentMethods();
+      return json({ ...methods, data: [...methods.data, { code: "bank_transfer", method: "bank_transfer", label: "Transfer bank", description: "Other method" }, ...methods.data] });
+    }
+    return route.fulfill({ status: 404, body: "Unmocked API route" });
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?view=shop", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("link", { name: "Lihat detail Test Food" })).toBeVisible();
+  await page.getByRole("button", { name: "Keranjang", exact: true }).last().click();
+  await page.getByRole("button", { name: "Atur pengiriman" }).click();
+  const picker = page.locator(".qris-methods");
+  const checkout = page.getByRole("button", { name: "Lanjut ke pembayaran" });
+  await expect(picker.getByRole("status")).toHaveText("Memuat metode pembayaran…");
+  await expect(checkout).toBeDisabled();
+  releaseFirstRequest();
+  await expect(picker.getByRole("alert")).toContainText("Pembayaran QRIS sementara belum tersedia. Coba lagi.");
+  await expect(picker).not.toContainText("YOKKE_");
+  await expect(picker).not.toContainText("konfigurasi");
+  await expect(checkout).toBeDisabled();
+  expect(createdOrders).toBe(0);
+
+  await picker.getByRole("button", { name: "Coba lagi" }).click();
+  await expect(picker.getByRole("alert")).toBeVisible();
+  await expect(checkout).toBeDisabled();
+  await picker.getByRole("button", { name: "Coba lagi" }).click();
+  const qris = picker.getByRole("button", { name: /QRIS/ });
+  await expect(qris).toHaveCount(1);
+  await expect(qris).toHaveAttribute("aria-pressed", "true");
+  await expect(checkout).toBeEnabled();
+  await expect(picker).not.toContainText("Transfer bank");
+  await qris.click();
+  expect(methodRequests).toBe(3);
+  expect(createdOrders).toBe(0);
+});
 
 test("mobile checkout keeps address readable and confirms paid orders", async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.addInitScript((productID) => {
     localStorage.setItem("slivadoc.access_token", "payment-test-token");
     localStorage.setItem("slivadoc.refresh_token", "payment-test-refresh");
     localStorage.setItem("slivadoc.access_expires_at", String(Date.now() + 3_600_000));
     if (!localStorage.getItem("slivadoc.cart"))
-      localStorage.setItem(
-        "slivadoc.cart",
-        JSON.stringify({ "payment-test-product": 1 }),
-      );
-  });
+      localStorage.setItem("slivadoc.cart", JSON.stringify({ [productID]: 1 }));
+  }, product.id);
 
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
-    const json = (body: unknown) =>
+    const json = (body: unknown, status = 200) =>
       route.fulfill({
-        status: 200,
+        status,
         contentType: "application/json",
         body: JSON.stringify(body),
       });
 
     if (path === "/api/v1/auth/me")
       return json({
-        id: "user-1",
-        email: "pet@example.test",
-        full_name: "Pet Parent",
-        phone: address.phone,
+        ...petOwner,
         role: "pet_owner",
       });
     if (path === "/api/v1/petowner/bootstrap")
-      return json({
-        user: {
-          id: "user-1",
-          email: "pet@example.test",
-          full_name: "Pet Parent",
-          phone: address.phone,
-          member_since: "2026-01-01",
-        },
-        pets: [],
-        notifications: [],
-        unread_notifications: 0,
-        activities: [],
-        favorites: [],
-        points: { balance: 0, earned: 0, redeemed: 0, formula: { enabled: false } },
-      });
+      return json(petOwnerBootstrap({ withPet: true }));
     if (path === "/api/v1/public/discovery/products")
       return json({ data: [product], count: 1 });
     if (
@@ -122,32 +162,44 @@ test("mobile checkout keeps address readable and confirms paid orders", async ({
       return json({ addresses: [address] });
     if (path === "/api/v1/petowner/orders/quote") return json(quote);
     if (path === "/api/v1/petowner/orders")
-      return json({
-        ...quote,
-        id: "order-1",
-        order_number: "SO-1",
-        status: "pending",
-        payment_status: "pending",
-        reference_type: "shop_order",
-      });
-    if (path === "/api/v1/payment-methods")
-      return json({
-        data: [{ code: "qris", method: "qris", label: "QRIS", description: "QRIS" }],
-        count: 1,
-        provider: "mock",
-        currency: "IDR",
-      });
+      return json(
+        {
+          ...pricing,
+          id: orderID,
+          order_number: "SHOP-260923000000-6A0000",
+          status: "pending_payment",
+          payment_status: "pending",
+          reference_type: "shop_order",
+        },
+        201,
+      );
+    if (path === "/api/v1/payment-methods") return json(paymentMethods());
     if (path === "/api/v1/payment-intents" && request.method() === "POST")
-      return json(pendingPayment);
-    if (path === "/api/v1/payment-intents/payment-1")
+      return json(pendingPayment, 201);
+    if (path === `/api/v1/payment-intents/${pendingPayment.id}`)
       return json({
         ...pendingPayment,
         status: "paid",
         payment_status: "paid",
-        paid_at: "2026-09-23T00:00:00Z",
+        paid_at: "2026-09-23T00:01:00Z",
       });
     if (path === "/api/v1/petowner/points")
-      return json({ balance: 0, earned: 0, redeemed: 0, formula: { enabled: false } });
+      return json({
+        balance: 0,
+        earned: 0,
+        redeemed: 0,
+        pending: 0,
+        formula: {
+          enabled: false,
+          point_value_rupiah: 1,
+          earn_divisor_rupiah: 10_000,
+          expiry_days: 365,
+          settlement_hold_days: 7,
+          max_redemption_bps: 5_000,
+          min_redemption_points: 100,
+          rules: [],
+        },
+      });
 
     return route.fulfill({ status: 404, body: "Unmocked API route" });
   });
@@ -155,8 +207,11 @@ test("mobile checkout keeps address readable and confirms paid orders", async ({
   await page.setViewportSize({ width: 428, height: 701 });
   await page.goto("/?view=shop", { waitUntil: "domcontentloaded" });
   await expect(
-    page.getByRole("button", { name: "Tambah Test Food ke keranjang" }),
+    page.getByRole("link", { name: "Lihat detail Test Food" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Tambah Test Food ke keranjang" }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Keranjang", exact: true }).last().click();
   await expect(page.locator(".cart-item")).toHaveCount(1);
   await page.getByRole("button", { name: "Atur pengiriman" }).click();
@@ -204,4 +259,88 @@ test("mobile checkout keeps address readable and confirms paid orders", async ({
   await page.getByRole("button", { name: "Selesai" }).click();
   await page.getByRole("button", { name: "Keranjang", exact: true }).last().click();
   await expect(page.getByRole("heading", { name: "Keranjang masih kosong" })).toBeVisible();
+});
+
+test("a failed payment intent retries on the same order instead of creating another", async ({
+  page,
+}) => {
+  await page.addInitScript((productID) => {
+    localStorage.setItem("slivadoc.access_token", "payment-test-token");
+    localStorage.setItem("slivadoc.refresh_token", "payment-test-refresh");
+    localStorage.setItem("slivadoc.access_expires_at", String(Date.now() + 3_600_000));
+    localStorage.setItem("slivadoc.cart", JSON.stringify({ [productID]: 1 }));
+  }, product.id);
+
+  let createdOrders = 0;
+  const intentOrders: string[] = [];
+  await page.route("**/api/v1/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    const json = (body: unknown, status = 200) =>
+      route.fulfill({
+        status,
+        contentType: "application/json",
+        body: JSON.stringify(body),
+      });
+
+    if (path === "/api/v1/auth/me")
+      return json({ ...petOwner, role: "pet_owner" });
+    if (path === "/api/v1/petowner/bootstrap")
+      return json(petOwnerBootstrap({ withPet: true }));
+    if (path === "/api/v1/public/discovery/products")
+      return json({ data: [product], count: 1 });
+    if (
+      path === "/api/v1/public/discovery/services" ||
+      path === "/api/v1/public/campaigns"
+    )
+      return json({ data: [], count: 0 });
+    if (path === "/api/v1/petowner/shipping-addresses")
+      return json({ addresses: [address] });
+    if (path === "/api/v1/petowner/orders/quote") return json(quote);
+    if (path === "/api/v1/petowner/orders") {
+      createdOrders += 1;
+      return json(
+        {
+          ...pricing,
+          id: orderID,
+          order_number: "SHOP-260923000000-6A0000",
+          status: "pending_payment",
+          payment_status: "pending",
+          reference_type: "shop_order",
+        },
+        201,
+      );
+    }
+    if (path === "/api/v1/payment-methods") return json(paymentMethods());
+    if (path === "/api/v1/payment-intents" && request.method() === "POST") {
+      intentOrders.push(request.postDataJSON().reference_id);
+      // The first attempt loses the connection; the retry gets through.
+      if (intentOrders.length === 1) return route.abort("connectionreset");
+      return json(pendingPayment, 201);
+    }
+    if (path === `/api/v1/payment-intents/${pendingPayment.id}`)
+      return json(pendingPayment);
+    if (path === "/api/v1/petowner/points")
+      return json({
+        balance: 0,
+        earned: 0,
+        redeemed: 0,
+        pending: 0,
+        formula: petOwnerBootstrap({ withPet: true }).points.formula,
+      });
+
+    return route.fulfill({ status: 404, body: "Unmocked API route" });
+  });
+
+  await page.setViewportSize({ width: 428, height: 701 });
+  await page.goto("/?view=shop", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Keranjang", exact: true }).last().click();
+  await page.getByRole("button", { name: "Atur pengiriman" }).click();
+  await page.getByRole("button", { name: "Lanjut ke pembayaran" }).click();
+  await expect(page.locator(".qris-code")).toHaveCount(0);
+  await page.getByRole("button", { name: "Lanjut ke pembayaran" }).click();
+  await expect(page.locator(".qris-code svg")).toBeVisible();
+
+  expect(createdOrders).toBe(1);
+  expect(intentOrders).toEqual([orderID, orderID]);
 });

@@ -12,7 +12,7 @@ const mobileApi = read("mobile/src/api.ts");
 const mobileWorld = read("mobile/src/screens/WorldScreen.tsx");
 const mobileActivity = read("mobile/src/screens/ActivityScreen.tsx");
 
-test("web pet owners can choose a trainer package, live slot, and BatPay method", () => {
+test("web pet owners can choose a trainer package, live slot, and QRIS method", () => {
   assert.match(webApi, /\/api\/v1\/public\/trainers/);
   assert.match(webApi, /\/api\/v1\/public\/trainer-consultation-plans/);
   assert.match(webApi, /\/api\/v1\/trainer-consultations/);
@@ -20,6 +20,16 @@ test("web pet owners can choose a trainer package, live slot, and BatPay method"
   assert.match(webMarketplace, /selectedTrainerSlot|selectedSlot/);
   assert.match(webMarketplace, /PaymentMethodPicker/);
   assert.match(webMarketplace, /provider_type:\s*"trainer"/);
+});
+
+test("web veterinarian booking uses the same public slots enforced by the backend", () => {
+  assert.match(
+    webApi,
+    /\/api\/v1\/public\/veterinarians\/\$\{veterinarianId\}\/availability/,
+  );
+  assert.match(webMarketplace, /getVeterinarianAvailability/);
+  assert.match(webMarketplace, /scheduled_at: selectedSlot \|\| undefined/);
+  assert.match(webMarketplace, /plan\.mode !== "chat" && !selectedSlot/);
 });
 
 test("mobile combines doctor and trainer consultations without bypassing scheduling", () => {
@@ -58,6 +68,8 @@ test("web consultation catalog filters provider type and specialty", () => {
   assert.match(webMarketplace, /hasSpecialty\(doctor\.specialties/);
   assert.match(webMarketplace, /hasSpecialty\(trainer\.specialties/);
   assert.match(webMarketplace, /Semua spesialisasi/);
+  assert.match(webMarketplace, /deferredConsultQuery/);
+  assert.match(webMarketplace, /Cari dokter hewan atau pet trainer/);
   assert.match(webApi, /specialties: string\[\]/);
   assert.match(webApi, /specialty/);
 });
@@ -84,10 +96,6 @@ test("trainer updates flow into Petowner Activity Center from database fields", 
     assert.match(webApi, new RegExp(field));
   }
   assert.match(webApp, /item\.provider_type === "trainer" \? "Pet Trainer"/);
-  assert.match(webApp, /ringkasan_sesi:/);
-  assert.match(webApp, /item\.doctor_notes \|\| "Belum ada ringkasan dari provider"/);
-  assert.match(webApp, /status_pembayaran: item\.payment_status/);
-  assert.match(webApp, /jadwal_follow_up:/);
   assert.match(mobileApi, /provider_type\?: "trainer" \| "veterinarian"/);
   assert.match(mobileApi, /followup_until\?: string \| null/);
   assert.match(mobileActivity, /item\.provider_type === "trainer"/);

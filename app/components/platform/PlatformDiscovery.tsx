@@ -1,22 +1,39 @@
 "use client";
+import { SlivaVideo } from "../SlivaVideo";
+import { petOwnerIntlLocale } from "../../lib/petowner-locale";
+import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } from "../LocalizedCopy";
 
+import { usePetOwnerFlow } from "../PetOwnerFlow";
+import { SlivaSelect } from "../SlivaSelect";
 import NextImage from "next/image";
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
 } from "react";
 import { Icon } from "../Icon";
-import { safeFixed } from "../../lib/safe-number";
+import { DiscountBadge } from "../DiscountBadge";
+import { PetSpotDetail } from "./PetSpotDetail";
+import { PetHubComposer } from "./PetHubComposer";
+import { PetHubStoryView } from "./PetHubStoryView";
+import { petHubPhotos, petHubVideoPoster } from "../../lib/pethub-media";
 import {
-  createPetHubPost,
+  petHubContentLink,
+  PET_HUB_DOUBLE_TAP_MS,
+} from "../../lib/pethub-interactions";
+import { petSpotCategory } from "../../lib/petspot-booking";
+import {
   createPetHubComment,
-  createPetHubStory,
   createPaymentIntent,
   enrollAcademy,
+  getAcademyProgram,
   getAcademyPrograms,
+  getAcademyTrainer,
+  getAcademyTrainers,
+  saveAcademyProgramReview,
   trackAcademyProgramClick,
   getPetEvents,
   getPetHubFeed,
@@ -26,14 +43,16 @@ import {
   getPetSpots,
   getPetshipPlaces,
   getPublicLostPets,
-  getPetSpotAvailability,
-  createPetSpotReservation,
   reactPetHubPost,
+  likePetHubPost,
+  savePetHubPost,
   togglePetHubChannel,
-  togglePetOwnerFavorite,
   isPetOwnerAuthenticated,
   registerEvent,
   type AcademyProgram,
+  type AcademyProgramDetail,
+  type AcademyReview,
+  type AcademyTrainer,
   type PetEvent,
   type PetHubPost,
   type PetHubComment,
@@ -42,20 +61,18 @@ import {
   type PetSpot,
   type PetshipPlace,
   type PublicLostPet,
-  type PetSpotUnit,
-  type PetSpotReservation,
   type PaymentIntent,
+  type ActivityType,
 } from "../../lib/platform-api";
-import {
-  BatpayPaymentPanel,
-  PaymentMethodPicker,
-} from "../payments/BatpayPayment";
+import { QrisPaymentPanel, PaymentMethodPicker } from "../payments/QrisPayment";
 import GeoMap, { type GeoCircle, type GeoMarker, type GeoPoint } from "./GeoMap";
 import "../../event-checkout.css";
+import "../../petspot-experience.css";
 
 export type DiscoveryMode = "academy" | "events" | "petspot" | "pethub";
 type Props = {
   mode: DiscoveryMode;
+  initialItemId?: string;
   petName: string;
   pets?: Array<{
     id: string;
@@ -67,32 +84,239 @@ type Props = {
   ownerName?: string;
   ownerEmail?: string;
   notify: (message: string) => void;
-  navigate: (mode: DiscoveryMode) => void;
 };
 
-const money = new Intl.NumberFormat("id-ID", {
+const money = new Intl.NumberFormat(petOwnerIntlLocale(), {
   style: "currency",
   currency: "IDR",
   maximumFractionDigits: 0,
 });
 const when = (value?: string) =>
   value
-    ? new Intl.DateTimeFormat("id-ID", {
+    ? new Intl.DateTimeFormat(petOwnerIntlLocale(), {
         dateStyle: "medium",
         timeStyle: "short",
       }).format(new Date(value))
     : "Segera diumumkan";
 
+const academySince = (value?: string) => {
+  if (!value) return "Program baru";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Program baru";
+  return `Berjalan sejak ${new Intl.DateTimeFormat(petOwnerIntlLocale(), {
+    month: "short",
+    year: "numeric",
+  }).format(date)}`;
+};
+const academySpecies = [
+  { id: "all", label: "Semua pet", icon: "✦" },
+  { id: "dog", label: "Anjing", icon: "🐕" },
+  { id: "cat", label: "Kucing", icon: "🐈" },
+  { id: "rabbit", label: "Kelinci", icon: "🐇" },
+  { id: "bird", label: "Burung", icon: "🦜" },
+  { id: "small_mammal", label: "Small pet", icon: "🐹" },
+] as const;
+
+function AcademyPrice({
+  program,
+  compact = false,
+}: {
+  program: AcademyProgram;
+  compact?: boolean;
+}) {
+  const discounted =
+    program.discount_percent > 0 && program.original_price > program.price;
+  return (
+    <span
+      className={`academy-price ${compact ? "is-compact" : ""} ${discounted ? "is-discounted" : ""}`}
+    >
+      <LocalizedCopy>{discounted ? <s><LocalizedCopy>{money.format(program.original_price)}</LocalizedCopy></s> : null}</LocalizedCopy>
+      <strong>
+        <LocalizedCopy>{program.price > 0 ? money.format(program.price) : "Gratis"}</LocalizedCopy>
+      </strong>
+    </span>
+  );
+}
+
+function WorldImageGallery({
+  images,
+  alt,
+  fallback,
+  tag,
+  className = "",
+  onDoubleTap,
+}: {
+  images: Array<string | undefined>;
+  alt: string;
+  fallback: string;
+  tag: string;
+  className?: string;
+  onDoubleTap?: () => void;
+}) {
+  const gallery = [
+    ...new Set(images.filter((url): url is string => Boolean(url?.trim()))),
+  ];
+  const [active, setActive] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (tapTimer.current) clearTimeout(tapTimer.current);
+    },
+    [],
+  );
+  useEffect(() => {
+    if (gallery.length < 2 || expanded) return;
+    const timer = window.setInterval(
+      () => setActive((current) => (current + 1) % gallery.length),
+      1_000,
+    );
+    return () => window.clearInterval(timer);
+  }, [gallery.length, expanded]);
+  if (!gallery.length)
+    return (
+      <div className={`modal-world-cover ${className}`}>
+        <span><LocalizedCopy>{fallback}</LocalizedCopy></span>
+        <LocalizedCopy>{className.includes("petspot") ? (
+          <small className="petspot-photo-empty"><LocalizedCopy>{"Foto tempat belum diunggah"}</LocalizedCopy></small>
+        ) : null}</LocalizedCopy>
+        <i><LocalizedCopy>{tag}</LocalizedCopy></i>
+      </div>
+    );
+  const move = (direction: number) =>
+    setActive(
+      (current) => (current + direction + gallery.length) % gallery.length,
+    );
+  return (
+    <>
+      <div className={`modal-world-cover world-image-gallery ${className}`}>
+        <LocalizedButton
+          type="button"
+          className="world-image-open"
+          onClick={(event) => {
+            if (!onDoubleTap) {
+              setExpanded(true);
+              return;
+            }
+            if (tapTimer.current) clearTimeout(tapTimer.current);
+            if (event.detail < 2)
+              tapTimer.current = setTimeout(
+                () => setExpanded(true),
+                PET_HUB_DOUBLE_TAP_MS,
+              );
+          }}
+          onDoubleClick={(event) => {
+            if (!onDoubleTap) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (tapTimer.current) clearTimeout(tapTimer.current);
+            onDoubleTap();
+          }}
+          aria-label={`Buka galeri ${alt}`}
+        >
+          <NextImage
+            src={gallery[active % gallery.length]}
+            alt={`${alt} ${(active % gallery.length) + 1}`}
+            fill
+            sizes="(max-width: 720px) 100vw, 680px"
+            unoptimized
+          />
+        </LocalizedButton>
+        <i><LocalizedCopy>{tag}</LocalizedCopy></i>
+        <LocalizedCopy>{gallery.length > 1 ? (
+          <div className="world-image-controls">
+            <LocalizedButton
+              type="button"
+              onClick={() => move(-1)}
+              aria-label="Gambar sebelumnya"
+            ><LocalizedCopy>{"‹"}</LocalizedCopy></LocalizedButton>
+            <span>
+              <LocalizedCopy>{(active % gallery.length) + 1}</LocalizedCopy><LocalizedCopy>{" / "}</LocalizedCopy><LocalizedCopy>{gallery.length}</LocalizedCopy>
+            </span>
+            <LocalizedButton
+              type="button"
+              onClick={() => move(1)}
+              aria-label="Gambar berikutnya"
+            ><LocalizedCopy>{"›"}</LocalizedCopy></LocalizedButton>
+          </div>
+        ) : null}</LocalizedCopy>
+      </div>
+      {expanded ? (
+        <div
+          className="world-image-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Galeri ${alt}`}
+          onClick={() => setExpanded(false)}
+        >
+          <LocalizedButton
+            type="button"
+            className="world-image-close"
+            onClick={() => setExpanded(false)}
+            aria-label="Tutup galeri"
+          ><LocalizedCopy>{"×"}</LocalizedCopy></LocalizedButton>
+          <div
+            className="world-image-lightbox-frame"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <NextImage
+              src={gallery[active % gallery.length]}
+              alt={`${alt} ${(active % gallery.length) + 1}`}
+              fill
+              sizes="100vw"
+              unoptimized
+              priority
+            />
+          </div>
+          <LocalizedCopy>{gallery.length > 1 ? (
+            <>
+              <LocalizedButton
+                type="button"
+                className="world-image-prev"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  move(-1);
+                }}
+                aria-label="Gambar sebelumnya"
+              ><LocalizedCopy>{"‹"}</LocalizedCopy></LocalizedButton>
+              <LocalizedButton
+                type="button"
+                className="world-image-next"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  move(1);
+                }}
+                aria-label="Gambar berikutnya"
+              ><LocalizedCopy>{"›"}</LocalizedCopy></LocalizedButton>
+              <span className="world-image-count">
+                <LocalizedCopy>{(active % gallery.length) + 1}</LocalizedCopy><LocalizedCopy>{" / "}</LocalizedCopy><LocalizedCopy>{gallery.length}</LocalizedCopy>
+              </span>
+            </>
+          ) : null}</LocalizedCopy>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 export default function PlatformDiscovery({
   mode,
+  initialItemId,
   petName,
   pets = [],
   ownerName = "Pet Parent",
   ownerEmail = "",
   notify,
-  navigate,
 }: Props) {
+  const { requirePet } = usePetOwnerFlow();
   const [programs, setPrograms] = useState<AcademyProgram[]>([]);
+  const [academyTrainers, setAcademyTrainers] = useState<AcademyTrainer[]>([]);
+  const [selectedTrainer, setSelectedTrainer] = useState<AcademyTrainer | null>(
+    null,
+  );
+  const [trainerSpecies, setTrainerSpecies] = useState(
+    pets[0]?.species?.toLowerCase() || "all",
+  );
   const [events, setEvents] = useState<PetEvent[]>([]);
   const [spots, setSpots] = useState<PetSpot[]>([]);
   const [streams, setStreams] = useState<PetHubStream[]>([]);
@@ -106,12 +330,28 @@ export default function PlatformDiscovery({
   const [selectedStream, setSelectedStream] = useState<PetHubStream | null>(
     null,
   );
+  const handledItem = useRef("");
+  useEffect(() => {
+    if (!initialItemId || loading) return;
+    const key = `${mode}:${initialItemId}`;
+    if (handledItem.current === key) return;
+    const program = mode === "academy" ? programs.find((item) => item.id === initialItemId) : undefined;
+    const event = mode === "events" ? events.find((item) => item.id === initialItemId) : undefined;
+    const spot = mode === "petspot" ? spots.find((item) => item.id === initialItemId) : undefined;
+    handledItem.current = key;
+    queueMicrotask(() => {
+      if (program) setSelectedProgram(program);
+      else if (event) setSelectedEvent(event);
+      else if (spot) setSelectedSpot(spot);
+      else notify("Item ini belum tersedia. Pilih item lain dari katalog.");
+    });
+  }, [initialItemId, loading, mode, programs, events, spots, notify]);
   const [composer, setComposer] = useState(false);
   const [storyComposer, setStoryComposer] = useState(false);
   const [stories, setStories] = useState<PetHubStory[]>([]);
+  const [viewStory, setViewStory] = useState<PetHubStory | null>(null);
   const [commentPost, setCommentPost] = useState<PetHubPost | null>(null);
   const [filter, setFilter] = useState("all");
-  const [liked, setLiked] = useState<string[]>([]);
   const [renderedAt] = useState(() => Date.now());
   const [spotSearch, setSpotSearch] = useState("");
   const [maxDistance, setMaxDistance] = useState(25);
@@ -121,6 +361,29 @@ export default function PlatformDiscovery({
   const [lostPets, setLostPets] = useState<PublicLostPet[]>([]);
   const [showPetship, setShowPetship] = useState(false);
   const [showLostPets, setShowLostPets] = useState(false);
+  const [sharedPostID, setSharedPostID] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : new URL(window.location.href).searchParams.get("post") || "",
+  );
+  const [heartBurst, setHeartBurst] = useState("");
+  const heartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (heartTimer.current) clearTimeout(heartTimer.current);
+    },
+    [],
+  );
+  const pendingLikes = useRef(new Set<string>());
+  const pendingSaves = useRef(new Set<string>());
+  const speciesRailRef = useRef<HTMLDivElement>(null);
+  const trainerRailRef = useRef<HTMLDivElement>(null);
+  const advanceRail = (node: HTMLDivElement | null) => {
+    if (!node) return;
+    const nextLeft = node.scrollLeft + Math.max(240, node.clientWidth * 0.82);
+    const reachedEnd = nextLeft >= node.scrollWidth - 8;
+    node.scrollTo({ left: reachedEnd ? 0 : nextLeft, behavior: "smooth" });
+  };
   useEffect(() => {
     void Promise.resolve().then(() => setLoading(true));
     const failed = (label: string) => (error: unknown) => {
@@ -129,8 +392,16 @@ export default function PlatformDiscovery({
       );
     };
     if (mode === "academy") {
-      void getAcademyPrograms()
-        .then((value) => setPrograms(value.data))
+      void Promise.all([
+        getAcademyPrograms(),
+        getAcademyTrainers(
+          trainerSpecies === "all" ? undefined : { species: trainerSpecies },
+        ),
+      ])
+        .then(([programValue, trainerValue]) => {
+          setPrograms(programValue.data);
+          setAcademyTrainers(trainerValue.data);
+        })
         .catch(failed("Program academy"))
         .finally(() => setLoading(false));
       return;
@@ -156,7 +427,20 @@ export default function PlatformDiscovery({
       })
       .catch(failed("PetHub"))
       .finally(() => setLoading(false));
-  }, [mode, notify]);
+  }, [mode, notify, trainerSpecies]);
+
+  async function openTrainer(trainer: AcademyTrainer) {
+    setSelectedTrainer(trainer);
+    try {
+      setSelectedTrainer(await getAcademyTrainer(trainer.id));
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "Detail pet trainer belum dapat dimuat",
+      );
+    }
+  }
   useEffect(() => {
     if (mode !== "petspot") return;
     const failed = (label: string) => (error: unknown) =>
@@ -170,12 +454,15 @@ export default function PlatformDiscovery({
   }, [selectedProgram]);
   useEffect(() => {
     if (mode !== "pethub") return;
+    let active = true;
     const type =
-      hubTab === "Video" ? "video" : hubTab === "Thread" ? "thread" : "";
+      hubTab === "Reels" ? "video" : hubTab === "Thread" ? "thread" : "";
     const tab = hubTab === "Mengikuti" ? "following" : "for_you";
     void Promise.resolve().then(() => setLoading(true));
-    void getPetHubFeed({ tab, type })
-      .then((response) => setPosts(response.data))
+    void getPetHubFeed(sharedPostID ? { post_id: sharedPostID } : { tab, type })
+      .then((response) => {
+        if (active) setPosts(response.data);
+      })
       .catch((error) =>
         notify(
           error instanceof Error
@@ -183,8 +470,13 @@ export default function PlatformDiscovery({
             : "Feed PetHub belum dapat dimuat",
         ),
       )
-      .finally(() => setLoading(false));
-  }, [hubTab, mode, notify]);
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [hubTab, mode, notify, ownerEmail, sharedPostID]);
   const categorySpots = useMemo(
     () =>
       spots.filter(
@@ -288,44 +580,58 @@ export default function PlatformDiscovery({
       { enableHighAccuracy: true, timeout: 12000 },
     );
   }
-  async function like(post: PetHubPost) {
-    const active = liked.includes(post.id);
-    setLiked((current) =>
-      active ? current.filter((id) => id !== post.id) : [...current, post.id],
-    );
-    setPosts((current) =>
-      current.map((item) =>
-        item.id === post.id
-          ? {
-              ...item,
-              like_count: Math.max(0, item.like_count + (active ? -1 : 1)),
-            }
-          : item,
-      ),
-    );
+  async function like(post: PetHubPost, ensureLiked = false) {
+    if (!requirePet()) return;
+    const burst = () => {
+      setHeartBurst(post.id);
+      if (heartTimer.current) clearTimeout(heartTimer.current);
+      heartTimer.current = setTimeout(() => setHeartBurst(""), 900);
+    };
+    if (ensureLiked && post.liked) {
+      burst();
+      return;
+    }
+    if (pendingLikes.current.has(post.id)) return;
+    pendingLikes.current.add(post.id);
     try {
-      await reactPetHubPost(post.id);
-    } catch (error) {
-      setLiked((current) =>
-        active
-          ? [...new Set([...current, post.id])]
-          : current.filter((id) => id !== post.id),
-      );
+      const result = await (ensureLiked
+        ? likePetHubPost(post.id)
+        : reactPetHubPost(post.id));
+      if (ensureLiked) burst();
       setPosts((current) =>
         current.map((item) =>
-          item.id === post.id ? { ...item, like_count: post.like_count } : item,
+          item.id === post.id
+            ? { ...item, liked: result.liked, like_count: result.like_count }
+            : item,
         ),
       );
+    } catch (error) {
       notify(
         error instanceof Error ? error.message : "Reaksi belum dapat disimpan",
       );
+    } finally {
+      pendingLikes.current.delete(post.id);
+    }
+  }
+  async function sharePost(post: PetHubPost) {
+    try {
+      if (navigator.share)
+        await navigator.share({
+          title: "PetHub · Slivadoc",
+          text: post.content,
+          url: petHubContentLink(post.id),
+        });
+      else {
+        await navigator.clipboard.writeText(petHubContentLink(post.id));
+        notify("Tautan konten Slivadoc disalin");
+      }
+    } catch (cause) {
+      if (!(cause instanceof Error && cause.name === "AbortError"))
+        notify("Konten belum dapat dibagikan");
     }
   }
   async function followChannel(channelID?: string) {
-    if (!channelID || !isPetOwnerAuthenticated()) {
-      loginRequired();
-      return;
-    }
+    if (!channelID || !requirePet()) return;
     try {
       const result = await togglePetHubChannel(channelID);
       setPosts((current) =>
@@ -352,119 +658,266 @@ export default function PlatformDiscovery({
     notify("Silakan login terlebih dahulu untuk melanjutkan.");
     window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
   }
+  async function savePost(post: PetHubPost) {
+    if (!requirePet()) return;
+    if (pendingSaves.current.has(post.id)) return;
+    pendingSaves.current.add(post.id);
+    try {
+      const result = await savePetHubPost(post.id);
+      setPosts((current) =>
+        current.map((item) =>
+          item.id === post.id ? { ...item, saved: result.saved } : item,
+        ),
+      );
+      notify(
+        result.saved ? "Posting disimpan" : "Posting dihapus dari koleksi",
+      );
+    } catch (cause) {
+      notify(
+        cause instanceof Error ? cause.message : "Posting belum dapat disimpan",
+      );
+    } finally {
+      pendingSaves.current.delete(post.id);
+    }
+  }
 
   if (mode === "academy")
     return (
       <>
-        <UniverseNav active={mode} navigate={navigate} />
         <section className="world-hero academy-hero">
           <div>
-            <span>SLIVADOC PET ACADEMY</span>
-            <h2>Belajar bersama. Bertumbuh bersama.</h2>
-            <p>
-              Program training terverifikasi dengan kurikulum terukur, positive
-              reinforcement, dan progres digital untuk {petName}.
-            </p>
-            <button
+            <span><LocalizedCopy>{"SLIVADOC PET ACADEMY"}</LocalizedCopy></span>
+            <h2><LocalizedCopy>{"Belajar bersama. Bertumbuh bersama."}</LocalizedCopy></h2>
+            <p><LocalizedCopy>{"Program training terverifikasi dengan kurikulum terukur, positive reinforcement, dan progres digital untuk "}</LocalizedCopy><LocalizedCopy>{petName}</LocalizedCopy><LocalizedCopy>{"."}</LocalizedCopy></p>
+            <LocalizedButton
               type="button"
               onClick={() =>
                 document
                   .querySelector("#academy-catalog")
                   ?.scrollIntoView({ behavior: "smooth" })
               }
-            >
-              Jelajahi program <Icon name="arrow" size={16} />
-            </button>
+            ><LocalizedCopy>{"Jelajahi program "}</LocalizedCopy><Icon name="arrow" size={16} />
+            </LocalizedButton>
           </div>
           <div className="hero-stat">
-            <b>4,9</b>
-            <small>rating academy partner</small>
+            <b><LocalizedCopy>{"4,9"}</LocalizedCopy></b>
+            <small><LocalizedCopy>{"rating academy partner"}</LocalizedCopy></small>
+          </div>
+        </section>
+        <section className="academy-trainer-section">
+          <div className="academy-trainer-heading">
+            <div>
+              <small><LocalizedCopy>{"PET TRAINER TERVERIFIKASI"}</LocalizedCopy></small>
+              <h2><LocalizedCopy>{"Trainer sesuai jenis pet"}</LocalizedCopy></h2>
+              <p><LocalizedCopy>{"Pilih spesialis yang paling cocok sebelum menentukan kelas."}</LocalizedCopy></p>
+            </div>
+            <div className="academy-carousel academy-species-carousel">
+              <div
+                ref={speciesRailRef}
+                className="academy-species-filter"
+                aria-label="Filter jenis pet"
+              >
+                <LocalizedCopy>{academySpecies.map((species) => (
+                  <LocalizedButton
+                    type="button"
+                    key={species.id}
+                    className={trainerSpecies === species.id ? "active" : ""}
+                    onClick={() => setTrainerSpecies(species.id)}
+                  >
+                    <span><LocalizedCopy>{species.icon}</LocalizedCopy></span>
+                    <b><LocalizedCopy>{species.label}</LocalizedCopy></b>
+                  </LocalizedButton>
+                ))}</LocalizedCopy>
+              </div>
+              <LocalizedButton
+                type="button"
+                className="academy-carousel-next"
+                onClick={() => advanceRail(speciesRailRef.current)}
+                aria-label="Lihat jenis pet berikutnya"
+              >
+                <Icon name="arrow" size={17} />
+              </LocalizedButton>
+            </div>
+          </div>
+          <div className="academy-carousel academy-trainer-carousel">
+            <div ref={trainerRailRef} className="academy-trainer-list">
+              <LocalizedCopy>{academyTrainers.map((trainer) => (
+                <LocalizedButton
+                  type="button"
+                  className="academy-trainer-card"
+                  key={trainer.id}
+                  onClick={() => void openTrainer(trainer)}
+                >
+                  <span className="academy-trainer-avatar">
+                    <LocalizedCopy>{trainer.photo_url ? (
+                      <NextImage
+                        src={trainer.photo_url}
+                        alt=""
+                        width={72}
+                        height={72}
+                        unoptimized
+                      />
+                    ) : (
+                      trainer.full_name.slice(0, 1)
+                    )}</LocalizedCopy>
+                  </span>
+                  <span>
+                    <small><LocalizedCopy>{trainer.academy_name}</LocalizedCopy></small>
+                    <b><LocalizedCopy preserve>{trainer.full_name}</LocalizedCopy></b>
+                    <em><LocalizedCopy>{"★ "}</LocalizedCopy><LocalizedCopy>{trainer.rating.toFixed(1)}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{trainer.experience_years}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"tahun"}</LocalizedCopy></em>
+                    <i><LocalizedCopy>{trainer.specialties.slice(0, 3).join(" · ")}</LocalizedCopy></i>
+                  </span>
+                  <strong><LocalizedCopy>{"Lihat profil"}</LocalizedCopy></strong>
+                </LocalizedButton>
+              ))}</LocalizedCopy>
+            </div>
+            <LocalizedCopy>{academyTrainers.length > 3 ? (
+              <LocalizedButton
+                type="button"
+                className="academy-carousel-next academy-trainer-next"
+                onClick={() => advanceRail(trainerRailRef.current)}
+                aria-label="Lihat pet trainer berikutnya"
+              >
+                <Icon name="arrow" size={18} />
+              </LocalizedButton>
+            ) : null}</LocalizedCopy>
           </div>
         </section>
         <div className="world-toolbar">
           <div>
-            <button
+            <LocalizedButton
               className={filter === "all" ? "active" : ""}
               onClick={() => setFilter("all")}
-            >
-              Semua
-            </button>
-            {["obedience", "behavior", "agility", "handler"].map((item) => (
-              <button
+            ><LocalizedCopy>{"Semua"}</LocalizedCopy></LocalizedButton>
+            <LocalizedCopy>{["obedience", "behavior", "agility", "handler"].map((item) => (
+              <LocalizedButton
                 className={filter === item ? "active" : ""}
                 key={item}
                 onClick={() => setFilter(item)}
               >
-                {item.replace("-", " ")}
-              </button>
-            ))}
+                <LocalizedCopy>{item.replace("-", " ")}</LocalizedCopy>
+              </LocalizedButton>
+            ))}</LocalizedCopy>
           </div>
           <span>
-            {loading
+            <LocalizedCopy>{loading
               ? "Memuat program…"
-              : `${programs.length} program tersedia`}
+              : `${programs.length} program tersedia`}</LocalizedCopy>
           </span>
         </div>
         <div id="academy-catalog" className="academy-grid">
-          {programs
+          <LocalizedCopy>{programs
             .filter((item) => filter === "all" || item.category === filter)
-            .map((item, index) => (
-              <article className="academy-card" key={item.id}>
-                <div className={`academy-visual tone-${index % 3}`}>
-                  {item.cover_url ? (
-                    <NextImage
-                      src={item.cover_url}
-                      alt=""
-                      width={640}
-                      height={400}
-                      unoptimized
-                    />
-                  ) : (
-                    <>
-                      <span>
-                        {index % 3 === 0 ? "🐕‍🦺" : index % 3 === 1 ? "🐶" : "🏅"}
-                      </span>
-                      <small>{item.academy_name}</small>
-                    </>
-                  )}
-                </div>
-                <div className="academy-card-body">
-                  <div className="card-meta">
-                    <span>{item.level}</span>
-                    <b>★ {item.trainer_rating || 4.9}</b>
-                  </div>
-                  <h3>{item.title}</h3>
-                  <p>{item.description}</p>
-                  <div className="trainer-line">
-                    <span>{item.trainer_name.slice(0, 1)}</span>
-                    <p>
-                      <b>{item.trainer_name}</b>
-                      <small>{item.academy_name}</small>
-                    </p>
-                  </div>
-                  <div className="academy-facts">
-                    <span>◷ {item.duration_weeks} minggu</span>
-                    <span>▤ {item.session_count} sesi</span>
-                    <b>{money.format(item.price)}</b>
-                  </div>
-                  <button
+            .map((item, index) => {
+              const participantCount = item.participant_count ?? 0;
+              const reviewCount = item.review_count ?? 0;
+              const occupancy = Math.min(
+                100,
+                Math.round(
+                  (participantCount / Math.max(1, item.capacity)) * 100,
+                ),
+              );
+              const galleryCount = new Set(
+                [item.cover_url, ...(item.image_urls ?? [])].filter(Boolean),
+              ).size;
+              return (
+                <article
+                  className="academy-card academy-card--experience"
+                  key={item.id}
+                >
+                  <LocalizedButton
                     type="button"
-                    className="primary-button full"
+                    className={`academy-visual tone-${index % 3}`}
                     onClick={() => setSelectedProgram(item)}
+                    aria-label={`Lihat detail ${item.title}`}
                   >
-                    Lihat detail & daftar
-                  </button>
-                </div>
-              </article>
-            ))}
+                    <LocalizedCopy>{item.cover_url ? (
+                      <NextImage
+                        src={item.cover_url}
+                        alt={`Kelas ${item.title}`}
+                        fill
+                        sizes="(max-width: 720px) 100vw, 33vw"
+                        unoptimized
+                      />
+                    ) : (
+                      <span aria-hidden="true">
+                        <LocalizedCopy>{index % 3 === 0 ? "🐕‍🦺" : index % 3 === 1 ? "🐶" : "🏅"}</LocalizedCopy>
+                      </span>
+                    )}</LocalizedCopy>
+                    <span className="academy-media-shade" />
+                    <span className="academy-media-topline">
+                      <LocalizedCopy>{item.featured ? (
+                        <b><LocalizedCopy>{"✦ PILIHAN SLIVADOC"}</LocalizedCopy></b>
+                      ) : (
+                        <b><LocalizedCopy>{item.level}</LocalizedCopy></b>
+                      )}</LocalizedCopy>
+                      <LocalizedCopy>{item.discount_percent > 0 ? (
+                        <DiscountBadge percent={item.discount_percent} />
+                      ) : null}</LocalizedCopy>
+                    </span>
+                    <span className="academy-media-bottomline">
+                      <small><LocalizedCopy>{item.academy_name}</LocalizedCopy></small>
+                      <LocalizedCopy>{galleryCount > 1 ? <i><LocalizedCopy>{"▧ "}</LocalizedCopy><LocalizedCopy>{galleryCount}</LocalizedCopy><LocalizedCopy>{" foto"}</LocalizedCopy></i> : null}</LocalizedCopy>
+                    </span>
+                  </LocalizedButton>
+                  <div className="academy-card-body">
+                    <div className="academy-card-proof">
+                      <span>
+                        <LocalizedCopy>{reviewCount > 0
+                          ? `★ ${(item.rating ?? 0).toFixed(1)}`
+                          : "☆ Belum dinilai"}</LocalizedCopy>
+                      </span>
+                      <span><LocalizedCopy>{reviewCount}</LocalizedCopy><LocalizedCopy>{" ulasan"}</LocalizedCopy></span>
+                      <span><LocalizedCopy>{academySince(item.running_since)}</LocalizedCopy></span>
+                    </div>
+                    <h3><LocalizedCopy>{item.title}</LocalizedCopy></h3>
+                    <p><LocalizedCopy>{item.description}</LocalizedCopy></p>
+                    <div className="academy-cohort-progress">
+                      <div>
+                        <span><LocalizedCopy>{"Alumni & peserta"}</LocalizedCopy></span>
+                        <b><LocalizedCopy>{participantCount}</LocalizedCopy><LocalizedCopy>{" pet"}</LocalizedCopy></b>
+                      </div>
+                      <i>
+                        <span style={{ width: `${occupancy}%` }} />
+                      </i>
+                    </div>
+                    <div className="trainer-line">
+                      <span><LocalizedCopy>{item.trainer_name.slice(0, 1)}</LocalizedCopy></span>
+                      <p>
+                        <b><LocalizedCopy>{item.trainer_name}</LocalizedCopy></b>
+                        <small>
+                          <LocalizedCopy>{item.duration_weeks}</LocalizedCopy><LocalizedCopy>{" minggu · "}</LocalizedCopy><LocalizedCopy>{item.session_count}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"sesi"}</LocalizedCopy></small>
+                      </p>
+                      <em><LocalizedCopy>{when(item.next_schedule)}</LocalizedCopy></em>
+                    </div>
+                    <div className="academy-card-checkout">
+                      <AcademyPrice program={item} compact />
+                      <LocalizedButton
+                        type="button"
+                        onClick={() => setSelectedProgram(item)}
+                      ><LocalizedCopy>{"Lihat kelas "}</LocalizedCopy><Icon name="arrow" size={14} />
+                      </LocalizedButton>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}</LocalizedCopy>
         </div>
         {selectedProgram && (
           <ProgramModal
             item={selectedProgram}
             petName={petName}
+            pets={pets}
             ownerName={ownerName}
             close={() => setSelectedProgram(null)}
             notify={notify}
+            openTrainer={(trainer) => void openTrainer(trainer)}
+          />
+        )}
+        {selectedTrainer && (
+          <AcademyTrainerModal
+            trainer={selectedTrainer}
+            close={() => setSelectedTrainer(null)}
           />
         )}
       </>
@@ -474,34 +927,53 @@ export default function PlatformDiscovery({
     const featured = events.find((item) => item.featured) || events[0];
     return (
       <>
-        <UniverseNav active={mode} navigate={navigate} />
         {featured && (
-          <section className="event-banner">
+          <section
+            className={`event-banner ${featured.banner_url ? "has-media" : ""}`}
+          >
+            <LocalizedCopy>{featured.banner_url ? (
+              <NextImage
+                className="event-banner-media"
+                src={featured.banner_url}
+                alt=""
+                fill
+                sizes="100vw"
+                unoptimized
+                priority
+              />
+            ) : null}</LocalizedCopy>
+            <span className="event-banner-shade" />
             <div className="event-banner-date">
-              <b>{new Date(featured.starts_at).getDate()}</b>
+              <b><LocalizedCopy>{new Date(featured.starts_at).getDate()}</LocalizedCopy></b>
               <small>
-                {new Intl.DateTimeFormat("id-ID", { month: "short" }).format(
+                <LocalizedCopy>{new Intl.DateTimeFormat(petOwnerIntlLocale(), { month: "short" }).format(
                   new Date(featured.starts_at),
-                )}
+                )}</LocalizedCopy>
               </small>
             </div>
             <div>
-              <span>FEATURED PET EVENT</span>
-              <h2>{featured.title}</h2>
-              <p>{featured.description}</p>
+              <span className="event-featured-label"><LocalizedCopy>{"✦ FEATURED PET EVENT"}</LocalizedCopy></span>
+              <h2><LocalizedCopy>{featured.title}</LocalizedCopy></h2>
+              <p><LocalizedCopy>{featured.description}</LocalizedCopy></p>
               <div className="event-meta">
-                <span>
-                  ⌖ {featured.venue}, {featured.city}
+                <span><LocalizedCopy>{"⌖ "}</LocalizedCopy><LocalizedCopy>{featured.venue}</LocalizedCopy><LocalizedCopy>{", "}</LocalizedCopy><LocalizedCopy>{featured.city}</LocalizedCopy>
                 </span>
-                <span>◷ {when(featured.starts_at)}</span>
+                <span><LocalizedCopy>{"◷ "}</LocalizedCopy><LocalizedCopy>{when(featured.starts_at)}</LocalizedCopy></span>
               </div>
-              <button type="button" onClick={() => setSelectedEvent(featured)}>
-                Lihat detail event <Icon name="arrow" size={16} />
-              </button>
+              <div className="event-banner-chips">
+                <span><LocalizedCopy>{"✓ Pet friendly"}</LocalizedCopy></span>
+                <span>
+                  <LocalizedCopy>{featured.price ? money.format(featured.price) : "Gratis"}</LocalizedCopy>
+                </span>
+                <span>
+                  <LocalizedCopy>{Math.max(0, featured.capacity - featured.registered_count)}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"slot tersisa"}</LocalizedCopy></span>
+              </div>
+              <LocalizedButton type="button" onClick={() => setSelectedEvent(featured)}><LocalizedCopy>{"Lihat detail event "}</LocalizedCopy><Icon name="arrow" size={16} />
+              </LocalizedButton>
             </div>
             <div className="event-capacity">
-              <b>{featured.registered_count.toLocaleString("id-ID")}</b>
-              <small>pet parent terdaftar</small>
+              <b><LocalizedCopy>{featured.registered_count.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"pet parent terdaftar"}</LocalizedCopy></small>
               <i>
                 <span
                   style={{
@@ -514,51 +986,109 @@ export default function PlatformDiscovery({
         )}
         <div className="section-title-world">
           <div>
-            <span>EVENT MENDATANG</span>
-            <h2>Isi kalender pet-mu</h2>
+            <span><LocalizedCopy>{"EVENT MENDATANG"}</LocalizedCopy></span>
+            <h2><LocalizedCopy>{"Isi kalender pet-mu"}</LocalizedCopy></h2>
           </div>
-          <button
-            onClick={() =>
-              notify("Kalender event Slivadoc ditambahkan ke perangkat")
-            }
-          >
-            ＋ Tambah ke kalender
-          </button>
         </div>
         <div className="event-grid">
-          {events.map((item, index) => (
-            <button
-              type="button"
-              className="event-card"
-              key={item.id}
-              onClick={() => setSelectedEvent(item)}
-            >
-              <div className={`event-art event-art-${index % 3}`}>
-                <span>
-                  {item.category === "sport"
-                    ? "🏃‍♀️🐕"
-                    : item.category === "community"
-                      ? "☕🐾"
-                      : "🎪"}
-                </span>
-                <i>{item.category}</i>
-              </div>
-              <div>
-                <small>{when(item.starts_at)}</small>
-                <h3>{item.title}</h3>
-                <p>
-                  ⌖ {item.venue} · {item.city}
-                </p>
-                <footer>
-                  <b>{item.price ? money.format(item.price) : "Gratis"}</b>
-                  <span>
-                    {Math.max(0, item.capacity - item.registered_count)} tiket
-                    tersisa ›
+          <LocalizedCopy>{events.map((item, index) => {
+            const eventImages = [
+              ...new Set(
+                [item.banner_url, ...(item.image_urls ?? [])].filter(Boolean),
+              ),
+            ];
+            const remaining = Math.max(
+              0,
+              item.capacity - item.registered_count,
+            );
+            const occupancy = Math.min(
+              100,
+              Math.round(
+                (item.registered_count / Math.max(1, item.capacity)) * 100,
+              ),
+            );
+            return (
+              <LocalizedButton
+                type="button"
+                className="event-card event-card--experience"
+                key={item.id}
+                onClick={() => setSelectedEvent(item)}
+              >
+                <div className={`event-art event-art-${index % 3}`}>
+                  <LocalizedCopy>{item.banner_url ? (
+                    <NextImage
+                      src={item.banner_url}
+                      alt={`Event ${item.title}`}
+                      fill
+                      sizes="(max-width: 720px) 100vw, 33vw"
+                      unoptimized
+                    />
+                  ) : (
+                    <span>
+                      <LocalizedCopy>{item.category === "sport"
+                        ? "🏃‍♀️🐕"
+                        : item.category === "community"
+                          ? "☕🐾"
+                          : "🎪"}</LocalizedCopy>
+                    </span>
+                  )}</LocalizedCopy>
+                  <span className="event-art-shade" />
+                  <span className="event-art-topline">
+                    <i><LocalizedCopy>{item.category}</LocalizedCopy></i>
+                    <LocalizedCopy>{item.featured ? <b><LocalizedCopy>{"✦ Pilihan"}</LocalizedCopy></b> : null}</LocalizedCopy>
                   </span>
-                </footer>
-              </div>
-            </button>
-          ))}
+                  <span className="event-date-chip">
+                    <b><LocalizedCopy>{new Date(item.starts_at).getDate()}</LocalizedCopy></b>
+                    <small>
+                      <LocalizedCopy>{new Intl.DateTimeFormat(petOwnerIntlLocale(), {
+                        month: "short",
+                      }).format(new Date(item.starts_at))}</LocalizedCopy>
+                    </small>
+                  </span>
+                  <LocalizedCopy>{eventImages.length > 1 ? (
+                    <em><LocalizedCopy>{"▧ "}</LocalizedCopy><LocalizedCopy>{eventImages.length}</LocalizedCopy><LocalizedCopy>{" foto"}</LocalizedCopy></em>
+                  ) : null}</LocalizedCopy>
+                </div>
+                <div>
+                  <small><LocalizedCopy>{when(item.starts_at)}</LocalizedCopy></small>
+                  <h3><LocalizedCopy>{item.title}</LocalizedCopy></h3>
+                  <p><LocalizedCopy>{"⌖ "}</LocalizedCopy><LocalizedCopy>{item.venue}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{item.city}</LocalizedCopy>
+                  </p>
+                  <div className="event-card-stats">
+                    <span>
+                      <b><LocalizedCopy>{item.registered_count}</LocalizedCopy></b>
+                      <small><LocalizedCopy>{"terdaftar"}</LocalizedCopy></small>
+                    </span>
+                    <span>
+                      <b><LocalizedCopy>{remaining}</LocalizedCopy></b>
+                      <small><LocalizedCopy>{"slot tersisa"}</LocalizedCopy></small>
+                    </span>
+                    <span>
+                      <b><LocalizedCopy>{item.allowed_pet_species?.length || "Semua"}</LocalizedCopy></b>
+                      <small><LocalizedCopy>{"jenis pet"}</LocalizedCopy></small>
+                    </span>
+                  </div>
+                  <div
+                    className="event-seat-progress"
+                    aria-label={`${occupancy}% kapasitas terisi`}
+                  >
+                    <i>
+                      <span style={{ width: `${occupancy}%` }} />
+                    </i>
+                    <small><LocalizedCopy>{occupancy}</LocalizedCopy><LocalizedCopy>{"% kapasitas terisi"}</LocalizedCopy></small>
+                  </div>
+                  <footer>
+                    <span>
+                      <small><LocalizedCopy>{"Mulai dari"}</LocalizedCopy></small>
+                      <b><LocalizedCopy>{item.price ? money.format(item.price) : "Gratis"}</LocalizedCopy></b>
+                    </span>
+                    <strong><LocalizedCopy>{"Lihat event "}</LocalizedCopy><Icon name="arrow" size={14} />
+                    </strong>
+                  </footer>
+                </div>
+              </LocalizedButton>
+            );
+          })}</LocalizedCopy>
         </div>
         {selectedEvent && (
           <EventModal
@@ -577,32 +1107,27 @@ export default function PlatformDiscovery({
   if (mode === "petspot")
     return (
       <>
-        <UniverseNav active={mode} navigate={navigate} />
         <section className="petspot-head">
           <div>
-            <span>PET FRIENDLY DISCOVERY</span>
-            <h2>Ke mana hari ini bersama {petName}?</h2>
-            <p>
-              Temukan pilihan ramah pet dari berbagai kota dan hitung jaraknya
-              dari posisimu.
-            </p>
+            <span><LocalizedCopy>{"PET FRIENDLY DISCOVERY"}</LocalizedCopy></span>
+            <h2><LocalizedCopy>{"Ke mana hari ini bersama "}</LocalizedCopy><LocalizedCopy>{petName}</LocalizedCopy><LocalizedCopy>{"?"}</LocalizedCopy></h2>
+            <p><LocalizedCopy>{"Temukan pilihan ramah pet dari berbagai kota dan hitung jaraknya dari posisimu."}</LocalizedCopy></p>
           </div>
-          <button type="button" onClick={() => void locate()}>
-            <Icon name="map" size={18} /> Gunakan lokasi saya
-          </button>
+          <LocalizedButton type="button" onClick={() => void locate()}>
+            <Icon name="map" size={18} /><LocalizedCopy>{" Gunakan lokasi saya"}</LocalizedCopy></LocalizedButton>
         </section>
         <div className="petspot-search">
           <label className="petspot-query">
             <Icon name="search" />
-            <input
+            <LocalizedInput
               value={spotSearch}
               onChange={(event) => setSpotSearch(event.target.value)}
               placeholder="Cari cafe, kosan, apartemen, mall…"
             />
           </label>
           <label className="petspot-radius">
-            <span>Radius pencarian</span>
-            <select
+            <span><LocalizedCopy>{"Radius pencarian"}</LocalizedCopy></span>
+            <SlivaSelect aria-label="Radius pencarian"
               value={maxDistance}
               onChange={(event) => setMaxDistance(Number(event.target.value))}
             >
@@ -611,91 +1136,107 @@ export default function PlatformDiscovery({
               <option value="10">10 km</option>
               <option value="25">25 km</option>
               <option value="100">100 km</option>
-            </select>
+            </SlivaSelect>
           </label>
-          <button onClick={() => void locate()}>
-            <Icon name="map" size={16} /> Cari dari posisi saya
-          </button>
+          <LocalizedButton onClick={() => void locate()}>
+            <Icon name="map" size={16} /><LocalizedCopy>{" Cari dari posisi saya"}</LocalizedCopy></LocalizedButton>
         </div>
         <div className="world-toolbar spot-filter">
           <div>
-            {[
+            <LocalizedCopy>{[
               { id: "all", label: "Semua", emoji: "⌖" },
               { id: "cafe", label: "Cafe", emoji: "☕" },
+              { id: "restaurant", label: "Restoran", emoji: "🍽" },
+              { id: "hotel", label: "Hotel", emoji: "🏨" },
               { id: "boarding_house", label: "Kosan / Coliving", emoji: "🏡" },
               { id: "apartment", label: "Apartemen", emoji: "🏢" },
               { id: "mall", label: "Mall", emoji: "🏬" },
               { id: "park", label: "Taman", emoji: "🌳" },
               { id: "other", label: "Lainnya", emoji: "🎾" },
             ].map((item) => (
-              <button
+              <LocalizedButton
                 className={filter === item.id ? "active" : ""}
                 key={item.id}
                 onClick={() => setFilter(item.id)}
               >
-                {item.emoji} {item.label}
-              </button>
-            ))}
+                <LocalizedCopy>{item.emoji}</LocalizedCopy> <LocalizedCopy>{item.label}</LocalizedCopy>
+              </LocalizedButton>
+            ))}</LocalizedCopy>
           </div>
-          <span>{categorySpots.length} tempat ditemukan</span>
+          <span><LocalizedCopy>{categorySpots.length}</LocalizedCopy><LocalizedCopy>{" tempat ditemukan"}</LocalizedCopy></span>
         </div>
-        <div className="petspot-layout">
-          <div className="spot-list">
-            {categorySpots.map((item, index) => (
-              <button
-                key={item.id}
-                className={selectedSpot?.id === item.id ? "active" : ""}
-                onClick={() => setSelectedSpot(item)}
-              >
-                <span className={`spot-thumb spot-${index % 4}`}>
-                  {item.category === "cafe"
-                    ? "☕"
-                    : item.category === "mall"
-                      ? "🏬"
-                      : item.category === "park"
-                        ? "🌳"
-                        : "🎾"}
-                </span>
-                <div>
-                  <small>
-                    {item.verified
-                      ? "✓ PETSPOT TERVERIFIKASI"
-                      : "REKOMENDASI KOMUNITAS"}
+        <div className="petspot-grid" aria-label="Daftar tempat ramah pet">
+          <LocalizedCopy>{loading ? (
+            <div role="status" className="petspot-loading"><LocalizedCopy>{"Memuat tempat dari API…"}</LocalizedCopy></div>
+          ) : (
+            categorySpots.map((item) => (
+              <article className="petspot-card" key={item.id}>
+                <WorldImageGallery
+                  images={[item.cover_url, ...(item.image_urls ?? [])]}
+                  alt={item.name}
+                  fallback="⌖"
+                  tag={
+                    item.id.startsWith("92000000-")
+                      ? "Demo · Foto ilustrasi"
+                      : item.verified
+                        ? "✓ Verified"
+                        : petSpotCategory(item.category)
+                  }
+                  className="petspot-card-gallery"
+                />
+                <LocalizedButton
+                  type="button"
+                  className="petspot-card-content"
+                  aria-label={`Lihat detail ${item.name}`}
+                  onClick={() => setSelectedSpot(item)}
+                >
+                  <small className="petspot-card-category">
+                    <LocalizedCopy>{petSpotCategory(item.category)}</LocalizedCopy>
                   </small>
-                  <h3>{item.name}</h3>
-                  <p>
-                    ★ {item.rating} ({item.review_count}) ·{" "}
-                    {Number.isFinite(item.distance_km)
-                      ? `${Number(item.distance_km).toFixed(2)} km`
-                      : "Aktifkan lokasi"}
+                  <h3><LocalizedCopy>{item.name}</LocalizedCopy></h3>
+                  <p className="petspot-card-rating"><LocalizedCopy>{"★"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                    <LocalizedCopy>{item.review_count
+                      ? `${Number(item.rating).toFixed(1)} (${item.review_count})`
+                      : "Belum dinilai"}</LocalizedCopy>
                   </p>
-                  <em>{item.address}</em>
-                  <div>
-                    {item.pet_facilities.slice(0, 3).map((facility) => (
-                      <i key={facility}>{facility}</i>
-                    ))}
+                  <p className="petspot-card-location">
+                    <Icon name="map" size={13} />
+                    <LocalizedCopy>{item.city}</LocalizedCopy>
+                    <LocalizedCopy>{typeof item.distance_km === "number"
+                      ? ` · ${item.distance_km.toFixed(1)} km`
+                      : ""}</LocalizedCopy>
+                  </p>
+                  <div className="petspot-card-facilities">
+                    <LocalizedCopy>{(item.pet_facilities ?? []).slice(0, 2).map((facility) => (
+                      <span key={facility}><LocalizedCopy>{facility}</LocalizedCopy></span>
+                    ))}</LocalizedCopy>
                   </div>
-                </div>
-                <Icon name="chevron" />
-              </button>
-            ))}
-            {!categorySpots.length && (
-              <div className="empty-state">
-                <span>⌖</span>
-                <h3>Tempat belum ditemukan</h3>
-                <p>Ubah kata kunci, kategori, atau radius.</p>
-              </div>
-            )}
-          </div>
+                  <footer>
+                    <b>
+                      <LocalizedCopy>{item.reservable ? "Reservasi tersedia" : "Lihat tempat"}</LocalizedCopy>
+                    </b>
+                    <Icon name="arrow" size={17} />
+                  </footer>
+                </LocalizedButton>
+              </article>
+            ))
+          )}</LocalizedCopy>
+          <LocalizedCopy>{!loading && !categorySpots.length ? (
+            <div className="empty-state">
+              <span><LocalizedCopy>{"⌖"}</LocalizedCopy></span>
+              <h3><LocalizedCopy>{"Tempat belum ditemukan"}</LocalizedCopy></h3>
+              <p><LocalizedCopy>{"Ubah kata kunci, kategori, atau radius."}</LocalizedCopy></p>
+            </div>
+          ) : null}</LocalizedCopy>
           <div className="spot-map-panel">
             <div className="spot-map-layers">
               <label>
                 <input type="checkbox" checked={showPetship} onChange={(event) => setShowPetship(event.target.checked)} />
-                Lokasi Petship ({petshipPlaces.length})
+                <LocalizedCopy>{`Lokasi Petship (${petshipPlaces.length})`}</LocalizedCopy>
               </label>
               <label>
                 <input type="checkbox" checked={showLostPets} onChange={(event) => setShowLostPets(event.target.checked)} />
-                Hewan hilang ({lostPets.length})
+                <LocalizedCopy>{`Hewan hilang (${lostPets.length})`}</LocalizedCopy>
               </label>
             </div>
             <GeoMap className="spot-map" markers={geoMarkers} circles={geoCircles} />
@@ -714,95 +1255,106 @@ export default function PlatformDiscovery({
 
   return (
     <>
-      <UniverseNav active={mode} navigate={navigate} />
       <section className="pethub-head">
         <div>
           <span>
-            <i /> PETHUB LIVE
-          </span>
-          <h2>Satu layar untuk seluruh dunia pet.</h2>
-          <p>
-            Live streaming, video, story foto, channel, komentar, dan pet thread
-            dalam satu ruang.
-          </p>
+            <i /><LocalizedCopy>{" PETHUB LIVE"}</LocalizedCopy></span>
+          <h2><LocalizedCopy>{"Satu layar untuk seluruh dunia pet."}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Live streaming, video, story foto, channel, komentar, dan pet thread dalam satu ruang."}</LocalizedCopy></p>
         </div>
-        <button
+        <LocalizedButton
           className="primary-button"
           onClick={() =>
-            isPetOwnerAuthenticated() ? setComposer(true) : loginRequired()
+            requirePet() && setComposer(true)
           }
-        >
-          ＋ Buat pet thread
-        </button>
+        ><LocalizedCopy>{"＋ Buat posting"}</LocalizedCopy></LocalizedButton>
       </section>
       <div className="story-strip">
-        <button
+        <LocalizedButton
           className="story-add"
           onClick={() =>
-            isPetOwnerAuthenticated() ? setStoryComposer(true) : loginRequired()
+            requirePet() && setStoryComposer(true)
           }
         >
-          <span>＋</span>
-          <b>Story kamu</b>
-        </button>
-        {stories.map((story) => (
-          <button
-            key={story.id}
-            onClick={() => notify(`Story ${story.author_name} dibuka`)}
-          >
+          <span><LocalizedCopy>{"＋"}</LocalizedCopy></span>
+          <b><LocalizedCopy>{"Story kamu"}</LocalizedCopy></b>
+        </LocalizedButton>
+        <LocalizedCopy>{stories.map((story) => (
+          <LocalizedButton key={story.id} onClick={() => setViewStory(story)}>
             <span>
-              {story.photo_url ? (
+              <LocalizedCopy>{story.photo_url &&
+              (story.media_type !== "video" ||
+                petHubVideoPoster(story.media_url || story.photo_url)) ? (
                 <NextImage
-                  src={story.photo_url}
+                  src={
+                    story.media_type === "video"
+                      ? petHubVideoPoster(story.media_url || story.photo_url)
+                      : story.photo_url
+                  }
                   alt=""
                   width={128}
                   height={128}
                   unoptimized
                 />
+              ) : story.media_type === "video" ? (
+                "▶"
               ) : (
                 story.author_name.slice(0, 1)
-              )}
+              )}</LocalizedCopy>
             </span>
-            <b>{story.author_name.split(" ")[0]}</b>
-          </button>
-        ))}
+            <b><LocalizedCopy>{story.author_name.split(" ")[0]}</LocalizedCopy></b>
+          </LocalizedButton>
+        ))}</LocalizedCopy>
       </div>
       <div className="stream-strip">
-        {streams.map((item, index) => (
-          <button
+        <LocalizedCopy>{streams.map((item, index) => (
+          <LocalizedButton
             key={item.id}
             className={item.status === "live" ? "live" : ""}
             onClick={() => setSelectedStream(item)}
           >
             <div className={`stream-art stream-${index % 3}`}>
-              <span>{index % 2 ? "👩🏻‍⚕️" : "🐕‍🦺"}</span>
-              {item.status === "live" ? <i>● LIVE</i> : <i>◷ TERJADWAL</i>}
-              <b>▶</b>
+              <span><LocalizedCopy>{index % 2 ? "👩🏻‍⚕️" : "🐕‍🦺"}</LocalizedCopy></span>
+              <LocalizedCopy>{item.status === "live" ? <i><LocalizedCopy>{"● LIVE"}</LocalizedCopy></i> : <i><LocalizedCopy>{"◷ TERJADWAL"}</LocalizedCopy></i>}</LocalizedCopy>
+              <b><LocalizedCopy>{"▶"}</LocalizedCopy></b>
             </div>
             <div>
               <span className="channel-avatar">
-                {item.channel_name.slice(0, 1)}
+                <LocalizedCopy>{item.channel_name.slice(0, 1)}</LocalizedCopy>
               </span>
               <p>
-                <strong>{item.title}</strong>
+                <strong><LocalizedCopy>{item.title}</LocalizedCopy></strong>
                 <small>
-                  {item.channel_name} {item.verified && "✓"}
+                  <LocalizedCopy>{item.channel_name}</LocalizedCopy> <LocalizedCopy>{item.verified && "✓"}</LocalizedCopy>
                 </small>
                 <em>
-                  {item.status === "live"
-                    ? `${item.viewer_count.toLocaleString("id-ID")} menonton`
-                    : when(item.scheduled_at)}
+                  <LocalizedCopy>{item.status === "live"
+                    ? `${item.viewer_count.toLocaleString(petOwnerIntlLocale())} menonton`
+                    : when(item.scheduled_at)}</LocalizedCopy>
                 </em>
               </p>
             </div>
-          </button>
-        ))}
+          </LocalizedButton>
+        ))}</LocalizedCopy>
       </div>
       <div className="pethub-layout">
         <section className="hub-feed">
+          <LocalizedCopy>{sharedPostID ? (
+            <div className="hub-shared-post">
+              <b><LocalizedCopy>{"Posting yang dibagikan"}</LocalizedCopy></b>
+              <LocalizedButton
+                onClick={() => {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete("post");
+                  window.history.replaceState({}, "", url);
+                  setSharedPostID("");
+                }}
+              ><LocalizedCopy>{"Lihat semua posting"}</LocalizedCopy></LocalizedButton>
+            </div>
+          ) : null}</LocalizedCopy>
           <div className="hub-tabs">
-            {["Untuk Kamu", "Mengikuti", "Video", "Thread"].map((item) => (
-              <button
+            <LocalizedCopy>{["Untuk Kamu", "Mengikuti", "Reels", "Thread"].map((item) => (
+              <LocalizedButton
                 key={item}
                 className={hubTab === item ? "active" : ""}
                 onClick={() => {
@@ -813,106 +1365,130 @@ export default function PlatformDiscovery({
                   setHubTab(item);
                 }}
               >
-                {item}
-              </button>
-            ))}
+                <LocalizedCopy>{item}</LocalizedCopy>
+              </LocalizedButton>
+            ))}</LocalizedCopy>
           </div>
-          {loading ? (
-            <div className="empty-state compact">Memuat feed PetHub…</div>
+          <LocalizedCopy>{loading ? (
+            <div className="empty-state compact"><LocalizedCopy>{"Memuat feed PetHub…"}</LocalizedCopy></div>
           ) : posts.length ? (
             posts.map((post) => (
-              <article className="hub-post" key={post.id}>
+              <article
+                className={`hub-post ${hubTab === "Reels" ? "hub-post--reel" : ""}`}
+                key={post.id}
+              >
                 <header>
                   <span>
-                    {post.channel_name?.slice(0, 1) ||
-                      post.author_name.slice(0, 1)}
+                    <LocalizedCopy>{post.channel_name?.slice(0, 1) ||
+                      post.author_name.slice(0, 1)}</LocalizedCopy>
                   </span>
                   <p>
                     <b>
-                      {post.author_name} {post.verified && <i>✓</i>}
+                      <LocalizedCopy preserve>{post.author_name}</LocalizedCopy> <LocalizedCopy>{post.verified && <i><LocalizedCopy>{"✓"}</LocalizedCopy></i>}</LocalizedCopy>
                     </b>
                     <small>
-                      {post.channel_handle || post.channel_name} ·{" "}
-                      {relative(post.created_at)}
+                      <LocalizedCopy>{post.channel_handle || post.channel_name}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedCopy>{relative(post.created_at)}</LocalizedCopy>
                     </small>
                   </p>
-                  <button onClick={() => notify("Posting disimpan ke koleksi")}>
-                    •••
-                  </button>
+                  <LocalizedButton
+                    aria-label="Simpan posting"
+                    aria-pressed={Boolean(post.saved)}
+                    onClick={() => void savePost(post)}
+                  >
+                    <LocalizedCopy>{post.saved ? "✓" : "＋"}</LocalizedCopy>
+                  </LocalizedButton>
                 </header>
-                <p>{post.content}</p>
-                {post.media_url && (
-                  <NextImage
-                    src={post.media_url}
-                    alt="Media PetHub"
-                    width={960}
-                    height={640}
-                    unoptimized
-                  />
-                )}
+                <div
+                  className="hub-like-surface"
+                  onDoubleClick={(event) => {
+                    if ((event.target as HTMLElement).closest("button")) return;
+                    void like(post, true);
+                  }}
+                >
+                  <LocalizedCopy>{post.media_url &&
+                    (post.post_type === "video" ||
+                    /\.(mp4|mov|webm)(\?|$)/i.test(post.media_url) ? (
+                      <SlivaVideo
+                        className="hub-media"
+                        src={post.media_url}
+                                    playsInline
+                        preload="metadata"
+                        aria-label={`Video ${post.author_name}`}
+                      />
+                    ) : (
+                      <WorldImageGallery
+                        images={petHubPhotos(post)}
+                        alt={`Album ${post.author_name}`}
+                        fallback="🐾"
+                        tag=""
+                        className="hub-photo-gallery"
+                        onDoubleTap={() => void like(post, true)}
+                      />
+                    ))}</LocalizedCopy>
+                  <LocalizedCopy>{heartBurst === post.id ? (
+                    <span className="hub-like-burst" aria-hidden="true"><LocalizedCopy>{"♥"}</LocalizedCopy></span>
+                  ) : null}</LocalizedCopy>
+                </div>
+                <p className="hub-caption"><LocalizedCopy>{post.content}</LocalizedCopy></p>
                 <footer>
-                  <button
-                    className={liked.includes(post.id) ? "liked" : ""}
+                  <LocalizedButton
+                    aria-label="Sukai konten"
+                    className={post.liked ? "liked" : ""}
+                    aria-pressed={Boolean(post.liked)}
                     onClick={() =>
                       isPetOwnerAuthenticated()
                         ? void like(post)
                         : loginRequired()
                     }
                   >
-                    <Icon name="heart" size={18} />{" "}
-                    {post.like_count.toLocaleString("id-ID")}
-                  </button>
-                  <button onClick={() => setCommentPost(post)}>
-                    <Icon name="chat" size={18} /> {post.comment_count}
-                  </button>
-                  <button
-                    onClick={() =>
-                      notify("Repost akan tersedia setelah moderasi")
-                    }
+                    <Icon name="heart" size={18} /><LocalizedCopy>{" "}</LocalizedCopy>
+                    <LocalizedCopy>{post.like_count.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy>
+                  </LocalizedButton>
+                  <LocalizedButton
+                    aria-label="Buka komentar"
+                    onClick={() => setCommentPost(post)}
                   >
-                    <Icon name="arrow" size={18} /> {post.repost_count}
-                  </button>
-                  <button
-                    onClick={() =>
-                      navigator.share?.({
-                        title: "PetHub",
-                        text: post.content,
-                      }) ??
-                      navigator.clipboard
-                        .writeText(post.content)
-                        .then(() => notify("Thread disalin"))
-                    }
+                    <Icon name="chat" size={18} /> <LocalizedCopy>{post.comment_count}</LocalizedCopy>
+                  </LocalizedButton>
+                  <LocalizedButton
+                    aria-label="Bagikan konten"
+                    onClick={() => void sharePost(post)}
                   >
-                    <Icon name="download" size={18} />
-                  </button>
+                    <Icon name="download" size={18} /> <span><LocalizedCopy>{"Bagikan"}</LocalizedCopy></span>
+                  </LocalizedButton>
                 </footer>
               </article>
             ))
           ) : (
             <div className="empty-state">
-              <span>▶</span>
-              <h3>Feed ini masih kosong</h3>
-              <p>Ikuti channel atau terbitkan thread pertama.</p>
+              <span><LocalizedCopy>{"▶"}</LocalizedCopy></span>
+              <h3>
+                <LocalizedCopy>{sharedPostID
+                  ? "Posting tidak tersedia"
+                  : "Feed ini masih kosong"}</LocalizedCopy>
+              </h3>
+              <p><LocalizedCopy>{"Ikuti channel atau terbitkan thread pertama."}</LocalizedCopy></p>
             </div>
-          )}
+          )}</LocalizedCopy>
         </section>
         <aside className="hub-side">
           <section>
-            <span>TRENDING PET THREAD</span>
-            {posts
+            <span><LocalizedCopy>{"TRENDING PET THREAD"}</LocalizedCopy></span>
+            <LocalizedCopy>{posts
               .filter((item) => item.post_type === "thread")
               .slice(0, 4)
               .map((item, index) => (
-                <button key={item.id} onClick={() => setCommentPost(item)}>
-                  <small>{index + 1} · Thread terbaru</small>
-                  <b>{item.channel_name || item.author_name}</b>
-                  <em>{item.content.slice(0, 48)}…</em>
-                </button>
-              ))}
+                <LocalizedButton key={item.id} onClick={() => setCommentPost(item)}>
+                  <small><LocalizedCopy>{index + 1}</LocalizedCopy><LocalizedCopy>{" · Thread terbaru"}</LocalizedCopy></small>
+                  <b><LocalizedCopy>{item.channel_name || item.author_name}</LocalizedCopy></b>
+                  <em><LocalizedCopy>{item.content.slice(0, 48)}</LocalizedCopy><LocalizedCopy>{"…"}</LocalizedCopy></em>
+                </LocalizedButton>
+              ))}</LocalizedCopy>
           </section>
           <section>
-            <span>CHANNEL PILIHAN</span>
-            {Array.from(
+            <span><LocalizedCopy>{"CHANNEL PILIHAN"}</LocalizedCopy></span>
+            <LocalizedCopy>{Array.from(
               new Map(
                 posts
                   .filter((item) => item.channel_id)
@@ -921,20 +1497,20 @@ export default function PlatformDiscovery({
             )
               .slice(0, 4)
               .map((item) => (
-                <button
+                <LocalizedButton
                   key={item.channel_id}
                   onClick={() => void followChannel(item.channel_id)}
                 >
-                  <i>{item.channel_name.slice(0, 1)}</i>
+                  <i><LocalizedCopy>{item.channel_name.slice(0, 1)}</LocalizedCopy></i>
                   <p>
                     <b>
-                      {item.channel_name} {item.verified && "✓"}
+                      <LocalizedCopy>{item.channel_name}</LocalizedCopy> <LocalizedCopy>{item.verified && "✓"}</LocalizedCopy>
                     </b>
-                    <small>{item.channel_handle}</small>
+                    <small><LocalizedCopy>{item.channel_handle}</LocalizedCopy></small>
                   </p>
-                  <strong>{item.following ? "Mengikuti" : "Ikuti"}</strong>
-                </button>
-              ))}
+                  <strong><LocalizedCopy>{item.following ? "Mengikuti" : "Ikuti"}</LocalizedCopy></strong>
+                </LocalizedButton>
+              ))}</LocalizedCopy>
           </section>
         </aside>
       </div>
@@ -946,24 +1522,35 @@ export default function PlatformDiscovery({
         />
       )}{" "}
       {composer && (
-        <ThreadComposer
-          close={() => setComposer(false)}
-          onCreated={(post) => setPosts((current) => [post, ...current])}
-          notify={notify}
-          ownerName={ownerName}
-        />
+        <Modal close={() => setComposer(false)} className="world-modal">
+          <PetHubComposer
+            mode={hubTab === "Reels" ? "reel" : "feed"}
+            close={() => setComposer(false)}
+            notify={notify}
+            onCreated={async () => {
+              const result = await getPetHubFeed({
+                type:
+                  hubTab === "Reels"
+                    ? "video"
+                    : hubTab === "Thread"
+                      ? "thread"
+                      : "",
+              });
+              setPosts(result.data);
+            }}
+          />
+        </Modal>
       )}{" "}
       {commentPost && (
         <CommentsModal
           post={commentPost}
           close={() => setCommentPost(null)}
           notify={notify}
-          ownerName={ownerName}
-          onCount={() =>
+          onCount={(count) =>
             setPosts((current) =>
               current.map((item) =>
                 item.id === commentPost.id
-                  ? { ...item, comment_count: item.comment_count + 1 }
+                  ? { ...item, comment_count: count }
                   : item,
               ),
             )
@@ -971,81 +1558,144 @@ export default function PlatformDiscovery({
         />
       )}{" "}
       {storyComposer && (
-        <StoryComposer
-          close={() => setStoryComposer(false)}
-          notify={notify}
-          ownerName={ownerName}
-          onCreated={(story) => setStories((current) => [story, ...current])}
-        />
+        <Modal close={() => setStoryComposer(false)} className="world-modal">
+          <PetHubComposer
+            mode="story"
+            close={() => setStoryComposer(false)}
+            notify={notify}
+            onCreated={async () => setStories((await getPetHubStories()).data)}
+          />
+        </Modal>
       )}
+      {viewStory ? (
+        <Modal close={() => setViewStory(null)} className="story-modal">
+          <PetHubStoryView
+            key={viewStory.id}
+            story={viewStory}
+            notify={notify}
+            next={() => {
+              const index = stories.findIndex(
+                (item) => item.id === viewStory.id,
+              );
+              setViewStory(stories[index + 1] || null);
+            }}
+            previous={
+              stories.findIndex((item) => item.id === viewStory.id) > 0
+                ? () => {
+                    const index = stories.findIndex(
+                      (item) => item.id === viewStory.id,
+                    );
+                    setViewStory(stories[index - 1]);
+                  }
+                : undefined
+            }
+          />
+        </Modal>
+      ) : null}
     </>
-  );
-}
-
-function UniverseNav({
-  active,
-  navigate,
-}: {
-  active: DiscoveryMode;
-  navigate: (mode: DiscoveryMode) => void;
-}) {
-  return (
-    <nav className="universe-nav">
-      <span>SLIVA WORLD</span>
-      {(
-        [
-          { id: "academy", label: "Pet Academy", icon: "🎓" },
-          { id: "events", label: "Pet Event", icon: "🎟️" },
-          { id: "petspot", label: "PetSpot", icon: "⌖" },
-          { id: "pethub", label: "PetHub", icon: "▶" },
-        ] as const
-      ).map((item) => (
-        <button
-          key={item.id}
-          className={active === item.id ? "active" : ""}
-          onClick={() => navigate(item.id)}
-        >
-          <i>{item.icon}</i>
-          {item.label}
-        </button>
-      ))}
-    </nav>
   );
 }
 
 function ProgramModal({
   item,
   petName,
+  pets,
   ownerName,
   close,
   notify,
+  openTrainer,
 }: {
   item: AcademyProgram;
   petName: string;
+  pets: Array<{
+    id: string;
+    name: string;
+    species: string;
+    breed: string;
+    avatar: string;
+  }>;
   ownerName: string;
   close: () => void;
   notify: (message: string) => void;
+  openTrainer: (trainer: AcademyTrainer) => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
+  const [detail, setDetail] = useState<AcademyProgramDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(true);
   const [enroll, setEnroll] = useState(false);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("qris");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!isPetOwnerAuthenticated()) {
-      notify("Login diperlukan untuk mendaftar academy");
-      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
+  const [enrollmentId, setEnrollmentId] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState("");
+  const program = detail ?? item;
+  const eligiblePets = pets.filter(
+    (candidate) =>
+      !detail?.supported_species?.length ||
+      detail.supported_species.includes(candidate.species.toLowerCase()),
+  );
+  const [selectedPetID, setSelectedPetID] = useState(pets[0]?.id ?? "");
+  const [selectedScheduleID, setSelectedScheduleID] = useState("");
+  const selectedPet = eligiblePets.find(
+    (candidate) => candidate.id === selectedPetID,
+  );
+  useEffect(() => {
+    let current = true;
+    void getAcademyProgram(item.id)
+      .then((value) => {
+        if (!current) return;
+        setDetail(value);
+        setSelectedScheduleID(
+          value.schedules.find((schedule) => schedule.remaining_capacity > 0)
+            ?.id ?? "",
+        );
+      })
+      .catch((error) =>
+        notify(
+          error instanceof Error
+            ? error.message
+            : "Detail kelas belum dapat dimuat",
+        ),
+      )
+      .finally(() => current && setDetailLoading(false));
+    return () => {
+      current = false;
+    };
+  }, [item.id, notify]);
+  function startEnrollment() {
+    if (!requirePet()) return;
+    const firstEligible = eligiblePets[0];
+    if (!firstEligible) {
+      notify("Belum ada pet yang sesuai dengan jenis pet kelas ini");
       return;
     }
+    if (!eligiblePets.some((candidate) => candidate.id === selectedPetID))
+      setSelectedPetID(firstEligible.id);
+    setEnroll(true);
+  }
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!requirePet()) return;
     const values = Object.fromEntries(new FormData(event.currentTarget));
+    if (!selectedPet || !selectedScheduleID) {
+      notify("Pilih pet dan jadwal mulai kelas terlebih dahulu");
+      return;
+    }
+    if (program.price > 0 && !paymentMethod) return;
     setBusy(true);
     try {
       const enrollment = await enrollAcademy({
         program_id: item.id,
         participant_name: String(values.participant_name),
-        pet_name: String(values.pet_name),
+        pet_name: selectedPet.name,
+        pet_id: selectedPet.id,
+        schedule_id: selectedScheduleID,
       });
+      setEnrollmentId(enrollment.id);
       if (enrollment.amount > 0)
         setPayment(
           await createPaymentIntent(
@@ -1054,7 +1704,7 @@ function ProgramModal({
             paymentMethod,
           ),
         );
-      else setDone(true);
+      else close();
       notify(
         enrollment.amount > 0
           ? "Pendaftaran dibuat, selesaikan pembayaran"
@@ -1070,101 +1720,385 @@ function ProgramModal({
       setBusy(false);
     }
   }
+  async function submitReview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!requirePet()) return;
+    if (reviewComment.trim().length < 10) {
+      setReviewMessage("Ceritakan pengalaman minimal 10 karakter.");
+      return;
+    }
+    setReviewBusy(true);
+    setReviewMessage("");
+    try {
+      await saveAcademyProgramReview(item.id, {
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      });
+      const refreshed = await getAcademyProgram(item.id);
+      setDetail(refreshed);
+      setReviewComment("");
+      setReviewMessage("Ulasan terverifikasi berhasil diterbitkan.");
+    } catch (error) {
+      setReviewMessage(
+        error instanceof Error
+          ? error.message
+          : "Ulasan kelas belum dapat disimpan.",
+      );
+    } finally {
+      setReviewBusy(false);
+    }
+  }
   return (
     <Modal close={close} className="world-modal">
-      <div className="modal-world-cover academy-modal-cover">
-        <span>🎓</span>
-        <i>{item.academy_name}</i>
+      <div className="promo-media">
+        <WorldImageGallery
+          images={[program.cover_url, ...(program.image_urls ?? [])]}
+          alt={program.title}
+          fallback="🎓"
+          tag={program.academy_name}
+          className="academy-modal-cover"
+        />
+        <DiscountBadge percent={program.discount_percent} />
       </div>
       <div className="modal-world-body">
-        {done ? (
+        <LocalizedCopy>{done ? (
           <Success
             title="Pendaftaran berhasil!"
-            note={`${petName} terdaftar di ${item.title}. Detail tersedia di Aktivitas.`}
+            note={`${selectedPet?.name || petName} terdaftar di ${program.title}. Detail tersedia di Aktivitas.`}
             close={close}
+            activity={{ type: "academy", id: enrollmentId }}
           />
         ) : payment ? (
-          <BatpayPaymentPanel payment={payment} onPaid={() => setDone(true)} />
+          <QrisPaymentPanel payment={payment} onPaid={() => setDone(true)} />
         ) : !enroll ? (
           <>
             <small className="world-kicker">
-              {item.category} · {item.level}
+              <LocalizedCopy>{program.category}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{program.level}</LocalizedCopy>
             </small>
-            <h2>{item.title}</h2>
-            <p>{item.description}</p>
+            <div className="academy-detail-heading-row">
+              <h2><LocalizedCopy>{program.title}</LocalizedCopy></h2>
+            </div>
+            <p><LocalizedCopy>{program.description}</LocalizedCopy></p>
+            <div className="academy-social-summary">
+              <span>
+                <b>
+                  <LocalizedCopy>{(program.review_count ?? 0) > 0
+                    ? `★ ${(program.rating ?? 0).toFixed(1)}`
+                    : "☆ Belum dinilai"}</LocalizedCopy>
+                </b>
+                <small><LocalizedCopy>{program.review_count ?? 0}</LocalizedCopy><LocalizedCopy>{" ulasan peserta"}</LocalizedCopy></small>
+              </span>
+              <span>
+                <b><LocalizedCopy>{program.participant_count ?? 0}</LocalizedCopy><LocalizedCopy>{" pet"}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"sudah bergabung"}</LocalizedCopy></small>
+              </span>
+              <span>
+                <b><LocalizedCopy>{program.capacity}</LocalizedCopy><LocalizedCopy>{" kursi"}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"kapasitas per cohort"}</LocalizedCopy></small>
+              </span>
+              <span>
+                <b><LocalizedCopy>{academySince(program.running_since)}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"rekam jejak program"}</LocalizedCopy></small>
+              </span>
+            </div>
             <div className="world-detail-grid">
               <span>
-                <small>Trainer</small>
-                <b>{item.trainer_name}</b>
-              </span>
-              <span>
-                <small>Mulai</small>
-                <b>{when(item.next_schedule)}</b>
-              </span>
-              <span>
-                <small>Durasi</small>
+                <small><LocalizedCopy>{"Pet trainer"}</LocalizedCopy></small>
                 <b>
-                  {item.duration_weeks} minggu · {item.session_count} sesi
+                  <LocalizedCopy>{detail?.trainers
+                    ?.map((trainer) => trainer.full_name)
+                    .join(", ") || item.trainer_name}</LocalizedCopy>
                 </b>
               </span>
               <span>
-                <small>Investasi</small>
-                <b>{money.format(item.price)}</b>
+                <small><LocalizedCopy>{"Mulai"}</LocalizedCopy></small>
+                <b>
+                  <LocalizedCopy>{when(
+                    detail?.schedules?.[0]?.starts_at || item.next_schedule,
+                  )}</LocalizedCopy>
+                </b>
+              </span>
+              <span>
+                <small><LocalizedCopy>{"Durasi"}</LocalizedCopy></small>
+                <b>
+                  <LocalizedCopy>{program.duration_weeks}</LocalizedCopy><LocalizedCopy>{" minggu · "}</LocalizedCopy><LocalizedCopy>{program.session_count}</LocalizedCopy><LocalizedCopy>{" sesi"}</LocalizedCopy></b>
+              </span>
+              <span>
+                <small><LocalizedCopy>{"Investasi"}</LocalizedCopy></small>
+                <AcademyPrice program={program} compact />
               </span>
             </div>
-            <button
+            {detailLoading ? (
+              <div className="academy-detail-loading"><LocalizedCopy>{"Memuat trainer dan jadwal kelas…"}</LocalizedCopy></div>
+            ) : (
+              <>
+                <div className="academy-detail-block">
+                  <div className="academy-detail-title">
+                    <b><LocalizedCopy>{"Trainer kelas"}</LocalizedCopy></b>
+                    <small><LocalizedCopy>{"Klik untuk melihat profil lengkap"}</LocalizedCopy></small>
+                  </div>
+                  <div className="academy-program-trainers">
+                    <LocalizedCopy>{detail?.trainers.map((trainer) => (
+                      <LocalizedButton
+                        type="button"
+                        key={trainer.id}
+                        onClick={() => openTrainer(trainer)}
+                      >
+                        <span><LocalizedCopy>{trainer.full_name.slice(0, 1)}</LocalizedCopy></span>
+                        <b><LocalizedCopy preserve>{trainer.full_name}</LocalizedCopy></b>
+                        <small><LocalizedCopy>{"★ "}</LocalizedCopy><LocalizedCopy>{trainer.rating.toFixed(1)}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                          <LocalizedCopy>{trainer.certification}</LocalizedCopy>
+                        </small>
+                      </LocalizedButton>
+                    ))}</LocalizedCopy>
+                  </div>
+                </div>
+                <div className="academy-species-note">
+                  <b><LocalizedCopy>{"Jenis pet:"}</LocalizedCopy></b><LocalizedCopy>{" "}</LocalizedCopy>
+                  <LocalizedCopy>{(detail?.supported_species ?? [])
+                    .map((speciesName) =>
+                      speciesName === "dog"
+                        ? "🐕 Anjing"
+                        : speciesName === "cat"
+                          ? "🐈 Kucing"
+                          : speciesName,
+                    )
+                    .join(" · ") || "Semua pet"}</LocalizedCopy>
+                </div>
+                <section className="academy-review-section">
+                  <div className="academy-review-heading">
+                    <div>
+                      <small><LocalizedCopy>{"CERITA ALUMNI"}</LocalizedCopy></small>
+                      <h3><LocalizedCopy>{"Review & komentar pet parent"}</LocalizedCopy></h3>
+                    </div>
+                    <b>
+                      <LocalizedCopy>{(program.review_count ?? 0) > 0
+                        ? `★ ${(program.rating ?? 0).toFixed(1)}`
+                        : "Belum dinilai"}</LocalizedCopy>
+                    </b>
+                  </div>
+                  <div className="academy-review-list">
+                    <LocalizedCopy>{(detail?.reviews ?? []).length ? (
+                      detail?.reviews.map((review: AcademyReview) => (
+                        <article key={review.id}>
+                          <span>
+                            <LocalizedCopy>{review.reviewer_name.slice(0, 1).toUpperCase()}</LocalizedCopy>
+                          </span>
+                          <div>
+                            <header>
+                              <b><LocalizedCopy preserve>{review.reviewer_name}</LocalizedCopy></b>
+                              <em><LocalizedCopy>{"★".repeat(review.rating)}</LocalizedCopy></em>
+                            </header>
+                            <small><LocalizedCopy>{"✓ Peserta terverifikasi · bersama"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                              <LocalizedCopy>{review.pet_name || "pet-nya"}</LocalizedCopy>
+                            </small>
+                            <p><LocalizedCopy>{review.comment}</LocalizedCopy></p>
+                            <time>
+                              <LocalizedCopy>{new Intl.DateTimeFormat(petOwnerIntlLocale(), {
+                                dateStyle: "medium",
+                              }).format(new Date(review.created_at))}</LocalizedCopy>
+                            </time>
+                          </div>
+                        </article>
+                      ))
+                    ) : (
+                      <p className="academy-review-empty"><LocalizedCopy>{"Belum ada ulasan. Peserta terverifikasi dapat menjadi yang pertama."}</LocalizedCopy></p>
+                    )}</LocalizedCopy>
+                  </div>
+                  <form className="academy-review-form" onSubmit={submitReview}>
+                    <div>
+                      <span><LocalizedCopy>{"Bagikan pengalaman kelas"}</LocalizedCopy></span>
+                      <div aria-label="Pilih rating">
+                        <LocalizedCopy>{[1, 2, 3, 4, 5].map((rating) => (
+                          <LocalizedButton
+                            type="button"
+                            key={rating}
+                            className={rating <= reviewRating ? "active" : ""}
+                            onClick={() => setReviewRating(rating)}
+                            aria-label={`${rating} bintang`}
+                          ><LocalizedCopy>{"★"}</LocalizedCopy></LocalizedButton>
+                        ))}</LocalizedCopy>
+                      </div>
+                    </div>
+                    <LocalizedTextarea
+                      value={reviewComment}
+                      onChange={(event) => setReviewComment(event.target.value)}
+                      placeholder="Apa perubahan yang paling terasa pada pet-mu?"
+                      maxLength={1500}
+                    />
+                    <LocalizedCopy>{reviewMessage ? <p><LocalizedCopy>{reviewMessage}</LocalizedCopy></p> : null}</LocalizedCopy>
+                    <LocalizedButton type="submit" disabled={reviewBusy}>
+                      <LocalizedCopy>{reviewBusy
+                        ? "Menerbitkan…"
+                        : "Kirim review terverifikasi"}</LocalizedCopy>
+                    </LocalizedButton>
+                  </form>
+                </section>
+              </>
+            )}
+            <LocalizedButton
               className="primary-button full"
-              onClick={() =>
-                isPetOwnerAuthenticated()
-                  ? setEnroll(true)
-                  : (notify("Login diperlukan untuk mendaftar academy"),
-                    window.dispatchEvent(
-                      new CustomEvent("slivadoc:login-required"),
-                    ))
+              disabled={
+                detailLoading ||
+                !detail?.schedules?.some(
+                  (schedule) => schedule.remaining_capacity > 0,
+                ) ||
+                eligiblePets.length === 0
               }
+              onClick={startEnrollment}
             >
-              Daftarkan {petName}
-            </button>
+              <LocalizedCopy>{eligiblePets.length === 0
+                ? "Tidak ada pet yang sesuai"
+                : !detailLoading &&
+                    !detail?.schedules?.some(
+                      (schedule) => schedule.remaining_capacity > 0,
+                    )
+                  ? "Jadwal belum tersedia"
+                  : `Pilih pet & jadwal`}</LocalizedCopy>
+            </LocalizedButton>
           </>
         ) : (
           <form className="world-form" onSubmit={submit}>
-            <h2>Data peserta academy</h2>
+            <h2><LocalizedCopy>{"Data peserta academy"}</LocalizedCopy></h2>
             <label>
-              <span>Nama pet parent</span>
-              <input
+              <span><LocalizedCopy>{"Nama pet parent"}</LocalizedCopy></span>
+              <LocalizedInput
                 name="participant_name"
                 defaultValue={ownerName}
                 required
               />
             </label>
             <label>
-              <span>Nama pet</span>
-              <input name="pet_name" defaultValue={petName} required />
+              <span><LocalizedCopy>{"Pet yang akan mengikuti kelas"}</LocalizedCopy></span>
+              <SlivaSelect aria-label="Pet yang akan mengikuti kelas"
+                value={selectedPetID}
+                onChange={(event) => setSelectedPetID(event.target.value)}
+                required
+              >
+                {eligiblePets.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.name} · {candidate.breed}
+                  </option>
+                ))}
+              </SlivaSelect>
+            </label>
+            <label>
+              <span><LocalizedCopy>{"Mulai ikut kelas"}</LocalizedCopy></span>
+              <SlivaSelect aria-label="Mulai ikut kelas"
+                value={selectedScheduleID}
+                onChange={(event) => setSelectedScheduleID(event.target.value)}
+                required
+              >
+                {(detail?.schedules ?? []).map((schedule) => (
+                  <option
+                    key={schedule.id}
+                    value={schedule.id}
+                    disabled={schedule.remaining_capacity < 1}
+                  >
+                    {when(schedule.starts_at)} · {schedule.trainer_name} ·{" "}
+                    {schedule.remaining_capacity} kursi
+                  </option>
+                ))}
+              </SlivaSelect>
             </label>
             <div className="checkout-line">
-              <span>Total program</span>
-              <b>{money.format(item.price)}</b>
+              <span><LocalizedCopy>{"Total program"}</LocalizedCopy></span>
+              <AcademyPrice program={program} compact />
             </div>
-            {item.price > 0 && (
+            <LocalizedCopy>{program.price > 0 && (
               <PaymentMethodPicker
                 value={paymentMethod}
                 onChange={setPaymentMethod}
                 disabled={busy}
               />
-            )}
-            <button className="primary-button full" disabled={busy}>
-              {busy
+            )}</LocalizedCopy>
+            <LocalizedButton
+              className="primary-button full"
+              disabled={busy || (program.price > 0 && !paymentMethod)}
+            >
+              <LocalizedCopy>{busy
                 ? "Membuat pembayaran…"
-                : item.price > 0
+                : program.price > 0
                   ? "Lanjut ke pembayaran"
-                  : "Konfirmasi pendaftaran"}
-            </button>
+                  : "Konfirmasi pendaftaran"}</LocalizedCopy>
+            </LocalizedButton>
           </form>
-        )}
+        )}</LocalizedCopy>
       </div>
     </Modal>
   );
 }
+
+function AcademyTrainerModal({
+  trainer,
+  close,
+}: {
+  trainer: AcademyTrainer;
+  close: () => void;
+}) {
+  return (
+    <Modal close={close} className="academy-trainer-modal">
+      <div className="academy-trainer-profile">
+        <span className="academy-trainer-profile-photo">
+          <LocalizedCopy>{trainer.photo_url ? (
+            <NextImage
+              src={trainer.photo_url}
+              alt={trainer.full_name}
+              width={112}
+              height={112}
+              unoptimized
+            />
+          ) : (
+            trainer.full_name.slice(0, 1)
+          )}</LocalizedCopy>
+        </span>
+        <div>
+          <small><LocalizedCopy>{"PET TRAINER · "}</LocalizedCopy><LocalizedCopy>{trainer.academy_name}</LocalizedCopy></small>
+          <h2><LocalizedCopy preserve>{trainer.full_name}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"★ "}</LocalizedCopy><LocalizedCopy>{trainer.rating.toFixed(1)}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{trainer.experience_years}</LocalizedCopy><LocalizedCopy>{" tahun pengalaman"}</LocalizedCopy></p>
+        </div>
+      </div>
+      <div
+        className="academy-trainer-profile-body"
+        role="region"
+        aria-label={`Detail ${trainer.full_name}`}
+        tabIndex={0}
+      >
+        <p><LocalizedCopy>{trainer.bio || "Profil trainer terverifikasi Slivadoc."}</LocalizedCopy></p>
+        <div className="academy-trainer-metrics">
+          <span>
+            <small><LocalizedCopy>{"Sertifikasi"}</LocalizedCopy></small>
+            <b><LocalizedCopy>{trainer.certification || "Slivadoc verified"}</LocalizedCopy></b>
+          </span>
+          <span>
+            <small><LocalizedCopy>{"Jenis pet"}</LocalizedCopy></small>
+            <b><LocalizedCopy>{trainer.pet_types?.join(" · ") || "dog · cat"}</LocalizedCopy></b>
+          </span>
+          <span>
+            <small><LocalizedCopy>{"Spesialisasi"}</LocalizedCopy></small>
+            <b><LocalizedCopy>{trainer.specialties?.join(" · ") || "behavior"}</LocalizedCopy></b>
+          </span>
+        </div>
+        <LocalizedCopy>{trainer.programs?.length ? (
+          <div className="academy-trainer-programs">
+            <h3><LocalizedCopy>{"Kelas bersama "}</LocalizedCopy><LocalizedCopy>{trainer.full_name.split(" ")[0]}</LocalizedCopy></h3>
+            <LocalizedCopy>{trainer.programs.map((program) => (
+              <div key={program.id}>
+                <span>
+                  <b><LocalizedCopy>{program.title}</LocalizedCopy></b>
+                  <small>
+                    <LocalizedCopy>{program.level}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{program.session_count}</LocalizedCopy><LocalizedCopy>{" sesi"}</LocalizedCopy></small>
+                </span>
+                <strong><LocalizedCopy>{money.format(program.price)}</LocalizedCopy></strong>
+              </div>
+            ))}</LocalizedCopy>
+          </div>
+        ) : null}</LocalizedCopy>
+      </div>
+    </Modal>
+  );
+}
+
 function EventModal({
   item,
   ownerName,
@@ -1176,47 +2110,62 @@ function EventModal({
   item: PetEvent;
   ownerName: string;
   ownerEmail: string;
-  pets: Array<{ id: string; name: string; species: string; breed: string; avatar: string }>;
+  pets: Array<{
+    id: string;
+    name: string;
+    species: string;
+    breed: string;
+    avatar: string;
+  }>;
   close: () => void;
   notify: (message: string) => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [register, setRegister] = useState(false);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
-  const allowedPets = item.ticket_unit === "owner_pet"
-    ? pets.filter((pet) => !item.allowed_pet_species.length || item.allowed_pet_species.includes(pet.species))
-    : pets;
-  const [selectedPetID, setSelectedPetID] = useState(() => allowedPets[0]?.id ?? "");
+  const [registrationId, setRegistrationId] = useState("");
+  const allowedPets =
+    item.ticket_unit === "owner_pet"
+      ? pets.filter(
+          (pet) =>
+            !item.allowed_pet_species.length ||
+            item.allowed_pet_species.includes(pet.species),
+        )
+      : pets;
+  const [selectedPetID, setSelectedPetID] = useState(
+    () => allowedPets[0]?.id ?? "",
+  );
   function start() {
-    if (!isPetOwnerAuthenticated()) {
-      notify("Login diperlukan untuk mengambil tiket event");
-      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-      return;
-    }
+    if (!requirePet()) return;
     setRegister(true);
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isPetOwnerAuthenticated()) return;
+    if (!requirePet()) return;
+    if (item.price > 0 && !paymentMethod) return;
     const values = Object.fromEntries(new FormData(event.currentTarget));
     setBusy(true);
     try {
       const registration = await registerEvent(item.id, {
         participant_name: String(values.participant_name),
         participant_email: String(values.participant_email),
-        ticket_quantity: item.ticket_unit === "owner_pet" ? 1 : Number(values.ticket_quantity),
+        ticket_quantity:
+          item.ticket_unit === "owner_pet" ? 1 : Number(values.ticket_quantity),
         ...(item.ticket_unit === "owner_pet" ? { pet_id: selectedPetID } : {}),
       });
+      setRegistrationId(registration.id);
       if (registration.amount > 0 && registration.payment_status !== "paid")
         setPayment(
           await createPaymentIntent(
             "event_registration",
             registration.id,
-            "qris",
+            paymentMethod,
           ),
         );
-      else setDone(true);
+      else close();
       notify(
         registration.amount > 0 && registration.payment_status !== "paid"
           ? "Tiket dibuat, selesaikan pembayaran"
@@ -1234,113 +2183,231 @@ function EventModal({
   }
   return (
     <Modal close={close} className="world-modal">
-      <div className="modal-world-cover event-modal-cover">
-        <span>🎪</span>
-        <i>{item.category}</i>
-      </div>
+      <WorldImageGallery
+        images={[item.banner_url, ...(item.image_urls ?? [])]}
+        alt={item.title}
+        fallback="🎪"
+        tag={item.category}
+        className="event-modal-cover"
+      />
       <div className="modal-world-body">
-        {done ? (
+        <LocalizedCopy>{done ? (
           <Success
             title="Tiket berhasil diamankan!"
             note={`QR ticket ${item.title} tersedia di Aktivitas.`}
             close={close}
+            activity={{ type: "event", id: registrationId }}
           />
         ) : payment ? (
-          <BatpayPaymentPanel payment={payment} onPaid={() => setDone(true)} />
+          <QrisPaymentPanel payment={payment} onPaid={() => setDone(true)} />
         ) : register ? (
           <form className="world-form" onSubmit={submit}>
-            <h2>Pesan tiket event</h2>
+            <h2><LocalizedCopy>{"Pesan tiket event"}</LocalizedCopy></h2>
             <label>
-              <span>Nama peserta</span>
-              <input
+              <span><LocalizedCopy>{"Nama peserta"}</LocalizedCopy></span>
+              <LocalizedInput
                 name="participant_name"
                 defaultValue={ownerName}
                 required
               />
             </label>
             <label>
-              <span>Email</span>
-              <input
+              <span><LocalizedCopy>{"Email"}</LocalizedCopy></span>
+              <LocalizedInput
                 name="participant_email"
                 type="email"
                 defaultValue={ownerEmail}
                 required
               />
             </label>
-            {item.ticket_unit === "owner_pet" ? (
+            <LocalizedCopy>{item.ticket_unit === "owner_pet" ? (
               <fieldset className="event-pet-picker">
-                <legend>Pet yang ikut</legend>
-                {allowedPets.length ? (
+                <legend><LocalizedCopy>{"Pet yang ikut"}</LocalizedCopy></legend>
+                <LocalizedCopy>{allowedPets.length ? (
                   <div>
-                    {allowedPets.map((pet) => (
-                      <button type="button" className={selectedPetID === pet.id ? "active" : ""} key={pet.id} onClick={() => setSelectedPetID(pet.id)}>
-                        <span>{pet.avatar}</span><b>{pet.name}</b><small>{pet.breed || speciesLabel(pet.species)}</small><i>{selectedPetID === pet.id ? "✓" : "+"}</i>
-                      </button>
-                    ))}
+                    <LocalizedCopy>{allowedPets.map((pet) => (
+                      <LocalizedButton
+                        type="button"
+                        className={selectedPetID === pet.id ? "active" : ""}
+                        key={pet.id}
+                        onClick={() => setSelectedPetID(pet.id)}
+                      >
+                        <span><LocalizedCopy>{pet.avatar}</LocalizedCopy></span>
+                        <b><LocalizedCopy preserve>{pet.name}</LocalizedCopy></b>
+                        <small><LocalizedCopy>{pet.breed || speciesLabel(pet.species)}</LocalizedCopy></small>
+                        <i><LocalizedCopy>{selectedPetID === pet.id ? "✓" : "+"}</LocalizedCopy></i>
+                      </LocalizedButton>
+                    ))}</LocalizedCopy>
                   </div>
-                ) : <p>Belum ada profil pet yang sesuai dengan jenis pet untuk event ini.</p>}
+                ) : (
+                  <p><LocalizedCopy>{"Belum ada profil pet yang sesuai dengan jenis pet untuk event ini."}</LocalizedCopy></p>
+                )}</LocalizedCopy>
               </fieldset>
             ) : (
-              <label><span>Jumlah tiket</span><select name="ticket_quantity" defaultValue="1"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
-            )}
+              <label>
+                <span><LocalizedCopy>{"Jumlah tiket"}</LocalizedCopy></span>
+                <SlivaSelect aria-label="Jumlah tiket" name="ticket_quantity" defaultValue="1">
+                  <option>1</option>
+                  <option>2</option>
+                  <option>3</option>
+                  <option>4</option>
+                </SlivaSelect>
+              </label>
+            )}</LocalizedCopy>
             <div className="checkout-line">
-              <span>{item.ticket_unit === "owner_pet" ? "1 owner + 1 pet" : "Harga per tiket"}</span>
-              <b>{item.price ? money.format(item.price) : "Gratis"}</b>
+              <span>
+                <LocalizedCopy>{item.ticket_unit === "owner_pet"
+                  ? "1 owner + 1 pet"
+                  : "Harga per tiket"}</LocalizedCopy>
+              </span>
+              <b><LocalizedCopy>{item.price ? money.format(item.price) : "Gratis"}</LocalizedCopy></b>
             </div>
-            {item.price > 0 ? <div className="event-qris-note"><span>▦</span><div><b>Pembayaran QRIS</b><small>QR tampil otomatis setelah tiket dibuat</small></div><i>✓</i></div> : null}
-            <button className="primary-button full" disabled={busy || (item.ticket_unit === "owner_pet" && !selectedPetID)}>
-              {busy
+            <LocalizedCopy>{item.price > 0 ? (
+              <PaymentMethodPicker
+                value={paymentMethod}
+                onChange={setPaymentMethod}
+                disabled={busy}
+              />
+            ) : null}</LocalizedCopy>
+            <LocalizedButton
+              className="primary-button full"
+              disabled={
+                busy ||
+                (item.price > 0 && !paymentMethod) ||
+                (item.ticket_unit === "owner_pet" && !selectedPetID)
+              }
+            >
+              <LocalizedCopy>{busy
                 ? "Membuat pembayaran…"
                 : item.price > 0
                   ? "Lanjut ke pembayaran"
-                  : "Konfirmasi tiket"}
-            </button>
+                  : "Konfirmasi tiket"}</LocalizedCopy>
+            </LocalizedButton>
           </form>
         ) : (
           <>
-            <small className="world-kicker">{when(item.starts_at)}</small>
-            <h2>{item.title}</h2>
-            <p>{item.description}</p>
-            {item.pet_spot_name ? <div className="event-host"><span>✦</span><div><small>Diselenggarakan oleh</small><b>{item.pet_spot_name}</b></div></div> : null}
-            <div className="world-detail-grid">
+            <small className="world-kicker"><LocalizedCopy>{when(item.starts_at)}</LocalizedCopy></small>
+            <div className="event-detail-heading">
+              <div>
+                <span><LocalizedCopy>{item.featured ? "✦ EVENT PILIHAN" : item.category}</LocalizedCopy></span>
+                <h2><LocalizedCopy>{item.title}</LocalizedCopy></h2>
+              </div>
+              <b><LocalizedCopy>{item.price ? money.format(item.price) : "Gratis"}</LocalizedCopy></b>
+            </div>
+            <p><LocalizedCopy>{item.description}</LocalizedCopy></p>
+            <div className="event-social-summary">
               <span>
-                <small>Lokasi</small>
+                <b><LocalizedCopy>{item.registered_count.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"pet parent terdaftar"}</LocalizedCopy></small>
+              </span>
+              <span>
+                <b><LocalizedCopy>{Math.max(0, item.capacity - item.registered_count)}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"slot masih tersedia"}</LocalizedCopy></small>
+              </span>
+              <span>
                 <b>
-                  {item.venue}, {item.city}
+                  <LocalizedCopy>{new Intl.DateTimeFormat(petOwnerIntlLocale(), {
+                    day: "numeric",
+                    month: "short",
+                  }).format(new Date(item.starts_at))}</LocalizedCopy>
                 </b>
+                <small><LocalizedCopy>{"tanggal event"}</LocalizedCopy></small>
               </span>
               <span>
-                <small>Tiket</small>
-                <b>{item.price ? `${money.format(item.price)} / owner + pet` : "Gratis"}</b>
-              </span>
-              <span>
-                <small>Kapasitas</small>
-                <b>
-                  {item.registered_count}/{item.capacity} terdaftar
-                </b>
-              </span>
-              <span>
-                <small>Status</small>
-                <b>{item.status}</b>
+                <b><LocalizedCopy>{item.allowed_pet_species?.length || "Semua"}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"jenis pet diterima"}</LocalizedCopy></small>
               </span>
             </div>
-            {item.ticket_unit === "owner_pet" ? <><div className="event-species"><small>Pet yang dapat hadir</small><div>{item.allowed_pet_species.map((species) => <span key={species}>{speciesIcon(species)} {speciesLabel(species)}</span>)}</div></div>{item.pet_requirements.length ? <div className="event-requirements"><small>Persiapan sebelum hadir</small><ul>{item.pet_requirements.map((requirement) => <li key={requirement}>✓ {requirement}</li>)}</ul></div> : null}</> : null}
-            <button className="primary-button full" onClick={start}>
-              Ambil tiket
-            </button>
+            {item.pet_spot_name ? (
+              <div className="event-host">
+                <span><LocalizedCopy>{"✦"}</LocalizedCopy></span>
+                <div>
+                  <small><LocalizedCopy>{"Diselenggarakan oleh"}</LocalizedCopy></small>
+                  <b><LocalizedCopy>{item.pet_spot_name}</LocalizedCopy></b>
+                </div>
+              </div>
+            ) : null}
+            <div className="world-detail-grid">
+              <span>
+                <small><LocalizedCopy>{"Lokasi"}</LocalizedCopy></small>
+                <b>
+                  <LocalizedCopy>{item.venue}</LocalizedCopy><LocalizedCopy>{", "}</LocalizedCopy><LocalizedCopy>{item.city}</LocalizedCopy>
+                </b>
+              </span>
+              <span>
+                <small><LocalizedCopy>{"Tiket"}</LocalizedCopy></small>
+                <b>
+                  <LocalizedCopy>{item.price
+                    ? `${money.format(item.price)} / owner + pet`
+                    : "Gratis"}</LocalizedCopy>
+                </b>
+              </span>
+              <span>
+                <small><LocalizedCopy>{"Kapasitas"}</LocalizedCopy></small>
+                <b>
+                  <LocalizedCopy>{item.registered_count}</LocalizedCopy><LocalizedCopy>{"/"}</LocalizedCopy><LocalizedCopy>{item.capacity}</LocalizedCopy><LocalizedCopy>{" terdaftar"}</LocalizedCopy></b>
+              </span>
+              <span>
+                <small><LocalizedCopy>{"Status"}</LocalizedCopy></small>
+                <b><LocalizedCopy>{item.status}</LocalizedCopy></b>
+              </span>
+            </div>
+            {item.ticket_unit === "owner_pet" ? (
+              <>
+                <div className="event-species">
+                  <small><LocalizedCopy>{"Pet yang dapat hadir"}</LocalizedCopy></small>
+                  <div>
+                    <LocalizedCopy>{item.allowed_pet_species.map((species) => (
+                      <span key={species}>
+                        <LocalizedCopy>{speciesIcon(species)}</LocalizedCopy> <LocalizedCopy>{speciesLabel(species)}</LocalizedCopy>
+                      </span>
+                    ))}</LocalizedCopy>
+                  </div>
+                </div>
+                {item.pet_requirements.length ? (
+                  <div className="event-requirements">
+                    <small><LocalizedCopy>{"Checklist sebelum datang"}</LocalizedCopy></small>
+                    <ul>
+                      <LocalizedCopy>{item.pet_requirements.map((requirement) => (
+                        <li key={requirement}><LocalizedCopy>{"✓ "}</LocalizedCopy><LocalizedCopy>{requirement}</LocalizedCopy></li>
+                      ))}</LocalizedCopy>
+                    </ul>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+            <div className="event-experience-note">
+              <span><LocalizedCopy>{"🎟️"}</LocalizedCopy></span>
+              <div>
+                <b><LocalizedCopy>{"Ticket tersimpan otomatis"}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"Sesudah registrasi, QR ticket dan detail event dapat dibuka kembali dari Aktivitas."}</LocalizedCopy></small>
+              </div>
+            </div>
+            <LocalizedButton className="primary-button full" onClick={start}>
+              <LocalizedCopy>{item.price ? "Pilih pet & ambil tiket" : "Amankan tiket gratis"}</LocalizedCopy>
+            </LocalizedButton>
           </>
-        )}
+        )}</LocalizedCopy>
       </div>
     </Modal>
   );
 }
 
 const eventSpecies = {
-  dog: ["🐕", "Anjing"], cat: ["🐈", "Kucing"], rabbit: ["🐇", "Kelinci"],
-  bird: ["🦜", "Burung"], reptile: ["🦎", "Reptil"], small_mammal: ["🐹", "Mamalia kecil"], other: ["🐾", "Lainnya"],
+  dog: ["🐕", "Anjing"],
+  cat: ["🐈", "Kucing"],
+  rabbit: ["🐇", "Kelinci"],
+  bird: ["🦜", "Burung"],
+  reptile: ["🦎", "Reptil"],
+  small_mammal: ["🐹", "Mamalia kecil"],
+  other: ["🐾", "Lainnya"],
 } as const;
-function speciesIcon(species: string) { return eventSpecies[species as keyof typeof eventSpecies]?.[0] ?? "🐾"; }
-function speciesLabel(species: string) { return eventSpecies[species as keyof typeof eventSpecies]?.[1] ?? species; }
+function speciesIcon(species: string) {
+  return eventSpecies[species as keyof typeof eventSpecies]?.[0] ?? "🐾";
+}
+function speciesLabel(species: string) {
+  return eventSpecies[species as keyof typeof eventSpecies]?.[1] ?? species;
+}
 function SpotModal({
   item,
   close,
@@ -1352,279 +2419,31 @@ function SpotModal({
   notify: (message: string) => void;
   ownerName: string;
 }) {
-  const maps = `https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`;
-  const [busy, setBusy] = useState(false);
-  async function save() {
-    if (!isPetOwnerAuthenticated()) {
-      notify("Login diperlukan untuk menyimpan PetSpot");
-      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-      return;
-    }
-    setBusy(true);
-    try {
-      const result = await togglePetOwnerFavorite("petspot", item.id);
-      notify(
-        result.favorite
-          ? `${item.name} disimpan ke favorit`
-          : `${item.name} dihapus dari favorit`,
-      );
-      close();
-    } catch (error) {
-      notify(
-        error instanceof Error ? error.message : "PetSpot belum dapat disimpan",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  if (item.category === "boarding_house" || item.category === "apartment")
-    return <HousingBookingModal item={item} close={close} notify={notify} ownerName={ownerName} />;
   return (
-    <Modal close={close} className="world-modal spot-modal">
-      <div className="modal-world-cover spot-modal-cover">
-        <span>
-          {item.category === "cafe"
-            ? "☕"
-            : item.category === "park"
-              ? "🌳"
-              : "🏬"}
-        </span>
-        <i>{item.verified ? "✓ PetSpot Verified" : "Community Spot"}</i>
-      </div>
-      <div className="modal-world-body">
-        <small className="world-kicker">
-          ★ {item.rating} · {item.review_count} ulasan ·{" "}
-          {safeFixed(item.distance_km, 1, "—")} km
-        </small>
-        <h2>{item.name}</h2>
-        <p>{item.description}</p>
-        <div className="spot-address">
-          <Icon name="map" />
-          <span>
-            <b>{item.address}</b>
-            <small>
-              {item.city} ·{" "}
-              {item.opening_hours?.daily || "Jam buka lihat di lokasi"}
-            </small>
-          </span>
-        </div>
-        <div className="facility-grid">
-          {item.pet_facilities.map((value) => (
-            <span key={value}>✓ {value}</span>
-          ))}
-        </div>
-        <div className="world-modal-actions">
-          <a
-            className="primary-button"
-            href={maps}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Petunjuk arah
-          </a>
-          <button
-            className="secondary-button"
-            disabled={busy}
-            onClick={() => void save()}
-          >
-            {busy ? "Menyimpan…" : "♡ Simpan"}
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-function HousingBookingModal({
-  item,
-  close,
-  notify,
-  ownerName,
-}: {
-  item: PetSpot;
-  close: () => void;
-  notify: (message: string) => void;
-  ownerName: string;
-}) {
-  const isBoarding = item.category === "boarding_house";
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [guests, setGuests] = useState(1);
-  const [pets, setPets] = useState(1);
-  const [name, setName] = useState(ownerName);
-  const [phone, setPhone] = useState("");
-  const [requestNote, setRequestNote] = useState("");
-  const [units, setUnits] = useState<PetSpotUnit[]>([]);
-  const [unitID, setUnitID] = useState("");
-  const [checking, setChecking] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("qris");
-  const [payment, setPayment] = useState<PaymentIntent | null>(null);
-  const [reservation, setReservation] = useState<PetSpotReservation | null>(null);
-  const [done, setDone] = useState(false);
-  const dateWindow = useMemo(() => {
-    if (!startDate || !endDate) return null;
-    const start = new Date(startDate + "T14:00:00");
-    const end = new Date(endDate + "T14:00:00");
-    const days = Math.ceil((end.getTime() - start.getTime()) / 86400000);
-    if (!Number.isFinite(days) || days < (isBoarding ? 30 : 1) || days > 366) return null;
-    return { starts_at: start.toISOString(), ends_at: end.toISOString(), days };
-  }, [startDate, endDate, isBoarding]);
-  useEffect(() => {
-    if (!dateWindow) return;
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      void getPetSpotAvailability(item.id, dateWindow.starts_at, dateWindow.ends_at, guests)
-        .then((result) => {
-          if (!cancelled) {
-            setUnits(result.data.filter((unit) => ["room", "unit"].includes(unit.resource_type)));
-            setChecking(false);
-          }
-        })
-        .catch((cause: unknown) => {
-          if (!cancelled) {
-            setError(cause instanceof Error ? cause.message : "Ketersediaan belum dapat dimuat");
-            setChecking(false);
-          }
-        });
-    }, 250);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [item.id, dateWindow, guests]);
-  const canHost = (unit: PetSpotUnit) =>
-    unit.available && pets <= Number(unit.pet_policy?.pet_limit ?? 99);
-  const selected = units.find((unit) => unit.id === unitID && canHost(unit));
-  const periods = selected && dateWindow
-    ? selected.booking_rules?.rate_period === "month"
-      ? Math.ceil(dateWindow.days / 30)
-      : dateWindow.days
-    : 0;
-  const subtotal = selected ? selected.base_price * periods : 0;
-  const depositType = selected?.minimum_deposit_type !== "inherit"
-    ? selected?.minimum_deposit_type
-    : item.deposit_type;
-  const depositValue = selected?.minimum_deposit_type !== "inherit"
-    ? selected?.minimum_deposit_value
-    : item.deposit_value;
-  const deposit = Math.ceil(depositType === "fixed"
-    ? Number(depositValue ?? 0)
-    : subtotal * Number(depositValue ?? 0) / 100);
-  const today = new Date().toISOString().slice(0, 10);
-
-  async function reserve(event: FormEvent) {
-    event.preventDefault();
-    if (!isPetOwnerAuthenticated()) {
-      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-      notify("Login untuk memesan unit");
-      return;
-    }
-    if (!selected || !dateWindow) { setError("Pilih tanggal dan unit yang tersedia"); return; }
-    setBusy(true);
-    setError("");
-    try {
-      const created = await createPetSpotReservation({
-        resource_id: selected.id,
-        guest_name: name.trim(),
-        guest_phone: phone.trim(),
-        guest_count: guests,
-        pet_count: pets,
-        starts_at: dateWindow.starts_at,
-        ends_at: dateWindow.ends_at,
-        special_request: requestNote.trim(),
-      });
-      setReservation(created);
-      try {
-        setPayment(await createPaymentIntent("petspot_reservation", created.id, paymentMethod));
-      } catch (cause) {
-        setError((cause instanceof Error ? cause.message : "Pembayaran belum tersedia")
-          + ". Reservasi " + created.reservation_number + " tercatat; buka Aktivitas untuk melanjutkan sebelum batas DP.");
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Reservasi belum dapat dibuat");
-      // The availability may have changed while the guest was completing the form.
-      if (dateWindow) {
-        try {
-          const result = await getPetSpotAvailability(item.id, dateWindow.starts_at, dateWindow.ends_at, guests);
-          setUnits(result.data.filter((unit) => ["room", "unit"].includes(unit.resource_type)));
-          setUnitID("");
-        } catch { /* The error above remains visible. */ }
-      }
-    } finally { setBusy(false); }
-  }
-  return (
-    <Modal close={close} className="world-modal spot-modal housing-modal">
-      <div className="modal-world-body">
-        {done ? (
-          <Success title="Unit berhasil dipesan"
-            note={"Reservasi " + reservation?.reservation_number + " sudah terkonfirmasi. Detail tersedia di Aktivitas."}
-            close={close} />
-        ) : payment ? (
-          <BatpayPaymentPanel payment={payment} onPaid={() => setDone(true)} />
-        ) : (
-          <>
-            {item.cover_url ? <div className="housing-cover" style={{ backgroundImage: "url(" + JSON.stringify(item.cover_url) + ")" }} /> : null}
-            <small className="world-kicker">{isBoarding ? "KOSAN / COLIVING" : "APARTEMEN"} · {item.city}</small>
-            <h2>{item.name}</h2>
-            <p>{item.description}</p>
-            <p className="housing-address">{item.address}</p>
-            {item.pet_facilities.length ? <div className="housing-chips">{item.pet_facilities.map((value) => <span key={value}>✓ {value}</span>)}</div> : null}
-            <form className="world-form housing-booking-form" onSubmit={(event) => void reserve(event)}>
-              <h3>Cari unit tersedia</h3>
-              <div className="housing-form-row">
-                <label><span>Mulai tinggal</span><input required type="date" min={today} value={startDate}
-                  onChange={(event) => { setStartDate(event.target.value); setUnits([]); setUnitID(""); setChecking(true); setError(""); }} /></label>
-                <label><span>Selesai tinggal</span><input required type="date" min={startDate || today} value={endDate}
-                  onChange={(event) => { setEndDate(event.target.value); setUnits([]); setUnitID(""); setChecking(true); setError(""); }} /></label>
-              </div>
-              <p className="housing-hint">{isBoarding ? "Minimal 30 malam. Harga unit dapat berlaku per 30 malam." : "Harga unit berlaku per malam."}</p>
-              <div className="housing-form-row">
-                <label><span>Penghuni</span><input type="number" min={1} max={20} value={guests} onChange={(event) => { setGuests(Number(event.target.value)); setUnits([]); setUnitID(""); setChecking(true); }} /></label>
-                <label><span>Hewan</span><input type="number" min={0} max={10} value={pets} onChange={(event) => { setPets(Number(event.target.value)); setUnitID(""); }} /></label>
-              </div>
-              {startDate && endDate && !dateWindow && <p className="housing-error">Pilih durasi {isBoarding ? "minimal 30" : "minimal 1"} dan maksimal 366 malam.</p>}
-              {dateWindow && <section className="housing-units" aria-label="Pilihan unit">
-                <h3>Unit {checking ? "sedang dicek…" : "(" + units.filter(canHost).length + " tersedia)"}</h3>
-                {!checking && !units.length && <p>Belum ada unit yang cocok. Coba tanggal atau jumlah penghuni lain.</p>}
-                {units.map((unit) => {
-                  const period = unit.booking_rules?.rate_period === "month" ? "30 malam" : "malam";
-                  return <button type="button" key={unit.id} disabled={!canHost(unit)}
-                    className={"housing-unit " + (unitID === unit.id ? "selected" : "")}
-                    onClick={() => setUnitID(unit.id)}>
-                    {unit.image_urls?.[0] ? <span className="housing-unit-photo" role="img" aria-label={unit.name}
-                      style={{ backgroundImage: "url(" + JSON.stringify(unit.image_urls[0]) + ")" }} /> : null}
-                    <span><b>{unit.name}</b><small>{unit.code} · {unit.floor_name || "Unit"} · {unit.capacity} penghuni</small>
-                    {unit.description ? <small>{unit.description}</small> : null}
-                    <span className="housing-chips">{(unit.amenities ?? []).slice(0, 6).map((facility) => <i key={facility}>{facility}</i>)}</span>
-                    <strong>{money.format(unit.base_price)} / {period}</strong></span>
-                    <em>{!unit.available ? "Terisi" : !canHost(unit) ? "Batas pet" : "Pilih"}</em>
-                  </button>;
-                })}
-              </section>}
-              {selected && <section className="housing-summary">
-                <b>Rincian {selected.name}</b>
-                <span>Sewa {periods} × {selected.booking_rules?.rate_period === "month" ? "30 malam" : "malam"} <strong>{money.format(subtotal)}</strong></span>
-                <span>DP untuk mengunci unit <strong>{money.format(deposit)}</strong></span>
-                <span>Sisa dibayar sesuai ketentuan pemilik <strong>{money.format(Math.max(subtotal - deposit, 0))}</strong></span>
-              </section>}
-              <h3>Data pemesan</h3>
-              <div className="housing-form-row">
-                <label><span>Nama lengkap</span><input required value={name} onChange={(event) => setName(event.target.value)} /></label>
-                <label><span>Nomor HP</span><input required type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
-              </div>
-              <label><span>Catatan untuk pemilik</span><textarea value={requestNote} onChange={(event) => setRequestNote(event.target.value)} /></label>
-              {reservation && !payment && <p>Nomor reservasi: <b>{reservation.reservation_number}</b>. Batas DP: {when(reservation.hold_expires_at)}.</p>}
-              {error && <p role="alert" className="housing-error">{error}</p>}
-              <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} />
-              <button type="submit" className="primary-button" disabled={busy || !selected || !dateWindow || !!reservation}>
-                {busy ? "Memproses…" : "Pesan unit & bayar DP"}
-              </button>
-            </form>
-          </>
+    <Modal
+      close={close}
+      className="world-modal spot-modal petspot-experience-modal"
+    >
+      <PetSpotDetail
+        item={item}
+        ownerName={ownerName}
+        close={close}
+        notify={notify}
+        gallery={(spot) => (
+          <WorldImageGallery
+            images={[spot.cover_url, ...(spot.image_urls ?? [])]}
+            alt={spot.name}
+            fallback="⌖"
+            tag={
+              spot.verified ? "✓ Partner terverifikasi" : "Pet-friendly venue"
+            }
+            className="petspot-detail-gallery"
+          />
         )}
-      </div>
+      />
     </Modal>
   );
 }
-
 function StreamModal({
   item,
   close,
@@ -1638,132 +2457,49 @@ function StreamModal({
   return (
     <Modal close={close} className="stream-modal">
       <div className="player">
-        {item.playback_url ? (
-          <video src={item.playback_url} controls autoPlay />
+        <LocalizedCopy>{item.playback_url ? (
+          <SlivaVideo src={item.playback_url} autoPlay />
         ) : (
           <>
-            <span>🐕‍🦺</span>
+            <span><LocalizedCopy>{"🐕‍🦺"}</LocalizedCopy></span>
             <small>
-              {item.status === "live"
+              <LocalizedCopy>{item.status === "live"
                 ? "● LIVE · playback sedang dipersiapkan"
-                : when(item.scheduled_at)}
+                : when(item.scheduled_at)}</LocalizedCopy>
             </small>
           </>
-        )}
+        )}</LocalizedCopy>
       </div>
       <div className="stream-body">
         <small>
-          {item.status === "live"
-            ? `${item.viewer_count.toLocaleString("id-ID")} sedang menonton`
-            : "Live terjadwal"}
+          <LocalizedCopy>{item.status === "live"
+            ? `${item.viewer_count.toLocaleString(petOwnerIntlLocale())} sedang menonton`
+            : "Live terjadwal"}</LocalizedCopy>
         </small>
-        <h2>{item.title}</h2>
-        <p>{item.description}</p>
+        <h2><LocalizedCopy>{item.title}</LocalizedCopy></h2>
+        <p><LocalizedCopy>{item.description}</LocalizedCopy></p>
         <div className="stream-channel">
-          <span>{item.channel_name.slice(0, 1)}</span>
+          <span><LocalizedCopy>{item.channel_name.slice(0, 1)}</LocalizedCopy></span>
           <p>
             <b>
-              {item.channel_name} {item.verified && "✓"}
+              <LocalizedCopy>{item.channel_name}</LocalizedCopy> <LocalizedCopy>{item.verified && "✓"}</LocalizedCopy>
             </b>
-            <small>{item.channel_handle}</small>
+            <small><LocalizedCopy>{item.channel_handle}</LocalizedCopy></small>
           </p>
-          <button onClick={follow}>Ikuti</button>
+          <LocalizedButton onClick={follow}><LocalizedCopy>{"Ikuti"}</LocalizedCopy></LocalizedButton>
         </div>
         <div className="live-chat">
-          <b>Live chat</b>
-          <div className="empty-state compact">
-            Pesan live akan tampil ketika provider streaming mengaktifkan room
-            chat.
-          </div>
+          <b><LocalizedCopy>{"Live chat"}</LocalizedCopy></b>
+          <div className="empty-state compact"><LocalizedCopy>{"Pesan live akan tampil ketika provider streaming mengaktifkan room chat."}</LocalizedCopy></div>
           <label>
-            <input
+            <LocalizedInput
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               placeholder="Tulis pesan yang suportif…"
               disabled
             />
-            <button disabled>Kirim</button>
+            <LocalizedButton disabled><LocalizedCopy>{"Kirim"}</LocalizedCopy></LocalizedButton>
           </label>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-function ThreadComposer({
-  close,
-  onCreated,
-  notify,
-  ownerName,
-}: {
-  close: () => void;
-  onCreated: (post: PetHubPost) => void;
-  notify: (message: string) => void;
-  ownerName: string;
-}) {
-  const [content, setContent] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function submit() {
-    if (content.trim().length < 3 || !isPetOwnerAuthenticated()) return;
-    setBusy(true);
-    try {
-      const id = (
-        await createPetHubPost({
-          author_name: ownerName,
-          content: content.trim(),
-          post_type: "thread",
-        })
-      ).id;
-      onCreated({
-        id,
-        author_name: ownerName,
-        content: content.trim(),
-        media_url: "",
-        post_type: "thread",
-        like_count: 0,
-        comment_count: 0,
-        repost_count: 0,
-        created_at: new Date().toISOString(),
-        channel_name: ownerName,
-        channel_handle: "@petowner",
-        channel_avatar_url: "",
-        verified: false,
-      });
-      notify("Pet thread berhasil diterbitkan");
-      close();
-    } catch (error) {
-      notify(
-        error instanceof Error
-          ? error.message
-          : "Thread belum dapat diterbitkan",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Modal close={close} className="world-modal">
-      <div className="modal-world-body">
-        <small className="world-kicker">
-          BUAT PET THREAD · LOGIN TERVERIFIKASI
-        </small>
-        <h2>Apa yang sedang kamu pikirkan?</h2>
-        <textarea
-          className="thread-input"
-          value={content}
-          onChange={(event) => setContent(event.target.value)}
-          maxLength={5000}
-          placeholder="Bagikan insight, cerita, atau pertanyaan tentang pet…"
-          autoFocus
-        />
-        <div className="composer-bottom">
-          <span>{content.length}/5000</span>
-          <button
-            className="primary-button"
-            disabled={content.trim().length < 3 || busy}
-            onClick={submit}
-          >
-            {busy ? "Menerbitkan…" : "Terbitkan thread"}
-          </button>
         </div>
       </div>
     </Modal>
@@ -1773,188 +2509,105 @@ function CommentsModal({
   post,
   close,
   notify,
-  ownerName,
   onCount,
 }: {
   post: PetHubPost;
   close: () => void;
-  notify: (m: string) => void;
-  ownerName: string;
-  onCount: () => void;
+  notify: (message: string) => void;
+  onCount: (count: number) => void;
 }) {
+  const { requirePet } = usePetOwnerFlow();
   const [comments, setComments] = useState<PetHubComment[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const pending = useRef(false);
   useEffect(() => {
-    getPetHubComments(post.id)
-      .then((r) => setComments(r.data))
-      .catch(() => setComments([]))
-      .finally(() => setBusy(false));
+    let active = true;
+    void getPetHubComments(post.id)
+      .then((result) => {
+        if (active) setComments(result.data);
+      })
+      .catch((cause) => {
+        if (active)
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Komentar belum dapat dimuat",
+          );
+      })
+      .finally(() => {
+        if (active) setBusy(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [post.id]);
   async function send() {
-    if (!text.trim()) return;
-    if (!isPetOwnerAuthenticated()) {
-      notify("Login diperlukan untuk berkomentar");
-      window.dispatchEvent(new CustomEvent("slivadoc:login-required"));
-      return;
-    }
+    if (pending.current || !text.trim()) return;
+    if (!requirePet()) return;
+    pending.current = true;
+    setSending(true);
     try {
-      const result = await createPetHubComment(post.id, text.trim());
-      setComments((v) => [
-        ...v,
-        {
-          id: result.id,
-          user_id: "me",
-          author_name: ownerName,
-          content: text.trim(),
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      await createPetHubComment(post.id, text.trim());
       setText("");
-      onCount();
-    } catch (error) {
+      const result = await getPetHubComments(post.id);
+      setComments(result.data);
+      setError("");
+      onCount(result.count);
+    } catch (cause) {
       notify(
-        error instanceof Error ? error.message : "Komentar belum dapat dikirim",
+        cause instanceof Error ? cause.message : "Komentar belum dapat dikirim",
       );
+    } finally {
+      pending.current = false;
+      setSending(false);
     }
   }
   return (
     <Modal close={close} className="comments-modal">
       <div className="comments-head">
-        <small>PET THREAD</small>
-        <h2>Diskusi</h2>
-        <p>{post.content}</p>
+        <small><LocalizedCopy>{"PETHUB DISCUSSION"}</LocalizedCopy></small>
+        <h2><LocalizedCopy>{"Komentar ("}</LocalizedCopy><LocalizedCopy>{comments.length}</LocalizedCopy><LocalizedCopy>{")"}</LocalizedCopy></h2>
+        <p><LocalizedCopy>{post.content}</LocalizedCopy></p>
       </div>
       <div className="comments-list">
-        {busy ? (
-          <span>Memuat komentar…</span>
+        <LocalizedCopy>{busy ? (
+          <span role="status"><LocalizedCopy>{"Memuat komentar…"}</LocalizedCopy></span>
+        ) : error ? (
+          <span role="alert"><LocalizedCopy>{error}</LocalizedCopy></span>
         ) : comments.length ? (
           comments.map((item) => (
             <div key={item.id}>
-              <i>{item.author_name.slice(0, 1)}</i>
+              <i><LocalizedCopy>{item.author_name.slice(0, 1)}</LocalizedCopy></i>
               <p>
-                <b>{item.author_name}</b>
-                <span>{item.content}</span>
-                <small>{when(item.created_at)}</small>
+                <b><LocalizedCopy preserve>{item.author_name}</LocalizedCopy></b>
+                <span><LocalizedCopy>{item.content}</LocalizedCopy></span>
+                <small><LocalizedCopy>{when(item.created_at)}</LocalizedCopy></small>
               </p>
             </div>
           ))
         ) : (
-          <span>Belum ada komentar. Jadilah yang pertama.</span>
-        )}
+          <span><LocalizedCopy>{"Belum ada komentar. Jadilah yang pertama."}</LocalizedCopy></span>
+        )}</LocalizedCopy>
       </div>
       <footer>
-        <input
+        <LocalizedInput
+          aria-label="Komentar PetHub"
           value={text}
+          maxLength={2000}
+          disabled={sending}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") void send();
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) void send();
           }}
-          placeholder={
-            isPetOwnerAuthenticated()
-              ? "Tulis komentar yang suportif…"
-              : "Login untuk ikut berdiskusi"
-          }
+          placeholder="Tulis komentar yang suportif…"
         />
-        <button
-          onClick={() => void send()}
-          disabled={isPetOwnerAuthenticated() && !text.trim()}
-        >
-          Kirim
-        </button>
+        <LocalizedButton onClick={() => void send()} disabled={sending || !text.trim()}>
+          <LocalizedCopy>{sending ? "Mengirim…" : "Kirim"}</LocalizedCopy>
+        </LocalizedButton>
       </footer>
-    </Modal>
-  );
-}
-function StoryComposer({
-  close,
-  notify,
-  ownerName,
-  onCreated,
-}: {
-  close: () => void;
-  notify: (m: string) => void;
-  ownerName: string;
-  onCreated: (story: PetHubStory) => void;
-}) {
-  const [photo, setPhoto] = useState("");
-  const [caption, setCaption] = useState("");
-  const [busy, setBusy] = useState(false);
-  function choose(file?: File) {
-    if (!file) return;
-    if (file.size > 650000) {
-      notify("Foto maksimal 650 KB untuk story");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setPhoto(String(reader.result));
-    reader.readAsDataURL(file);
-  }
-  async function submit() {
-    if (!photo || !isPetOwnerAuthenticated()) return;
-    setBusy(true);
-    try {
-      const result = await createPetHubStory(photo, caption);
-      onCreated({
-        id: result.id,
-        user_id: "me",
-        author_name: ownerName,
-        photo_url: photo,
-        caption,
-        view_count: 0,
-        expires_at: new Date(Date.now() + 86400000).toISOString(),
-        created_at: new Date().toISOString(),
-      });
-      notify("Story foto aktif selama 24 jam");
-      close();
-    } catch (error) {
-      notify(
-        error instanceof Error
-          ? error.message
-          : "Story belum dapat diterbitkan",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Modal close={close} className="story-modal">
-      <div className="story-preview">
-        {photo ? (
-          <NextImage
-            src={photo}
-            alt="Preview story"
-            width={720}
-            height={1280}
-            unoptimized
-          />
-        ) : (
-          <label>
-            <span>📷</span>
-            <b>Pilih foto story</b>
-            <small>Story saat ini hanya mendukung foto · maks. 650 KB</small>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => choose(e.target.files?.[0])}
-            />
-          </label>
-        )}
-      </div>
-      <input
-        className="story-caption"
-        value={caption}
-        onChange={(e) => setCaption(e.target.value)}
-        maxLength={300}
-        placeholder="Tambahkan caption…"
-      />
-      <button
-        className="primary-button full"
-        disabled={!photo || busy}
-        onClick={() => void submit()}
-      >
-        {busy ? "Menerbitkan…" : "Bagikan story 24 jam"}
-      </button>
     </Modal>
   );
 }
@@ -1971,12 +2624,20 @@ function Modal({
     <div className="modal-overlay" onMouseDown={close}>
       <section
         className={`modal ${className}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Detail Slivadoc"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="modal-close" onClick={close}>
+        <LocalizedButton
+          type="button"
+          className="modal-close"
+          aria-label="Tutup detail"
+          onClick={close}
+        >
           <Icon name="close" />
-        </button>
-        {children}
+        </LocalizedButton>
+        <LocalizedCopy>{children}</LocalizedCopy>
       </section>
     </div>
   );
@@ -1985,21 +2646,30 @@ function Success({
   title,
   note,
   close,
+  activity,
 }: {
   title: string;
   note: string;
   close: () => void;
+  activity?: { type: ActivityType; id: string };
 }) {
   return (
     <div className="world-success">
       <span>
         <Icon name="check" size={28} />
       </span>
-      <h2>{title}</h2>
-      <p>{note}</p>
-      <button className="primary-button full" onClick={close}>
-        Lihat aktivitas saya
-      </button>
+      <h2><LocalizedCopy>{title}</LocalizedCopy></h2>
+      <p><LocalizedCopy>{note}</LocalizedCopy></p>
+      <LocalizedButton
+        className="primary-button full"
+        onClick={() => {
+          close();
+          if (activity)
+            window.dispatchEvent(
+              new CustomEvent("slivadoc:open-activity", { detail: activity }),
+            );
+        }}
+      ><LocalizedCopy>{"Lihat di Aktivitas"}</LocalizedCopy></LocalizedButton>
     </div>
   );
 }

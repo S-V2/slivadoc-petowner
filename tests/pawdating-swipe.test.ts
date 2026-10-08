@@ -49,3 +49,9 @@ test("public detail presents owner identity and distance", () => {
   assert.match(mobile, /Pet owner/);
   assert.match(mobile, /selected\?\.owner\?\.name/);
 });
+
+test("nullable PAW Dating distance falls back to the city", () => {
+  assert.match(web, /typeof profile\.distance_km === "number"/);
+  assert.match(web, /Number\.isFinite\(profile\.distance_km\)/);
+  assert.match(mobile, /item\.distance_km != null/);
+});

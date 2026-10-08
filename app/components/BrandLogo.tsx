@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { LocalizedImage as Image } from "./LocalizedCopy";
 
 export function BrandLogo({
   markOnly = false,

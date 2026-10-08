@@ -1,6 +1,9 @@
+import { createTranslationService, translationRequest } from "./translation.js";
+import { join } from "node:path";
 import "dotenv/config";
 import { createServer } from "node:http";
 import cloudinaryPackage from "cloudinary";
+import { mediaUploadFailure } from "./media-upload-error.js";
 import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
@@ -12,7 +15,6 @@ import { answerPetQuestion } from "./pet-agent.js";
 import {
   createCorsOriginValidator,
   isOriginAllowed,
-  parseAllowedOrigins,
   resolveAllowedOrigins,
 } from "./cors.js";
 import {
@@ -185,6 +187,17 @@ const mediaUpload = multer({
     ),
 });
 
+// Tax and commercial documents (faktur, invoice, bukti potong) are kept as
+// uploaded: Cloudinary "raw" resources, so PDFs are neither transformed nor
+// caught by the account's PDF delivery restriction for image resources.
+const documentFormats = ["application/pdf", "image/jpeg", "image/png"];
+const documentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_request, file, callback) =>
+    callback(null, documentFormats.includes(file.mimetype)),
+});
+
 const cloudinary = cloudinaryPackage.v2;
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -239,6 +252,14 @@ async function requirePlatformUser(request, response, next) {
       });
   }
 }
+
+const translate = createTranslationService({ baseURL: process.env.SLIVA_TRANSLATION_URL, cacheDir: join(process.env.DATA_DIR || "/tmp/slivadoc-petowner", "translations") });
+app.post("/api/translations", rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: "draft-8", legacyHeaders: false }), async (request, response) => {
+  const parsed = translationRequest.safeParse(request.body);
+  if (!parsed.success) return response.status(400).json({ error: "invalid_translation_request" });
+  try { const translations = await translate(parsed.data); response.json({ translations, target: "en" }); }
+  catch (error) { response.status(error.message === "translation_busy" ? 429 : 503).json({ error: "translation_unavailable", message: "Translation is temporarily unavailable. Please try again." }); }
+});
 
 app.get("/health", (_request, response) => {
   if (Date.now() - lastPlatformProbe > 30_000) {
@@ -318,10 +339,55 @@ app.post(
 );
 
 app.post(
+  "/api/uploads/documents",
+  requirePlatformUser,
+  documentUpload.single("file"),
+  async (request, response, next) => {
+    try {
+      if (!request.file)
+        return response.status(400).json({
+          error: "document_required",
+          message: "Pilih berkas PDF, JPG, atau PNG maksimal 10 MB",
+        });
+      if (
+        !process.env.CLOUDINARY_CLOUD_NAME ||
+        !process.env.CLOUDINARY_API_KEY ||
+        !process.env.CLOUDINARY_API_SECRET
+      ) {
+        return response.status(503).json({
+          error: "cloudinary_not_configured",
+          message: "Penyimpanan dokumen belum dikonfigurasi",
+        });
+      }
+      const requestedFolder = String(request.body.folder || "documents")
+        .replace(/[^a-z0-9/_-]/gi, "")
+        .slice(0, 80);
+      const folder = `${process.env.CLOUDINARY_FOLDER || "slivadoc/petowner"}/${requestedFolder || "documents"}`;
+      const result = await new Promise((resolveUpload, rejectUpload) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder, resource_type: "raw" },
+          (error, uploaded) =>
+            error ? rejectUpload(error) : resolveUpload(uploaded),
+        );
+        stream.end(request.file.buffer);
+      });
+      response.status(201).json({
+        url: result.secure_url,
+        publicId: result.public_id,
+        mimeType: request.file.mimetype,
+        bytes: request.file.size,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+app.post(
   "/api/uploads/media",
   requirePlatformUser,
   mediaUpload.single("file"),
-  async (request, response, next) => {
+  async (request, response) => {
     try {
       if (!request.file)
         return response.status(400).json({
@@ -350,6 +416,7 @@ app.post(
           {
             folder,
             resource_type: resourceType,
+            timeout: 15000,
             ...(resourceType === "image"
               ? {
                   transformation: [
@@ -390,7 +457,8 @@ app.post(
         duration: result.duration,
       });
     } catch (error) {
-      next(error);
+      const failure = mediaUploadFailure(error);
+      response.status(failure.status).json({ error: failure.error, message: failure.message });
     }
   },
 );

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
 import test from "node:test";
 import { answerPetQuestion } from "../src/pet-agent.js";
 
@@ -61,10 +62,22 @@ test("index.js configures trust proxy, location rate limiter, and health probe",
   assert.match(source, /50 \* 1024 \* 1024/);
   assert.match(source, /"video\/mp4"/);
   assert.match(source, /resource_type: resourceType/);
+  assert.match(source, /PHOTON_BASE_URL/);
 });
 
-test("HTTP server boots, validates location params, and exposes platform health shape", async () => {
+test("HTTP server boots, gates location routes behind login, and validates location params", async () => {
   const port = 8991;
+  const identityPort = 8992;
+  const identity = createServer((request, response) => {
+    if (request.url === "/api/v1/auth/me" && request.headers.authorization === "Bearer test-token") {
+      response.setHeader("Content-Type", "application/json");
+      response.end(JSON.stringify({ id: "user-1", email: "u@example.test" }));
+      return;
+    }
+    response.statusCode = 401;
+    response.end(JSON.stringify({ message: "unauthorized" }));
+  });
+  await new Promise((resolve) => identity.listen(identityPort, resolve));
   const child = spawn("node", ["src/index.js"], {
     cwd: new URL("..", import.meta.url).pathname,
     env: {
@@ -73,6 +86,8 @@ test("HTTP server boots, validates location params, and exposes platform health 
       TRUST_PROXY_HOPS: "1",
       NODE_ENV: "production",
       CORS_ORIGINS: "https://petowner.slivadoc.id",
+      SLIVADOC_API_URL: `http://localhost:${identityPort}`,
+      PHOTON_BASE_URL: "http://localhost:9999",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -106,22 +121,34 @@ test("HTTP server boots, validates location params, and exposes platform health 
     assert.equal(typeof healthData.platform.host, "string");
     assert.equal(typeof healthData.platform.reachable, "boolean");
 
-    // 2. Location reverse param validation (missing params -> 400)
-    const reverseInvalid = await fetch(`${baseURL}/api/location/reverse`);
+    // 2. Location routes reject unauthenticated callers (FE-21)
+    const reverseAnonymous = await fetch(`${baseURL}/api/location/reverse?lat=-6.2&lng=106.8`);
+    assert.equal(reverseAnonymous.status, 401);
+    const reverseAnonymousData = await reverseAnonymous.json();
+    assert.equal(reverseAnonymousData.error, "authentication_required");
+
+    const searchAnonymous = await fetch(`${baseURL}/api/location/search?q=jakarta`);
+    assert.equal(searchAnonymous.status, 401);
+
+    const auth = { headers: { Authorization: "Bearer test-token" } };
+
+    // 3. Location reverse param validation behind login (missing params -> 400)
+    const reverseInvalid = await fetch(`${baseURL}/api/location/reverse`, auth);
     assert.equal(reverseInvalid.status, 400);
     const reverseInvalidData = await reverseInvalid.json();
     assert.equal(reverseInvalidData.error, "invalid_params");
 
     // Location reverse invalid range -> 400
-    const reverseOutOfRange = await fetch(`${baseURL}/api/location/reverse?lat=999&lng=0`);
+    const reverseOutOfRange = await fetch(`${baseURL}/api/location/reverse?lat=999&lng=0`, auth);
     assert.equal(reverseOutOfRange.status, 400);
 
-    // 3. Location search param validation (empty q -> 400)
-    const searchEmpty = await fetch(`${baseURL}/api/location/search?q=`);
+    // 4. Location search param validation (empty q -> 400)
+    const searchEmpty = await fetch(`${baseURL}/api/location/search?q=`, auth);
     assert.equal(searchEmpty.status, 400);
     const searchEmptyData = await searchEmpty.json();
     assert.equal(searchEmptyData.error, "invalid_params");
   } finally {
     child.kill("SIGTERM");
+    identity.close();
   }
 });

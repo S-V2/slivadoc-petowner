@@ -7,15 +7,18 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "environment": "development"
+      "environment": "development",
+      "env": { "EXPO_PUBLIC_NETWORK_LOGGER_ENABLED": "1" }
     },
     "preview": {
       "distribution": "internal",
-      "environment": "preview"
+      "environment": "preview",
+      "env": { "EXPO_PUBLIC_NETWORK_LOGGER_ENABLED": "1" }
     },
     "production": {
       "autoIncrement": true,
-      "environment": "production"
+      "environment": "production",
+      "env": { "EXPO_PUBLIC_NETWORK_LOGGER_ENABLED": "0" }
     }
   },
   "submit": {

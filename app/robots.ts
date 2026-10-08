@@ -6,11 +6,11 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/layanan/", "/panduan/", "/kota/", "/tempat/", "/tentang", "/mitra"],
-        disallow: ["/api/", "/backend-test/", "/setup/", "/brand"],
+        allow: ["/", "/layanan/", "/belanja/", "/panduan/", "/kota/", "/tempat/", "/tentang", "/mitra"],
+        disallow: ["/api/", "/backend-test/", "/setup/", "/ulasan/"],
       },
     ],
-    sitemap: absoluteUrl("/sitemap.xml"),
+    sitemap: absoluteUrl("/sitemap-index.xml"),
     host: SEO.siteUrl,
   };
 }

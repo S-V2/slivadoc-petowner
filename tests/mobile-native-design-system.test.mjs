@@ -33,8 +33,16 @@ const activity = await readFile(
   new URL("../mobile/src/screens/ActivityScreen.tsx", import.meta.url),
   "utf8",
 );
+const marketplace = await readFile(
+  new URL("../mobile/src/screens/MarketplaceScreen.tsx", import.meta.url),
+  "utf8",
+);
+const i18n = await readFile(
+  new URL("../mobile/src/i18n.tsx", import.meta.url),
+  "utf8",
+);
 const iconSources = await Promise.all([
-  "../mobile/src/components/BatpayPayment.tsx",
+  "../mobile/src/components/QrisPayment.tsx",
   "../mobile/src/components/SlivaCareModal.tsx",
   "../mobile/src/screens/ActivityScreen.tsx",
   "../mobile/src/screens/CommunityGroups.tsx",
@@ -123,20 +131,16 @@ test("home uses a compact illustrated hero and dense quick actions", () => {
   assert.doesNotMatch(home, /ImageBackground/);
 });
 
-test("home hero inspires a daily pet moment without duplicating quick actions", () => {
-  const hero = home.match(
-    /<LinearGradient[^>]*style=\{styles\.hero\}>[\s\S]*?<\/LinearGradient>/,
-  )?.[0];
-  assert.ok(hero);
-  assert.match(hero, /DAILY PET MOMENT/);
-  assert.match(hero, /10 menit quality time/);
-  assert.doesNotMatch(hero, /Buat booking|Tanya dokter/);
+test("home does not duplicate the Slivadoc membership card from account", () => {
+  assert.doesNotMatch(home, /styles\.memberCard/);
+  assert.doesNotMatch(home, /PET OWNER MEMBER|SLV-PO-|SLIVA POINT/);
 });
 
-test("pet selector lives inside the health snapshot only", () => {
-  assert.match(home, /HEALTH SNAPSHOT[\s\S]*Pilih profil hewan/);
-  assert.equal(home.match(/Pilih profil hewan/g)?.length, 1);
-  assert.doesNotMatch(home, /petPicker/);
+test("pet selector opens from the health snapshot and updates the active pet", () => {
+  assert.match(home, /HEALTH SNAPSHOT[\s\S]*Ganti profil pet aktif/);
+  assert.match(home, /setPetPickerOpen\(true\)/);
+  assert.match(home, /onSelectPet\(item\.id\)/);
+  assert.match(home, /Rekomendasi, kesehatan, dan booking akan mengikuti pet yang dipilih/);
 });
 
 test("home care sections use lively layered cards instead of rigid panels", () => {
@@ -147,7 +151,7 @@ test("home care sections use lively layered cards instead of rigid panels", () =
   assert.match(home, /Buat care plan pertama/);
   assert.match(home, /serviceFavorite/);
   assert.match(home, /TOP PICK/);
-  assert.match(home, /serviceGradient\(service\.tone\)/);
+  assert.match(home, /serviceGradient\(partner\.tone\)/);
 });
 
 test("android start replaces stale project Metro and clears its cache", () => {
@@ -205,6 +209,18 @@ test("mobile sheets preserve tappable space above the panel", () => {
   assert.match(app, /bookingWrap:\s*\{\s*maxHeight:\s*"88%"/);
 });
 
+test("native storefront is bounded below the device status area", () => {
+  assert.match(marketplace, /storefrontBackdrop:[\s\S]*?justifyContent:\s*"flex-end"/);
+  assert.match(marketplace, /height:\s*Math\.min\(860, windowHeight \* 0\.92\)/);
+  assert.match(marketplace, /storefrontSheet:[\s\S]*?borderTopLeftRadius:\s*28/);
+});
+
+test("native text inputs use the shared input scale and placeholder color", () => {
+  assert.match(i18n, /placeholderTextColor=\{placeholderTextColor \?\? colors\.muted\}/);
+  assert.match(i18n, /fontSize:\s*typography\.input/);
+  assert.match(i18n, /lineHeight:\s*20/);
+});
+
 test("notification sheet uses compact controls and top-aligned cards", () => {
   assert.match(app, /notificationSheetWrap:\s*\{[\s\S]*?height:\s*"86%"/);
   assert.match(app, /notificationFiltersContent:\s*\{\s*gap:\s*7/);
@@ -222,7 +238,10 @@ test("native UI exposes a reusable modern icon surface", () => {
   assert.match(activity, /BoundedBottomSheet/);
 });
 
-test("primary mobile experiences use vector icons instead of functional emoji", () => {
+test("primary mobile navigation uses vector icons while chat keeps its requested emoji picker", () => {
   const emoji = /[\u{1F300}-\u{1FAFF}]/u;
-  for (const source of iconSources) assert.doesNotMatch(source, emoji);
+  for (const source of iconSources.filter((source) => source !== marketplace))
+    assert.doesNotMatch(source, emoji);
+  assert.match(marketplace, /MARKETPLACE_CHAT_EMOJIS/);
+  assert.match(marketplace, /Ionicons name="send"/);
 });

@@ -53,7 +53,7 @@ test("discovery results stack their sorter instead of squeezing summary copy", (
   );
   assert.match(
     css,
-    /\.discover-result-head select\s*\{[\s\S]*?width:\s*100%/,
+    /\.discover-result-head \.sliva-select-trigger\s*\{[\s\S]*?width:\s*100%/,
   );
 });
 
@@ -61,4 +61,10 @@ test("mobile shell keeps search and notification controls at native touch size",
   assert.match(css, /\.global-search\s*\{[\s\S]*?height:\s*44px/);
   assert.match(css, /\.top-actions \.icon-button \+ \.icon-button\s*\{[\s\S]*?width:\s*44px/);
   assert.match(css, /\.mobile-more-sheet::before[\s\S]*?width:\s*42px[\s\S]*?height:\s*5px/);
+});
+
+test("the More sheet stays compact and scrolls its own content", () => {
+  assert.match(css, /\.mobile-more-sheet\s*\{[\s\S]*?max-height:\s*min\(80dvh, 720px\)/);
+  assert.match(css, /\.mobile-more-sheet > \.mobile-more-content\s*\{[\s\S]*?overflow-y:\s*auto/);
+  assert.match(css, /\.mobile-more-grid > button\s*\{[\s\S]*?min-height:\s*76px/);
 });

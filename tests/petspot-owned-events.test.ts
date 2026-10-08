@@ -14,7 +14,7 @@ test("PetSpot event tickets bind one eligible pet and use QRIS", () => {
   assert.match(api, /pet_id\?: string/);
   assert.match(discovery, /ticket_unit === "owner_pet"/);
   assert.match(discovery, /pet_id: selectedPetID/);
-  assert.match(discovery, /"event_registration",[\s\S]*"qris"/);
+  assert.match(discovery, /"event_registration",\s*registration\.id,\s*paymentMethod/);
 });
 
 test("Pet owner app supplies every pet profile to event checkout", () => {

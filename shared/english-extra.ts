@@ -580,4 +580,179 @@ export const englishExtra: Record<string, string> = {
 
   "Belum ada dokumen tersedia": "No documents available yet",
   "Pilihan dokumen dari mitra akan muncul di sini.": "Documents from partners will appear here.",
+  // Reviewed legal copy — /privasi, /hapus-akun, and the deletion request form.
+  // These strings must never fall through to machine translation.
+  "PRIVASI & DATA": "PRIVACY & DATA",
+  "Kebijakan Privasi Slivadoc": "Slivadoc Privacy Policy",
+  "Berlaku mulai 8 Oktober 2026. Halaman ini menjelaskan data yang kami kumpulkan, cara kami menggunakannya, pihak yang menerimanya, masa simpannya, serta hak Anda — termasuk pada aplikasi Android Slivadoc Pet Owner.":
+    "Effective 8 October 2026. This page explains the data we collect, how we use it, who receives it, how long we keep it, and your rights — including in the Slivadoc Pet Owner Android app.",
+  "Pengendali data dan kontak": "Data controller and contact",
+  "Pengendali data pribadi Anda adalah PT Sliva Technology Indonesia. Pertanyaan, permintaan data, atau keluhan privasi dapat dikirim ke privacy@slivadoc.com atau melalui Pusat Bantuan setelah Anda masuk ke akun.":
+    "The controller of your personal data is PT Sliva Technology Indonesia. Questions, data requests, or privacy complaints can be sent to privacy@slivadoc.com or via the Help Center after you sign in.",
+  "Data yang kami kumpulkan": "Data we collect",
+  "Kami hanya mengumpulkan data yang diperlukan untuk menjalankan layanan Slivadoc.":
+    "We only collect the data needed to run the Slivadoc service.",
+  "Akun dan kontak": "Account and contact",
+  "Alamat email, nama lengkap, nomor telepon, dan kata sandi yang disimpan dalam bentuk ter-hash (Argon2id).":
+    "Email address, full name, phone number, and your password stored as a hash (Argon2id).",
+  "Profil hewan": "Pet profile",
+  "Nama, spesies, tanggal lahir, berat badan, foto, nomor microchip, alergi, dan catatan kesehatan hewan.":
+    "Name, species, date of birth, weight, photos, microchip number, allergies, and your pet's health notes.",
+  "Nama penerima, nomor telepon, alamat lengkap, kode pos, dan koordinat untuk keperluan pengiriman.":
+    "Recipient name, phone number, full address, postcode, and coordinates for deliveries.",
+  "Transaksi dan pembayaran": "Transactions and payments",
+  "Riwayat pemesanan, konsultasi, pesanan, pembayaran, dan pengiriman beserta nominal dan statusnya. Kami tidak menyimpan nomor kartu, nomor rekening, atau PIN pembayaran Anda; pembayaran QRIS diproses oleh penyedia pembayaran.":
+    "History of bookings, consultations, orders, payments, and shipments with their amounts and status. We do not store your card numbers, bank account numbers, or payment PINs; QRIS payments are processed by our payment provider.",
+  "Konten dan komunikasi": "Content and communications",
+  "Pesan chat, postingan dan komentar komunitas, laporan hewan hilang (termasuk lokasi terakhir yang Anda cantumkan), ulasan, dan tiket bantuan.":
+    "Chat messages, community posts and comments, lost pet reports (including the last known location you provide), reviews, and support tickets.",
+  "Perangkat dan keamanan": "Device and security",
+  "Alamat IP, user agent, catatan sesi login, kode OTP, dan log aktivitas penting untuk keamanan dan audit.":
+    "IP address, user agent, login session records, OTP codes, and logs of significant activity for security and audit purposes.",
+  "Izin perangkat": "Device permissions",
+  "Dengan izin Anda, aplikasi Android meminta akses lokasi (kasar dan/atau presisi) untuk fitur sekitar dan pencarian lokasi, serta kamera untuk mengunggah foto. Izin dapat dikelola dari pengaturan perangkat.":
+    "With your permission, the Android app requests location access (coarse and/or precise) for nearby features and location search, and camera access to upload photos. You can manage permissions in your device settings.",
+  "Cara kami menggunakan data": "How we use your data",
+  "Menyediakan layanan: autentikasi, profil hewan, pemesanan, konsultasi, pembayaran, pengiriman, komunitas, dan dukungan pengguna.":
+    "Providing our services: authentication, pet profiles, bookings, consultations, payments, shipping, community, and user support.",
+  "Keamanan dan pencegahan penyalahgunaan: perlindungan akun, deteksi aktivitas mencurigakan, dan audit aktivitas penting.":
+    "Security and abuse prevention: account protection, detection of suspicious activity, and audit of significant activity.",
+  "Komunikasi layanan: kode OTP, konfirmasi transaksi, pembaruan status pesanan, dan informasi layanan terkait.":
+    "Service communications: OTP codes, transaction confirmations, order status updates, and related service information.",
+  "Asisten AI (SlivaCare): pesan chat dan data profil hewan yang Anda kirimkan ke asisten diproses untuk menghasilkan jawaban; pengenal akun dikirim dalam bentuk tersandi (hash), bukan identitas langsung.":
+    "AI assistant (SlivaCare): chat messages and pet profile data you send to the assistant are processed to generate answers; your account identifier is sent in hashed form, not your direct identity.",
+  "Kepatuhan hukum: memenuhi kewajiban pembukuan, perpajakan, serta permintaan yang sah dari aparat berwenang.":
+    "Legal compliance: meeting bookkeeping and tax obligations, and responding to lawful requests from authorities.",
+  "Pihak yang menerima data": "Who receives your data",
+  "Data dibagikan hanya sejauh yang diperlukan untuk menjalankan layanan berikut.":
+    "Data is shared only as far as needed to run the following services.",
+  "Resend": "Resend",
+  "Email transaksional seperti kode OTP. Data yang diterima: alamat email Anda.":
+    "Transactional email such as OTP codes. Data received: your email address.",
+  "Cloudinary": "Cloudinary",
+  "Penyimpanan media. Data yang diterima: foto dan dokumen yang Anda unggah.":
+    "Media storage. Data received: photos and documents you upload.",
+  "OpenAI": "OpenAI",
+  "Pemrosesan asisten AI SlivaCare. Data yang diterima: isi pesan chat dan profil hewan yang Anda kirimkan ke asisten.":
+    "SlivaCare AI assistant processing. Data received: the contents of chat messages and pet profile data you send to the assistant.",
+  "Photon (OpenStreetMap)": "Photon (OpenStreetMap)",
+  "Pencarian lokasi (geocoding). Data yang diterima: koordinat yang Anda masukkan.":
+    "Location search (geocoding). Data received: the coordinates you enter.",
+  "Yokke": "Yokke",
+  "Pemrosesan pembayaran QRIS. Data yang diterima: nominal dan referensi transaksi. Data kartu atau rekening tidak diteruskan kepada kami.":
+    "QRIS payment processing. Data received: transaction amount and reference. Card or bank account data is not passed on to us.",
+  "Lion Parcel": "Lion Parcel",
+  "Pengiriman barang. Data yang diterima: nama, nomor telepon, alamat, email, dan koordinat pengirim serta penerima.":
+    "Parcel shipping. Data received: name, phone number, address, email, and coordinates of sender and recipient.",
+  "Penyedia infrastruktur cloud": "Cloud infrastructure provider",
+  "Hosting aplikasi, basis data, dan penyimpanan pada pusat data regional di luar negeri.":
+    "Hosting of the application, database, and storage at regional data centers abroad.",
+  "Fitur penerjemahan otomatis berjalan pada infrastruktur kami sendiri dan tidak mengirim data Anda ke pihak ketiga. Kami tidak menjual data pribadi Anda.":
+    "The automatic translation feature runs on our own infrastructure and does not send your data to third parties. We do not sell your personal data.",
+  "Data yang bersifat publik": "Public data",
+  "Laporan hewan hilang dan konten komunitas (postingan, komentar, grup) dapat dilihat publik tanpa masuk ke akun, termasuk nama hewan, jenis, lokasi terakhir, dan koordinat yang Anda cantumkan. Nomor kontak hanya tampil jika Anda mencantumkannya sendiri pada laporan. Jangan membagikan data pribadi sensitif di area publik.":
+    "Lost pet reports and community content (posts, comments, groups) can be viewed publicly without signing in, including pet name, species, last known location, and the coordinates you provide. A contact number only appears if you add it to the report yourself. Do not share sensitive personal data in public areas.",
+  "Dasar hukum pemrosesan": "Legal basis for processing",
+  "Kami memproses data berdasarkan persetujuan Anda saat mendaftar, pelaksanaan layanan yang Anda minta, kewajiban hukum (termasuk pembukuan dan perpajakan), serta kepentingan sah kami dalam menjaga keamanan layanan, sesuai Undang-Undang Nomor 27 Tahun 2022 tentang Pelindungan Data Pribadi.":
+    "We process data based on your consent when you register, performance of the services you request, legal obligations (including bookkeeping and tax), and our legitimate interest in keeping the service secure, in accordance with Law No. 27 of 2022 on Personal Data Protection.",
+  "Hak Anda sebagai pemilik data": "Your rights as a data subject",
+  "Anda dapat menggunakan hak berikut melalui privacy@slivadoc.com, Pusat Bantuan, atau menu pengaturan akun.":
+    "You can exercise the following rights via privacy@slivadoc.com, the Help Center, or your account settings.",
+  "Mendapatkan akses dan salinan data pribadi Anda.": "Access and obtain a copy of your personal data.",
+  "Memperbaiki atau memperbarui data yang tidak akurat.": "Correct or update inaccurate data.",
+  "Menghapus data pribadi Anda melalui fitur Hapus Akun.": "Delete your personal data through the Delete Account feature.",
+  "Menarik persetujuan pemrosesan data.": "Withdraw your consent to data processing.",
+  "Membatasi pemrosesan dan mengajukan keberatan atas keputusan yang diambil secara otomatis.":
+    "Restrict processing and object to decisions taken automatically.",
+  "Mengajukan pengaduan kepada lembaga pengawas pelindungan data pribadi.":
+    "Lodge a complaint with the personal data protection supervisory authority.",
+  "Masa simpan data": "Data retention",
+  "Akun dan data profil: disimpan selama akun aktif, lalu dihapus atau dianonimkan setelah Anda menggunakan Hapus Akun.":
+    "Account and profile data: kept while your account is active, then deleted or anonymized once you use Delete Account.",
+  "Transaksi, pembayaran, dan pemesanan: dipertahankan dalam bentuk teranonim selama kurang lebih 5 tahun untuk kewajiban pembukuan dan perpajakan.":
+    "Transactions, payments, and bookings: kept in anonymized form for approximately 5 years for bookkeeping and tax obligations.",
+  "Log teknis dan keamanan: sekitar 90 hari. Kode OTP: dihapus 7 hari setelah kedaluwarsa. Sesi login: dihapus 30 hari setelah kedaluwarsa.":
+    "Technical and security logs: about 90 days. OTP codes: deleted 7 days after expiry. Login sessions: deleted 30 days after expiry.",
+  "Backup: salinan backup terenkripsi dihapus otomatis dalam rotasi hingga 12 bulan, sehingga data yang telah Anda hapus dapat bertahan pada salinan tersebut hingga rotasi selesai.":
+    "Backups: encrypted backup copies are deleted automatically on a rotation of up to 12 months, so data you have deleted may persist on those copies until the rotation completes.",
+  "Penghapusan akun": "Account deletion",
+  "Anda dapat menghapus akun melalui menu pengaturan akun di aplikasi, atau melalui":
+    "You can delete your account via account settings in the app, or through",
+  "halaman Hapus Akun": "the Delete Account page",
+  "jika Anda sudah tidak menggunakan aplikasi. Setelah konfirmasi dengan kode OTP, tersedia masa tenggang 14 hari untuk membatalkan. Setelah masa tenggang berakhir, data pribadi Anda dihapus permanen atau dianonimkan; catatan transaksi dipertahankan secara teranonim sesuai kewajiban hukum; dan salinan backup terenkripsi terhapus dalam rotasi hingga 12 bulan.":
+    "if you no longer use the app. After OTP confirmation there is a 14-day grace period during which you can cancel. Once the grace period ends, your personal data is permanently deleted or anonymized; transaction records are kept in anonymized form as required by law; and encrypted backup copies are deleted on a rotation of up to 12 months.",
+  "Keamanan data": "Data security",
+  "Kata sandi disimpan dalam bentuk ter-hash (Argon2id) dan akses data dibatasi berdasarkan peran.":
+    "Passwords are stored as a hash (Argon2id) and data access is restricted by role.",
+  "Komunikasi dilindungi enkripsi saat transit, dan aktivitas penting dicatat untuk audit serta investigasi.":
+    "Communications are encrypted in transit, and significant activity is logged for audit and investigation.",
+  "Tidak ada sistem yang sepenuhnya aman. Segera hubungi kami jika mencurigai penyalahgunaan akun, dan jangan pernah membagikan kode OTP atau kata sandi Anda.":
+    "No system is completely secure. Contact us immediately if you suspect misuse of your account, and never share your OTP code or password.",
+  "Anak di bawah 13 tahun": "Children under 13",
+  "Layanan Slivadoc tidak ditujukan untuk anak di bawah 13 tahun dan kami tidak dengan sengaja mengumpulkan data pribadi mereka. Jika Anda mengetahui seorang anak memberikan data pribadi kepada kami, hubungi privacy@slivadoc.com agar data tersebut kami hapus.":
+    "Slivadoc is not directed at children under 13 and we do not knowingly collect their personal data. If you learn that a child has provided personal data to us, contact privacy@slivadoc.com so we can delete it.",
+  "Perubahan kebijakan": "Changes to this policy",
+  "Kami dapat memperbarui kebijakan ini dari waktu ke waktu. Perubahan material akan diberitahukan melalui aplikasi atau email, dan tanggal berlaku tercantum di bagian atas halaman ini.":
+    "We may update this policy from time to time. Material changes will be announced through the app or email, and the effective date appears at the top of this page.",
+  "Kontak privasi": "Privacy contact",
+  "Kirim permintaan akses, koreksi, atau penghapusan data ke":
+    "Send access, correction, or deletion requests to",
+  "atau melalui": "or via",
+  "setelah masuk agar identitas akun dapat diverifikasi.":
+    "after signing in so your account identity can be verified.",
+  "Hapus Akun": "Delete Account",
+  "HAPUS AKUN": "DELETE ACCOUNT",
+  "Hapus akun Slivadoc Anda": "Delete your Slivadoc account",
+  "Anda berhak menghapus akun dan data pribadi Anda kapan saja. Halaman ini menjelaskan cara melakukannya dan apa yang terjadi setelahnya.":
+    "You have the right to delete your account and personal data at any time. This page explains how, and what happens afterwards.",
+  "Cara menghapus akun": "How to delete your account",
+  "Di aplikasi: buka Profil, lalu Pengaturan akun, pilih Hapus akun, dan ikuti konfirmasi dengan kode OTP.":
+    "In the app: open Profile, then Account settings, choose Delete account, and confirm with the OTP code.",
+  "Tanpa aplikasi: gunakan formulir di halaman ini. Masukkan email akun Anda, verifikasi dengan kode OTP, lalu konfirmasi permintaan penghapusan.":
+    "Without the app: use the form on this page. Enter your account email, verify with the OTP code, then confirm the deletion request.",
+  "Apa yang terjadi setelahnya": "What happens afterwards",
+  "Setelah konfirmasi, akun Anda memasuki masa tenggang 14 hari. Selama masa itu Anda dapat membatalkan kapan saja, dan akun tetap dapat digunakan.":
+    "After confirmation your account enters a 14-day grace period. During that time you can cancel at any time, and the account remains usable.",
+  "Setelah masa tenggang berakhir, data pribadi Anda — profil, alamat, profil dan foto hewan, pesan chat, laporan hewan hilang, serta konten komunitas — dihapus permanen atau dianonimkan, termasuk media yang tersimpan di penyedia penyimpanan kami.":
+    "Once the grace period ends, your personal data — profile, addresses, pet profiles and photos, chat messages, lost pet reports, and community content — is permanently deleted or anonymized, including media stored with our storage provider.",
+  "Catatan transaksi, pembayaran, dan pemesanan dipertahankan secara teranonim selama kurang lebih 5 tahun untuk kewajiban pembukuan dan perpajakan.":
+    "Transaction, payment, and booking records are kept in anonymized form for approximately 5 years for bookkeeping and tax obligations.",
+  "Salinan backup terenkripsi terhapus otomatis dalam rotasi hingga 12 bulan, sehingga salinan data Anda mungkin masih ada pada backup selama periode tersebut.":
+    "Encrypted backup copies are deleted automatically on a rotation of up to 12 months, so copies of your data may still exist in backups during that period.",
+  "Pesan chat Anda ikut dihapus dari sistem kami.":
+    "Your chat messages are also deleted from our systems.",
+  "Formulir permintaan": "Request form",
+  "Untuk mengajukan penghapusan atau membatalkan permintaan penghapusan tanpa aplikasi, gunakan formulir berikut.":
+    "To request deletion or cancel a deletion request without the app, use the form below.",
+  "Pertanyaan lain": "Other questions",
+  "Pelajari data apa yang kami proses pada": "Learn what data we process in",
+  "Kebijakan Privasi": "Privacy Policy",
+  "atau hubungi privacy@slivadoc.com.": "or contact privacy@slivadoc.com.",
+  "Ajukan penghapusan": "Request deletion",
+  "Batalkan penghapusan": "Cancel deletion",
+  "Masukkan email akun Anda. Kami akan mengirim kode OTP untuk memverifikasi kepemilikan akun sebelum permintaan penghapusan dicatat.":
+    "Enter your account email. We will send an OTP code to verify account ownership before the deletion request is recorded.",
+  "Masukkan email akun Anda. Kami akan mengirim kode OTP untuk memverifikasi bahwa Anda pemilik akun sebelum permintaan penghapusan dibatalkan.":
+    "Enter your account email. We will send an OTP code to verify that you own the account before the deletion request is canceled.",
+  "Email akun": "Account email",
+  "Kirim kode OTP": "Send OTP code",
+  "Memproses…": "Processing…",
+  "Konfirmasi penghapusan": "Confirm deletion",
+  "Konfirmasi pembatalan": "Confirm cancellation",
+  "Kode OTP telah dikirim ke email Anda. Periksa kotak masuk dan folder spam.":
+    "The OTP code has been sent to your email. Check your inbox and spam folder.",
+  "Permintaan penghapusan akun telah tercatat.":
+    "Your account deletion request has been recorded.",
+  "Data pribadi Anda akan dihapus permanen setelah masa tenggang 14 hari, yaitu setelah":
+    "Your personal data will be permanently deleted after the 14-day grace period, that is, after",
+  ". Selama masa tenggang, Anda dapat membatalkan melalui tombol Batalkan penghapusan di halaman ini, di aplikasi, atau melalui Pusat Bantuan.":
+    ". During the grace period you can cancel using the Cancel deletion button on this page, in the app, or via the Help Center.",
+  "Permintaan penghapusan akun Anda telah dibatalkan. Akun Anda kembali aktif seperti sediakala.":
+    "Your account deletion request has been canceled. Your account is active again as before.",
+  "Permintaan gagal. Periksa data Anda dan coba lagi.":
+    "Request failed. Check your details and try again.",
+  "Tidak dapat terhubung ke server. Periksa koneksi Anda dan coba lagi.":
+    "Could not reach the server. Check your connection and try again.",
+  "Bahasa halaman": "Page language",
+  "privacy@slivadoc.com": "privacy@slivadoc.com",
 };

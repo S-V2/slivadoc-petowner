@@ -958,6 +958,21 @@ export const updateMobilePetOwnerProfile = (input: {
     "/api/v1/petowner/profile",
     { method: "PATCH", body: JSON.stringify(input) },
   );
+
+export const requestMobileAccountDeletion = () =>
+  platformRequest<{ otp_sent: boolean }>("/api/v1/petowner/account-deletion/request", { method: "POST" });
+export const confirmMobileAccountDeletion = (otp: string) =>
+  platformRequest<{ grace_until: string }>("/api/v1/petowner/account-deletion/confirm", {
+    method: "POST",
+    body: JSON.stringify({ otp }),
+  });
+export const cancelMobileAccountDeletion = () =>
+  platformRequest<{ canceled: boolean }>("/api/v1/petowner/account-deletion/cancel", { method: "POST" });
+export const getMobileAccountDeletionStatus = () =>
+  platformRequest<{ pending: boolean; grace_until: string | null }>(
+    "/api/v1/petowner/account-deletion/status",
+    { cache: "no-store" },
+  );
 export const getMobileServices = (options?: {
   search?: string;
   category?: string;

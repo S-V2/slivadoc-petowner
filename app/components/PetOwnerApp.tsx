@@ -70,6 +70,10 @@ import {
   getPetOwnerActivityCenter,
   getNotifications,
   getPetOwnerShippingAddresses,
+  requestPetOwnerAccountDeletion,
+  confirmPetOwnerAccountDeletion,
+  cancelPetOwnerAccountDeletion,
+  getPetOwnerAccountDeletionStatus,
   getPetOwnerSupportTickets,
   getPetOwnerSupportTicketMessages,
   sendPetOwnerSupportTicketMessage,
@@ -1742,14 +1746,15 @@ const legalCopy = {
       "Kamu bertanggung jawab menjaga kerahasiaan akun, memberikan data yang benar, dan menggunakan komunitas secara aman. Konten yang menipu, membahayakan hewan, melanggar hak orang lain, atau memuat kontak pribadi pada area publik dapat dimoderasi.",
       "Booking, pembayaran, pembatalan, donasi, dan layanan mitra mengikuti detail yang ditampilkan sebelum konfirmasi. Slivadoc mencatat aktivitas penting untuk keamanan, dukungan, dan penyelesaian kendala.",
     ],
+    headings: ["Ruang lingkup", "Penggunaan yang bertanggung jawab", "Data dan layanan"],
   },
   privacy: {
     title: "Kebijakan Privasi Slivadoc",
     sections: [
-      "Kami memproses identitas akun, profil pet, catatan layanan, preferensi, dan data perangkat yang diperlukan untuk menjalankan fitur Slivadoc. Data lokasi Petship dibagikan pada tingkat tempat; koordinat personal tidak ditampilkan kepada pengguna lain.",
-      "Data digunakan untuk autentikasi, personalisasi, transaksi, keselamatan, analitik agregat, pencegahan penyalahgunaan, serta komunikasi layanan. Akses dibatasi berdasarkan peran dan dicatat untuk kebutuhan audit.",
-      "Kamu dapat memperbarui profil, mengelola akses keluarga, keluar dari perangkat, dan meminta bantuan terkait data melalui Pusat Bantuan. Data disimpan sesuai kebutuhan layanan dan kewajiban hukum yang berlaku.",
+      "Kami memproses data akun, profil pet, transaksi, dan lokasi yang diperlukan untuk menjalankan fitur Slivadoc. Data lokasi Petship dibagikan pada tingkat tempat; koordinat personal tidak ditampilkan kepada pengguna lain. Data dibagikan kepada mitra layanan hanya sebatas yang dibutuhkan untuk memproses booking, pesanan, dan pembayaran kamu.",
+      "Kamu berhak mengakses dan memperbarui data, mengelola akses keluarga, serta meminta penghapusan akun langsung dari aplikasi di Profil > Hapus akun. Data pribadi dihapus setelah masa tenggang 14 hari, sedangkan data transaksi dipertahankan secara teranonim sesuai kewajiban hukum.",
     ],
+    headings: ["Data dan mitra layanan", "Hak kamu"],
   },
 } as const;
 
@@ -2115,15 +2120,18 @@ function PetOwnerLogin({
                 <article key={section}>
                   <b>
                     <LocalizedCopy>{index + 1}</LocalizedCopy><LocalizedCopy>{"."}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
-                    <LocalizedCopy>{index === 0
-                      ? "Ruang lingkup"
-                      : index === 1
-                        ? "Penggunaan yang bertanggung jawab"
-                        : "Data dan layanan"}</LocalizedCopy>
+                    <LocalizedCopy>{legalCopy[policy].headings[index]}</LocalizedCopy>
                   </b>
                   <p><LocalizedCopy>{section}</LocalizedCopy></p>
                 </article>
               ))}</LocalizedCopy>
+              {policy === "privacy" && (
+                <p>
+                  <LocalizedCopy>{"Kebijakan privasi lengkap tersedia di "}</LocalizedCopy>
+                  <Link href="/privasi"><LocalizedCopy>{"slivadoc.com/privasi"}</LocalizedCopy></Link>
+                  <LocalizedCopy>{"."}</LocalizedCopy>
+                </p>
+              )}
             </div>
             <LocalizedButton
               className="primary-button full"
@@ -5906,6 +5914,7 @@ function ProfileView({
   >([]);
   const [addressLoading, setAddressLoading] = useState(true);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const membershipProgress = membership.next_level_points
     ? Math.max(
         0,
@@ -6254,6 +6263,16 @@ function ProfileView({
             </p>
             <Icon name="chevron" size={17} />
           </LocalizedButton>
+          <LocalizedButton type="button" onClick={() => setDeleteOpen(true)}>
+            <span>
+              <Icon name="close" size={19} />
+            </span>
+            <p>
+              <b><LocalizedCopy>{"Hapus akun"}</LocalizedCopy></b>
+              <small><LocalizedCopy>{"Hapus akun dan data pribadi secara permanen"}</LocalizedCopy></small>
+            </p>
+            <Icon name="chevron" size={17} />
+          </LocalizedButton>
         </section>
       </aside>
       <LocalizedCopy>{edit && (
@@ -6270,6 +6289,9 @@ function ProfileView({
           close={() => setFamilyOpen(false)}
           notify={notify}
         />
+      )}</LocalizedCopy>
+      <LocalizedCopy>{deleteOpen && (
+        <AccountDeletionModal close={() => setDeleteOpen(false)} notify={notify} />
       )}</LocalizedCopy>
       <LocalizedCopy>{addressModalOpen && (
         <ShippingAddressModal
@@ -6418,6 +6440,143 @@ function ProfileEditModal({
             <LocalizedCopy>{busy ? "Menyimpan…" : "Simpan perubahan"}</LocalizedCopy>
           </LocalizedButton>
         </form>
+      </section>
+    </div>
+  );
+}
+
+function AccountDeletionModal({ close, notify }: { close: () => void; notify: Notify }) {
+  const { locale } = usePetOwnerI18n();
+  const dialog = useDialogFocus<HTMLElement>(true, close);
+  const [step, setStep] = useState<"loading" | "info" | "otp" | "pending">("loading");
+  const [graceUntil, setGraceUntil] = useState<string | null>(null);
+  const [otp, setOtp] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void getPetOwnerAccountDeletionStatus()
+      .then((status) => {
+        if (!live) return;
+        setGraceUntil(status.grace_until);
+        setStep(status.pending ? "pending" : "info");
+      })
+      .catch((error) => {
+        if (!live) return;
+        notify(error instanceof Error ? error.message : "Status penghapusan akun belum dapat dimuat");
+        setStep("info");
+      });
+    return () => {
+      live = false;
+    };
+  }, [notify]);
+  async function run(action: () => Promise<void>, failure: string) {
+    setBusy(true);
+    try {
+      await action();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : failure);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const sendOtp = () =>
+    run(async () => {
+      await requestPetOwnerAccountDeletion();
+      setOtp("");
+      setStep("otp");
+      notify("Kode OTP dikirim ke email akunmu.");
+    }, "OTP belum dapat dikirim");
+  const confirmDeletion = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    return run(async () => {
+      const result = await confirmPetOwnerAccountDeletion(otp.trim());
+      setGraceUntil(result.grace_until);
+      setStep("pending");
+      notify("Penghapusan akun dijadwalkan.");
+    }, "Penghapusan akun belum dapat dikonfirmasi");
+  };
+  const cancelDeletion = () =>
+    run(async () => {
+      await cancelPetOwnerAccountDeletion();
+      setGraceUntil(null);
+      setStep("info");
+      notify("Penghapusan akun dibatalkan.");
+    }, "Penghapusan akun belum dapat dibatalkan");
+  return (
+    <div className="modal-overlay" onMouseDown={close}>
+      <section
+        ref={dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Hapus akun"
+        tabIndex={-1}
+        className="modal confirm-modal"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <LocalizedButton className="modal-close" onClick={close} aria-label="Tutup hapus akun">
+          <Icon name="close" />
+        </LocalizedButton>
+        <span className="section-eyebrow"><LocalizedCopy>{"HAPUS AKUN"}</LocalizedCopy></span>
+        {step === "loading" && (
+          <p><LocalizedCopy>{"Memuat status akun…"}</LocalizedCopy></p>
+        )}
+        {(step === "info" || step === "otp") && (
+          <>
+            <h2><LocalizedCopy>{"Hapus akun Slivadoc?"}</LocalizedCopy></h2>
+            <ul style={{ listStyle: "disc", paddingLeft: 18, color: "var(--muted)", lineHeight: 1.65 }}>
+              <li><LocalizedCopy>{"Data pribadimu dihapus permanen setelah masa tenggang 14 hari."}</LocalizedCopy></li>
+              <li><LocalizedCopy>{"Data transaksi tetap disimpan dalam bentuk teranonim."}</LocalizedCopy></li>
+              <li><LocalizedCopy>{"Salinan cadangan terenkripsi disimpan hingga 12 bulan."}</LocalizedCopy></li>
+              <li><LocalizedCopy>{"Kamu bisa membatalkan penghapusan selama masa tenggang."}</LocalizedCopy></li>
+            </ul>
+          </>
+        )}
+        {step === "info" && (
+          <footer>
+            <LocalizedButton className="secondary-button" onClick={close}><LocalizedCopy>{"Batal"}</LocalizedCopy></LocalizedButton>
+            <LocalizedButton className="danger-button" disabled={busy} onClick={sendOtp}>
+              <LocalizedCopy>{busy ? "Mengirim…" : "Kirim OTP"}</LocalizedCopy>
+            </LocalizedButton>
+          </footer>
+        )}
+        {step === "otp" && (
+          <form className="world-form" onSubmit={confirmDeletion}>
+            <label>
+              <span><LocalizedCopy>{"Kode OTP"}</LocalizedCopy></span>
+              <LocalizedInput
+                value={otp}
+                onChange={(event) => setOtp(event.target.value)}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+              />
+            </label>
+            <LocalizedButton className="danger-button" disabled={busy || !otp.trim()}>
+              <LocalizedCopy>{busy ? "Memproses…" : "Konfirmasi hapus akun"}</LocalizedCopy>
+            </LocalizedButton>
+          </form>
+        )}
+        {step === "pending" && (
+          <>
+            <h2><LocalizedCopy>{"Penghapusan akun dijadwalkan"}</LocalizedCopy></h2>
+            <p>
+              <LocalizedCopy>{"Akunmu akan dihapus permanen pada "}</LocalizedCopy>
+              <b>
+                <LocalizedCopy preserve>
+                  {graceUntil
+                    ? new Date(graceUntil).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" })
+                    : "-"}
+                </LocalizedCopy>
+              </b>
+              <LocalizedCopy>{". Batalkan sebelum tanggal itu jika kamu berubah pikiran."}</LocalizedCopy>
+            </p>
+            <footer>
+              <LocalizedButton className="secondary-button" disabled={busy} onClick={cancelDeletion}>
+                <LocalizedCopy>{busy ? "Membatalkan…" : "Batalkan penghapusan"}</LocalizedCopy>
+              </LocalizedButton>
+            </footer>
+          </>
+        )}
       </section>
     </div>
   );

@@ -4,6 +4,10 @@ import { ActivityIndicator, BackHandler, Modal,  StyleSheet, Switch, View } from
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
+  cancelMobileAccountDeletion,
+  confirmMobileAccountDeletion,
+  getMobileAccountDeletionStatus,
+  requestMobileAccountDeletion,
   getMobilePetFamily,
   inviteMobilePetFamily,
   revokeMobilePetFamily,
@@ -94,7 +98,7 @@ export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, on
     return <FamilyAccessScreen pets={pets} onBack={() => setPage("main")} onAction={onAction} onOpenNotifications={onOpenNotifications}/>;
   }
   if (page === "security") {
-    return <><SecurityScreen owner={owner} onBack={() => setPage("main")} onOpenNotifications={onOpenNotifications} onRequestLogout={() => setLogoutConfirmOpen(true)}/><LogoutConfirm visible={logoutConfirmOpen} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={() => { setLogoutConfirmOpen(false); void onLogout(); }}/></>;
+    return <><SecurityScreen owner={owner} onBack={() => setPage("main")} onOpenNotifications={onOpenNotifications} onRequestLogout={() => setLogoutConfirmOpen(true)} onAction={onAction}/><LogoutConfirm visible={logoutConfirmOpen} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={() => { setLogoutConfirmOpen(false); void onLogout(); }}/></>;
   }
 
   const initials = owner.full_name.split(" ").map((item) => item[0]).slice(0, 2).join("").toUpperCase();
@@ -283,7 +287,7 @@ function FamilyAccessScreen({ pets, onBack, onAction, onOpenNotifications }: { p
   </>;
 }
 
-function SecurityScreen({ owner, onBack, onOpenNotifications, onRequestLogout }: { owner: MobileOwner; onBack: () => void; onOpenNotifications: (category?: string) => void; onRequestLogout: () => void }) {
+function SecurityScreen({ owner, onBack, onOpenNotifications, onRequestLogout, onAction }: { owner: MobileOwner; onBack: () => void; onOpenNotifications: (category?: string) => void; onRequestLogout: () => void; onAction: (message: string) => void }) {
   const [maskSensitive, setMaskSensitive] = useState(false);
   const emailVerified = isEmailVerified(owner);
   const phoneVerified = isPhoneVerified(owner);
@@ -305,7 +309,64 @@ function SecurityScreen({ owner, onBack, onOpenNotifications, onRequestLogout }:
     <Card style={styles.sessionCard}><View style={styles.sessionIcon}><Ionicons name="phone-portrait-outline" size={20} color="#13856F"/></View><View style={styles.sessionCopy}><Text style={styles.sessionTitle}>Aplikasi Slivadoc Mobile</Text><Text style={styles.sessionNote}>Sesi ini · aktif sekarang</Text></View><View style={styles.activeDot}/></Card>
     <Text style={styles.sessionHint}>Keluar akan menghapus token login aman hanya dari perangkat ini. Data akun dan profil pet tetap tersimpan.</Text>
     <Pressable accessibilityRole="button" onPress={onRequestLogout} style={({ pressed }) => [styles.logoutButton, styles.securityLogout, pressed && styles.pressed]}><View style={styles.logoutIcon}><Ionicons name="log-out-outline" size={20} color={colors.red}/></View><View style={styles.logoutCopy}><Text style={styles.logoutTitle}>Keluar dari perangkat ini</Text><Text style={styles.logoutNote}>Kamu bisa masuk kembali kapan saja.</Text></View><Ionicons name="chevron-forward" size={17} color={colors.red}/></Pressable>
+    <DeleteAccountSection onAction={onAction}/>
   </Screen>;
+}
+
+function DeleteAccountSection({ onAction }: { onAction: (message: string) => void }) {
+  const { formatDate } = useI18n();
+  const [graceUntil, setGraceUntil] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let active = true;
+    getMobileAccountDeletionStatus()
+      .then((status) => { if (active) setGraceUntil(status.pending ? status.grace_until : null); })
+      .catch(() => {})
+      .finally(() => { if (active) setLoaded(true); });
+    return () => { active = false; };
+  }, []);
+  const run = async (action: () => Promise<void>, fallback: string) => {
+    setBusy(true);
+    try { await action(); } catch (cause) { onAction(cause instanceof Error ? cause.message : fallback); } finally { setBusy(false); }
+  };
+  const requestOtp = () => run(async () => {
+    await requestMobileAccountDeletion();
+    setOtp("");
+    setSheetOpen(true);
+    onAction("Kode OTP dikirim ke email dan nomor terdaftar");
+  }, "Kode OTP belum dapat dikirim");
+  const confirm = () => {
+    if (!/^\d{4,8}$/.test(otp.trim())) { onAction("Masukkan kode OTP yang kamu terima"); return Promise.resolve(); }
+    return run(async () => {
+      const result = await confirmMobileAccountDeletion(otp.trim());
+      setGraceUntil(result.grace_until);
+      setSheetOpen(false);
+      onAction("Penghapusan akun dijadwalkan");
+    }, "Akun belum dapat dihapus");
+  };
+  const cancel = () => run(async () => {
+    await cancelMobileAccountDeletion();
+    setGraceUntil(null);
+    onAction("Penghapusan akun dibatalkan");
+  }, "Penghapusan belum dapat dibatalkan");
+  const graceLabel = graceUntil && !Number.isNaN(new Date(graceUntil).valueOf()) ? formatDate(graceUntil, { day: "numeric", month: "long", year: "numeric" }) : "";
+  return <>
+    <SectionTitle eyebrow="ZONA BAHAYA" title="Hapus akun"/>
+    {!loaded ? <ActivityIndicator color={colors.sky600}/> : graceUntil ? <Card style={styles.sessionCard}>
+      <View style={styles.sessionCopy}>
+        <Text style={styles.sessionTitle}>Penghapusan akun dijadwalkan</Text>
+        <Text style={styles.sessionNote}>{graceLabel ? `Data pribadi dihapus permanen setelah ${graceLabel}. Batalkan sebelum tanggal itu untuk mempertahankan akun.` : "Akunmu dalam masa tenggang penghapusan. Batalkan untuk mempertahankan akun."}</Text>
+        <Pressable accessibilityRole="button" disabled={busy} onPress={() => void cancel()} style={({ pressed }) => [styles.primaryAction, busy && styles.disabled, pressed && styles.pressed]}>{busy ? <ActivityIndicator size="small" color={colors.white}/> : <Ionicons name="arrow-undo-outline" size={17} color={colors.white}/>}<Text style={styles.primaryActionText}>Batalkan penghapusan</Text></Pressable>
+      </View>
+    </Card> : <>
+      <Text style={styles.sessionHint}>{"Data pribadimu dihapus permanen setelah masa tenggang 14 hari. Data transaksi tetap disimpan dalam bentuk teranonim. Salinan backup terenkripsi dapat tersimpan hingga 12 bulan. Kamu bisa membatalkan selama masa tenggang."}</Text>
+      <Pressable accessibilityRole="button" disabled={busy} onPress={() => void requestOtp()} style={({ pressed }) => [styles.logoutButton, styles.securityLogout, busy && styles.disabled, pressed && styles.pressed]}><View style={styles.logoutIcon}><Ionicons name="trash-outline" size={20} color={colors.red}/></View><View style={styles.logoutCopy}><Text style={styles.logoutTitle}>Hapus akun</Text><Text style={styles.logoutNote}>Kami kirim kode OTP untuk konfirmasi.</Text></View>{busy ? <ActivityIndicator size="small" color={colors.red}/> : <Ionicons name="chevron-forward" size={17} color={colors.red}/>}</Pressable>
+    </>}
+    <BoundedBottomSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} maxHeight="60%"><View style={styles.profileEditSheet}><View style={styles.languageHeader}><View style={styles.languageIcon}><Ionicons name="trash-outline" size={22} color={colors.red}/></View><View style={styles.languageHeaderCopy}><Text style={styles.languageEyebrow}>KONFIRMASI OTP</Text><Text style={styles.languageTitle}>Hapus akun Slivadoc</Text><Text style={styles.languageNote}>Masukkan kode OTP yang kami kirim. Setelah konfirmasi, akun dihapus permanen dalam 14 hari kecuali kamu membatalkannya.</Text></View></View><FieldLabel label="Kode OTP"/><TextInput accessibilityLabel="Kode OTP" value={otp} onChangeText={setOtp} keyboardType="number-pad" maxLength={8} placeholder="Kode OTP" placeholderTextColor={colors.muted} style={styles.input}/><Pressable accessibilityRole="button" disabled={busy} onPress={() => void confirm()} style={({ pressed }) => [styles.primaryAction, busy && styles.disabled, pressed && styles.pressed]}>{busy ? <ActivityIndicator size="small" color={colors.white}/> : <Ionicons name="trash-outline" size={17} color={colors.white}/>}<Text style={styles.primaryActionText}>{busy ? "Memproses…" : "Konfirmasi hapus akun"}</Text></Pressable></View></BoundedBottomSheet>
+  </>;
 }
 
 function AccountPageHeader({ eyebrow, title, onBack, onNotification }: { eyebrow: string; title: string; onBack: () => void; onNotification: () => void }) {

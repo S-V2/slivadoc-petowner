@@ -2642,3 +2642,27 @@ export const snoozeCareReminder = (id: string, minutes: number) =>
     `/api/v1/petowner/reminders/${id}/snooze`,
     { method: "POST", body: JSON.stringify({ minutes }) },
   );
+
+export const requestPetOwnerAccountDeletion = () =>
+  request<{ otp_sent: boolean }>(
+    "/api/v1/petowner/account-deletion/request",
+    { method: "POST" },
+  );
+
+export const confirmPetOwnerAccountDeletion = (otp: string) =>
+  request<{ grace_until: string }>(
+    "/api/v1/petowner/account-deletion/confirm",
+    { method: "POST", body: JSON.stringify({ otp }) },
+  );
+
+export const cancelPetOwnerAccountDeletion = () =>
+  request<{ canceled: boolean }>(
+    "/api/v1/petowner/account-deletion/cancel",
+    { method: "POST" },
+  );
+
+export const getPetOwnerAccountDeletionStatus = () =>
+  request<{ pending: boolean; grace_until: string | null }>(
+    "/api/v1/petowner/account-deletion/status",
+    { cache: "no-store" },
+  );

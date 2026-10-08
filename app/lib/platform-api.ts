@@ -1031,6 +1031,20 @@ export const getPetSpots = (options?: {
   );
 };
 
+export type PublicLostPet = {
+  id: string;
+  name: string;
+  species: string;
+  last_seen_location: string;
+  latitude: number;
+  longitude: number;
+  radius_km: number;
+  last_seen_at: string;
+};
+
+export const getPublicLostPets = () =>
+  request<PlatformList<PublicLostPet>>("/api/v1/public/lost-pets");
+
 export const getPetHubStreams = () =>
   request<PlatformList<PetHubStream>>("/api/v1/public/pethub/streams");
 export const getPetHubFeed = async (options?: {

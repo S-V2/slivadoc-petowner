@@ -194,6 +194,8 @@ jobs:
             NEXT_PUBLIC_PETOWNER_API_URL=${{ vars.NEXT_PUBLIC_PETOWNER_API_URL }}
             NEXT_PUBLIC_PLATFORM_API_URL=${{ vars.NEXT_PUBLIC_PLATFORM_API_URL }}
             NEXT_PUBLIC_REALTIME_URL=${{ vars.NEXT_PUBLIC_REALTIME_URL }}
+            NEXT_PUBLIC_MAP_STYLE_URL=${{ vars.NEXT_PUBLIC_MAP_STYLE_URL }}
+            NEXT_PUBLIC_MAP_PMTILES_URL=${{ vars.NEXT_PUBLIC_MAP_PMTILES_URL }}
           # Single-platform image: skip provenance/SBOM attestations so the pushed
           # tag is a plain image manifest rather than an index with an
           # unknown/unknown entry, which keeps `docker pull` on the VM simple.

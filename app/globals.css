@@ -6359,20 +6359,22 @@ kbd {
   border: 1px solid var(--line);
   border-radius: 15px;
 }
-.map-preview iframe {
+.map-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.geo-map {
   width: 100%;
   height: 100%;
-  border: 0;
 }
-.map-preview > span {
-  position: absolute;
-  right: 6px;
-  bottom: 5px;
-  padding: 3px 6px;
-  border-radius: 5px;
-  color: #466073;
-  background: rgba(255, 255, 255, 0.88);
-  font-size: 9px;
+.geo-map-off {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  background: #e4eeea;
+  font-size: 11px;
 }
 .selected-location {
   display: flex;
@@ -9966,6 +9968,11 @@ textarea {
 
 
 @media (min-width: 861px) {
+  .page-content:has(.activity-native) > .page-heading,
+  .activity-native {
+    max-width: 860px;
+  }
+
   .page-content {
     padding-bottom: 92px;
   }

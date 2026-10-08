@@ -1763,12 +1763,6 @@ export function askSlivaCare(
   });
 }
 
-export function reverseGeocode(latitude: number, longitude: number) {
-  return request<{ latitude: number; longitude: number; label: string }>(
-    `/api/location/reverse?lat=${latitude}&lng=${longitude}`,
-  );
-}
-
 export async function uploadMobileImage(
   uri: string,
   mimeType = "image/jpeg",

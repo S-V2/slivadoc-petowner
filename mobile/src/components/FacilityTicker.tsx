@@ -4,7 +4,7 @@ import { facilityNames } from "../../../shared/world-presentation";
 import { LocalizedText as Text, useI18n } from "../i18n";
 import { colors } from "../theme";
 
-export function FacilityTicker({ facilities }: { facilities: ReadonlyArray<string | { name: string }> }) {
+export function FacilityTicker({ facilities, compact = false }: { compact?: boolean; facilities: ReadonlyArray<string | { name: string }> }) {
   const { t } = useI18n();
   const names = facilityNames(facilities);
   const identity = names.join("\u0000");
@@ -25,13 +25,14 @@ export function FacilityTicker({ facilities }: { facilities: ReadonlyArray<strin
     return () => { clearInterval(timer); arrival.stopAnimation(); arrival.setValue(1); };
   }, [arrival, enabled, identity, names.length]);
   if (!names.length) return null;
-  return <View style={styles.row} accessible accessibilityLabel={`${t("Fasilitas")}: ${names.map(t).join(", ")}`}>
-    <Text style={styles.label}>Fasilitas</Text>
-    <View style={styles.window}><Animated.Text numberOfLines={1} style={[styles.chip, { opacity: arrival, transform: [{ translateY: arrival.interpolate({ inputRange: [0, 1], outputRange: [4, 0] }) }] }]}>{t(names[step % names.length]!)}</Animated.Text></View>
+  return <View style={[styles.row, compact && styles.compact]} accessible accessibilityLabel={`${t("Fasilitas")}: ${names.map(t).join(", ")}`}>
+    <Text style={[styles.label, compact && styles.compactLabel]}>Fasilitas</Text>
+    <View style={styles.window}><Animated.Text numberOfLines={1} style={[styles.chip, compact && styles.compactChip, { opacity: arrival, transform: [{ translateY: arrival.interpolate({ inputRange: [0, 1], outputRange: [4, 0] }) }] }]}>{t(names[step % names.length]!)}</Animated.Text></View>
     {names.length > 3 && <Text style={styles.more}>3+</Text>}
   </View>;
 }
 const styles = StyleSheet.create({
+  compact: { flexWrap: "wrap", gap: 4, minHeight: 46 }, compactLabel: { width: "100%", fontSize: 9 }, compactChip: { fontSize: 10, lineHeight: 16, paddingHorizontal: 6, paddingVertical: 4 },
   row: { minHeight: 30, flexDirection: "row", alignItems: "center", gap: 8 },
   label: { color: colors.muted, fontSize: 11, fontWeight: "600" }, window: { flex: 1, minWidth: 0, overflow: "hidden" },
   chip: { alignSelf: "flex-start", maxWidth: "100%", paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: colors.sky100, borderRadius: 9, backgroundColor: colors.sky50, color: colors.navy, fontSize: 12, lineHeight: 18, fontWeight: "600" },

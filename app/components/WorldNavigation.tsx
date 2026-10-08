@@ -23,5 +23,5 @@ export function WorldNavigation({ active, onSelect, embedded = false }: {
       ))}</LocalizedCopy>
     </nav>
   );
-  return embedded ? navigation : <WorldExplorer>{navigation}</WorldExplorer>;
+  return embedded ? navigation : <WorldExplorer compact>{navigation}</WorldExplorer>;
 }

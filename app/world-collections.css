@@ -1,0 +1,192 @@
+/* Sliva World collections share compact cards; detail views retain full content. */
+.world-collection[data-collection] { min-width: 0; }
+.world-collection-header {
+  --collection-ink: #087596;
+  --collection-wash: #eefaff;
+  display: flex; align-items: center; gap: 16px;
+  margin: 0 0 20px; padding: 20px;
+  border: 1px solid #d9eaf3; border-radius: 22px;
+  background: linear-gradient(110deg, var(--collection-wash), #fff 85%);
+}
+.world-collection-header--events { --collection-ink: #7554a8; --collection-wash: #f4f0ff; }
+.world-collection-header--consult { --collection-ink: #12816f; --collection-wash: #edfaf5; }
+.world-collection-header--adoption { --collection-ink: #ad6475; --collection-wash: #fff3f2; }
+.world-collection-header--documents { --collection-ink: #536cac; --collection-wash: #f0f4ff; }
+.world-collection-symbol { display: grid; place-items: center; flex: 0 0 52px; height: 52px; border-radius: 18px; color: var(--collection-ink); background: #fff; box-shadow: 0 4px 14px #173e5708; }
+.world-collection-intro { flex: 1; min-width: 0; }
+.world-collection-intro > small { color: var(--collection-ink); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.world-collection-intro h2 { margin: 5px 0; color: var(--navy); font-size: 23px; line-height: 1.2; letter-spacing: -.025em; }
+.world-collection-intro p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.world-collection-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.world-collection-actions > button { min-height: 44px; padding: 10px 14px; font-size: 12px; border-radius: 13px; }
+
+.world-collection[data-collection] .academy-grid,
+.world-collection[data-collection] .event-grid,
+.world-collection[data-collection] .doctor-grid,
+.world-collection[data-collection] .adoption-grid,
+.world-collection[data-collection] .document-product-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+.world-collection[data-collection] :is(.academy-card, .event-card, .doctor-card, .adoption-card, .document-product-card) { min-width: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 20px; border: 1px solid #d8e9f1; background: #fff; box-shadow: 0 4px 16px #173e5707; transition: border-color .18s, box-shadow .18s; }
+.world-collection[data-collection] :is(.academy-card, .event-card, .doctor-card, .adoption-card, .document-product-card):hover { transform: none; border-color: #a8d5ea; box-shadow: 0 7px 24px #173e570f; }
+.world-collection[data-collection] :is(.academy-visual, .event-art, .adoption-photo) { height: auto; min-height: 0; width: 100%; aspect-ratio: 1.45; flex: none; }
+.world-collection[data-collection] .adoption-photo img { width: 100%; height: 100%; object-fit: cover; }
+.world-collection[data-collection] :is(.academy-card-body, .event-card > div:last-child, .doctor-card > div:last-child, .adoption-card > div:last-child, .document-product-card > div) { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 13px; }
+.world-collection[data-collection] :is(.academy-card, .event-card, .doctor-card, .adoption-card, .document-product-card) h3 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; min-height: 38px; margin: 0; font-size: 16px; line-height: 19px; font-weight: 750; overflow-wrap: anywhere; }
+.world-collection[data-collection] :is(.event-card, .doctor-card, .adoption-card, .document-product-card) p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 0; font-size: 12px; line-height: 17px; }
+.world-collection[data-collection] :is(.event-card, .doctor-card, .adoption-card, .document-product-card) footer,
+.world-collection[data-collection] .academy-card-checkout { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: auto; padding-top: 10px; border-top: 1px solid #e5eff4; }
+.world-collection[data-collection] :is(.doctor-card, .adoption-card, .document-product-card) footer .primary-button,
+.world-collection[data-collection] .academy-card-checkout > button { width: 100%; min-height: 44px; justify-content: center; padding: 8px; border-radius: 11px; font-size: 12px; }
+.world-collection[data-collection] :is(.doctor-card, .adoption-card, .document-product-card) footer > span { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; font-size: 11px; }
+.world-collection[data-collection] :is(.doctor-card, .adoption-card, .document-product-card) footer b,
+.world-collection[data-collection] .academy-price strong { font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
+.world-collection[data-collection] .academy-card-checkout .academy-price { min-width: 0; }
+.world-collection[data-collection] .academy-card-proof { flex-wrap: wrap; gap: 4px; overflow: visible; white-space: normal; min-height: 16px; }
+.world-collection[data-collection] .academy-card-proof span { padding-right: 4px; font-size: 10px; }
+.world-collection[data-collection] .academy-card-proof span:nth-child(3) { display: none; }
+.world-collection[data-collection] .trainer-line { min-width: 0; gap: 6px; margin: 0 0 2px; }
+.world-collection[data-collection] .trainer-line > span { flex: 0 0 26px; width: 26px; height: 26px; }
+.world-collection[data-collection] .trainer-line p { min-width: 0; gap: 3px; }
+.world-collection[data-collection] .trainer-line b { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
+.world-collection[data-collection] .trainer-line small { font-size: 10px; }
+.world-collection[data-collection] :is(.academy-media-topline, .academy-media-bottomline, .event-art-topline) { left: 9px; right: 9px; }
+.world-collection[data-collection] :is(.academy-media-topline, .event-art-topline) { top: 9px; }
+.world-collection[data-collection] .academy-media-bottomline { bottom: 9px; }
+.world-collection[data-collection] .academy-media-bottomline small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 10px; }
+.world-collection[data-collection] :is(.academy-media-topline b, .academy-media-topline em, .event-art-topline i, .event-art-topline b) { max-width: 100%; padding: 5px 7px; font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.world-collection[data-collection] .academy-trainer-section { padding: 16px; border-radius: 20px; box-shadow: none; }
+.world-collection[data-collection] .academy-trainer-heading h2 { font-size: 18px; }
+.world-collection[data-collection] .academy-trainer-heading p { font-size: 12px; }
+.world-collection[data-collection] .academy-trainer-list { grid-auto-columns: 235px; }
+.world-collection[data-collection] .academy-trainer-list > button { padding: 12px; gap: 10px; }
+.world-collection[data-collection] .academy-trainer-list > button > span:first-child { width: 44px; height: 44px; flex-basis: 44px; }
+
+.world-featured-event { display: grid; grid-template-columns: 130px minmax(0,1fr) auto; align-items: center; gap: 16px; margin-bottom: 20px; padding: 12px; border: 1px solid #e3ddf0; border-radius: 20px; background: #faf8ff; }
+.world-featured-picture { position: relative; display: grid; place-items: center; height: 92px; overflow: hidden; border-radius: 13px; color: #7554a8; background: #eee8fa; }
+.world-featured-picture img { object-fit: cover; }
+.world-featured-event small { font-size: 9px; font-weight: 800; color: #7554a8; letter-spacing: .08em; }
+.world-featured-event h3 { margin: 5px 0; font-size: 17px; line-height: 1.25; }
+.world-featured-event p { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 0; font-size: 11px; color: var(--muted); }
+.world-featured-event > button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 10px 14px; border: 0; border-radius: 12px; background: #7554a8; color: #fff; font-size: 12px; }
+.world-collection[data-collection] .event-date-chip { left: 9px; bottom: 9px; width: 37px; height: 40px; border-radius: 10px; }
+.world-collection[data-collection] .event-date-chip b { font-size: 18px; }
+.world-collection[data-collection] .event-date-chip small { font-size: 9px; }
+.world-collection[data-collection] .world-event-availability { display: flex; align-items: center; gap: 5px; color: #7554a8; font-size: 11px; }
+.world-collection[data-collection] .event-card footer { grid-template-columns: 1fr auto; align-items: center; padding-top: 9px; }
+.world-collection[data-collection] .event-card footer > strong { min-height: 0; padding: 0; font-size: 11px; background: none; color: var(--sky-600); }
+.world-collection[data-collection] .event-card footer > span > b { font-size: 14px; }
+.world-collection[data-collection] .event-card footer > span > small { display: none; }
+.world-collection[data-collection] .section-title-world { margin: 20px 0 12px; }
+.world-collection[data-collection] .section-title-world h2 { font-size: 20px; }
+
+.world-collection[data-collection] .doctor-photo { position: relative; min-height: 0; height: 106px; display: flex; align-items: center; justify-content: center; padding: 14px; background: linear-gradient(135deg,#edf9f6,#f4fbff); }
+.world-collection[data-collection] .doctor-photo img { width: 72px; height: 72px; object-fit: cover; border-radius: 22px; border: 3px solid #fff; }
+.world-collection[data-collection] .doctor-photo > span { font-size: 38px; }
+.world-collection[data-collection] .doctor-photo > i { bottom: 8px; right: 8px; left: auto; padding: 4px 7px; font-size: 9px; }
+.world-collection[data-collection] .doctor-card > div:last-child > small { color: #12816f; font-size: 9px; }
+.world-collection[data-collection] .doctor-rating { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; font-size: 10px; }
+.world-collection[data-collection] .consult-provider-credential { overflow: hidden; display: block; white-space: nowrap; text-overflow: ellipsis; font-size: 10px; }
+.world-collection[data-collection] .doctor-card em { display: none; }
+.world-collection[data-collection] .consult-section-title { align-items: flex-start; flex-wrap: wrap; }
+.world-collection[data-collection] .consult-toolbar { min-width: 0; justify-content: flex-start; }
+.world-collection[data-collection] .care-trust { margin: 12px 0; gap: 8px; flex-wrap: wrap; }
+.world-collection[data-collection] .care-trust span { font-size: 11px; }
+.world-collection[data-collection] .consult-safety-note { align-items: flex-start; padding: 12px; font-size: 11px; line-height: 1.5; }
+
+.world-collection[data-collection] .adoption-source { max-width: 100%; margin: 0; font-size: 10px; }
+.world-collection[data-collection] .adoption-card { padding: 0; color: var(--navy); }
+.world-collection[data-collection] .adoption-card p { color: var(--muted); }
+.world-collection[data-collection] .adoption-card footer .primary-button { margin: 0; color: #fff; background: var(--sky-600); }
+.world-collection[data-collection] .adoption-card footer > b { color: var(--navy); }
+.world-collection[data-collection] .adoption-card > div:last-child > small { font-size: 11px; color: var(--muted); }
+.world-collection[data-collection] .adoption-card em { display: none; }
+.world-collection[data-collection] .pet-tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; }
+.world-collection[data-collection] .pet-tags span { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 4px 6px; font-size: 10px; }
+.world-collection[data-collection] .health-checks { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; }
+.world-collection[data-collection] .health-checks span { max-width: 100%; font-size: 10px; line-height: 14px; }
+.world-collection[data-collection] .adoption-steps { gap: 8px; margin: 14px 0; overflow-x: auto; }
+.world-collection[data-collection] .adoption-steps > span { flex: none; padding: 8px; font-size: 10px; }
+.world-collection[data-collection] .adoption-filter-panel { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.world-collection[data-collection] .adoption-filter-panel .adoption-search { grid-column: 1/-1; }
+
+.world-collection[data-collection] .document-product-card { padding: 14px; gap: 10px; }
+.world-collection[data-collection] .document-product-icon { width: 48px; height: 48px; min-height: 0; border-radius: 15px; display: grid; place-items: center; }
+.world-collection[data-collection] .document-product-card > div { padding: 0; }
+.world-collection[data-collection] .document-product-card > div > small { font-size: 10px; line-height: 1.5; color: var(--muted); }
+.world-document-requirements { display: flex; align-items: center; gap: 5px; color: #536cac; font-size: 11px; }
+.world-collection[data-collection] .document-assurance { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 18px; }
+.world-collection[data-collection] .document-assurance > span { font-size: 11px; }
+.world-collection[data-collection] .document-process { padding: 20px; border-radius: 20px; }
+.world-collection[data-collection] .document-process h2 { font-size: 19px; }
+
+/* Two venue cards even beside a map; three only when the list is wide enough. */
+.world-collection[data-collection] .world-split { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+.world-collection[data-collection] .world-split-list { container-type: inline-size; }
+.world-collection[data-collection] .petspot-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.world-collection[data-collection] .petspot-card { border-radius: 18px; }
+.world-collection[data-collection] .petspot-card .petspot-card-gallery { aspect-ratio: 1.4; height: auto; }
+.world-collection[data-collection] .petspot-card-content { padding: 11px; gap: 7px; }
+.world-collection[data-collection] .petspot-card-content h3 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; min-height: 36px; font-size: 14px; line-height: 18px; }
+.world-collection[data-collection] .petspot-card-content p { font-size: 11px; line-height: 16px; }
+.world-collection[data-collection] .petspot-card-category { font-size: 10px; }
+.world-collection[data-collection] .petspot-card-location { gap: 5px; }
+.world-collection[data-collection] .petspot-card-location svg { width: 12px; height: 12px; flex-basis: 12px; }
+.world-collection[data-collection] .petspot-card-content footer { font-size: 11px; }
+.world-collection[data-collection] .facility-ticker { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px; min-height: 46px; }
+.world-collection[data-collection] .facility-ticker > small { grid-column: 1/-1; font-size: 9px; }
+.world-collection[data-collection] .facility-ticker-chip { padding: 4px 6px; font-size: 10px; line-height: 16px; }
+.world-collection[data-collection] .facility-ticker-more { padding: 4px 5px; font-size: 10px; line-height: 16px; }
+@container (min-width: 660px) { .world-collection[data-collection] .petspot-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+
+@media (min-width:700px) and (max-width:860px), (min-width:1000px) {
+  .world-collection[data-collection] :is(.academy-grid,.event-grid,.doctor-grid,.adoption-grid,.document-product-grid) { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media (min-width:1280px) { .world-collection[data-collection] :is(.academy-grid,.event-grid,.doctor-grid,.adoption-grid,.document-product-grid) { grid-template-columns: repeat(4,minmax(0,1fr)); } }
+@media (min-width:1600px) { .world-collection[data-collection] :is(.academy-grid,.event-grid,.doctor-grid,.adoption-grid,.document-product-grid) { grid-template-columns: repeat(5,minmax(0,1fr)); } }
+@media (max-width:860px) { .world-collection[data-collection] .world-split { grid-template-columns: 1fr; } }
+@media (max-width:580px) {
+  .world-collection-header { flex-wrap: wrap; gap: 12px; padding: 15px; margin-bottom: 16px; border-radius: 20px; }
+  .world-collection-symbol { flex-basis: 42px; height: 42px; border-radius: 14px; }
+  .world-collection-intro h2 { font-size: 18px; }
+  .world-collection-intro p { font-size: 12px; }
+  .world-collection-actions { width: 100%; }
+  .world-collection-actions > button { flex: 1; }
+  .world-collection[data-collection] :is(.academy-grid,.event-grid,.doctor-grid,.adoption-grid,.document-product-grid) { gap: 10px; }
+  .world-collection[data-collection] :is(.academy-card-body,.event-card > div:last-child,.doctor-card > div:last-child,.adoption-card > div:last-child) { padding: 10px; gap: 7px; }
+  .world-collection[data-collection] :is(.academy-card,.event-card,.doctor-card,.adoption-card,.document-product-card) h3 { min-height: 34px; font-size: 13px !important; line-height: 17px; }
+  .world-collection[data-collection] :is(.event-card,.doctor-card,.adoption-card,.document-product-card) p { font-size: 11px; line-height: 15px; }
+  .world-collection[data-collection] :is(.doctor-card,.adoption-card,.document-product-card) footer b,
+  .world-collection[data-collection] .academy-price strong { font-size: 13px; }
+  .world-collection[data-collection] .event-card footer { grid-template-columns: 1fr; gap: 4px; }
+  .world-collection[data-collection] .event-card footer > strong { justify-content: space-between; font-size: 11px; }
+  .world-collection[data-collection] .event-card footer > span > b { font-size: 13px; }
+  .world-collection[data-collection] .document-product-card { padding: 11px; }
+  .world-collection[data-collection] .document-product-card > div > small { font-size: 9px; }
+  .world-featured-event { grid-template-columns: 72px minmax(0,1fr); gap: 10px; }
+  .world-featured-picture { height: 72px; }
+  .world-featured-event h3 { font-size: 13px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .world-featured-event > button { grid-column: 1/-1; }
+  .world-collection[data-collection] .adoption-filter-panel { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .world-collection[data-collection] .consult-toolbar { width: 100%; }
+  .world-collection[data-collection] .consult-provider-search { width: 100%; }
+  .world-collection[data-collection] .consult-safety-note { display: block; }
+  .world-collection[data-collection] .consult-safety-note b { display: block; margin-bottom: 5px; }
+}
+@media (prefers-reduced-motion: reduce) { .world-collection[data-collection] :is(.academy-card,.event-card,.doctor-card,.adoption-card,.document-product-card) { transition: none; } }
+
+.world-collection[data-collection] .adoption-photo{position:relative}
+.world-collection[data-collection] .adoption-photo .adoption-source{position:absolute;left:8px;bottom:8px;right:8px;display:flex;align-items:center;gap:4px;width:max-content;max-width:calc(100% - 16px);padding:5px 7px;background:#fffffff0;color:#536676;border-radius:8px;font-size:9px}
+.world-card-location{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)}
+.world-card-location svg{flex:0 0 12px}
+.world-collection[data-collection] .health-checks>span{display:inline-flex;align-items:center;gap:4px;padding:4px 5px;font-size:10px;line-height:14px}
+.world-collection[data-collection] .health-checks>span>b{font-size:10px}
+
+.world-cover-photo{position:absolute;inset:0;display:block;overflow:hidden}
+.world-cover-photo img{object-fit:cover}
+.world-avatar-photo{position:relative;display:block;width:72px;height:72px;border:3px solid #fff;border-radius:22px;overflow:hidden}
+.world-avatar-photo img{object-fit:cover}
+.world-photo-fallback{width:100%;height:100%;display:grid;place-items:center;background:linear-gradient(145deg,#dff3ff,#e3f8ef);color:#377a98;font-size:27px;font-weight:800}
+
+.world-collection[data-collection] .doctor-photo>i.busy{background:#fff0ce;color:#966a20}
+.world-collection[data-collection] .doctor-photo>i.offline,.world-collection[data-collection] .doctor-photo>i.away{background:#e9eef2;color:#637a8c}
+
+.world-collection[data-collection] .world-catalog-status{grid-column:1/-1;min-height:160px;padding:20px;border-radius:20px}

@@ -1,4 +1,6 @@
 const facilityLabels: Record<string, string> = {
+  busy: "Sibuk", offline: "Offline", online: "Online", away: "Tidak aktif",
+  beginner: "Pemula", intermediate: "Menengah", advanced: "Lanjutan", all_levels: "Semua level",
   indoor: "Indoor", outdoor: "Outdoor", semi_outdoor: "Semi outdoor",
   pet_menu: "Pet menu", water_bowl: "Mangkuk minum", waste_station: "Area kebersihan pet",
   pet_event: "Area event pet", pet_lounge: "Pet lounge", pet_store: "Pet shop",

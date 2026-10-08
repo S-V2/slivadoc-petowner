@@ -29,6 +29,10 @@ import {
 import { BoundedBottomSheet, PrimaryButton } from "../components/ui";
 import { PetHubPhotos } from "../components/PetHubPhotos";
 import { AdoptionManager } from "./AdoptionManager";
+import { worldCardWidth, worldGridColumns } from "../../../shared/world-collections";
+import { useResponsiveLayout } from "../responsive";
+import { WorldPhoto } from "../components/WorldPhoto";
+import { WorldCollectionHeader } from "../components/WorldCollectionHeader";
 import { colors } from "../theme";
 
 type PetChoice = {
@@ -99,6 +103,9 @@ export function AdoptionExperience({
 }) {
   const { formatCurrency } = useI18n();
   const { height: screenHeight } = useWindowDimensions();
+  const { contentWidth, gutter } = useResponsiveLayout();
+  const availableWidth = contentWidth - gutter * 2;
+  const cardWidth = worldCardWidth(availableWidth, worldGridColumns(availableWidth));
   const [items, setItems] = useState<WorldItem[]>([]),
     [loading, setLoading] = useState(true),
     [error, setError] = useState("");
@@ -294,19 +301,7 @@ export function AdoptionExperience({
   }
   return (
     <View style={s.stack}>
-      <View style={s.hero}>
-        <Text style={s.eyebrow}>SLIVA HOME · PET PASSPORT</Text>
-        <Text style={s.heroTitle}>Rumah baru. Cerita bahagia berikutnya.</Text>
-        <Text style={s.copy}>
-          Kenali karakter dan kebutuhan pet sebelum menjadi keluarga. Pengajuan
-          + biaya tetap, tanpa lelang.
-        </Text>
-        <PrimaryButton
-          label="Ajukan pet dari koleksi"
-          icon="paw-outline"
-          onPress={startComposer}
-        />
-      </View>
+      <WorldCollectionHeader mode="adoption"><PrimaryButton label="Ajukan pet dari koleksi" icon="paw-outline" onPress={startComposer}/></WorldCollectionHeader>
       <View style={s.tabs}>
         {(
           [
@@ -385,39 +380,30 @@ export function AdoptionExperience({
                     phone: owner?.phone || "",
                   });
                 }}
-                style={s.card}
+                style={[s.card, { width: cardWidth }]}
                 accessibilityRole="button"
                 accessibilityLabel={`Kenalan dengan ${item.name}`}
               >
-                {item.photo_urls?.[0] ? (
-                  <Image source={{ uri: item.photo_urls[0] }} style={s.cover} />
-                ) : (
-                  <View style={[s.cover, s.placeholder]}>
-                    <Ionicons name="paw" size={40} color={colors.sky600} />
-                    <Text style={s.copy}>Foto belum tersedia</Text>
-                  </View>
-                )}
+                <View style={s.cover}><WorldPhoto src={item.photo_urls?.[0]} title={item.name ?? "Pet"}/></View>
                 <View style={s.cardCopy}>
-                  <Text style={s.eyebrow}>{item.city}</Text>
-                  <Text style={s.title}>{item.name}</Text>
-                  <Text style={s.copy}>
+                  <View style={s.cardLocation}><Ionicons name="location-outline" size={12} color={colors.muted}/><Text numberOfLines={2} style={s.cardNote}>{item.city}</Text></View>
+                  <Text numberOfLines={2} style={s.cardTitle}>{item.name}</Text>
+                  <Text numberOfLines={2} style={s.cardNote}>
                     {item.breed} · {item.age_months ?? 0} bulan
                   </Text>
                   <View style={s.tags}>
                     {(item.personality ?? []).slice(0, 2).map((trait) => (
-                      <Text key={trait} style={s.tag}>
+                      <Text numberOfLines={1} key={trait} style={s.tag}>
                         {trait}
                       </Text>
                     ))}
                   </View>
-                  <Text style={s.copy}>
+                  <Text numberOfLines={2} style={s.cardNote}>
                     {item.vaccinated
                       ? "✓ Sudah vaksin"
                       : "Vaksin belum dikonfirmasi"}
                   </Text>
-                  <Text style={s.eyebrow}>BIAYA TETAP</Text>
-                  <Text style={s.price}>{feeLabel(item)}</Text>
-                  <Text style={s.link}>Buka pet passport →</Text>
+                  <View style={s.cardFooter}><Text style={s.cardPrice}>{feeLabel(item)}</Text><Text style={s.cardLink}>Buka pet passport →</Text></View>
                 </View>
               </Pressable>
             ))}
@@ -775,26 +761,31 @@ const s = StyleSheet.create({
   textarea: { minHeight: 104, textAlignVertical: "top" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   card: {
-    width: "48%",
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "#D6E7EF",
     backgroundColor: "#fff",
     borderRadius: 18,
   },
-  cover: { width: "100%", aspectRatio: 0.85 },
+  cover: { width: "100%", aspectRatio: 1.45 },
   placeholder: {
     backgroundColor: "#EAF8FD",
     alignItems: "center",
     justifyContent: "center",
   },
-  cardCopy: { padding: 12, gap: 8 },
+  cardLocation: { flexDirection: "row", alignItems: "center", gap: 4 },
+  cardTitle: { minHeight: 34, fontSize: 13, lineHeight: 17, color: colors.navy, fontWeight: "700" },
+  cardNote: { flexShrink: 1, fontSize: 11, lineHeight: 15, color: colors.muted },
+  cardFooter: { marginTop: "auto", paddingTop: 9, gap: 7, borderTopWidth: 1, borderTopColor: colors.line },
+  cardPrice: { fontSize: 13, color: colors.navy, fontWeight: "700" },
+  cardLink: { fontSize: 11, color: colors.sky600, fontWeight: "600" },
+  cardCopy: { flex: 1, padding: 10, gap: 7 },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   tag: {
-    color: "#31796D",
+    maxWidth: "100%",    color: "#31796D",
     backgroundColor: "#E9F7EF",
-    fontSize: 11,
-    padding: 6,
+    fontSize: 10,
+    padding: 4,
     borderRadius: 8,
   },
   price: { fontSize: 19, fontWeight: "700", color: colors.sky600 },

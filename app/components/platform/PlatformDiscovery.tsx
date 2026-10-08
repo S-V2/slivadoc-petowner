@@ -18,7 +18,11 @@ import {
 import { Icon } from "../Icon";
 import { DiscountBadge } from "../DiscountBadge";
 import { PetSpotDetail } from "./PetSpotDetail";
+import { CatalogStatus } from "../WorldCatalogStatus";
+import { WorldPhoto } from "../WorldPhoto";
+import { WorldCollectionHeader } from "../WorldCollectionHeader";
 import { WorldExplorer } from "../WorldExplorer";
+import { worldLabel } from "../../../shared/world-presentation";
 import { FacilityTicker } from "../FacilityTicker";
 import { PetHubComposer } from "./PetHubComposer";
 import { PetHubStoryView } from "./PetHubStoryView";
@@ -120,17 +124,6 @@ const academySpecies = [
   { id: "bird", label: "Burung", icon: "🦜" },
   { id: "small_mammal", label: "Small pet", icon: "🐹" },
 ] as const;
-
-function CatalogStatus({ loading, error, empty, title, note, onRetry }: {
-  loading: boolean; error: boolean; empty: boolean; title: string; note: string; onRetry: () => void;
-}) {
-  if (!loading && !error && !empty) return null;
-  return <div className="empty-state world-catalog-status" role={error ? "alert" : "status"} aria-live="polite">
-    <h3><LocalizedCopy>{loading ? "Memuat informasi terbaru…" : error ? "Informasi belum dapat dimuat" : title}</LocalizedCopy></h3>
-    {!loading && <p><LocalizedCopy>{error ? "Periksa koneksi internet lalu coba lagi." : note}</LocalizedCopy></p>}
-    {!loading && <LocalizedButton type="button" className="secondary-button" onClick={onRetry}><LocalizedCopy>{error ? "Coba lagi" : "Muat ulang"}</LocalizedCopy></LocalizedButton>}
-  </div>;
-}
 
 function AcademyPrice({
   program,
@@ -726,27 +719,8 @@ export default function PlatformDiscovery({
 
   if (mode === "academy")
     return (
-      <>
-        <section className="world-hero academy-hero">
-          <div>
-            <span><LocalizedCopy>{"SLIVADOC PET ACADEMY"}</LocalizedCopy></span>
-            <h2><LocalizedCopy>{"Belajar bersama. Bertumbuh bersama."}</LocalizedCopy></h2>
-            <p><LocalizedCopy>{"Program training terverifikasi dengan kurikulum terukur, positive reinforcement, dan progres digital untuk "}</LocalizedCopy><LocalizedCopy>{petName}</LocalizedCopy><LocalizedCopy>{"."}</LocalizedCopy></p>
-            <LocalizedButton
-              type="button"
-              onClick={() =>
-                document
-                  .querySelector("#academy-catalog")
-                  ?.scrollIntoView({ behavior: "smooth" })
-              }
-            ><LocalizedCopy>{"Jelajahi program "}</LocalizedCopy><Icon name="arrow" size={16} />
-            </LocalizedButton>
-          </div>
-          <div className="hero-stat">
-            <b><LocalizedCopy>{"4,9"}</LocalizedCopy></b>
-            <small><LocalizedCopy>{"rating academy partner"}</LocalizedCopy></small>
-          </div>
-        </section>
+      <div className="world-collection world-collection--academy" data-collection="academy">
+        <WorldCollectionHeader mode="academy"/>
         <section className="academy-trainer-section">
           <div className="academy-trainer-heading">
             <div>
@@ -853,14 +827,7 @@ export default function PlatformDiscovery({
           <LocalizedCopy>{(loading || loadError ? [] : programs)
             .filter((item) => filter === "all" || item.category === filter)
             .map((item, index) => {
-              const participantCount = item.participant_count ?? 0;
               const reviewCount = item.review_count ?? 0;
-              const occupancy = Math.min(
-                100,
-                Math.round(
-                  (participantCount / Math.max(1, item.capacity)) * 100,
-                ),
-              );
               return (
                 <article
                   className="academy-card academy-card--experience"
@@ -872,25 +839,13 @@ export default function PlatformDiscovery({
                     onClick={() => setSelectedProgram(item)}
                     aria-label={`Lihat detail ${item.title}`}
                   >
-                    <LocalizedCopy>{(item.cover_url || item.image_urls?.[0]) ? (
-                      <NextImage
-                        src={(item.cover_url || item.image_urls?.[0])!}
-                        alt={`Kelas ${item.title}`}
-                        fill
-                        sizes="(max-width: 720px) 100vw, 33vw"
-                        unoptimized
-                      />
-                    ) : (
-                      <span aria-hidden="true">
-                        <LocalizedCopy>{index % 3 === 0 ? "🐕‍🦺" : index % 3 === 1 ? "🐶" : "🏅"}</LocalizedCopy>
-                      </span>
-                    )}</LocalizedCopy>
+                    <WorldPhoto src={item.cover_url || item.image_urls?.[0]} alt={`Kelas ${item.title}`} icon="sparkle"/>
                     <span className="academy-media-shade" />
                     <span className="academy-media-topline">
                       <LocalizedCopy>{item.featured ? (
                         <b><LocalizedCopy>{"✦ PILIHAN SLIVADOC"}</LocalizedCopy></b>
                       ) : (
-                        <b><LocalizedCopy>{item.level}</LocalizedCopy></b>
+                        <b><LocalizedCopy>{worldLabel(item.level)}</LocalizedCopy></b>
                       )}</LocalizedCopy>
                       <LocalizedCopy>{item.discount_percent > 0 ? (
                         <DiscountBadge percent={item.discount_percent} />
@@ -911,16 +866,6 @@ export default function PlatformDiscovery({
                       <span><LocalizedCopy>{academySince(item.running_since)}</LocalizedCopy></span>
                     </div>
                     <h3><LocalizedCopy>{item.title}</LocalizedCopy></h3>
-                    <p><LocalizedCopy>{item.description}</LocalizedCopy></p>
-                    <div className="academy-cohort-progress">
-                      <div>
-                        <span><LocalizedCopy>{"Alumni & peserta"}</LocalizedCopy></span>
-                        <b><LocalizedCopy>{participantCount}</LocalizedCopy><LocalizedCopy>{" pet"}</LocalizedCopy></b>
-                      </div>
-                      <i>
-                        <span style={{ width: `${occupancy}%` }} />
-                      </i>
-                    </div>
                     <div className="trainer-line">
                       <span><LocalizedCopy>{item.trainer_name.slice(0, 1)}</LocalizedCopy></span>
                       <p>
@@ -928,7 +873,6 @@ export default function PlatformDiscovery({
                         <small>
                           <LocalizedCopy>{item.duration_weeks}</LocalizedCopy><LocalizedCopy>{" minggu · "}</LocalizedCopy><LocalizedCopy>{item.session_count}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"sesi"}</LocalizedCopy></small>
                       </p>
-                      <em><LocalizedCopy>{when(item.next_schedule)}</LocalizedCopy></em>
                     </div>
                     <div className="academy-card-checkout">
                       <AcademyPrice program={item} compact />
@@ -960,70 +904,19 @@ export default function PlatformDiscovery({
             close={() => setSelectedTrainer(null)}
           />
         )}
-      </>
+      </div>
     );
 
   if (mode === "events") {
     const featured = events.find((item) => item.featured) || events[0];
     return (
-      <>
-        {!loading && !loadError && featured && (
-          <section
-            className={`event-banner ${featured.banner_url ? "has-media" : ""}`}
-          >
-            <LocalizedCopy>{featured.banner_url ? (
-              <NextImage
-                className="event-banner-media"
-                src={featured.banner_url}
-                alt=""
-                fill
-                sizes="100vw"
-                unoptimized
-                priority
-              />
-            ) : null}</LocalizedCopy>
-            <span className="event-banner-shade" />
-            <div className="event-banner-date">
-              <b><LocalizedCopy>{new Date(featured.starts_at).getDate()}</LocalizedCopy></b>
-              <small>
-                <LocalizedCopy>{new Intl.DateTimeFormat(petOwnerIntlLocale(), { month: "short" }).format(
-                  new Date(featured.starts_at),
-                )}</LocalizedCopy>
-              </small>
-            </div>
-            <div>
-              <span className="event-featured-label"><LocalizedCopy>{"✦ FEATURED PET EVENT"}</LocalizedCopy></span>
-              <h2><LocalizedCopy>{featured.title}</LocalizedCopy></h2>
-              <p><LocalizedCopy>{featured.description}</LocalizedCopy></p>
-              <div className="event-meta">
-                <span><LocalizedCopy>{"⌖ "}</LocalizedCopy><LocalizedCopy>{featured.venue}</LocalizedCopy><LocalizedCopy>{", "}</LocalizedCopy><LocalizedCopy>{featured.city}</LocalizedCopy>
-                </span>
-                <span><LocalizedCopy>{"◷ "}</LocalizedCopy><LocalizedCopy>{when(featured.starts_at)}</LocalizedCopy></span>
-              </div>
-              <div className="event-banner-chips">
-                <span><LocalizedCopy>{"✓ Pet friendly"}</LocalizedCopy></span>
-                <span>
-                  <LocalizedCopy>{featured.price ? money.format(featured.price) : "Gratis"}</LocalizedCopy>
-                </span>
-                <span>
-                  <LocalizedCopy>{Math.max(0, featured.capacity - featured.registered_count)}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"slot tersisa"}</LocalizedCopy></span>
-              </div>
-              <LocalizedButton type="button" onClick={() => setSelectedEvent(featured)}><LocalizedCopy>{"Lihat detail event "}</LocalizedCopy><Icon name="arrow" size={16} />
-              </LocalizedButton>
-            </div>
-            <div className="event-capacity">
-              <b><LocalizedCopy>{featured.registered_count.toLocaleString(petOwnerIntlLocale())}</LocalizedCopy></b>
-              <small><LocalizedCopy>{"pet parent terdaftar"}</LocalizedCopy></small>
-              <i>
-                <span
-                  style={{
-                    width: `${Math.min(100, (featured.registered_count / featured.capacity) * 100)}%`,
-                  }}
-                />
-              </i>
-            </div>
-          </section>
-        )}
+      <div className="world-collection world-collection--events" data-collection="events">
+        <WorldCollectionHeader mode="events"/>
+        {!loading && !loadError && featured && <section className="world-featured-event" aria-label="Event pilihan">
+          <div className="world-featured-picture">{featured.banner_url ? <NextImage src={featured.banner_url} alt="" fill sizes="180px" unoptimized/> : <Icon name="calendar" size={32}/>}</div>
+          <div><small><LocalizedCopy>{"EVENT PILIHAN"}</LocalizedCopy></small><h3><LocalizedCopy>{featured.title}</LocalizedCopy></h3><p><Icon name="map" size={13}/><LocalizedCopy>{featured.city}</LocalizedCopy><span> · </span><LocalizedCopy>{when(featured.starts_at)}</LocalizedCopy></p></div>
+          <LocalizedButton type="button" onClick={() => setSelectedEvent(featured)}><LocalizedCopy>{"Lihat detail event"}</LocalizedCopy><Icon name="arrow" size={15}/></LocalizedButton>
+        </section>}
         <div className="section-title-world">
           <div>
             <span><LocalizedCopy>{"EVENT MENDATANG"}</LocalizedCopy></span>
@@ -1037,12 +930,6 @@ export default function PlatformDiscovery({
               0,
               item.capacity - item.registered_count,
             );
-            const occupancy = Math.min(
-              100,
-              Math.round(
-                (item.registered_count / Math.max(1, item.capacity)) * 100,
-              ),
-            );
             return (
               <LocalizedButton
                 type="button"
@@ -1051,26 +938,10 @@ export default function PlatformDiscovery({
                 onClick={() => setSelectedEvent(item)}
               >
                 <div className={`event-art event-art-${index % 3}`}>
-                  <LocalizedCopy>{(item.banner_url || item.image_urls?.[0]) ? (
-                    <NextImage
-                      src={(item.banner_url || item.image_urls?.[0])!}
-                      alt={`Event ${item.title}`}
-                      fill
-                      sizes="(max-width: 720px) 100vw, 33vw"
-                      unoptimized
-                    />
-                  ) : (
-                    <span>
-                      <LocalizedCopy>{item.category === "sport"
-                        ? "🏃‍♀️🐕"
-                        : item.category === "community"
-                          ? "☕🐾"
-                          : "🎪"}</LocalizedCopy>
-                    </span>
-                  )}</LocalizedCopy>
+                  <WorldPhoto src={item.banner_url || item.image_urls?.[0]} alt={`Event ${item.title}`} icon="calendar"/>
                   <span className="event-art-shade" />
                   <span className="event-art-topline">
-                    <i><LocalizedCopy>{item.category}</LocalizedCopy></i>
+                    <i><LocalizedCopy>{worldLabel(item.category)}</LocalizedCopy></i>
                     <LocalizedCopy>{item.featured ? <b><LocalizedCopy>{"✦ Pilihan"}</LocalizedCopy></b> : null}</LocalizedCopy>
                   </span>
                   <span className="event-date-chip">
@@ -1088,29 +959,7 @@ export default function PlatformDiscovery({
                   <h3><LocalizedCopy>{item.title}</LocalizedCopy></h3>
                   <p><LocalizedCopy>{"⌖ "}</LocalizedCopy><LocalizedCopy>{item.venue}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{item.city}</LocalizedCopy>
                   </p>
-                  <div className="event-card-stats">
-                    <span>
-                      <b><LocalizedCopy>{item.registered_count}</LocalizedCopy></b>
-                      <small><LocalizedCopy>{"terdaftar"}</LocalizedCopy></small>
-                    </span>
-                    <span>
-                      <b><LocalizedCopy>{remaining}</LocalizedCopy></b>
-                      <small><LocalizedCopy>{"slot tersisa"}</LocalizedCopy></small>
-                    </span>
-                    <span>
-                      <b><LocalizedCopy>{item.allowed_pet_species?.length || "Semua"}</LocalizedCopy></b>
-                      <small><LocalizedCopy>{"jenis pet"}</LocalizedCopy></small>
-                    </span>
-                  </div>
-                  <div
-                    className="event-seat-progress"
-                    aria-label={`${occupancy}% kapasitas terisi`}
-                  >
-                    <i>
-                      <span style={{ width: `${occupancy}%` }} />
-                    </i>
-                    <small><LocalizedCopy>{occupancy}</LocalizedCopy><LocalizedCopy>{"% kapasitas terisi"}</LocalizedCopy></small>
-                  </div>
+                  <span className="world-event-availability"><Icon name="users" size={12}/><LocalizedCopy>{remaining}</LocalizedCopy> <LocalizedCopy>{"slot tersisa"}</LocalizedCopy></span>
                   <footer>
                     <span>
                       <small><LocalizedCopy>{"Mulai dari"}</LocalizedCopy></small>
@@ -1134,13 +983,13 @@ export default function PlatformDiscovery({
             notify={notify}
           />
         )}
-      </>
+      </div>
     );
   }
 
   if (mode === "petspot")
     return (
-      <>
+      <div className="world-collection world-collection--petspot" data-collection="petspot">
         <WorldExplorer>
         {navigation}
         <div className="petspot-search">
@@ -1281,7 +1130,7 @@ export default function PlatformDiscovery({
             ownerName={ownerName}
           />
         )}
-      </>
+      </div>
     );
 
   return (
@@ -1805,7 +1654,7 @@ function ProgramModal({
         ) : !enroll ? (
           <>
             <small className="world-kicker">
-              <LocalizedCopy>{program.category}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{program.level}</LocalizedCopy>
+              <LocalizedCopy>{program.category}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{worldLabel(program.level)}</LocalizedCopy>
             </small>
             <div className="academy-detail-heading-row">
               <h2><LocalizedCopy>{program.title}</LocalizedCopy></h2>
@@ -2119,7 +1968,7 @@ function AcademyTrainerModal({
                 <span>
                   <b><LocalizedCopy>{program.title}</LocalizedCopy></b>
                   <small>
-                    <LocalizedCopy>{program.level}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{program.session_count}</LocalizedCopy><LocalizedCopy>{" sesi"}</LocalizedCopy></small>
+                    <LocalizedCopy>{worldLabel(program.level)}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{program.session_count}</LocalizedCopy><LocalizedCopy>{" sesi"}</LocalizedCopy></small>
                 </span>
                 <strong><LocalizedCopy>{money.format(program.price)}</LocalizedCopy></strong>
               </div>

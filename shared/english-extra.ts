@@ -553,4 +553,31 @@ export const englishExtra: Record<string, string> = {
   "Penitipan harian": "Day care",
   "Layanan kamar": "Room service",
   "Kolam pet": "Pet pool",
+
+  "Temukan kelas dan trainer untuk setiap tahap tumbuh pet-mu.": "Find classes and trainers for every stage of your pet's growth.",
+  "Agenda seru untuk pet dan kamu.": "Great plans for you and your pet.",
+  "Jelajahi kegiatan, cek lokasi dan jadwal, lalu pilih event favoritmu.": "Explore activities, check locations and dates, and find your next event.",
+  "Pendamping tepat untuk pet-mu.": "The right expert for your pet.",
+  "Pilih dokter atau pet trainer, lalu tentukan paket dan jadwal.": "Choose a veterinarian or pet trainer, then pick a package and time.",
+  "Temukan keluarga. Mulai cerita baru.": "Find a family. Start a new story.",
+  "Kenali karakter, kesehatan, dan kebutuhan pet sebelum mengajukan adopsi.": "Get to know a pet's personality, health, and needs before applying to adopt.",
+  "Dokumen rapi. Perjalanan lebih tenang.": "Documents in order. Travel with peace of mind.",
+  "Pilih dokumen, lengkapi checklist, dan pantau prosesnya.": "Choose a document, complete the checklist, and follow its progress.",
+  "Jelajahi provider": "Explore providers",
+  "EVENT PILIHAN": "FEATURED EVENT",
+  "persyaratan": "requirements",
+  "Buka detail": "View details",
+
+  "Pemula": "Beginner",
+  "Menengah": "Intermediate",
+  "Lanjutan": "Advanced",
+  "Semua level": "All levels",
+  "hari kerja": "business days",
+
+  "Sibuk": "Busy",
+  "Tidak aktif": "Away",
+  "Foto": "Photo",
+
+  "Belum ada dokumen tersedia": "No documents available yet",
+  "Pilihan dokumen dari mitra akan muncul di sini.": "Documents from partners will appear here.",
 };

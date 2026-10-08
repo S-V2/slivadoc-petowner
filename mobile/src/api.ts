@@ -1494,6 +1494,9 @@ export type WorldItem = {
   description?: string;
   category?: string;
   academy_name?: string;
+  level?: string;
+  duration_weeks?: number;
+  session_count?: number;
   trainer_name?: string;
   trainers?: MobileAcademyTrainer[];
   schedules?: MobileAcademySchedule[];

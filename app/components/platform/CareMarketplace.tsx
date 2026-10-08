@@ -5,6 +5,11 @@ import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } fro
 import { SlivaDatePicker } from "../SlivaDatePicker";
 import { usePetOwnerFlow } from "../PetOwnerFlow";
 import { SlivaSelect } from "../SlivaSelect";
+import { worldLabel } from "../../../shared/world-presentation";
+import { CatalogStatus } from "../WorldCatalogStatus";
+import { WorldPhoto } from "../WorldPhoto";
+import { Icon } from "../Icon";
+import { WorldCollectionHeader } from "../WorldCollectionHeader";
 import { DiscountBadge } from "../DiscountBadge";
 
 import NextImage from "next/image";
@@ -110,6 +115,10 @@ export default function CareMarketplace({
   );
   const [adoptions, setAdoptions] = useState<AdoptionListing[]>([]);
   const [documents, setDocuments] = useState<DocumentProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [catalogVersion, setCatalogVersion] = useState(0);
+  const retryCatalog = () => { setLoading(true); setLoadError(false); setCatalogVersion(value => value + 1); };
   const [selectedDoctor, setSelectedDoctor] = useState<Veterinarian | null>(
     null,
   );
@@ -156,6 +165,7 @@ export default function CareMarketplace({
         ]);
         if (cancelled) return;
         const [v, p, t, tp] = values;
+        if (v?.status === "rejected" && t?.status === "rejected") throw v.reason;
         if (v?.status === "fulfilled") setDoctors(v.value.data);
         if (p?.status === "fulfilled") setPlans(p.value.data);
         if (t?.status === "fulfilled") setTrainers(t.value.data);
@@ -167,17 +177,15 @@ export default function CareMarketplace({
         const result = await getDocumentProducts();
         if (!cancelled) setDocuments(result.data);
       }
-    })().catch(
-      (error) =>
-        !cancelled &&
-        notify(
-          error instanceof Error ? error.message : "Data belum dapat dimuat",
-        ),
-    );
+    })().catch(error => {
+      if (cancelled) return;
+      setLoadError(true);
+      notify(error instanceof Error ? error.message : "Data belum dapat dimuat");
+    }).finally(() => { if (!cancelled) setLoading(false); });
     return () => {
       cancelled = true;
     };
-  }, [mode, notify]);
+  }, [mode, notify, catalogVersion]);
   useEffect(() => {
     if (
       mode !== "consult" ||
@@ -307,13 +315,8 @@ export default function CareMarketplace({
   );
   if (mode === "consult")
     return (
-      <>
-        <section className="care-hero">
-          <div>
-            <span><LocalizedCopy>{"SLIVADOC CONSULTATION"}</LocalizedCopy></span>
-            <h2><LocalizedCopy>{"Dokter dan pet trainer, sedekat layar kamu."}</LocalizedCopy></h2>
-            <p><LocalizedCopy>{"Pilih chat, telepon, video call, atau paket bundling dengan dokter maupun trainer terverifikasi. Jadwal dan pembayaran tersimpan otomatis untuk "}</LocalizedCopy><LocalizedCopy preserve>{pet.name}</LocalizedCopy><LocalizedCopy>{"."}</LocalizedCopy></p>
-            <div>
+      <div className="world-collection world-collection--consult" data-collection="consult">
+        <WorldCollectionHeader mode="consult">
               <LocalizedButton
                 className="primary-button"
                 onClick={() =>
@@ -321,7 +324,7 @@ export default function CareMarketplace({
                     .querySelector("#consult-provider-list")
                     ?.scrollIntoView({ behavior: "smooth" })
                 }
-              ><LocalizedCopy>{"Cari provider online"}</LocalizedCopy></LocalizedButton>
+              ><LocalizedCopy>{"Jelajahi provider"}</LocalizedCopy></LocalizedButton>
               <LocalizedButton
                 className="secondary-button"
                 onClick={() => {
@@ -352,14 +355,7 @@ export default function CareMarketplace({
                     );
                 }}
               ><LocalizedCopy>{"Konsultasi saya"}</LocalizedCopy></LocalizedButton>
-            </div>
-          </div>
-          <aside>
-            <b><LocalizedCopy>{"24/7"}</LocalizedCopy></b>
-            <small><LocalizedCopy>{"provider terverifikasi"}</LocalizedCopy></small>
-            <span><LocalizedCopy>{"Chat langsung · Telepon privat · Video call"}</LocalizedCopy></span>
-          </aside>
-        </section>
+        </WorldCollectionHeader>
         <div className="care-trust">
           <span><LocalizedCopy>{"✓ Dokter & trainer terverifikasi"}</LocalizedCopy></span>
           <span><LocalizedCopy>{"🔒 Room privat"}</LocalizedCopy></span>
@@ -447,28 +443,19 @@ export default function CareMarketplace({
             </div>
           </div>
         </section>
-        {filteredDoctors.length > 0 && (
+        <CatalogStatus loading={loading} error={loadError} empty={false} title="" note="" onRetry={retryCatalog}/>
+        {!loading && !loadError && filteredDoctors.length > 0 && (
           <section className="consult-provider-section">
             <LocalizedCopy>{consultProvider === "all" && <h3><LocalizedCopy>{"Dokter Hewan"}</LocalizedCopy></h3>}</LocalizedCopy>
             <div className="doctor-grid">
               <LocalizedCopy>{filteredDoctors.map((doctor, index) => (
                 <article className="doctor-card" key={doctor.id}>
                   <div className={`doctor-photo doctor-${index % 3}`}>
-                    <LocalizedCopy>{doctor.photo_url ? (
-                      <NextImage
-                        src={doctor.photo_url}
-                        alt={doctor.full_name}
-                        width={480}
-                        height={480}
-                        unoptimized
-                      />
-                    ) : (
-                      <span><LocalizedCopy>{"👩🏻‍⚕️"}</LocalizedCopy></span>
-                    )}</LocalizedCopy>
+                    <WorldPhoto avatar src={doctor.photo_url} alt={doctor.full_name} sizes="72px"/>
                     <i className={doctor.availability_status}>
                       <LocalizedCopy>{doctor.availability_status === "online"
                         ? "● Online"
-                        : doctor.availability_status}</LocalizedCopy>
+                        : worldLabel(doctor.availability_status)}</LocalizedCopy>
                     </i>
                   </div>
                   <div>
@@ -503,28 +490,18 @@ export default function CareMarketplace({
             </div>
           </section>
         )}
-        {filteredTrainers.length > 0 && (
+        {!loading && !loadError && filteredTrainers.length > 0 && (
           <section className="consult-provider-section">
             <LocalizedCopy>{consultProvider === "all" && <h3><LocalizedCopy>{"Pet Trainer"}</LocalizedCopy></h3>}</LocalizedCopy>
             <div className="doctor-grid">
               <LocalizedCopy>{filteredTrainers.map((trainer, index) => (
                 <article className="doctor-card" key={trainer.id}>
                   <div className={`doctor-photo doctor-${index % 3}`}>
-                    <LocalizedCopy>{trainer.photo_url ? (
-                      <NextImage
-                        src={trainer.photo_url}
-                        alt={trainer.full_name}
-                        width={480}
-                        height={480}
-                        unoptimized
-                      />
-                    ) : (
-                      <span><LocalizedCopy>{"🐾"}</LocalizedCopy></span>
-                    )}</LocalizedCopy>
+                    <WorldPhoto avatar src={trainer.photo_url} alt={trainer.full_name} sizes="72px"/>
                     <i className={trainer.availability_status}>
                       <LocalizedCopy>{trainer.availability_status === "online"
                         ? "● Online"
-                        : trainer.availability_status}</LocalizedCopy>
+                        : worldLabel(trainer.availability_status)}</LocalizedCopy>
                     </i>
                   </div>
                   <div>
@@ -560,7 +537,7 @@ export default function CareMarketplace({
             </div>
           </section>
         )}
-        {filteredDoctors.length === 0 && filteredTrainers.length === 0 && (
+        {!loading && !loadError && filteredDoctors.length === 0 && filteredTrainers.length === 0 && (
           <div className="consult-filter-empty" role="status">
             <span><LocalizedCopy>{"🔎"}</LocalizedCopy></span>
             <div>
@@ -594,6 +571,7 @@ export default function CareMarketplace({
                   <small><LocalizedCopy>{"✓ STRV "}</LocalizedCopy><LocalizedCopy>{selectedDoctor.strv_number}</LocalizedCopy></small>
                   <h2><LocalizedCopy preserve>{selectedDoctor.full_name}</LocalizedCopy></h2>
                   <p><LocalizedCopy>{selectedDoctor.specialties.join(" · ")}</LocalizedCopy></p>
+                  <p><LocalizedCopy>{selectedDoctor.bio}</LocalizedCopy></p>
                 </div>
               </div>
               <h3><LocalizedCopy>{"Pilih cara konsultasi"}</LocalizedCopy></h3>
@@ -673,6 +651,7 @@ export default function CareMarketplace({
                   </small>
                   <h2><LocalizedCopy preserve>{selectedTrainer.full_name}</LocalizedCopy></h2>
                   <p><LocalizedCopy>{selectedTrainer.specialties.join(" · ")}</LocalizedCopy></p>
+                  <p><LocalizedCopy>{selectedTrainer.bio}</LocalizedCopy></p>
                 </div>
               </div>
               <h3><LocalizedCopy>{"Pilih cara konsultasi"}</LocalizedCopy></h3>
@@ -750,25 +729,12 @@ export default function CareMarketplace({
             notify={notify}
           />
         )}
-      </>
+      </div>
     );
   if (mode === "adoption")
     return (
-      <>
-        <section className="adoption-hero">
-          <div>
-            <span><LocalizedCopy>{"SLIVA HOME · PET PASSPORT"}</LocalizedCopy></span>
-            <h2><LocalizedCopy>{"Rumah baru. Cerita bahagia berikutnya."}</LocalizedCopy></h2>
-            <p><LocalizedCopy>{"Pet owner dapat mengajukan pet miliknya. Tim pendamping memeriksa identitas, kesehatan, kesiapan adopter, dan proses serah terima."}</LocalizedCopy></p>
-            <LocalizedButton
-              className="primary-button"
-              onClick={() => requirePet() && setAdoptionComposer(true)}
-            ><LocalizedCopy>{"Ajukan pet saya"}</LocalizedCopy></LocalizedButton>
-          </div>
-          <aside><LocalizedCopy>{"♡"}</LocalizedCopy><b><LocalizedCopy>{"Responsible adoption"}</LocalizedCopy></b>
-            <small><LocalizedCopy>{"Pengajuan + biaya tetap. Tanpa lelang."}</LocalizedCopy></small>
-          </aside>
-        </section>
+      <div className="world-collection world-collection--adoption" data-collection="adoption">
+        <WorldCollectionHeader mode="adoption"><LocalizedButton className="primary-button" onClick={() => requirePet() && setAdoptionComposer(true)}><Icon name="plus" size={15}/><LocalizedCopy>{"Ajukan pet saya"}</LocalizedCopy></LocalizedButton></WorldCollectionHeader>
         <div className="adoption-steps">
           <LocalizedCopy>{[
             "Pilih pet",
@@ -877,31 +843,15 @@ export default function CareMarketplace({
               <span><LocalizedCopy>{"sesuai filter dan siap dikenalkan"}</LocalizedCopy></span>
             </div>
             <div className="adoption-grid">
-              <LocalizedCopy>{filteredAdoptions.map((item, index) => (
+              <CatalogStatus loading={loading} error={loadError} empty={!filteredAdoptions.length} title="Belum ada pet yang cocok" note="Ubah kombinasi filter untuk melihat kandidat adopsi lain." onRetry={retryCatalog}/>
+              <LocalizedCopy>{(loading || loadError ? [] : filteredAdoptions).map((item, index) => (
                 <article className="adoption-card" key={item.id}>
                   <div className={`adoption-photo adoption-${index % 3}`}>
-                    <LocalizedCopy>{item.photo_urls?.[0] ? (
-                      <NextImage
-                        src={item.photo_urls[0]}
-                        alt={item.name}
-                        width={640}
-                        height={480}
-                        unoptimized
-                      />
-                    ) : (
-                      <span>
-                        <LocalizedCopy>{item.species.toLowerCase() === "cat" ? "🐈" : "🐕"}</LocalizedCopy>
-                      </span>
-                    )}</LocalizedCopy>
+                    <WorldPhoto src={item.photo_urls?.[0]} alt={item.name}/>
                     <LocalizedCopy>{item.featured && <i><LocalizedCopy>{"PILIHAN"}</LocalizedCopy></i>}</LocalizedCopy>
+                    <span className="adoption-source"><Icon name={item.source_type === "pet_owner" ? "user" : "shield"} size={11}/><LocalizedCopy>{item.source_type === "pet_owner" ? "Pet owner" : "Mitra penyelamat"}</LocalizedCopy></span>
                   </div>
                   <div>
-                    <small><LocalizedCopy>{"⌖ "}</LocalizedCopy><LocalizedCopy>{item.city}</LocalizedCopy></small>
-                    <span className="adoption-source">
-                      <LocalizedCopy>{item.source_type === "pet_owner"
-                        ? "Diajukan pet owner"
-                        : "Mitra penyelamat"}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"· "}</LocalizedCopy><LocalizedCopy>{item.submitted_by_name}</LocalizedCopy>
-                    </span>
                     <h3><LocalizedCopy>{item.name}</LocalizedCopy></h3>
                     <p>
                       <LocalizedCopy>{item.breed}</LocalizedCopy><LocalizedCopy>{" ·"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
@@ -914,28 +864,15 @@ export default function CareMarketplace({
                           ? "Betina"
                           : item.sex}</LocalizedCopy>
                     </p>
-                    <em><LocalizedCopy>{item.description}</LocalizedCopy></em>
-                    <div className="pet-tags">
-                      <LocalizedCopy>{item.personality.map((x) => (
-                        <span key={x}><LocalizedCopy>{x}</LocalizedCopy></span>
-                      ))}</LocalizedCopy>
-                    </div>
+                    <span className="world-card-location"><Icon name="map" size={12}/><LocalizedCopy>{item.city}</LocalizedCopy></span>
                     <div className="health-checks">
-                      <span className={item.vaccinated ? "pass" : "pending"}>
-                        <LocalizedCopy>{item.vaccinated
-                          ? "✓ Sudah vaksin"
-                          : "Vaksin belum dikonfirmasi"}</LocalizedCopy>
-                      </span>
-                      <span className={item.sterilized ? "pass" : "pending"}>
-                        <LocalizedCopy>{item.sterilized
-                          ? "✓ Sudah steril"
-                          : "Sterilisasi belum dikonfirmasi"}</LocalizedCopy>
-                      </span>
+                      <span className={item.vaccinated ? "pass" : "pending"}><b aria-hidden="true">{item.vaccinated ? "✓" : "—"}</b><LocalizedCopy>{"Vaksin"}</LocalizedCopy><span className="sr-only"><LocalizedCopy>{item.vaccinated ? "Sudah vaksin" : "Vaksin belum dikonfirmasi"}</LocalizedCopy></span></span>
+                      <span className={item.sterilized ? "pass" : "pending"}><b aria-hidden="true">{item.sterilized ? "✓" : "—"}</b><LocalizedCopy>{"Steril"}</LocalizedCopy><span className="sr-only"><LocalizedCopy>{item.sterilized ? "Sudah steril" : "Sterilisasi belum dikonfirmasi"}</LocalizedCopy></span></span>
                     </div>
                     <footer>
                       <b>
                         <LocalizedCopy>{item.adoption_fee
-                          ? `Biaya tetap ${money.format(item.adoption_fee)}`
+                          ? money.format(item.adoption_fee)
                           : "Tanpa biaya"}</LocalizedCopy>
                       </b>
                       <LocalizedButton
@@ -947,13 +884,6 @@ export default function CareMarketplace({
                 </article>
               ))}</LocalizedCopy>
             </div>
-            {filteredAdoptions.length === 0 && (
-              <div className="empty-state">
-                <span><LocalizedCopy>{"🐾"}</LocalizedCopy></span>
-                <h3><LocalizedCopy>{"Belum ada pet yang cocok"}</LocalizedCopy></h3>
-                <p><LocalizedCopy>{"Ubah kombinasi filter untuk melihat kandidat adopsi lain."}</LocalizedCopy></p>
-              </div>
-            )}
           </>
         )}
         {selectedAdoption && (
@@ -977,48 +907,27 @@ export default function CareMarketplace({
             }}
           />
         )}
-      </>
+      </div>
     );
   return (
-    <>
-      <section className="document-hero">
-        <div>
-          <span><LocalizedCopy>{"SLIVADOC PET DOCUMENT CONCIERGE"}</LocalizedCopy></span>
-          <h2><LocalizedCopy>{"Urus dokumen pet tanpa bingung."}</LocalizedCopy></h2>
-          <p><LocalizedCopy>{"Akte pet, surat kesehatan, vaksin, microchip, karantina, hingga izin perjalanan pesawat dan kapal—dipandu checklist dan status yang transparan."}</LocalizedCopy></p>
-        </div>
-        <aside>
-          <span><LocalizedCopy>{"▤"}</LocalizedCopy></span>
-          <b><LocalizedCopy>{"Dokumen terverifikasi"}</LocalizedCopy></b>
-          <small><LocalizedCopy>{"Diproses bersama dokter & partner resmi"}</LocalizedCopy></small>
-        </aside>
-      </section>
+    <div className="world-collection world-collection--documents" data-collection="documents">
+      <WorldCollectionHeader mode="documents"/>
       <section className="document-assurance">
         <span><LocalizedCopy>{"✓ Checklist sesuai kebutuhan"}</LocalizedCopy></span>
         <span><LocalizedCopy>{"✓ Status transparan"}</LocalizedCopy></span>
         <span><LocalizedCopy>{"✓ Dokumen digital tersimpan"}</LocalizedCopy></span>
       </section>
       <div className="document-product-grid">
-        <LocalizedCopy>{documents.map((item, index) => (
+        <CatalogStatus loading={loading} error={loadError} empty={!documents.length} title="Belum ada dokumen tersedia" note="Pilihan dokumen dari mitra akan muncul di sini." onRetry={retryCatalog}/>
+        <LocalizedCopy>{(loading || loadError ? [] : documents).map((item, index) => (
           <article className="document-product-card" key={item.id}>
-            <span className={`document-product-icon doc-${index % 4}`}>
-              <LocalizedCopy>{item.category.includes("flight")
-                ? "✈"
-                : item.category === "ship"
-                  ? "⚓"
-                  : "▤"}</LocalizedCopy>
-            </span>
+            <span className={`document-product-icon doc-${index % 4}`} aria-hidden="true"><Icon name={item.category.includes("flight") ? "send" : "shield"} size={27}/></span>
             <div>
               <small>
                 <LocalizedCopy>{item.code}</LocalizedCopy><LocalizedCopy>{" · ESTIMASI "}</LocalizedCopy><LocalizedCopy>{item.processing_days}</LocalizedCopy><LocalizedCopy>{" HARI KERJA"}</LocalizedCopy></small>
               <h3><LocalizedCopy>{item.name}</LocalizedCopy></h3>
               <p><LocalizedCopy>{item.description}</LocalizedCopy></p>
-              <b className="requirement-title"><LocalizedCopy>{"Yang perlu disiapkan"}</LocalizedCopy></b>
-              <ul>
-                <LocalizedCopy>{item.requirements.slice(0, 4).map((req) => (
-                  <li key={req}><LocalizedCopy>{"✓ "}</LocalizedCopy><LocalizedCopy>{req}</LocalizedCopy></li>
-                ))}</LocalizedCopy>
-              </ul>
+              <span className="world-document-requirements"><Icon name="check" size={13}/><LocalizedCopy>{item.requirements.length}</LocalizedCopy> <LocalizedCopy>{"persyaratan"}</LocalizedCopy></span>
               <footer>
                 <span>
                   <small><LocalizedCopy>{"Estimasi total"}</LocalizedCopy></small>
@@ -1068,7 +977,7 @@ export default function CareMarketplace({
           notify={notify}
         />
       )}
-    </>
+    </div>
   );
 }
 

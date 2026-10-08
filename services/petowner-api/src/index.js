@@ -74,15 +74,55 @@ probePlatformHealth().catch(() => {});
 
 const platform = createPlatformClient(platformBaseUrl);
 
-const nominatimBase =
-  process.env.NOMINATIM_BASE_URL || "https://nominatim.openstreetmap.org";
-if (
-  !process.env.NOMINATIM_BASE_URL ||
-  nominatimBase.includes("nominatim.openstreetmap.org")
-) {
+const photonBase = process.env.PHOTON_BASE_URL || "http://photon:2322";
+if (!process.env.PHOTON_BASE_URL) {
   console.warn(
-    "[PetOwner API] WARNING: NOMINATIM_BASE_URL is using the public OpenStreetMap instance. Production traffic requires a dedicated Nominatim instance.",
+    "[PetOwner API] WARNING: PHOTON_BASE_URL is not set; defaulting to http://photon:2322. Set it to your self-hosted Photon instance.",
   );
+}
+
+function photonLabel(p) {
+  const street = [p.street, p.housenumber].filter(Boolean).join(" ");
+  return (
+    [p.name, street, p.district, p.city, p.state, p.country]
+      .filter((part, i, parts) => part && parts.indexOf(part) === i)
+      .join(", ") || "Lokasi"
+  );
+}
+
+function photonResult(feature) {
+  const p = feature.properties || {};
+  const [longitude, latitude] = feature.geometry.coordinates;
+  const address = {};
+  for (const key of [
+    "name",
+    "housenumber",
+    "street",
+    "district",
+    "city",
+    "county",
+    "state",
+    "postcode",
+    "country",
+    "countrycode",
+  ]) {
+    if (p[key] !== undefined) address[key] = String(p[key]);
+  }
+  return {
+    latitude,
+    longitude,
+    label: photonLabel(p),
+    address,
+    provider: "photon",
+  };
+}
+
+async function photonFetch(path, params) {
+  const url = new URL(path, photonBase);
+  url.search = new URLSearchParams(params).toString();
+  const result = await fetch(url);
+  if (!result.ok) throw new Error(`Photon failed (${result.status})`);
+  return (await result.json()).features || [];
 }
 
 const locationLimiter = rateLimit({
@@ -242,8 +282,7 @@ app.get("/api/config/status", (_request, response) =>
       process.env.CLOUDINARY_API_KEY &&
       process.env.CLOUDINARY_API_SECRET,
     ),
-    openai: Boolean(process.env.OPENAI_API_KEY),
-    map: "openstreetmap-nominatim",
+    map: "photon-protomaps",
     realtime: true,
   }),
 );
@@ -426,6 +465,7 @@ app.post(
 
 app.get(
   "/api/location/reverse",
+  requirePlatformUser,
   locationLimiter,
   async (request, response, next) => {
     try {
@@ -463,31 +503,20 @@ app.get(
       if (cached) {
         return response.json(cached);
       }
-      const base =
-        process.env.NOMINATIM_BASE_URL || "https://nominatim.openstreetmap.org";
-      const url = new URL("/reverse", base);
-      url.search = new URLSearchParams({
-        format: "jsonv2",
+      const [feature] = await photonFetch("/reverse", {
         lat: String(latitude),
         lon: String(longitude),
-        zoom: "18",
-        addressdetails: "1",
-      }).toString();
-      const result = await fetch(url, {
-        headers: {
-          "User-Agent":
-            process.env.NOMINATIM_USER_AGENT || "SlivadocPetOwner/0.1",
-        },
+        lang: "id",
       });
-      if (!result.ok) throw new Error(`Nominatim failed (${result.status})`);
-      const data = await result.json();
-      const payload = {
-        latitude,
-        longitude,
-        label: data.display_name,
-        address: data.address,
-        provider: "OpenStreetMap/Nominatim",
-      };
+      const payload = feature
+        ? photonResult(feature)
+        : {
+            latitude,
+            longitude,
+            label: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+            address: {},
+            provider: "photon",
+          };
       setCachedLocation(cacheKey, payload);
       response.json(payload);
     } catch (error) {
@@ -498,6 +527,7 @@ app.get(
 
 app.get(
   "/api/location/search",
+  requirePlatformUser,
   locationLimiter,
   async (request, response, next) => {
     try {
@@ -514,30 +544,19 @@ app.get(
       if (cached) {
         return response.json(cached);
       }
-      const base =
-        process.env.NOMINATIM_BASE_URL || "https://nominatim.openstreetmap.org";
-      const url = new URL("/search", base);
-      url.search = new URLSearchParams({
-        format: "jsonv2",
+      // bbox = Indonesia; Photon has no country filter
+      const features = await photonFetch("/api", {
         q: rawQ,
-        countrycodes: "id",
+        bbox: "95,-11,141,6",
+        lang: "id",
         limit: "6",
-        addressdetails: "1",
-      }).toString();
-      const result = await fetch(url, {
-        headers: {
-          "User-Agent":
-            process.env.NOMINATIM_USER_AGENT || "SlivadocPetOwner/0.1",
-        },
       });
-      if (!result.ok) throw new Error(`Nominatim failed (${result.status})`);
-      const data = await result.json();
-      const payload = data.map((item) => ({
-        id: String(item.place_id),
-        label: item.display_name,
-        latitude: Number(item.lat),
-        longitude: Number(item.lon),
-        type: item.type,
+      const payload = features.map((feature) => ({
+        id:
+          `${feature.properties?.osm_type ?? ""}${feature.properties?.osm_id ?? ""}` ||
+          feature.geometry.coordinates.join(","),
+        ...photonResult(feature),
+        type: feature.properties?.osm_value,
       }));
       setCachedLocation(cacheKey, payload);
       response.json(payload);

@@ -1,8 +1,9 @@
 "use client";
 import { LocalizedCopy, LocalizedButton, LocalizedInput } from "../LocalizedCopy";
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Icon } from "../Icon";
+import GeoMap, { type GeoPoint } from "../platform/GeoMap";
 import { reverseGeocode, searchLocation, type LocationResult } from "../../lib/petowner-api";
 
 type Props = {
@@ -16,6 +17,9 @@ export default function LocationModal({ current, onSelect, onClose }: Props) {
   const [results, setResults] = useState<Array<LocationResult & { id?: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [pin, setPin] = useState<GeoPoint | null>(null);
+  const [picked, setPicked] = useState<LocationResult | null>(null);
+  const pinSeq = useRef(0);
 
   const useDeviceLocation = () => {
     if (!navigator.geolocation) {
@@ -52,10 +56,20 @@ export default function LocationModal({ current, onSelect, onClose }: Props) {
     }
   };
 
-  const mapLocation = current ?? results[0] ?? null;
-  const mapSrc = mapLocation
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${mapLocation.longitude - 0.01}%2C${mapLocation.latitude - 0.007}%2C${mapLocation.longitude + 0.01}%2C${mapLocation.latitude + 0.007}&layer=mapnik&marker=${mapLocation.latitude}%2C${mapLocation.longitude}`
-    : "";
+  const mapLocation = pin ?? current ?? results[0] ?? null;
+  const mapPin = useMemo(() => mapLocation && { latitude: mapLocation.latitude, longitude: mapLocation.longitude }, [mapLocation?.latitude, mapLocation?.longitude]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dropPin = async (point: GeoPoint) => {
+    const seq = ++pinSeq.current;
+    setPin(point);
+    setPicked(null);
+    setError("");
+    try {
+      const location = await reverseGeocode(point.latitude, point.longitude);
+      if (seq === pinSeq.current) setPicked(location);
+    } catch (cause) {
+      if (seq === pinSeq.current) setError(cause instanceof Error ? cause.message : "Lokasi pin tidak dapat diterjemahkan.");
+    }
+  };
 
   return (
     <div className="modal-overlay" onMouseDown={onClose}>
@@ -74,7 +88,9 @@ export default function LocationModal({ current, onSelect, onClose }: Props) {
         </div>
         <LocalizedCopy>{error && <div className="integration-error"><LocalizedCopy>{error}</LocalizedCopy></div>}</LocalizedCopy>
         <LocalizedCopy>{results.length > 0 && <div className="location-results"><LocalizedCopy>{results.map((item) => <LocalizedButton type="button" key={item.id ?? item.label} onClick={() => onSelect(item)}><Icon name="map" size={17} /><span><b><LocalizedCopy>{item.label.split(",")[0]}</LocalizedCopy></b><small><LocalizedCopy>{item.label}</LocalizedCopy></small></span></LocalizedButton>)}</LocalizedCopy></div>}</LocalizedCopy>
-        <LocalizedCopy>{mapSrc && <div className="map-preview"><iframe title="Peta lokasi Slivadoc" src={mapSrc} loading="lazy" /><span><LocalizedCopy>{"© OpenStreetMap contributors"}</LocalizedCopy></span></div>}</LocalizedCopy>
+        <div className="map-preview"><GeoMap pin={mapPin} onPinChange={(point) => void dropPin(point)} /></div>
+        <small className="map-hint"><LocalizedCopy>{"Ketuk peta atau geser pin untuk memilih lokasi."}</LocalizedCopy></small>
+        {picked && <button className="detect-location" type="button" onClick={() => onSelect(picked)}><span><Icon name="check" size={20} /></span><p><b><LocalizedCopy>{"Gunakan lokasi pin ini"}</LocalizedCopy></b><small><LocalizedCopy>{picked.label}</LocalizedCopy></small></p><Icon name="chevron" size={17} /></button>}
         <LocalizedCopy>{current && <div className="selected-location"><Icon name="check" size={16} /><p><small><LocalizedCopy>{"LOKASI TERPILIH"}</LocalizedCopy></small><b><LocalizedCopy>{current.label}</LocalizedCopy></b></p></div>}</LocalizedCopy>
       </div>
     </div>

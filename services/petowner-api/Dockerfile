@@ -59,7 +59,7 @@
 #   PORT=8090  CORS_ORIGINS  SLIVADOC_API_URL
 #   CLOUDINARY_CLOUD_NAME  CLOUDINARY_API_KEY  CLOUDINARY_API_SECRET
 #   CLOUDINARY_FOLDER      OPENAI_API_KEY      OPENAI_MODEL
-#   NOMINATIM_BASE_URL     NOMINATIM_USER_AGENT
+#   PHOTON_BASE_URL
 # CORS_ORIGINS is appended to a hardcoded localhost allowlist (src/index.js:18-19),
 # so every deployed web origin must be added there or browsers get 403.
 #

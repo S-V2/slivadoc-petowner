@@ -143,6 +143,8 @@ COPY . .
 ARG NEXT_PUBLIC_PETOWNER_API_URL=""
 ARG NEXT_PUBLIC_PLATFORM_API_URL=""
 ARG NEXT_PUBLIC_REALTIME_URL=""
+ARG NEXT_PUBLIC_MAP_STYLE_URL=""
+ARG NEXT_PUBLIC_MAP_PMTILES_URL=""
 
 # Unset rather than pass an empty string. The app-side fallbacks use `??`, which
 # does NOT treat "" as absent, so baking "" in would yield an empty base URL and
@@ -154,6 +156,8 @@ RUN set -eu; \
     [ -n "${NEXT_PUBLIC_PETOWNER_API_URL:-}" ] || unset NEXT_PUBLIC_PETOWNER_API_URL; \
     [ -n "${NEXT_PUBLIC_PLATFORM_API_URL:-}" ] || unset NEXT_PUBLIC_PLATFORM_API_URL; \
     [ -n "${NEXT_PUBLIC_REALTIME_URL:-}" ]     || unset NEXT_PUBLIC_REALTIME_URL; \
+    [ -n "${NEXT_PUBLIC_MAP_STYLE_URL:-}" ]    || unset NEXT_PUBLIC_MAP_STYLE_URL; \
+    [ -n "${NEXT_PUBLIC_MAP_PMTILES_URL:-}" ]  || unset NEXT_PUBLIC_MAP_PMTILES_URL; \
     npx vinext build
 
 # Collect the production payload: the build output plus the two packages the

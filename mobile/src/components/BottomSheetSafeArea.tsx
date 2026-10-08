@@ -1,4 +1,4 @@
-import { StyleSheet, View, type ViewProps } from "react-native";
+import { StyleSheet, useWindowDimensions, View, type ViewProps } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../theme";
 
@@ -9,6 +9,10 @@ export function BottomSheetSafeArea({
   ...props
 }: ViewProps) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const maxWidth = StyleSheet.flatten([styles.surface, style]).maxWidth;
+  const sheetWidth = Math.min(width, typeof maxWidth === "number" ? maxWidth : width);
+  const sideSpace = Math.max(0, (width - sheetWidth) / 2);
   return (
     <View
       {...props}
@@ -17,8 +21,8 @@ export function BottomSheetSafeArea({
         style,
         {
           paddingBottom: insets.bottom,
-          paddingLeft: insets.left,
-          paddingRight: insets.right,
+          paddingLeft: Math.max(0, insets.left - sideSpace),
+          paddingRight: Math.max(0, insets.right - sideSpace),
         },
       ]}
     />

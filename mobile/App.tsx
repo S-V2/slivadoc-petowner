@@ -1,3 +1,4 @@
+import { BottomSheetSafeArea } from "./src/components/BottomSheetSafeArea";
 import { LocalizedPressable as Pressable } from "./src/components/LocalizedPressable";
 import { SlivaAlertHost } from "./src/components/SlivaAlert";
 import { useResponsiveLayout } from "./src/responsive";
@@ -1775,7 +1776,7 @@ function MoreModal({
       onRequestClose={onClose}
     >
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <SafeAreaView style={styles.moreSheetWrap}>
+        <BottomSheetSafeArea style={styles.moreSheetWrap}>
           <Pressable
             style={styles.moreSheet}
             onPress={(event) => event.stopPropagation()}
@@ -1853,7 +1854,7 @@ function MoreModal({
               </View>
             </ScrollView>
           </Pressable>
-        </SafeAreaView>
+        </BottomSheetSafeArea>
       </Pressable>
     </Modal>
   );
@@ -1899,7 +1900,7 @@ function NotificationModal({
       onRequestClose={close}
     >
       <Pressable style={styles.modalBackdrop} onPress={close}>
-        <SafeAreaView edges={["bottom", "left", "right"]} style={styles.notificationSheetWrap}>
+        <BottomSheetSafeArea style={styles.notificationSheetWrap}>
           <Pressable
             style={styles.notificationSheet}
             onPress={(event) => event.stopPropagation()}
@@ -1975,7 +1976,7 @@ function NotificationModal({
               </>
             )}
           </Pressable>
-        </SafeAreaView>
+        </BottomSheetSafeArea>
       </Pressable>
     </Modal>
   );
@@ -2035,7 +2036,7 @@ function LoginModal({
         onRequestClose={onClose}
       >
         <Pressable style={styles.modalBackdrop} onPress={onClose}>
-          <SafeAreaView style={styles.loginSheetWrap}>
+          <BottomSheetSafeArea style={styles.loginSheetWrap}>
             <Pressable
               style={styles.loginSheet}
               onPress={(event) => event.stopPropagation()}
@@ -2274,7 +2275,7 @@ function LoginModal({
                 ) : null}
               </ScrollView>
             </Pressable>
-          </SafeAreaView>
+          </BottomSheetSafeArea>
         </Pressable>
       </Modal>
       {policy ? (
@@ -2288,7 +2289,7 @@ function LoginModal({
             style={styles.modalBackdrop}
             onPress={() => setPolicy(null)}
           >
-            <SafeAreaView style={styles.legalSheetWrap}>
+            <BottomSheetSafeArea style={styles.legalSheetWrap}>
               <Pressable
                 style={styles.legalSheet}
                 onPress={(event) => event.stopPropagation()}
@@ -2316,7 +2317,7 @@ function LoginModal({
                   onPress={() => setPolicy(null)}
                 />
               </Pressable>
-            </SafeAreaView>
+            </BottomSheetSafeArea>
           </Pressable>
         </Modal>
       ) : null}
@@ -2491,7 +2492,7 @@ function BookingModal({
       onRequestClose={onClose}
     >
       <View style={styles.modalBackdrop}>
-        <SafeAreaView style={styles.bookingWrap}>
+        <BottomSheetSafeArea style={styles.bookingWrap}>
           <View style={styles.bookingSheet}>
             <View style={styles.sheetHandle} />
             <SheetHeader
@@ -2752,7 +2753,7 @@ function BookingModal({
               </View>
             </ScrollView>
           </View>
-        </SafeAreaView>
+        </BottomSheetSafeArea>
       </View>
     </Modal>
   );

@@ -1,0 +1,15 @@
+/* On phones, the sheet owns the bottom edge; safe-area padding stays inside it. */
+@media (max-width: 580px) {
+  .modal-overlay {
+    padding: 0;
+    align-items: end;
+  }
+
+  .modal-overlay > .modal {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+}

@@ -1,3 +1,4 @@
+import { BottomSheetSafeArea } from "../components/BottomSheetSafeArea";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { featureSearchShortcuts } from "../../../shared/petowner-flow";
 import { useEffect, useState } from "react";
@@ -565,7 +566,7 @@ export function HomeScreen({
       <HomeSearchModal visible={searchOpen} onClose={() => setSearchOpen(false)} onChoose={onSearchResult} />
       <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible={petPickerOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setPetPickerOpen(false)}>
         <Pressable style={styles.petPickerBackdrop} onPress={() => setPetPickerOpen(false)}>
-          <SafeAreaView style={styles.petPickerSafe}>
+          <BottomSheetSafeArea style={styles.petPickerSafe}>
             <Pressable style={styles.petPickerSheet} onPress={(event) => event.stopPropagation()}>
               <View style={styles.petPickerHandle} />
               <Text style={styles.petPickerEyebrow}>PET AKTIF</Text>
@@ -580,7 +581,7 @@ export function HomeScreen({
                 </Pressable>;
               })}
             </Pressable>
-          </SafeAreaView>
+          </BottomSheetSafeArea>
         </Pressable>
       </Modal>
     </>

@@ -1,3 +1,4 @@
+import { BottomSheetSafeArea } from "../components/BottomSheetSafeArea";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { SlivaAlert } from "../components/SlivaAlert";
 import { Ionicons } from "@expo/vector-icons";
@@ -653,8 +654,7 @@ function ActivityDetailSheet({
   return <>
     <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <SafeAreaView
-          edges={["bottom", "left", "right"]}
+        <BottomSheetSafeArea
           style={styles.sheetSafeArea}
         >
           <Pressable
@@ -1518,7 +1518,7 @@ function ActivityDetailSheet({
               onPaid={() => void onReload()}
             />
           </Pressable>
-        </SafeAreaView>
+        </BottomSheetSafeArea>
       </Pressable>
     </Modal>
     <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}

@@ -106,6 +106,9 @@ import {
 import { AdoptionManager } from "./AdoptionManager";
 import { AdoptionExperience } from "./AdoptionExperience";
 import { DiscountBadge } from "../components/DiscountBadge";
+import { worldCardWidth, worldGridColumns } from "../../../shared/world-collections";
+import { WorldCatalogCard } from "../components/WorldCatalogCard";
+import { WorldCollectionHeader } from "../components/WorldCollectionHeader";
 import { WorldExplorer } from "../components/WorldExplorer";
 import { SlivaOptionPicker } from "../components/SlivaOptionPicker";
 import { worldLabel } from "../../../shared/world-presentation";
@@ -545,7 +548,10 @@ export function WorldScreen({
   onOpenActivity: (type: MobileActivityType, id: string) => void;
 }) {
   const { formatCurrency, formatDate, formatNumber } = useI18n();
-  const { contentWidth: viewportWidth, sheetWidth } = useResponsiveLayout();
+  const { contentWidth: viewportWidth, sheetWidth, gutter } = useResponsiveLayout();
+  const collectionWidth = viewportWidth - gutter * 2;
+  const collectionColumns = worldGridColumns(collectionWidth);
+  const collectionCardWidth = worldCardWidth(collectionWidth, collectionColumns);
   const money = (value?: number) => formatCurrency(value ?? 0);
   const when = (value?: string) =>
     value
@@ -1675,7 +1681,7 @@ export function WorldScreen({
         </View>}
         </WorldExplorer>
         {!hasPet && owner ? <PetRequiredNotice onAddPet={onRequirePet} /> : null}
-        {mode !== "pawdating" && mode !== "petspot" ? (
+        {["academy", "events", "consult", "documents"].includes(mode) ? <WorldCollectionHeader mode={mode as "academy" | "events" | "consult" | "documents"}/> : mode !== "pawdating" && mode !== "petspot" ? (
           <View style={[styles.hero, mode === "events" && styles.eventHero]}>
             <Text style={styles.heroKicker}>{heroCopy[mode].kicker}</Text>
             <Text style={styles.heroTitle}>{heroCopy[mode].title}</Text>
@@ -2111,254 +2117,18 @@ export function WorldScreen({
           <View style={styles.petSpotGrid}>
             {visibleItems.map((item) => (
               <PetSpotCard
-                columns={viewportWidth >= 600 ? 2 : 1}
+                width={worldCardWidth(collectionWidth, worldGridColumns(collectionWidth, "petspot"))}
                 key={item.id}
                 item={item}
                 onOpen={() => void openItem(item)}
               />
             ))}
           </View>
-        ) : (
-          <View style={styles.list}>
-            {visibleItems.map((item, index) => (
-              <Pressable
-                key={item.id}
-                onPress={() => openItem(item)}
-                style={[
-                  styles.card,
-                  mode === "academy" && styles.academyProgramCard,
-                  mode === "events" && styles.eventExperienceCard,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.visual,
-                    mode === "academy" && styles.academyProgramVisual,
-                    mode === "events" && styles.eventExperienceVisual,
-                    index % 3 === 1 && styles.visualPeach,
-                    index % 3 === 2 && styles.visualViolet,
-                  ]}
-                >
-                  {["academy", "events", "petspot"].includes(mode) &&
-                  (item.cover_url ||
-                    item.banner_url ||
-                    item.image_urls?.[0]) ? (
-                    <Image
-                      alt=""
-                      source={{
-                        uri:
-                          item.cover_url ||
-                          item.banner_url ||
-                          item.image_urls?.[0],
-                      }}
-                      style={StyleSheet.absoluteFill}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <Ionicons
-                      name={worldIcon(mode, item)}
-                      size={38}
-                      color={colors.sky600}
-                    />
-                  )}
-                  {mode === "academy" && item.featured ? (
-                    <View style={styles.academyFeaturedBadge}>
-                      <Ionicons
-                        name="sparkles"
-                        size={10}
-                        color={colors.white}
-                      />
-                      <Text style={styles.academyFeaturedText}>PILIHAN</Text>
-                    </View>
-                  ) : null}
-                  {mode === "academy" && item.discount_percent ? (
-                    <DiscountBadge percent={item.discount_percent} />
-                  ) : null}
-                  {mode === "consult" && item.discount_percent ? (
-                    <DiscountBadge percent={item.discount_percent} />
-                  ) : null}
-                  {mode === "events" ? (
-                    <>
-                      <View style={styles.eventDateBadge}>
-                        <Text style={styles.eventDateDay}>
-                          {eventDatePart(item.starts_at, "day")}
-                        </Text>
-                        <Text style={styles.eventDateMonth}>
-                          {eventDatePart(item.starts_at, "month")}
-                        </Text>
-                      </View>
-                      <View style={styles.eventCategoryBadge}>
-                        <Text style={styles.eventCategoryText}>
-                          {item.featured
-                            ? "✦ PILIHAN"
-                            : item.category || "PET EVENT"}
-                        </Text>
-                      </View>
-                    </>
-                  ) : null}
-                  {mode === "pawdating" ? (
-                    <View style={styles.verified}>
-                      <Text style={styles.verifiedText}>
-                        ✦ LEVEL {item.profile_level}
-                      </Text>
-                    </View>
-                  ) : item.status === "live" ? (
-                    <View style={styles.live}>
-                      <Text style={styles.liveText}>● LIVE</Text>
-                    </View>
-                  ) : null}
-                </View>
-                <View style={styles.cardCopy}>
-                  <Text style={styles.cardKicker}>
-                    {mode === "pawdating"
-                      ? `HEALTH ${item.health_score}/100 · ${item.distance_km ?? "—"} KM`
-                      : mode === "academy"
-                        ? item.academy_name
-                        : mode === "events"
-                          ? when(item.starts_at)
-                          : mode === "consult"
-                            ? `${item.duration_minutes ?? "—"} menit · ${item.provider_type === "trainer" ? "pet trainer" : "dokter"} terverifikasi`
-                            : mode === "adoption"
-                              ? `${item.city || "Lokasi belum tersedia"} · ${item.health_status || "Health check"}`
-                              : mode === "documents"
-                                ? `${item.processing_days ?? "—"} hari kerja`
-                                : `${formatNumber(item.viewer_count ?? 0)} menonton`}
-                  </Text>
-                  <Text style={styles.cardTitle}>
-                    {item.title || item.name}
-                  </Text>
-                  <Text numberOfLines={2} style={styles.cardNote}>
-                    {mode === "pawdating"
-                      ? `${item.breed} · ${item.sex === "female" ? "Betina" : "Jantan"} · ${item.city}`
-                      : mode === "consult"
-                        ? `${item.trainer_name || item.doctor_name || "Provider"} · ${(item.specialties ?? []).join(" · ") || "Spesialisasi umum"}`
-                        : item.description}
-                  </Text>
-                  {mode === "academy" ? (
-                    <View style={styles.academyProgramStats}>
-                      <View style={styles.academyProgramStat}>
-                        <Ionicons
-                          name="people-outline"
-                          size={12}
-                          color={colors.sky600}
-                        />
-                        <Text style={styles.academyProgramStatText}>
-                          {formatNumber(item.participant_count ?? 0)} peserta
-                        </Text>
-                      </View>
-                      <View style={styles.academyProgramStat}>
-                        <Ionicons name="star" size={12} color="#E6A51C" />
-                        <Text style={styles.academyProgramStatText}>
-                          {(item.review_count ?? 0) > 0
-                            ? `${(item.rating ?? 0).toFixed(1)} · ${formatNumber(item.review_count ?? 0)} ulasan`
-                            : "Belum dinilai"}
-                        </Text>
-                      </View>
-                      <View style={styles.academyProgramStat}>
-                        <Ionicons
-                          name="time-outline"
-                          size={12}
-                          color="#128464"
-                        />
-                        <Text style={styles.academyProgramStatText}>
-                          Sejak{" "}
-                          {item.running_since
-                            ? formatDate(item.running_since, {
-                                month: "short",
-                                year: "numeric",
-                              })
-                            : "baru"}
-                        </Text>
-                      </View>
-                    </View>
-                  ) : null}
-                  {mode === "events" ? (
-                    <View style={styles.eventCardStats}>
-                      <View style={styles.eventCardStat}>
-                        <Ionicons
-                          name="people-outline"
-                          size={12}
-                          color={colors.sky600}
-                        />
-                        <Text style={styles.eventCardStatText}>
-                          {formatNumber(item.registered_count ?? 0)} terdaftar
-                        </Text>
-                      </View>
-                      <View style={styles.eventCardStat}>
-                        <Ionicons
-                          name="ticket-outline"
-                          size={12}
-                          color="#7658C9"
-                        />
-                        <Text style={styles.eventCardStatText}>
-                          {Math.max(
-                            0,
-                            Number(item.capacity ?? 0) -
-                              Number(item.registered_count ?? 0),
-                          )}{" "}
-                          slot
-                        </Text>
-                      </View>
-                      <View style={styles.eventCardStat}>
-                        <Ionicons
-                          name="location-outline"
-                          size={12}
-                          color="#128464"
-                        />
-                        <Text
-                          numberOfLines={1}
-                          style={styles.eventCardStatText}
-                        >
-                          {item.city}
-                        </Text>
-                      </View>
-                    </View>
-                  ) : null}
-                  <View
-                    style={[
-                      styles.cardFooter,
-                      mode === "events" && styles.eventPriceFooter,
-                    ]}
-                  >
-                    <View style={styles.cardPriceBlock}>
-                      {item.original_price &&
-                      item.original_price >
-                        Number(item.price ?? item.total_fee ?? 0) ? (
-                        <Text style={styles.cardOriginalPrice}>
-                          {money(item.original_price)}
-                        </Text>
-                      ) : null}
-                      <Text style={styles.cardPrice}>
-                        {mode === "pawdating"
-                          ? `✓ ${item.eligibility_status === "eligible" ? "Verified eligible" : "Conditional"}`
-                          : mode === "academy"
-                            ? money(item.price)
-                            : mode === "events"
-                              ? item.price
-                                ? money(item.price)
-                                : "Gratis"
-                              : mode === "consult"
-                                ? money(item.total_fee ?? item.price)
-                                : mode === "adoption"
-                                  ? `${item.breed || "Pet"} · ${item.vaccinated ? "Vaksin lengkap" : "Vaksin diproses"}`
-                                  : mode === "documents"
-                                    ? money(item.total_fee ?? item.price)
-                                    : item.channel_name}
-                      </Text>
-                    </View>
-                    <View style={styles.arrow}>
-                      <Ionicons
-                        name="arrow-forward"
-                        size={14}
-                        color={colors.white}
-                      />
-                    </View>
-                  </View>
-                </View>
-              </Pressable>
-            ))}
+        ) : ["academy", "events", "consult", "documents"].includes(mode) ? (
+          <View style={styles.collectionGrid}>
+            {visibleItems.map(item => <WorldCatalogCard key={item.id} item={item} mode={mode as "academy" | "events" | "consult" | "documents"} width={collectionCardWidth} onOpen={() => void openItem(item)}/>)}
           </View>
-        )}
+        ) : null}
         {mode === "adoption" && owner ? (
           <AdoptionManager onAction={onAction} />
         ) : null}
@@ -4633,11 +4403,13 @@ const styles = StyleSheet.create({
   },
   createText: { color: colors.white, fontSize: 11, fontWeight: "600" },
   list: { gap: 12 },
+  collectionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, alignItems: "stretch" },
   petSpotGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    rowGap: 14,
+    rowGap: 12,
+    columnGap: 12,
     marginTop: 14,
   },
   hidden: { display: "none" },

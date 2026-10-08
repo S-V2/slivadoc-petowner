@@ -1,10 +1,8 @@
+import { WorldPhoto } from "./WorldPhoto";
 import { FacilityTicker } from "./FacilityTicker";
 import { worldLabel } from "../../../shared/world-presentation";
 import { LocalizedPressable as Pressable } from "./LocalizedPressable";
-/* Native Image uses accessibilityLabel rather than web alt. */
-/* eslint-disable jsx-a11y/alt-text */
 import {
-  Image,
   Linking,
   StyleSheet,
   View,
@@ -32,11 +30,11 @@ export const petSpotCategory = (value?: string) =>
 export function PetSpotCard({
   item,
   onOpen,
-  columns = 1,
+  width,
 }: {
   item: WorldItem;
   onOpen: () => void;
-  columns?: 1 | 2;
+  width?: number;
 }) {
   const { formatCurrency } = useI18n();
   const image = item.cover_url || item.image_urls?.[0];
@@ -48,26 +46,10 @@ export function PetSpotCard({
       accessibilityRole="button"
       accessibilityLabel={`Lihat detail ${item.name}`}
       onPress={onOpen}
-      style={({ pressed }) => [styles.card, { width: columns === 2 ? "48%" : "100%" }, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.card, { width: width ?? "100%" }, pressed && styles.pressed]}
     >
       <View style={styles.photo}>
-        {image ? (
-          <Image
-            accessibilityLabel={`Foto ${item.name}`}
-            source={{ uri: image }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={styles.noPhoto}>
-            <Ionicons
-              name="storefront-outline"
-              size={34}
-              color={colors.sky600}
-            />
-            <Text style={styles.noPhotoText}>Foto belum tersedia</Text>
-          </View>
-        )}
+        <WorldPhoto src={image} title={item.name ?? "PetSpot"} icon="storefront-outline"/>
         {item.id.startsWith("92000000-") ? (
           <View style={styles.verified}>
             <Text style={styles.verifiedText}>Demo · Foto ilustrasi</Text>
@@ -94,14 +76,14 @@ export function PetSpotCard({
         </View>
         <View style={styles.location}>
           <Ionicons name="location-outline" size={12} color={colors.muted} />
-          <Text numberOfLines={1} style={styles.locationText}>
+          <Text numberOfLines={2} style={styles.locationText}>
             {item.city}
             {typeof item.distance_km === "number"
               ? ` · ${item.distance_km.toFixed(1)} km`
               : ""}
           </Text>
         </View>
-        <FacilityTicker facilities={item.facility_details?.length ? item.facility_details : item.pet_facilities ?? []}/>
+        <FacilityTicker compact facilities={item.facility_details?.length ? item.facility_details : item.pet_facilities ?? []}/>
         <View style={styles.footer}>
           <Text style={styles.booking}>
             {rate !== null
@@ -354,12 +336,12 @@ const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 22,
+    borderRadius: 18,
     overflow: "hidden",
     backgroundColor: colors.white,
   },
   pressed: { opacity: 0.8 },
-  photo: { width: "100%", aspectRatio: 1.6, backgroundColor: colors.sky50 },
+  photo: { width: "100%", aspectRatio: 1.4, backgroundColor: colors.sky50 },
   noPhoto: { flex: 1, alignItems: "center", justifyContent: "center", gap: 7 },
   noPhotoText: { fontSize: 10, color: colors.muted },
   verified: {
@@ -374,18 +356,19 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(2,97,148,.85)",
   },
   verifiedText: { fontSize: 9, color: "#fff", fontWeight: "700" },
-  copy: { flex: 1, padding: 16, gap: 10 },
+  copy: { flex: 1, padding: 10, gap: 7 },
   category: { fontSize: 10, fontWeight: "700", color: colors.sky600 },
   title: {
-    fontSize: 19,
-    lineHeight: 25,
+    minHeight: 34,
+    fontSize: 13,
+    lineHeight: 17,
     fontWeight: "700",
     color: colors.navy,
   },
   rating: { flexDirection: "row", alignItems: "center", gap: 4 },
-  ratingText: { color: colors.text, fontSize: 12 },
+  ratingText: { color: colors.text, fontSize: 11 },
   location: { flexDirection: "row", alignItems: "center", gap: 7 },
-  locationText: { flex: 1, fontSize: 12, color: colors.muted },
+  locationText: { flex: 1, fontSize: 11, color: colors.muted },
   footer: {
     marginTop: "auto",
     paddingTop: 9,
@@ -395,7 +378,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  booking: { flex: 1, color: colors.sky600, fontSize: 12, fontWeight: "700" },
+  booking: { flex: 1, color: colors.sky600, fontSize: 11, fontWeight: "700" },
   details: { marginTop: 18, gap: 16 },
   summary: {
     flexDirection: "row",

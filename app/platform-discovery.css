@@ -430,12 +430,12 @@
 }
 .world-split-map {
   position: sticky;
-  top: 12px;
+  top: 84px;
   min-width: 0;
 }
 .world-split-map .spot-map {
   position: relative;
-  height: calc(100vh - 170px);
+  height: calc(100vh - 210px);
   min-height: 480px;
   border: 1px solid var(--line);
   border-radius: 16px;

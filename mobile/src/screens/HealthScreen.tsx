@@ -1,3 +1,4 @@
+import { TabRail } from "../components/TabRail";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import {  ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,7 +18,7 @@ export function HealthScreen({ onBook, onOpenNotifications,pet,records,loading }
   return <Screen>
     <TopHeader title="Pusat Kesehatan" subtitle="Digital health record" onNotification={onOpenNotifications} />
     <Card style={styles.healthHero}><View style={styles.heroGlow}/><View style={styles.heroTop}><View style={styles.avatar}><Ionicons name="paw" size={27} color={colors.white}/></View><View style={styles.heroCopy}><Text style={styles.kicker}>HEALTH PROFILE ✦</Text><Text style={styles.petName}>{petView.name}</Text><Text style={styles.petMeta}>{petView.breed} • {petView.weight}</Text></View><View style={styles.score}><Text style={styles.scoreValue}>{petView.score}</Text><Text style={styles.scoreLabel}>Health</Text></View></View><View style={styles.heroMeta}><View style={styles.metaBlock}><Text style={styles.metaLabel}>Alergi</Text><Text numberOfLines={1} style={styles.metaValue}>{petView.allergies||"Belum dicatat"}</Text></View><View style={styles.metaBlock}><Text style={styles.metaLabel}>Dokter terbaru</Text><Text numberOfLines={1} style={styles.metaValue}>{latest?.doctor_name||"Belum ada"}</Text></View><View style={styles.metaBlock}><Text style={styles.metaLabel}>Update</Text><Text numberOfLines={1} style={styles.metaValue}>{latest?formatDate(latest.occurred_at):"Belum ada"}</Text></View></View></Card>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{["Ringkasan", "Rekam Medis"].map((item) => <Pressable key={item} onPress={() => setTab(item)} style={[styles.tab, tab === item && styles.activeTab]}><Text style={[styles.tabText, tab === item && styles.activeTabText]}>{item}</Text></Pressable>)}</ScrollView>
+    <TabRail horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{["Ringkasan", "Rekam Medis"].map((item) => <Pressable key={item} onPress={() => setTab(item)} style={[styles.tab, tab === item && styles.activeTab]}><Text style={[styles.tabText, tab === item && styles.activeTabText]}>{item}</Text></Pressable>)}</TabRail>
 
     {tab === "Ringkasan" ? <>
       <SectionTitle eyebrow="RINGKASAN KESEHATAN" title={`Data medis ${petView.name}`} action="Booking" onAction={onBook} />

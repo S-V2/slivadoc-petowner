@@ -1,3 +1,4 @@
+import { TabRail } from "../components/TabRail";
 import { BottomSheetSafeArea } from "../components/BottomSheetSafeArea";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { SlivaAlert } from "../components/SlivaAlert";
@@ -1779,7 +1780,7 @@ export function ActivityScreen({
           </Card>
         ) : null}
 
-        <ScrollView
+        <TabRail
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.typeFilters}
@@ -1829,7 +1830,7 @@ export function ActivityScreen({
                 </Pressable>
               );
             })}
-        </ScrollView>
+        </TabRail>
 
         <View style={styles.stateTabs}>
           {stateOptions.map((option) => {

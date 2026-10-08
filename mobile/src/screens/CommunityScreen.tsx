@@ -1,3 +1,4 @@
+import { TabRail } from "../components/TabRail";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { useEffect, useState } from "react";
 import {
@@ -215,7 +216,7 @@ export function CommunityScreen({
             </Pressable>
           ) : null}
         </View>
-        <ScrollView
+        <TabRail
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabs}
@@ -238,7 +239,7 @@ export function CommunityScreen({
               </Pressable>
             ),
           )}
-        </ScrollView>
+        </TabRail>
         {activeTab === "Grup" ? (
           <CommunityGroups
             owner={owner}

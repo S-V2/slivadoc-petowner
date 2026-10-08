@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, expect, jest, test } from "@jest/globals";
-import { act, fireEvent, render, screen, userEvent, waitFor } from "@testing-library/react-native";
-import { AccessibilityInfo, AppState } from "react-native";
+import { act, cleanup, fireEvent, render, screen, userEvent, waitFor } from "@testing-library/react-native";
+import { AccessibilityInfo, AppState, ScrollView } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { ReactNode } from "react";
 import * as SecureStore from "expo-secure-store";
@@ -11,14 +11,21 @@ import { PetHubPhotos } from "../../src/components/PetHubPhotos";
 import { WorldCatalogCard } from "../../src/components/WorldCatalogCard";
 import { WorldCollectionHeader } from "../../src/components/WorldCollectionHeader";
 import { WorldPhoto } from "../../src/components/WorldPhoto";
+import { TabRail } from "../../src/components/TabRail";
+import { LocalizedPressable as Pressable } from "../../src/components/LocalizedPressable";
+import { LocalizedText as Text } from "../../src/i18n";
+import { ScheduleSlot } from "../../src/components/ScheduleSlot";
+import { EventDiscovery } from "../../src/components/EventDiscovery";
+import { PetBrandMarquee } from "../../src/components/PetBrandMarquee";
 
 function Providers({ children }: { children: ReactNode }) { return <SafeAreaProvider><LanguageProvider>{children}</LanguageProvider></SafeAreaProvider>; }
 beforeEach(() => {
+  jest.clearAllMocks();
   jest.useFakeTimers(); AppState.currentState = "active";
   jest.spyOn(SecureStore, "getItemAsync").mockResolvedValue(null);
   jest.spyOn(AccessibilityInfo, "isReduceMotionEnabled").mockResolvedValue(false);
 });
-afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
+afterEach(async () => { await cleanup(); jest.useRealTimers(); jest.restoreAllMocks(); });
 
 test("venue photos remain static while readable amenities rotate once per second", async () => {
   await render(<PetSpotCard item={{ id: "test-venue", name: "Test Cafe", city: "Jakarta Selatan", cover_url: "https://example.test/first.jpg", image_urls: ["https://example.test/first.jpg", "https://example.test/second.jpg"], pet_facilities: ["indoor", "pet_menu", "water_bowl", "parking"] }} onOpen={() => {}}/>, { wrapper: Providers });
@@ -75,4 +82,46 @@ test("a failed native catalog photo shows a placeholder and accepts a replacemen
   expect(screen.getByRole("image", { name: "Test Pet: Foto belum tersedia" })).toBeOnTheScreen();
   await view.rerender(<WorldPhoto title="Test Pet" src="https://example.test/replacement.jpg"/>);
   expect(screen.getByLabelText("Foto Test Pet").props.source.uri).toBe("https://example.test/replacement.jpg");
+});
+
+test("the last tab aligns left on selection and restored selection respects reduced motion", async () => {
+  jest.mocked(AccessibilityInfo.isReduceMotionEnabled).mockResolvedValue(true);
+  const scroll = jest.spyOn(ScrollView.prototype, "scrollTo"), selected = jest.fn();
+  await render(<TabRail testID="test-rail" activeKey="last">{["first", "middle", "last"].map(key => <Pressable key={key} onPress={selected}><Text>{key}</Text></Pressable>)}</TabRail>, { wrapper: Providers });
+  await fireEvent(screen.getByTestId("test-rail"), "layout", { nativeEvent: { layout: { width: 220 } } });
+  for (const [key, x] of [["first", 0], ["middle", 140], ["last", 280]] as const) await fireEvent(screen.getByTestId(`tab-rail-item-${key}`), "layout", { nativeEvent: { layout: { x, width: 132 } } });
+  await waitFor(() => expect(scroll).toHaveBeenCalledWith({ x: 276, animated: false }));
+  scroll.mockClear();
+  await userEvent.setup({ advanceTimers: jest.advanceTimersByTime }).press(screen.getByRole("button", { name: "last" }));
+  expect(selected).toHaveBeenCalledTimes(1);
+  expect(scroll).toHaveBeenCalledWith({ x: 276, animated: false });
+});
+test("a tab rail that already fits does not shift on selection", async () => {
+  const scroll = jest.spyOn(ScrollView.prototype, "scrollTo");
+  await render(<TabRail testID="fitting-rail"><Pressable key="one"><Text>Tab satu</Text></Pressable><Pressable key="two"><Text>Tab dua</Text></Pressable></TabRail>, { wrapper: Providers });
+  await fireEvent(screen.getByTestId("fitting-rail"), "layout", { nativeEvent: { layout: { width: 350 } } });
+  for (const [key, x] of [["one", 0], ["two", 110]] as const) await fireEvent(screen.getByTestId(`tab-rail-item-${key}`), "layout", { nativeEvent: { layout: { x, width: 100 } } });
+  await userEvent.setup({ advanceTimers: jest.advanceTimersByTime }).press(screen.getByRole("button", { name: "Tab dua" }));
+  expect(scroll).not.toHaveBeenCalled();
+});
+test("schedule slots keep date and time separate and use the provider timezone", async () => {
+  const choose = jest.fn();
+  await render(<ScheduleSlot startsAt="2026-10-09T02:30:00Z" timezone="Asia/Jakarta" minutes={60} selected={false} onPress={choose}/>, { wrapper: Providers });
+  expect(screen.getByText("9 Okt 2026")).toBeOnTheScreen();
+  expect(screen.getByText("09.30 · 60 menit")).toBeOnTheScreen();
+  await userEvent.setup({ advanceTimers: jest.advanceTimersByTime }).press(screen.getByRole("button"));
+  expect(choose).toHaveBeenCalledTimes(1);
+});
+test("event discovery exposes search, clear, and the selected category", async () => {
+  const query = jest.fn(), category = jest.fn();
+  await render(<EventDiscovery query="Bogor" onQuery={query} categories={["festival", "workshop"]} category="festival" onCategory={category}/>, { wrapper: Providers });
+  const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+  await user.press(screen.getByRole("button", { name: "Hapus pencarian event" })); expect(query).toHaveBeenCalledWith("");
+  await user.press(screen.getByRole("tab", { name: "Workshop" })); expect(category).toHaveBeenCalledWith("workshop");
+});
+test("reduced-motion brand discovery is static and brand logos are not buttons", async () => {
+  jest.mocked(AccessibilityInfo.isReduceMotionEnabled).mockResolvedValue(true);
+  await render(<PetBrandMarquee/>, { wrapper: Providers });
+  expect(screen.getByLabelText("Brand pet: Perro, Royal Canin, Kucingku")).toBeOnTheScreen();
+  expect(screen.queryAllByRole("button")).toHaveLength(0);
 });

@@ -1,3 +1,4 @@
+import { TabRail } from "../components/TabRail";
 import { BottomSheetSafeArea } from "../components/BottomSheetSafeArea";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { featureSearchShortcuts } from "../../../shared/petowner-flow";
@@ -209,7 +210,7 @@ function HomeSearchModal({
           </View>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.searchCategories}>
+        <TabRail horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.searchCategories}>
           {searchCategories.map((item) => (
             <Pressable
               key={item.value || "all"}
@@ -219,7 +220,7 @@ function HomeSearchModal({
               <Text style={[styles.searchCategoryText, category === item.value && styles.searchCategoryTextActive]}>{item.label}</Text>
             </Pressable>
           ))}
-        </ScrollView>
+        </TabRail>
 
         <ScrollView style={styles.searchBody} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.searchContent}>
           {!canSearch ? (

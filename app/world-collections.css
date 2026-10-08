@@ -190,3 +190,22 @@
 .world-collection[data-collection] .doctor-photo>i.offline,.world-collection[data-collection] .doctor-photo>i.away{background:#e9eef2;color:#637a8c}
 
 .world-collection[data-collection] .world-catalog-status{grid-column:1/-1;min-height:160px;padding:20px;border-radius:20px}
+
+.world-event-banner{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:24px 26px 42px;border-radius:24px;background:linear-gradient(120deg,#dff6f5,#edf7ff);overflow:hidden}
+.world-event-banner>div{min-width:0;flex:1}
+.world-event-banner small{font-size:9px;font-weight:800;letter-spacing:.1em;color:var(--sky-600)}
+.world-event-banner h2{margin:10px 0 8px;font-size:32px;line-height:1.12;letter-spacing:-.03em;color:var(--navy)}
+.world-event-banner p{margin:0;font-size:13px;line-height:1.5;color:var(--muted)}
+.world-event-ticket{position:relative;display:grid;place-items:center;flex:0 0 82px;height:98px;border:1px solid #fff;border-radius:20px;background:#ffffffaa;color:var(--sky-600);transform:rotate(-12deg)}
+.world-event-ticket>i{position:absolute;right:9px;top:9px;width:10px;height:10px;border-radius:50%;background:#27c2ab}
+.world-event-search{position:relative;display:flex;align-items:center;gap:10px;min-height:52px;margin:-24px 18px 0;padding:0 16px;background:#fff;border:1px solid #d8e9f1;border-radius:15px;box-shadow:0 6px 18px #173e5708;color:var(--sky-600)}
+.world-event-search input{min-width:0;flex:1;border:0;background:transparent;padding:14px 0;color:var(--navy);font:inherit;font-size:14px;outline-offset:4px}
+.world-event-categories{display:flex;gap:8px;margin:14px 0 18px;overflow-x:auto;scrollbar-width:none}
+.world-event-categories button{flex:none;min-height:44px;padding:10px 14px;border:1px solid #d8e9f1;border-radius:13px;background:#fff;color:var(--muted);font-size:12px;font-weight:650;white-space:nowrap}
+.world-event-categories button[aria-selected=true]{color:#fff;background:var(--sky-600);border-color:var(--sky-600)}
+@media(max-width:580px){.world-event-banner{padding:18px 18px 32px;gap:12px;border-radius:22px}.world-event-banner h2{font-size:24px;line-height:1.15}.world-event-banner p{font-size:11px;line-height:1.5}.world-event-ticket{flex-basis:58px;height:76px;border-radius:17px}.world-event-ticket svg{width:36px}.world-event-search{margin:-18px 12px 0;min-height:50px;padding:0 12px}.world-event-search input{font-size:13px}.world-event-categories button{font-size:11px;padding:10px 12px}}
+
+@media(max-width:580px){.world-collection .world-event-banner h2{font-size:24px!important;line-height:1.15;max-width:260px}}
+
+.world-event-search input::-webkit-search-cancel-button{appearance:none}
+.world-event-search>button{flex:none;width:44px;height:44px;border:0;background:transparent;color:var(--muted)}

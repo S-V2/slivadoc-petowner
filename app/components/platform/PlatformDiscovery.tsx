@@ -20,6 +20,7 @@ import { DiscountBadge } from "../DiscountBadge";
 import { PetSpotDetail } from "./PetSpotDetail";
 import { CatalogStatus } from "../WorldCatalogStatus";
 import { WorldPhoto } from "../WorldPhoto";
+import { matchesWorldEvent } from "../../../shared/world-discovery";
 import { WorldCollectionHeader } from "../WorldCollectionHeader";
 import { WorldExplorer } from "../WorldExplorer";
 import { worldLabel } from "../../../shared/world-presentation";
@@ -331,6 +332,8 @@ export default function PlatformDiscovery({
   const [trainerSpecies, setTrainerSpecies] = useState(
     pets[0]?.species?.toLowerCase() || "all",
   );
+  const [eventQuery, setEventQuery] = useState("");
+  const [eventCategory, setEventCategory] = useState("all");
   const [events, setEvents] = useState<PetEvent[]>([]);
   const [spots, setSpots] = useState<PetSpot[]>([]);
   const [streams, setStreams] = useState<PetHubStream[]>([]);
@@ -908,24 +911,22 @@ export default function PlatformDiscovery({
     );
 
   if (mode === "events") {
-    const featured = events.find((item) => item.featured) || events[0];
+    const visibleEvents = events.filter(item => matchesWorldEvent(item, eventQuery, eventCategory));
+    const eventCategories = [...new Set(events.map(item => item.category))];
     return (
       <div className="world-collection world-collection--events" data-collection="events">
         <WorldCollectionHeader mode="events"/>
-        {!loading && !loadError && featured && <section className="world-featured-event" aria-label="Event pilihan">
-          <div className="world-featured-picture">{featured.banner_url ? <NextImage src={featured.banner_url} alt="" fill sizes="180px" unoptimized/> : <Icon name="calendar" size={32}/>}</div>
-          <div><small><LocalizedCopy>{"EVENT PILIHAN"}</LocalizedCopy></small><h3><LocalizedCopy>{featured.title}</LocalizedCopy></h3><p><Icon name="map" size={13}/><LocalizedCopy>{featured.city}</LocalizedCopy><span> · </span><LocalizedCopy>{when(featured.starts_at)}</LocalizedCopy></p></div>
-          <LocalizedButton type="button" onClick={() => setSelectedEvent(featured)}><LocalizedCopy>{"Lihat detail event"}</LocalizedCopy><Icon name="arrow" size={15}/></LocalizedButton>
-        </section>}
+        <label className="world-event-search"><Icon name="search" size={18}/><LocalizedInput type="search" aria-label="Cari event atau kota" placeholder="Cari event atau kota…" value={eventQuery} onChange={event => setEventQuery(event.target.value)}/>{eventQuery && <LocalizedButton type="button" aria-label="Hapus pencarian event" onClick={() => setEventQuery("")}><Icon name="close" size={17}/></LocalizedButton>}</label>
+        <div className="world-event-categories" role="tablist" aria-label="Kategori event">{["all", ...eventCategories].map(category => <LocalizedButton key={category} role="tab" aria-selected={category === eventCategory} onClick={() => setEventCategory(category)}><LocalizedCopy>{category === "all" ? "Semua" : worldLabel(category)}</LocalizedCopy></LocalizedButton>)}</div>
         <div className="section-title-world">
           <div>
             <span><LocalizedCopy>{"EVENT MENDATANG"}</LocalizedCopy></span>
-            <h2><LocalizedCopy>{"Isi kalender pet-mu"}</LocalizedCopy></h2>
+            <h2><LocalizedCopy>{"Event mendatang"}</LocalizedCopy></h2>
           </div>
         </div>
         <div className="event-grid">
-          <CatalogStatus loading={loading} error={loadError} empty={!events.length} title="Belum ada event mendatang" note="Event yang tersedia akan muncul di sini. Cek kembali untuk kegiatan bersama pet-mu." onRetry={retryCatalog} />
-          <LocalizedCopy>{(loading || loadError ? [] : events).map((item, index) => {
+          <CatalogStatus loading={loading} error={loadError} empty={!visibleEvents.length} title={eventQuery || eventCategory !== "all" ? "Belum ada event yang cocok" : "Belum ada event mendatang"} note="Event yang tersedia akan muncul di sini. Cek kembali untuk kegiatan bersama pet-mu." onRetry={retryCatalog} />
+          <LocalizedCopy>{(loading || loadError ? [] : visibleEvents).map((item, index) => {
             const remaining = Math.max(
               0,
               item.capacity - item.registered_count,
@@ -992,6 +993,7 @@ export default function PlatformDiscovery({
       <div className="world-collection world-collection--petspot" data-collection="petspot">
         <WorldExplorer>
         {navigation}
+        <div className="world-spot-intro"><small><LocalizedCopy>{"PETSPOT DISCOVERY"}</LocalizedCopy></small><h2><LocalizedCopy>{"Ke mana bersama pet-mu?"}</LocalizedCopy></h2></div>
         <div className="petspot-search">
           <label className="petspot-query">
             <Icon name="search" />

@@ -1,4 +1,5 @@
 "use client";
+import { PetBrandMarquee } from "../PetBrandMarquee";
 import { petOwnerIntlLocale } from "../../lib/petowner-locale";
 import { LocalizedCopy, LocalizedButton, LocalizedTextarea, LocalizedInput } from "../LocalizedCopy";
 import { SlivaSelect } from "../SlivaSelect";
@@ -1785,6 +1786,7 @@ export default function ShopMarketplace({
         </LocalizedButton>
       </div>
 
+      <PetBrandMarquee/>
       <section className="market-category-section">
         <header className="market-section-heading">
           <div>

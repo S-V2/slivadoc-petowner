@@ -1,4 +1,5 @@
 "use client";
+import { HorizontalTabPositioning } from "./HorizontalTabPositioning";
 import { petOwnerIntlLocale } from "../lib/petowner-locale";
 import { confirmSlivaDialog } from "./SlivaDialog";
 import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } from "./LocalizedCopy";
@@ -1333,7 +1334,8 @@ export default function PetOwnerApp() {
           onLogin={() => setLoginOpen(true)}
         />
 
-        <div className="page-content">
+        <HorizontalTabPositioning/>
+      <div className="page-content">
           <PageHeading
             activeView={activeView}
             selectedPet={selectedPet}

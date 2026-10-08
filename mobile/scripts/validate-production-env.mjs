@@ -4,7 +4,11 @@ const requiredURLs = [
 ];
 
 const buildProfile = process.env.EAS_BUILD_PROFILE;
-if (buildProfile !== "production" && buildProfile !== "preview") {
+if (
+  buildProfile !== "production" &&
+  buildProfile !== "production-apk" &&
+  buildProfile !== "preview"
+) {
   process.exit(0);
 }
 

@@ -22,6 +22,11 @@
       "environment": "production",
       "env": { "EXPO_PUBLIC_NETWORK_LOGGER_ENABLED": "0" },
       "channel": "production"
+    },
+    "production-apk": {
+      "environment": "production",
+      "channel": "production",
+      "android": { "buildType": "apk" }
     }
   },
   "submit": {

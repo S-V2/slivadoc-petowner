@@ -26,7 +26,7 @@
       }
     },
     "android": {
-      "package": "com.slivadoc.petowner",
+      "package": "com.slivadoc",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#EAF8FF"

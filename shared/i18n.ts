@@ -31,6 +31,8 @@ export function translateText(value: string, language: SlivaLanguage, forceConte
       [/^Hai, (.+)!$/i, m => `Hi, ${m[1]}!`],
       [/^Kondisi (.+)$/i, m => `${m[1]}'s health`],
       [/^Untuk (.+)$/i, m => `For ${m[1]}`],
+      [/^Buka (.+)$/i, m => `Open ${translateText(m[1]!, language)}`],
+      [/^(\d+) th pengalaman · (\d+) konsultasi$/i, m => `${m[1]} ${m[1] === "1" ? "year" : "years"} of experience · ${m[2]} ${m[2] === "1" ? "consultation" : "consultations"}`],
       [/^Ganti profil pet aktif, saat ini (.+)$/i, m => `Switch active pet, currently ${m[1]}`],
       [/^(\d+) tahun (\d+) bulan$/i, m => `${m[1]} ${m[1] === "1" ? "year" : "years"} ${m[2]} ${m[2] === "1" ? "month" : "months"}`],
       [/^(\d+) bulan$/i, m => `${m[1]} ${m[1] === "1" ? "month" : "months"}`],

@@ -467,7 +467,7 @@ export function HomeScreen({
                 </View>
                 <View style={styles.metric}>
                   <View style={[styles.metricIcon, styles.metricIconViolet]}><Ionicons name="pulse-outline" size={14} color="#6655C7" /></View>
-                  <View style={styles.metricCopy}><Text style={styles.metricLabel}>Aktivitas</Text><Text style={styles.metricValue}>{activities.length} catatan</Text></View>
+                  <View style={styles.metricCopy}><Text style={styles.metricLabel}>Aktivitas</Text><Text style={styles.metricValue}>{`${activities.length} catatan`}</Text></View>
                 </View>
               </View>
             </View>
@@ -567,7 +567,7 @@ export function HomeScreen({
                 </View>
                 <Text numberOfLines={1} style={styles.doctorName}>{doctor.full_name ?? doctor.doctor_name ?? "Dokter hewan"}</Text>
                 <Text numberOfLines={2} style={styles.doctorSpecialty}>{doctor.specialties?.join(" · ") || "Dokter hewan umum"}</Text>
-                <Text style={styles.doctorMeta}>{doctor.experience_years ?? 0} th pengalaman · {doctor.consultation_count ?? 0} konsultasi</Text>
+                <Text style={styles.doctorMeta}>{`${doctor.experience_years ?? 0} th pengalaman · ${doctor.consultation_count ?? 0} konsultasi`}</Text>
                 <View style={styles.doctorAction}><Text style={styles.doctorActionText}>Konsultasi</Text><Ionicons name="arrow-forward" size={13} color={colors.white} /></View>
               </Pressable>
             ))}

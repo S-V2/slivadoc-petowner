@@ -1,4 +1,6 @@
 export const englishExtra: Record<string, string> = {
+  "AKUN & PERAWATAN": "ACCOUNT & CARE",
+  "Akun & perawatan": "Account & care",
   "Yuk, bikin hari pet-mu makin sehat dan happy.": "Let's make your pet's day healthier and happier.",
   "Terdekat": "Nearby",
   "1 catatan": "1 record",

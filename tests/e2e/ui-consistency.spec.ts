@@ -19,6 +19,7 @@ async function catalogueMocks(page: Page, options: { authenticated?: boolean; en
     if (path === "/api/v1/petowner/bootstrap") return json(petOwnerBootstrap({ withPet: true }));
     if (path === "/api/v1/petowner/activities") return json(activityCenter());
     if (path === "/api/v1/public/discovery/products") return json({ data: [marketplaceProduct({ id: "52000000-0000-4000-8000-000000000908", name: "UI Audit Food" })], count: 1 });
+    if (path === "/api/v1/public/petship/places") return json({ data: [], count: 0, privacy: "Petship hanya membagikan lokasi tempat, bukan koordinat pengguna." });
     if (path === "/api/v1/public/pawdating/standards") return json({ principles: [], levels: [], minimum_age_months: {}, report_validity_days: 180, blocked_conditions: [] });
     if (path === "/api/v1/public/pawdating/profiles") return json({ data: [], count: 0, filters: { species: "", breed: "", sex: "", city: "", min_level: 2, min_health_score: 80 } });
     if (path.startsWith("/api/v1/public/") || path === "/api/v1/petowner/marketplace/chats") return json({ data: [], count: 0 });

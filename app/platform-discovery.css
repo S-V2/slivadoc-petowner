@@ -428,6 +428,10 @@
 .world-split-list {
   min-width: 0;
 }
+.world-split-list > .panel {
+  min-width: 0;
+  padding: 18px;
+}
 .world-split-map {
   position: sticky;
   top: 84px;

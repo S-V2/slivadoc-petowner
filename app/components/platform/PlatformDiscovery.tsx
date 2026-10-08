@@ -361,6 +361,9 @@ export default function PlatformDiscovery({
   const [lostPets, setLostPets] = useState<PublicLostPet[]>([]);
   const [showPetship, setShowPetship] = useState(false);
   const [showLostPets, setShowLostPets] = useState(false);
+  const [activeSpot, setActiveSpot] = useState<string | null>(null);
+  const [mapFocus, setMapFocus] = useState<GeoPoint | null>(null);
+  const [mobilePane, setMobilePane] = useState<"daftar" | "peta">("daftar");
   const [sharedPostID, setSharedPostID] = useState(() =>
     typeof window === "undefined"
       ? ""
@@ -495,7 +498,11 @@ export default function PlatformDiscovery({
         latitude: item.latitude,
         longitude: item.longitude,
         label: item.name,
-        onClick: () => setSelectedSpot(item),
+        onClick: () => {
+          setSelectedSpot(item);
+          setMapFocus({ latitude: item.latitude, longitude: item.longitude });
+          document.querySelector(`[data-spot-card="${item.id}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        },
       })),
       ...(nearMe ? [{ id: "near-me", ...nearMe, label: "Posisimu", color: "#1d4ed8" }] : []),
       ...(showPetship
@@ -1165,12 +1172,21 @@ export default function PlatformDiscovery({
           </div>
           <span><LocalizedCopy>{categorySpots.length}</LocalizedCopy><LocalizedCopy>{" tempat ditemukan"}</LocalizedCopy></span>
         </div>
+        <div className="petspot-view-tabs" role="group" aria-label="Tampilan PetSpot">
+          <LocalizedButton type="button" aria-pressed={mobilePane === "daftar"} className={mobilePane === "daftar" ? "active" : ""} onClick={() => setMobilePane("daftar")}><LocalizedCopy>{"Daftar"}</LocalizedCopy></LocalizedButton>
+          <LocalizedButton type="button" aria-pressed={mobilePane === "peta"} className={mobilePane === "peta" ? "active" : ""} onClick={() => setMobilePane("peta")}><LocalizedCopy>{"Peta"}</LocalizedCopy></LocalizedButton>
+        </div>
+        <div className="world-split" data-mobile-view={mobilePane}>
+        <div className="world-split-list">
         <div className="petspot-grid" aria-label="Daftar tempat ramah pet">
           <LocalizedCopy>{loading ? (
             <div role="status" className="petspot-loading"><LocalizedCopy>{"Memuat tempat dari API…"}</LocalizedCopy></div>
           ) : (
             categorySpots.map((item) => (
-              <article className="petspot-card" key={item.id}>
+              <article className="petspot-card" key={item.id} data-spot-card={item.id}
+                onMouseEnter={() => setActiveSpot(item.id)}
+                onMouseLeave={() => setActiveSpot((current) => (current === item.id ? null : current))}
+              >
                 <WorldImageGallery
                   images={[item.cover_url, ...(item.image_urls ?? [])]}
                   alt={item.name}
@@ -1188,7 +1204,10 @@ export default function PlatformDiscovery({
                   type="button"
                   className="petspot-card-content"
                   aria-label={`Lihat detail ${item.name}`}
-                  onClick={() => setSelectedSpot(item)}
+                  onClick={() => {
+                    setSelectedSpot(item);
+                    setMapFocus({ latitude: item.latitude, longitude: item.longitude });
+                  }}
                 >
                   <small className="petspot-card-category">
                     <LocalizedCopy>{petSpotCategory(item.category)}</LocalizedCopy>
@@ -1228,19 +1247,21 @@ export default function PlatformDiscovery({
               <p><LocalizedCopy>{"Ubah kata kunci, kategori, atau radius."}</LocalizedCopy></p>
             </div>
           ) : null}</LocalizedCopy>
-          <div className="spot-map-panel">
-            <div className="spot-map-layers">
-              <label>
-                <input type="checkbox" checked={showPetship} onChange={(event) => setShowPetship(event.target.checked)} />
-                <LocalizedCopy>{`Lokasi Petship (${petshipPlaces.length})`}</LocalizedCopy>
-              </label>
-              <label>
-                <input type="checkbox" checked={showLostPets} onChange={(event) => setShowLostPets(event.target.checked)} />
-                <LocalizedCopy>{`Hewan hilang (${lostPets.length})`}</LocalizedCopy>
-              </label>
-            </div>
-            <GeoMap className="spot-map" markers={geoMarkers} circles={geoCircles} />
+        </div>
+        </div>
+        <div className="world-split-map">
+          <div className="spot-map-layers">
+            <label>
+              <input type="checkbox" checked={showPetship} onChange={(event) => setShowPetship(event.target.checked)} />
+              <LocalizedCopy>{`Lokasi Petship (${petshipPlaces.length})`}</LocalizedCopy>
+            </label>
+            <label>
+              <input type="checkbox" checked={showLostPets} onChange={(event) => setShowLostPets(event.target.checked)} />
+              <LocalizedCopy>{`Hewan hilang (${lostPets.length})`}</LocalizedCopy>
+            </label>
           </div>
+          <GeoMap className="spot-map" markers={geoMarkers} circles={geoCircles} activeId={activeSpot ? `spot-${activeSpot}` : null} focus={mapFocus} />
+        </div>
         </div>
         {selectedSpot && (
           <SpotModal

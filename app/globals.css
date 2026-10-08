@@ -238,57 +238,6 @@
   color: #fff;
   background: rgba(255, 255, 255, 0.12);
 }
-.petship-radar {
-  position: relative;
-  width: 150px;
-  height: 150px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  font-size: 46px;
-}
-.petship-radar:before,
-.petship-radar:after,
-.petship-radar i,
-.petship-radar b {
-  content: "";
-  position: absolute;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 50%;
-}
-.petship-radar:before {
-  inset: 18px;
-}
-.petship-radar:after {
-  inset: 40px;
-}
-.petship-radar i {
-  left: 16px;
-  top: 44px;
-  width: 9px;
-  height: 9px;
-  background: #fff;
-  box-shadow: 85px 51px 0 #fff;
-}
-.petship-radar b {
-  right: 32px;
-  top: 27px;
-  width: 7px;
-  height: 7px;
-  background: #baf6e6;
-}
-.petship-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 14px;
-}
-.petship-layout > .panel {
-  min-width: 0;
-  padding: 18px;
-}
 .petship-places,
 .petship-pawrents {
   display: grid;
@@ -545,9 +494,6 @@
   accent-color: var(--sky-500);
 }
 @media (max-width: 900px) {
-  .petship-layout {
-    grid-template-columns: 1fr;
-  }
   .fundraiser-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -581,9 +527,6 @@
   .fundraising-hero h2 {
     font-size: 21px;
     line-height: 1.25;
-  }
-  .petship-radar {
-    display: none;
   }
   .petship-hero > div > div {
     flex-direction: column;
@@ -9845,7 +9788,6 @@ textarea {
 .document-product-card,
 .academy-card,
 .event-card,
-.spot-list > button,
 .stream-strip > button,
 .paw-profile-card {
   border-color: var(--sky-100);

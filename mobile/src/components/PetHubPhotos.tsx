@@ -17,10 +17,12 @@ export function PetHubPhotos({
   urls,
   author,
   onDoubleTap,
+  detail = false,
 }: {
   urls: string[];
   author: string;
   onDoubleTap?: () => void;
+  detail?: boolean;
 }) {
   const [width, setWidth] = useState(300),
     [index, setIndex] = useState(0),
@@ -45,13 +47,13 @@ export function PetHubPhotos({
     return () => s.remove();
   }, []);
   useEffect(() => {
-    if (urls.length < 2 || expanded || !foreground || dragging) return;
+    if (!detail || urls.length < 2 || expanded || !foreground || dragging) return;
     const timer = setInterval(
       () => setIndex((current) => (current + 1) % urls.length),
       1000,
     );
     return () => clearInterval(timer);
-  }, [urls.length, expanded, foreground, dragging]);
+  }, [urls.length, expanded, foreground, dragging, detail]);
   useEffect(() => {
     scroll.current?.scrollTo({
       x: (index % Math.max(1, urls.length)) * width,
@@ -67,7 +69,7 @@ export function PetHubPhotos({
         onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
         style={styles.gallery}
       >
-        <ScrollView
+        {detail ? <ScrollView
           ref={scroll}
           horizontal
           pagingEnabled
@@ -110,8 +112,15 @@ export function PetHubPhotos({
               />
             </Pressable>
           ))}
-        </ScrollView>
-        {urls.length > 1 ? (
+        </ScrollView> : <Pressable accessibilityLabel={`Perbesar foto ${author}`} onPress={() => {
+          setIndex(0);
+          if (!onDoubleTap) { setExpanded(true); return; }
+          const now = Date.now();
+          if (tapTimer.current) clearTimeout(tapTimer.current);
+          if (lastTap.current && now - lastTap.current < 300) { lastTap.current = 0; onDoubleTap(); }
+          else { lastTap.current = now; tapTimer.current = setTimeout(() => { lastTap.current = 0; setExpanded(true); }, 300); }
+        }}><Image source={{ uri: urls[0] }} accessibilityLabel={`Foto ${author}`} style={{ width, height: width / 1.3 }} resizeMode="contain"/></Pressable>}
+        {detail && urls.length > 1 ? (
           <View style={styles.controls}>
             <Pressable
               accessibilityLabel="Foto sebelumnya"
@@ -151,7 +160,7 @@ export function PetHubPhotos({
             style={styles.fullPhoto}
             resizeMode="contain"
           />
-          <View style={styles.controls}>
+          {urls.length > 1 && <View style={styles.controls}>
             <Pressable
               accessibilityLabel="Foto sebelumnya"
               onPress={() => move(-1)}
@@ -169,7 +178,7 @@ export function PetHubPhotos({
             >
               <Ionicons name="chevron-forward" color="#fff" size={18} />
             </Pressable>
-          </View>
+          </View>}
         </View>
       </BoundedBottomSheet>
     </>
@@ -194,8 +203,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   button: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#173d5a99",

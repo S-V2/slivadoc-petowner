@@ -1339,7 +1339,7 @@ export default function PetOwnerApp() {
             selectedPet={selectedPet}
             account={account}
           />
-          <LocalizedCopy>{isWorldMode(featureView) ? <WorldNavigation active={featureView} onSelect={openWorld} /> : null}</LocalizedCopy>
+          <LocalizedCopy>{isWorldMode(featureView) && featureView !== "petspot" ? <WorldNavigation active={featureView} onSelect={openWorld} /> : null}</LocalizedCopy>
           <PetRequiredNotice />
           <LocalizedCopy>{featureView === "home" && (
             <HomeView
@@ -1435,6 +1435,7 @@ export default function PetOwnerApp() {
             <PlatformDiscovery
               key={`${featureView}:${navigationVersion}`}
               mode={featureView as "academy" | "events" | "petspot" | "pethub"}
+              navigation={featureView === "petspot" ? <WorldNavigation active="petspot" onSelect={openWorld} embedded /> : undefined}
               petName={selectedPet.name}
               pets={petProfiles.map((pet) => ({
                 id: pet.id,
@@ -2491,24 +2492,14 @@ function PageHeading({
   selectedPet: Pet;
   account: PetOwnerBootstrap["user"] | null;
 }) {
-  const { locale, t } = usePetOwnerI18n();
+  const { t } = usePetOwnerI18n();
+  if (activeView === "world" || isWorldMode(activeView)) return null;
   const item = titles[activeView];
-  const date = new Intl.DateTimeFormat(locale, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "Asia/Jakarta",
-  }).format(new Date());
   return (
     <div
       className={`page-heading ${activeView === "home" ? "page-heading--home" : ""}`}
     >
       <div>
-        <div className="heading-kicker">
-          <span className="live-dot" />
-          <LocalizedCopy>{date}</LocalizedCopy>
-        </div>
         <h1>
           <LocalizedCopy>{activeView === "home" && account
             ? `Selamat datang, ${account.full_name.split(" ")[0]}!`
@@ -2520,15 +2511,6 @@ function PageHeading({
             : t(item.subtitle)}</LocalizedCopy>
         </p>
       </div>
-      <LocalizedCopy>{activeView !== "home" && (
-        <LocalizedButton
-          className="secondary-button heading-action"
-          type="button"
-          onClick={() => downloadViewSummary(activeView)}
-        >
-          <Icon name="download" size={17} /> <LocalizedCopy>{t("Unduh ringkasan")}</LocalizedCopy>
-        </LocalizedButton>
-      )}</LocalizedCopy>
     </div>
   );
 }
@@ -9541,22 +9523,4 @@ function Notification({
       <LocalizedCopy>{unread && <i />}</LocalizedCopy>
     </LocalizedButton>
   );
-}
-
-function downloadViewSummary(view: AppView) {
-  const content = [
-    `Slivadoc Pet Owner · ${titles[view].title}`,
-    titles[view].subtitle,
-    `Dibuat: ${new Date().toLocaleString(petOwnerIntlLocale())}`,
-    "",
-    "Ringkasan ini dibuat dari informasi pada akun dan tampilan yang sedang aktif.",
-  ].join("\n");
-  const url = URL.createObjectURL(
-    new Blob([content], { type: "text/plain;charset=utf-8" }),
-  );
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `slivadoc-${view}-summary.txt`;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }

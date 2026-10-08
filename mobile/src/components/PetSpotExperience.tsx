@@ -1,12 +1,11 @@
+import { FacilityTicker } from "./FacilityTicker";
+import { worldLabel } from "../../../shared/world-presentation";
 import { LocalizedPressable as Pressable } from "./LocalizedPressable";
 /* Native Image uses accessibilityLabel rather than web alt. */
 /* eslint-disable jsx-a11y/alt-text */
-import { useEffect, useMemo, useState } from "react";
 import {
-  AppState,
   Image,
   Linking,
-
   StyleSheet,
   View,
 } from "react-native";
@@ -33,39 +32,14 @@ export const petSpotCategory = (value?: string) =>
 export function PetSpotCard({
   item,
   onOpen,
+  columns = 1,
 }: {
   item: WorldItem;
   onOpen: () => void;
+  columns?: 1 | 2;
 }) {
   const { formatCurrency } = useI18n();
-  const images = useMemo(
-    () => [
-      ...new Set(
-        [item.cover_url, ...(item.image_urls ?? [])].filter(
-          (url): url is string => Boolean(url),
-        ),
-      ),
-    ],
-    [item.cover_url, item.image_urls],
-  );
-  const [index, setIndex] = useState(0);
-  const [foreground, setForeground] = useState(
-    AppState.currentState === "active",
-  );
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) =>
-      setForeground(state === "active"),
-    );
-    return () => subscription.remove();
-  }, []);
-  useEffect(() => {
-    if (images.length < 2 || !foreground) return;
-    const timer = setInterval(
-      () => setIndex((current) => (current + 1) % images.length),
-      1000,
-    );
-    return () => clearInterval(timer);
-  }, [images.length, foreground]);
+  const image = item.cover_url || item.image_urls?.[0];
   const rate = item.resources?.length
     ? Math.min(...item.resources.map((unit) => unit.base_price))
     : null;
@@ -74,13 +48,13 @@ export function PetSpotCard({
       accessibilityRole="button"
       accessibilityLabel={`Lihat detail ${item.name}`}
       onPress={onOpen}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.card, { width: columns === 2 ? "48%" : "100%" }, pressed && styles.pressed]}
     >
       <View style={styles.photo}>
-        {images.length ? (
+        {image ? (
           <Image
-            accessibilityLabel={`Foto ${item.name} ${(index % images.length) + 1}`}
-            source={{ uri: images[index % images.length] }}
+            accessibilityLabel={`Foto ${item.name}`}
+            source={{ uri: image }}
             style={StyleSheet.absoluteFill}
             resizeMode="cover"
           />
@@ -102,14 +76,6 @@ export function PetSpotCard({
           <View style={styles.verified}>
             <Ionicons name="checkmark-circle" size={11} color="#fff" />
             <Text style={styles.verifiedText}>Verified</Text>
-          </View>
-        ) : null}
-        {images.length > 1 ? (
-          <View style={styles.photoCount}>
-            <Ionicons name="images-outline" size={11} color="#fff" />
-            <Text style={styles.photoCountText}>
-              {(index % images.length) + 1}/{images.length}
-            </Text>
           </View>
         ) : null}
       </View>
@@ -135,13 +101,7 @@ export function PetSpotCard({
               : ""}
           </Text>
         </View>
-        <View style={styles.facilities}>
-          {(item.pet_facilities ?? []).slice(0, 2).map((facility) => (
-            <Text key={facility} numberOfLines={1} style={styles.facility}>
-              {facility}
-            </Text>
-          ))}
-        </View>
+        <FacilityTicker facilities={item.facility_details?.length ? item.facility_details : item.pet_facilities ?? []}/>
         <View style={styles.footer}>
           <Text style={styles.booking}>
             {rate !== null
@@ -231,7 +191,7 @@ export function PetSpotVenueInformation({ item }: { item: WorldItem }) {
         <View style={styles.facilityGrid}>
           {facilities.map((facility) => {
             const name =
-              typeof facility === "string" ? facility : facility.name;
+              worldLabel(typeof facility === "string" ? facility : facility.name);
             return (
               <View key={name} style={styles.facilityTile}>
                 <Ionicons
@@ -326,7 +286,7 @@ export function PetSpotVenueInformation({ item }: { item: WorldItem }) {
                 <View style={styles.flex}>
                   <Text style={styles.facilityName}>{unit.name}</Text>
                   <Text style={styles.note}>
-                    {unit.floor_name || unit.resource_type} · {unit.capacity}{" "}
+                    {unit.floor_name || worldLabel(unit.resource_type)} · {unit.capacity}{" "}
                     tamu
                   </Text>
                   {unit.description ? (
@@ -392,15 +352,14 @@ export function PetSpotVenueInformation({ item }: { item: WorldItem }) {
 
 const styles = StyleSheet.create({
   card: {
-    width: "48%",
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 14,
+    borderRadius: 22,
     overflow: "hidden",
     backgroundColor: colors.white,
   },
   pressed: { opacity: 0.8 },
-  photo: { width: "100%", aspectRatio: 1.15, backgroundColor: colors.sky50 },
+  photo: { width: "100%", aspectRatio: 1.6, backgroundColor: colors.sky50 },
   noPhoto: { flex: 1, alignItems: "center", justifyContent: "center", gap: 7 },
   noPhotoText: { fontSize: 10, color: colors.muted },
   verified: {
@@ -415,39 +374,18 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(2,97,148,.85)",
   },
   verifiedText: { fontSize: 9, color: "#fff", fontWeight: "700" },
-  photoCount: {
-    position: "absolute",
-    right: 7,
-    bottom: 7,
-    flexDirection: "row",
-    gap: 4,
-    padding: 5,
-    borderRadius: 7,
-    backgroundColor: "rgba(5,30,46,.7)",
-  },
-  photoCountText: { color: "#fff", fontSize: 9 },
-  copy: { flex: 1, padding: 10, gap: 7 },
+  copy: { flex: 1, padding: 16, gap: 10 },
   category: { fontSize: 10, fontWeight: "700", color: colors.sky600 },
   title: {
-    minHeight: 36,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 19,
+    lineHeight: 25,
     fontWeight: "700",
     color: colors.navy,
   },
   rating: { flexDirection: "row", alignItems: "center", gap: 4 },
-  ratingText: { color: colors.text, fontSize: 10 },
-  location: { flexDirection: "row", alignItems: "center", gap: 3 },
-  locationText: { flex: 1, fontSize: 10, color: colors.muted },
-  facilities: { gap: 4 },
-  facility: {
-    borderRadius: 5,
-    paddingHorizontal: 5,
-    paddingVertical: 3,
-    color: "#128464",
-    backgroundColor: "#ecfdf5",
-    fontSize: 9,
-  },
+  ratingText: { color: colors.text, fontSize: 12 },
+  location: { flexDirection: "row", alignItems: "center", gap: 7 },
+  locationText: { flex: 1, fontSize: 12, color: colors.muted },
   footer: {
     marginTop: "auto",
     paddingTop: 9,
@@ -457,7 +395,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  booking: { flex: 1, color: colors.sky600, fontSize: 10, fontWeight: "700" },
+  booking: { flex: 1, color: colors.sky600, fontSize: 12, fontWeight: "700" },
   details: { marginTop: 18, gap: 16 },
   summary: {
     flexDirection: "row",

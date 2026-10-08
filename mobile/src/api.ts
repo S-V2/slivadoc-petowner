@@ -1719,8 +1719,12 @@ export const saveMobileAcademyProgramReview = (
   );
 export const getMobileEvents = () =>
   getUniqueWorldItems("/api/v1/public/events");
-export const getMobilePetSpots = () =>
-  getUniqueWorldItems("/api/v1/public/petspots");
+export const getMobilePetSpots = (options?: { latitude: number; longitude: number; max_distance_km: number }) => {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(options ?? {})) query.set(key, String(value));
+  const params = query.toString();
+  return getUniqueWorldItems(`/api/v1/public/petspots${params ? `?${params}` : ""}`);
+};
 export const getMobilePetSpot = async (spotId: string): Promise<WorldItem> => {
   const venue = await platformRequest<Omit<WorldItem, "reviews"> & { reviews?: MobilePetSpotReview[] }>(`/api/v1/public/petspots/${encodeURIComponent(spotId)}`);
   const { reviews, ...detail } = venue;

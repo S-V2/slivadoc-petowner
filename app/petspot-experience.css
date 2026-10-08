@@ -12,25 +12,54 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid #d5eaf4;
-  border-radius: 14px;
+  border-radius: 22px;
   background: #fff;
-  box-shadow: 0 5px 18px #15537109;
+  box-shadow: 0 7px 22px #214d710b;
+  transition: border-color 0.18s, box-shadow 0.18s;
 }
 .petspot-card .petspot-card-gallery {
   height: auto;
-  aspect-ratio: 1.5;
+  aspect-ratio: 1.6;
   border-radius: 0;
 }
 .petspot-card-content {
   display: grid;
   width: 100%;
-  gap: 9px;
-  padding: 17px;
+  gap: 10px;
+  padding: 20px;
   border: 0;
   color: #173e57;
   background: transparent;
   text-align: left;
   cursor: pointer;
+}
+.world-split-list .petspot-grid {
+  grid-template-columns: 1fr;
+}
+.petspot-card:hover {
+  border-color: #a5d7ef;
+  box-shadow: 0 10px 28px #214d7114;
+}
+.petspot-card-category {
+  color: var(--sky-600);
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 800;
+}
+.petspot-card-location {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+.petspot-card-location svg {
+  flex: 0 0 15px;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+}
+.petspot-card-location > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .petspot-card-topline,
 .petspot-card-content footer {
@@ -48,8 +77,8 @@
 }
 .petspot-card-content h3 {
   margin: 0;
-  font-size: 18px;
-  line-height: 1.35;
+  font-size: 21px;
+  line-height: 1.3;
 }
 .petspot-card-content p {
   margin: 0;
@@ -592,15 +621,15 @@
     gap: 10px;
   }
   .petspot-card .petspot-card-gallery {
-    aspect-ratio: 1.1;
+    aspect-ratio: 1.6;
     min-height: 0;
   }
   .petspot-card-content {
-    padding: 11px;
-    gap: 7px;
+    padding: 16px;
+    gap: 10px;
   }
   .petspot-card-content h3 {
-    font-size: 15px;
+    font-size: 19px;
   }
   .petspot-card-topline {
     align-items: start;
@@ -643,6 +672,9 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .petspot-card {
+    transition: none;
+  }
   .petspot-detail-scroll {
     scroll-behavior: auto;
   }

@@ -78,14 +78,14 @@ export function Screen({ children, contentStyle }: PropsWithChildren<{ contentSt
   );
 }
 
-export function TopHeader({ title, subtitle, onNotification }: { title: string; subtitle: string; onNotification: () => void }) {
+export function TopHeader({ title, subtitle, onNotification, brandIcon, compact = false }: { title: string; subtitle: string; onNotification: () => void; brandIcon?: ReactNode; compact?: boolean }) {
   const { unreadNotifications, openChatInbox } = useAppSurface();
   return (
     <View style={styles.topHeader}>
-      <View style={styles.brandIcon}><Ionicons name="sparkles" size={18} color={colors.white} /></View>
+      {brandIcon ?? <View style={styles.brandIcon}><Ionicons name="sparkles" size={18} color={colors.white} /></View>}
       <View style={styles.topHeaderCopy}>
         <Text style={styles.topKicker}>{subtitle}</Text>
-        <Text style={styles.topTitle} numberOfLines={1}>{title}</Text>
+        <Text style={[styles.topTitle, compact && { fontSize: 18 }]} numberOfLines={1}>{title}</Text>
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="Buka daftar chat" style={styles.iconButton} onPress={() => openChatInbox()}>
         <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />

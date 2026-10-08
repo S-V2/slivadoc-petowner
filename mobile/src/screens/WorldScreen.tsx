@@ -88,7 +88,6 @@ import {
   PetRequiredNotice,
   PrimaryButton,
   Screen,
-  TopHeader,
 } from "../components/ui";
 import {
   MobileQrisModal,
@@ -107,6 +106,9 @@ import {
 import { AdoptionManager } from "./AdoptionManager";
 import { AdoptionExperience } from "./AdoptionExperience";
 import { DiscountBadge } from "../components/DiscountBadge";
+import { WorldExplorer } from "../components/WorldExplorer";
+import { SlivaOptionPicker } from "../components/SlivaOptionPicker";
+import { worldLabel } from "../../../shared/world-presentation";
 
 export type WorldMode =
   | "pawdating"
@@ -571,9 +573,9 @@ export function WorldScreen({
       Array.from(
         new Set(
           [
-            ...(selected?.image_urls ?? []),
             selected?.cover_url,
             selected?.banner_url,
+            ...(selected?.image_urls ?? []),
             selected?.photo_url,
             ...(selected?.photo_urls ?? []),
             selected?.media_url,
@@ -651,6 +653,22 @@ export function WorldScreen({
     : undefined;
   const [selectedEventPetID, setSelectedEventPetID] = useState("");
   const [spotCategoryFilter, setSpotCategoryFilter] = useState("all");
+  const [spotSearch, setSpotSearch] = useState("");
+  const [spotRadius, setSpotRadius] = useState("25");
+  const [spotLocating, setSpotLocating] = useState(false);
+  const locateSpots = async () => {
+    if (spotLocating) return;
+    setSpotLocating(true);
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (!permission.granted) { onAction("Izinkan lokasi untuk mencari tempat di sekitarmu."); return; }
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const result = await getMobilePetSpots({ latitude: position.coords.latitude, longitude: position.coords.longitude, max_distance_km: Number(spotRadius) });
+      setItems(current => ({ ...current, petspot: result.data }));
+      onAction("PetSpot diurutkan berdasarkan koordinat perangkat");
+    } catch { onAction("Lokasi belum dapat digunakan. Coba lagi."); }
+    finally { setSpotLocating(false); }
+  };
   const [petSpotForm, setPetSpotForm] = useState<PetSpotReservationForm>(
     emptyPetSpotReservationForm,
   );
@@ -717,8 +735,9 @@ export function WorldScreen({
         : mode === "petspot"
           ? items.petspot.filter(
               (item) =>
-                spotCategoryFilter === "all" ||
-                item.category === spotCategoryFilter,
+                (spotCategoryFilter === "all" || item.category === spotCategoryFilter) &&
+                `${item.name} ${item.city ?? ""} ${item.address ?? ""} ${worldLabel(item.category ?? "")}`.toLocaleLowerCase().includes(spotSearch.trim().toLocaleLowerCase()) &&
+                (typeof item.distance_km !== "number" || item.distance_km <= Number(spotRadius)),
             )
           : items[mode],
     [
@@ -727,7 +746,7 @@ export function WorldScreen({
       focusedVeterinarianId,
       items,
       mode,
-      spotCategoryFilter,
+      spotCategoryFilter, spotSearch, spotRadius,
     ],
   );
   const chooseConsultProvider = (provider: ConsultProviderFilter) => {
@@ -1537,7 +1556,7 @@ export function WorldScreen({
     },
     petspot: {
       kicker: "PET FRIENDLY DISCOVERY",
-      title: `Ke mana hari ini bersama ${petName || "pet-mu"}?`,
+      title: "Temukan tempat ramah pet.",
       note: "Cafe, kosan, apartemen, mall, dan tempat ramah pet.",
       icon: "leaf-outline",
     },
@@ -1569,14 +1588,7 @@ export function WorldScreen({
   if (["pethub", "adoption"].includes(mode)) {
     return (
       <Screen>
-        <TopHeader
-          title="Sliva World"
-          subtitle="Seluruh dunia pet dalam satu aplikasi"
-          onNotification={onOpenNotifications}
-        />
-        {!hasPet && owner ? (
-          <PetRequiredNotice onAddPet={onRequirePet} />
-        ) : null}
+        <WorldExplorer onNotification={onOpenNotifications}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -1594,7 +1606,7 @@ export function WorldScreen({
               <Ionicons
                 name={item.icon}
                 size={20}
-                color={mode === item.id ? colors.sky600 : colors.muted}
+                color={mode === item.id ? colors.white : colors.muted}
               />
               <Text
                 style={[
@@ -1607,6 +1619,8 @@ export function WorldScreen({
             </Pressable>
           ))}
         </ScrollView>
+        </WorldExplorer>
+        {!hasPet && owner ? <PetRequiredNotice onAddPet={onRequirePet} /> : null}
         {mode === "adoption" ? <AdoptionExperience owner={owner} pets={pets} onLogin={onLogin} onRequirePet={onRequirePet} onAction={onAction} refreshVersion={refreshVersion} /> : <PetHubExperience
           refreshVersion={refreshVersion}
           owner={owner}
@@ -1621,14 +1635,7 @@ export function WorldScreen({
   return (
     <>
       <Screen>
-        <TopHeader
-          title="Sliva World"
-          subtitle="Seluruh dunia pet dalam satu aplikasi"
-          onNotification={onOpenNotifications}
-        />
-        {!hasPet && owner ? (
-          <PetRequiredNotice onAddPet={onRequirePet} />
-        ) : null}
+        <WorldExplorer onNotification={onOpenNotifications}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -1646,7 +1653,7 @@ export function WorldScreen({
               <Ionicons
                 name={item.icon}
                 size={20}
-                color={mode === item.id ? colors.sky600 : colors.muted}
+                color={mode === item.id ? colors.white : colors.muted}
               />
               <Text
                 style={[
@@ -1659,7 +1666,16 @@ export function WorldScreen({
             </Pressable>
           ))}
         </ScrollView>
-        {mode !== "pawdating" ? (
+        {mode === "petspot" && <View style={styles.worldSpotSearch}>
+          <View style={styles.worldSearchField}><Ionicons name="search-outline" size={19} color={colors.muted}/><TextInput accessibilityLabel="Cari tempat ramah pet" placeholder="Cari cafe, kosan, apartemen, mall…" value={spotSearch} onChangeText={setSpotSearch} style={styles.worldSearchInput}/></View>
+          <View style={styles.worldSearchActions}>
+            <View style={styles.worldRadius}><Text style={styles.worldRadiusLabel}>Radius pencarian</Text><SlivaOptionPicker label="Radius pencarian" value={spotRadius} options={[3, 5, 10, 25, 100].map(value => ({ value: String(value), label: `${value} km` }))} onChange={setSpotRadius}/></View>
+            <Pressable accessibilityLabel="Cari dari posisi saya" disabled={spotLocating || loading} onPress={() => void locateSpots()} style={[styles.worldLocate, (spotLocating || loading) && { opacity: 0.5 }]}><Ionicons name="location-outline" size={17} color={colors.white}/><Text style={styles.worldLocateText}>{spotLocating ? "Mencari lokasi…" : "Cari dari posisi saya"}</Text></Pressable>
+          </View>
+        </View>}
+        </WorldExplorer>
+        {!hasPet && owner ? <PetRequiredNotice onAddPet={onRequirePet} /> : null}
+        {mode !== "pawdating" && mode !== "petspot" ? (
           <View style={[styles.hero, mode === "events" && styles.eventHero]}>
             <Text style={styles.heroKicker}>{heroCopy[mode].kicker}</Text>
             <Text style={styles.heroTitle}>{heroCopy[mode].title}</Text>
@@ -2095,6 +2111,7 @@ export function WorldScreen({
           <View style={styles.petSpotGrid}>
             {visibleItems.map((item) => (
               <PetSpotCard
+                columns={viewportWidth >= 600 ? 2 : 1}
                 key={item.id}
                 item={item}
                 onOpen={() => void openItem(item)}
@@ -2160,18 +2177,6 @@ export function WorldScreen({
                   {mode === "consult" && item.discount_percent ? (
                     <DiscountBadge percent={item.discount_percent} />
                   ) : null}
-                  {mode === "academy" && (item.image_urls?.length ?? 0) > 1 ? (
-                    <View style={styles.academyGalleryBadge}>
-                      <Ionicons
-                        name="images-outline"
-                        size={11}
-                        color={colors.white}
-                      />
-                      <Text style={styles.academyGalleryText}>
-                        {item.image_urls?.length}
-                      </Text>
-                    </View>
-                  ) : null}
                   {mode === "events" ? (
                     <>
                       <View style={styles.eventDateBadge}>
@@ -2189,18 +2194,6 @@ export function WorldScreen({
                             : item.category || "PET EVENT"}
                         </Text>
                       </View>
-                      {(item.image_urls?.length ?? 0) > 1 ? (
-                        <View style={styles.academyGalleryBadge}>
-                          <Ionicons
-                            name="images-outline"
-                            size={11}
-                            color={colors.white}
-                          />
-                          <Text style={styles.academyGalleryText}>
-                            {item.image_urls?.length}
-                          </Text>
-                        </View>
-                      ) : null}
                     </>
                   ) : null}
                   {mode === "pawdating" ? (
@@ -3393,6 +3386,7 @@ export function WorldScreen({
                                   ) : null}
                                   <Text style={styles.housingAmenities}>
                                     {(resource.amenities ?? [])
+                                      .map(worldLabel)
                                       .slice(0, 5)
                                       .join(" · ")}
                                   </Text>
@@ -4464,6 +4458,14 @@ function PawDatingCreateModal({
 }
 
 const styles = StyleSheet.create({
+  worldSpotSearch: { gap: 12, paddingTop: 2 },
+  worldSearchField: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.sky100, borderRadius: 14, backgroundColor: colors.white },
+  worldSearchInput: { flex: 1, minWidth: 0, paddingVertical: 12, color: colors.navy, fontSize: 13 },
+  worldSearchActions: { flexDirection: "row", alignItems: "flex-end", gap: 10 },
+  worldRadius: { width: 100, gap: 5 }, worldRadiusLabel: { color: colors.muted, fontSize: 10, fontWeight: "600" },
+  worldLocate: { flex: 1, minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingHorizontal: 10, paddingVertical: 10, borderRadius: 14, backgroundColor: colors.sky600 },
+  worldLocateText: { flexShrink: 1, color: colors.white, fontSize: 12, fontWeight: "700" },
+
   petSpotChoiceGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   petSpotChoice: {
     width: "48%",
@@ -4477,8 +4479,9 @@ const styles = StyleSheet.create({
   },
   modeRow: { gap: 6, paddingVertical: 9, paddingRight: 14 },
   mode: {
-    minWidth: 78,
-    minHeight: 54,
+    minWidth: 92,
+    paddingHorizontal: 10,
+    minHeight: 58,
     alignItems: "center",
     justifyContent: "center",
     gap: 5,
@@ -4487,10 +4490,10 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     backgroundColor: colors.white,
   },
-  activeMode: { borderColor: colors.sky400, backgroundColor: colors.sky50 },
+  activeMode: { borderColor: colors.sky600, backgroundColor: colors.sky600 },
   modeIcon: { fontSize: 20 },
-  modeLabel: { color: colors.muted, fontSize: 10, fontWeight: "600" },
-  activeModeLabel: { color: colors.sky600 },
+  modeLabel: { color: colors.muted, fontSize: 12, fontWeight: "600" },
+  activeModeLabel: { color: colors.white },
   hero: {
     position: "relative",
     minHeight: 188,

@@ -10,7 +10,7 @@ import { MobileQrisModal } from "../../src/components/QrisPayment";
 import { createMobilePet, getMobilePetSpecies, getMobilePaymentIntent, type MobilePaymentIntent } from "../../src/api";
 
 jest.mock("../../src/api", () => ({ PETOWNER_API_URL: "http://localhost:0", createMobilePet: jest.fn(), getMobilePetSpecies: jest.fn(), getMobilePaymentIntent: jest.fn() }));
-const species = [{ code: "cat", label: "Kucing", group: "cat", scientific_name: "Felis catus", emoji: "🐈" }, { code: "other", label: "Spesies lainnya", group: "other", scientific_name: "", emoji: "🐾" }];
+const species = [{ code: "cat", label: "Kucing", group: "cat", scientific_name: "Felis catus", emoji: "🐈" }, { code: "other", label: "Spesies lainnya", group: "other", scientific_name: "", emoji: "🐾" }, { code: "guinea_pig", label: "Marmut", group: "small_mammal", scientific_name: "Cavia porcellus", emoji: "🐹" }];
 function Providers({ children }: { children: ReactNode }) { return <SafeAreaProvider><LanguageProvider>{children}</LanguageProvider></SafeAreaProvider>; }
 beforeEach(() => {
   jest.clearAllMocks();
@@ -29,6 +29,9 @@ describe("native Slivadoc controls", () => {
     await user.press(screen.getByRole("button", { name: "Animal type" }));
     await user.type(screen.getByLabelText("Search options"), "cat");
     expect(screen.getByRole("radio", { name: "Cat" })).toBeOnTheScreen();
+    await user.clear(screen.getByLabelText("Search options"));
+    await user.type(screen.getByLabelText("Search options"), "guinea");
+    expect(screen.getByRole("radio", { name: "Guinea pig" })).toBeOnTheScreen();
   });
   test("first pet form validates identity and retries profile refresh without creating a duplicate pet", async () => {
     const user = userEvent.setup();

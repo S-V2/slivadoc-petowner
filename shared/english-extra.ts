@@ -1,4 +1,6 @@
+import { englishSpecies } from "./english-species.ts";
 export const englishExtra: Record<string, string> = {
+  ...englishSpecies,
   "AKUN & PERAWATAN": "ACCOUNT & CARE",
   "Akun & perawatan": "Account & care",
   "Yuk, bikin hari pet-mu makin sehat dan happy.": "Let's make your pet's day healthier and happier.",

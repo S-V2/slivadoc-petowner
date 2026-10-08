@@ -1,3 +1,4 @@
+import { BottomSheetSafeArea } from "../components/BottomSheetSafeArea";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { useResponsiveLayout } from "../responsive";
 import { Ionicons } from "@expo/vector-icons";
@@ -1787,8 +1788,7 @@ function SheetFrame({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.modalBackdrop}
       >
-        <SafeAreaView
-          edges={["top", "left", "right"]}
+        <BottomSheetSafeArea
           style={[styles.sheetSafeArea, fill && styles.sheetSafeAreaFill]}
         >
           <View style={[styles.sheet, fill && styles.sheetFill]}>
@@ -1811,7 +1811,7 @@ function SheetFrame({
             </View>
             {children}
           </View>
-        </SafeAreaView>
+        </BottomSheetSafeArea>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -3785,6 +3785,8 @@ const styles = StyleSheet.create({
   sheetSafeArea: {maxWidth: 720, alignSelf: "center",  width: "100%", maxHeight: "88%" },
   sheetSafeAreaFill: { height: "88%" },
   sheet: {
+    flexShrink: 1,
+    minHeight: 0,
     overflow: "hidden",
     maxHeight: "100%",
     borderTopLeftRadius: 28,

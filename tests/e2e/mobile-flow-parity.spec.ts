@@ -56,6 +56,31 @@ async function app(page: Page, options: { authenticated?: boolean; withPet?: boo
   return mutations;
 }
 
+for (const viewport of [{ width: 320, height: 700 }, { width: 390, height: 844 }]) {
+  test(`phone sheets reach the bottom edge and keep their last action reachable at ${viewport.width}px`, async ({ page }) => {
+    await app(page);
+    await page.setViewportSize(viewport);
+    await page.goto("/?view=profile", { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Lainnya", exact: true }).click();
+    const more = page.locator(".mobile-more-sheet");
+    await expect.poll(() => more.evaluate((element) => Math.abs(window.innerHeight - element.getBoundingClientRect().bottom))).toBeLessThanOrEqual(1);
+    const lastFeature = more.getByRole("button", { name: "PAW Dating", exact: true });
+    await lastFeature.scrollIntoViewIfNeeded();
+    await expect(lastFeature).toBeInViewport();
+    await more.getByRole("button", { name: "Tutup", exact: true }).click();
+
+    await page.goto("/?view=world&world_mode=events", { waitUntil: "domcontentloaded" });
+    await page.getByRole("searchbox", { name: "Cari di seluruh Slivadoc" }).fill("Meetup Milo");
+    await page.locator(".owner-search-results").getByRole("button", { name: /Meetup Milo/ }).click();
+    const detail = page.locator(".world-modal");
+    await expect(detail).toContainText("Meetup Milo");
+    await expect.poll(() => detail.evaluate((element) => Math.abs(window.innerHeight - element.getBoundingClientRect().bottom))).toBeLessThanOrEqual(1);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+    await page.getByRole("button", { name: "Tutup detail", exact: true }).click();
+    await expect(detail).toBeHidden();
+  });
+}
+
 test("guests browse native destinations and explicitly sign in from activity", async ({ page }) => {
   await app(page);
   await page.setViewportSize({ width: 390, height: 844 });

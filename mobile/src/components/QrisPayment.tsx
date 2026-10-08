@@ -1,3 +1,4 @@
+import { BottomSheetSafeArea } from "./BottomSheetSafeArea";
 import { LocalizedPressable as Pressable } from "./LocalizedPressable";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -8,7 +9,6 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import QRCode from "react-native-qrcode-svg";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -172,7 +172,7 @@ function MobileQrisModalState({
   return (
     <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <SafeAreaView style={styles.wrap}>
+        <BottomSheetSafeArea style={styles.wrap}>
           <View style={styles.sheet}>
             <View style={styles.handle} />
             <Pressable
@@ -257,7 +257,7 @@ function MobileQrisModalState({
               </View>
             )}
           </View>
-        </SafeAreaView>
+        </BottomSheetSafeArea>
       </View>
     </Modal>
   );

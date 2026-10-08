@@ -3,6 +3,7 @@ import { Image, Modal,  ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { DiscountBadge } from "../components/DiscountBadge";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { BottomSheetSafeArea } from "../components/BottomSheetSafeArea";
 import type { Service } from "../data";
 import { colors, shadow } from "../theme";
 import { Pill, PrimaryButton, Screen, TopHeader } from "../components/ui";
@@ -99,33 +100,31 @@ function ServiceDetailSheet({ service, onClose, onBook }: { service?: Service; o
   return <>
     <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.detailBackdrop}>
-        <SafeAreaView style={styles.detailSafe} edges={["top", "bottom"]}>
-          <View style={styles.detailSheet}>
-            <View style={styles.detailHeader}>
-              <View><Text style={styles.detailEyebrow}>DETAIL LAYANAN</Text><Text catalogue numberOfLines={1} style={styles.detailHeaderTitle}>{service.name}</Text></View>
-              <Pressable accessibilityLabel="Tutup detail layanan" onPress={onClose} style={styles.detailClose}><Ionicons name="close" size={21} color={colors.text} /></Pressable>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.detailContent}>
-              <View style={[styles.detailHero, service.tone === "mint" ? styles.mint : service.tone === "violet" ? styles.violet : service.tone === "peach" ? styles.peach : styles.blue]}>
-                {activeImage ? <Pressable onPress={() => setViewerOpen(true)} accessibilityRole="imagebutton" accessibilityLabel={`Perbesar gambar ${service.name}`} style={styles.detailHeroImageButton}><Image source={{ uri: activeImage }} alt={`Foto ${service.name}`} style={styles.detailHeroImage} resizeMode="cover" /></Pressable> : <Ionicons name={serviceIcon(service)} size={58} color={colors.sky600} />}
-                <View style={styles.detailCategory}><Text style={styles.detailCategoryText}>{service.category}</Text></View>
-                <DiscountBadge percent={service.discountPercent} />
-                {images.length > 1 ? <View style={styles.detailPager}><Pressable onPress={() => setImageIndex((activeIndex - 1 + images.length) % images.length)}><Ionicons name="chevron-back" size={18} color={colors.white} /></Pressable><Text style={styles.detailPagerText}>{activeIndex + 1}/{images.length} · otomatis</Text><Pressable onPress={() => setImageIndex((activeIndex + 1) % images.length)}><Ionicons name="chevron-forward" size={18} color={colors.white} /></Pressable></View> : null}
-              </View>
-              <View style={styles.detailTitleRow}><View style={styles.detailTitleCopy}><Text catalogue style={styles.detailName}>{service.name}</Text><Text style={styles.detailAddress}><Ionicons name="location-outline" size={12} /> {service.address}</Text></View><View style={styles.detailRating}><Ionicons name="star" size={12} color={colors.yellow} /><Text style={styles.detailRatingText}>{service.rating}</Text></View></View>
-              <View style={styles.detailHighlights}>
-                <View style={styles.detailHighlight}><Ionicons name="shield-checkmark-outline" size={19} color={colors.sky600} /><Text style={styles.detailHighlightTitle}>{service.licenseStatus === "verified" ? "Terverifikasi" : "Mitra aktif"}</Text><Text style={styles.detailHighlightNote}>Status mitra</Text></View>
-                <View style={styles.detailHighlight}><Ionicons name="time-outline" size={19} color="#14836E" /><Text style={styles.detailHighlightTitle}>{service.durationMinutes ?? 60} menit</Text><Text style={styles.detailHighlightNote}>Durasi</Text></View>
-                <View style={styles.detailHighlight}><Ionicons name="wallet-outline" size={19} color="#6655C7" />{service.originalPrice && service.originalPrice > service.priceValue ? <Text style={styles.detailHighlightOldPrice}>{formatCurrency(service.originalPrice)}</Text> : null}<Text style={styles.detailHighlightTitle}>{service.price}</Text><Text style={styles.detailHighlightNote}>{service.discountPercent ? `Hemat ${Math.round(service.discountPercent)}%` : "Estimasi"}</Text></View>
-              </View>
-              <Text style={styles.detailSectionTitle}>Tentang layanan</Text>
-              <Text catalogue style={styles.detailDescription}>{service.description || "Layanan pet care dari mitra Slivadoc dengan jadwal dan kapasitas yang tersinkron langsung."}</Text>
-              {service.inclusions?.length ? <><Text style={styles.detailSectionTitle}>Yang termasuk</Text><View style={styles.detailTags}>{service.inclusions.map((item) => <View key={item} style={styles.detailTag}><Ionicons name="checkmark-circle" size={14} color="#14836E" /><Text style={styles.detailTagText}>{item}</Text></View>)}</View></> : null}
-              <View style={styles.detailPolicy}><Ionicons name="information-circle-outline" size={21} color={colors.sky600} /><View><Text style={styles.detailPolicyTitle}>Sebelum booking</Text><Text style={styles.detailPolicyText}>{service.cancellationPolicy || "Jadwal aktual, kapasitas, biaya, dan kebijakan akan ditampilkan sebelum konfirmasi."}</Text>{service.cancellationCutoffHours !== undefined ? <Text style={styles.detailPolicyText}>Bisa dibatalkan hingga {service.cancellationCutoffHours} jam sebelum jadwal</Text> : null}</View></View>
-            </ScrollView>
-            <View style={styles.detailFooter}><View><Text style={styles.detailFooterLabel}>{service.discountPercent ? `Promo ${Math.round(service.discountPercent)}% · mulai dari` : "Mulai dari"}</Text>{service.originalPrice && service.originalPrice > service.priceValue ? <Text style={styles.detailFooterOldPrice}>{formatCurrency(service.originalPrice)}</Text> : null}<Text style={styles.detailFooterPrice}>{service.price}</Text></View><PrimaryButton label="Pilih jadwal" icon="calendar-outline" onPress={() => onBook(service)} /></View>
+        <BottomSheetSafeArea style={styles.detailSheet}>
+          <View style={styles.detailHeader}>
+            <View><Text style={styles.detailEyebrow}>DETAIL LAYANAN</Text><Text catalogue numberOfLines={1} style={styles.detailHeaderTitle}>{service.name}</Text></View>
+            <Pressable accessibilityLabel="Tutup detail layanan" onPress={onClose} style={styles.detailClose}><Ionicons name="close" size={21} color={colors.text} /></Pressable>
           </View>
-        </SafeAreaView>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.detailContent}>
+            <View style={[styles.detailHero, service.tone === "mint" ? styles.mint : service.tone === "violet" ? styles.violet : service.tone === "peach" ? styles.peach : styles.blue]}>
+              {activeImage ? <Pressable onPress={() => setViewerOpen(true)} accessibilityRole="imagebutton" accessibilityLabel={`Perbesar gambar ${service.name}`} style={styles.detailHeroImageButton}><Image source={{ uri: activeImage }} alt={`Foto ${service.name}`} style={styles.detailHeroImage} resizeMode="cover" /></Pressable> : <Ionicons name={serviceIcon(service)} size={58} color={colors.sky600} />}
+              <View style={styles.detailCategory}><Text style={styles.detailCategoryText}>{service.category}</Text></View>
+              <DiscountBadge percent={service.discountPercent} />
+              {images.length > 1 ? <View style={styles.detailPager}><Pressable onPress={() => setImageIndex((activeIndex - 1 + images.length) % images.length)}><Ionicons name="chevron-back" size={18} color={colors.white} /></Pressable><Text style={styles.detailPagerText}>{activeIndex + 1}/{images.length} · otomatis</Text><Pressable onPress={() => setImageIndex((activeIndex + 1) % images.length)}><Ionicons name="chevron-forward" size={18} color={colors.white} /></Pressable></View> : null}
+            </View>
+            <View style={styles.detailTitleRow}><View style={styles.detailTitleCopy}><Text catalogue style={styles.detailName}>{service.name}</Text><Text style={styles.detailAddress}><Ionicons name="location-outline" size={12} /> {service.address}</Text></View><View style={styles.detailRating}><Ionicons name="star" size={12} color={colors.yellow} /><Text style={styles.detailRatingText}>{service.rating}</Text></View></View>
+            <View style={styles.detailHighlights}>
+              <View style={styles.detailHighlight}><Ionicons name="shield-checkmark-outline" size={19} color={colors.sky600} /><Text style={styles.detailHighlightTitle}>{service.licenseStatus === "verified" ? "Terverifikasi" : "Mitra aktif"}</Text><Text style={styles.detailHighlightNote}>Status mitra</Text></View>
+              <View style={styles.detailHighlight}><Ionicons name="time-outline" size={19} color="#14836E" /><Text style={styles.detailHighlightTitle}>{service.durationMinutes ?? 60} menit</Text><Text style={styles.detailHighlightNote}>Durasi</Text></View>
+              <View style={styles.detailHighlight}><Ionicons name="wallet-outline" size={19} color="#6655C7" />{service.originalPrice && service.originalPrice > service.priceValue ? <Text style={styles.detailHighlightOldPrice}>{formatCurrency(service.originalPrice)}</Text> : null}<Text style={styles.detailHighlightTitle}>{service.price}</Text><Text style={styles.detailHighlightNote}>{service.discountPercent ? `Hemat ${Math.round(service.discountPercent)}%` : "Estimasi"}</Text></View>
+            </View>
+            <Text style={styles.detailSectionTitle}>Tentang layanan</Text>
+            <Text catalogue style={styles.detailDescription}>{service.description || "Layanan pet care dari mitra Slivadoc dengan jadwal dan kapasitas yang tersinkron langsung."}</Text>
+            {service.inclusions?.length ? <><Text style={styles.detailSectionTitle}>Yang termasuk</Text><View style={styles.detailTags}>{service.inclusions.map((item) => <View key={item} style={styles.detailTag}><Ionicons name="checkmark-circle" size={14} color="#14836E" /><Text style={styles.detailTagText}>{item}</Text></View>)}</View></> : null}
+            <View style={styles.detailPolicy}><Ionicons name="information-circle-outline" size={21} color={colors.sky600} /><View><Text style={styles.detailPolicyTitle}>Sebelum booking</Text><Text style={styles.detailPolicyText}>{service.cancellationPolicy || "Jadwal aktual, kapasitas, biaya, dan kebijakan akan ditampilkan sebelum konfirmasi."}</Text>{service.cancellationCutoffHours !== undefined ? <Text style={styles.detailPolicyText}>Bisa dibatalkan hingga {service.cancellationCutoffHours} jam sebelum jadwal</Text> : null}</View></View>
+          </ScrollView>
+          <View style={styles.detailFooter}><View><Text style={styles.detailFooterLabel}>{service.discountPercent ? `Promo ${Math.round(service.discountPercent)}% · mulai dari` : "Mulai dari"}</Text>{service.originalPrice && service.originalPrice > service.priceValue ? <Text style={styles.detailFooterOldPrice}>{formatCurrency(service.originalPrice)}</Text> : null}<Text style={styles.detailFooterPrice}>{service.price}</Text></View><PrimaryButton label="Pilih jadwal" icon="calendar-outline" onPress={() => onBook(service)} /></View>
+        </BottomSheetSafeArea>
       </View>
     </Modal>
     <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]} visible={viewerOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setViewerOpen(false)}>
@@ -152,8 +151,7 @@ const styles = StyleSheet.create({
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 7 }, tagText: { overflow: "hidden", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 7, color: colors.sky600, backgroundColor: colors.sky50, fontSize: 8, fontWeight: "600" }, status: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 7 }, liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.mint }, statusText: { color: colors.mint, fontSize: 9, fontWeight: "600" },
   serviceFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.line }, priceLabel: { color: colors.muted, fontSize: 8 }, oldPrice: { marginTop: 2, color: colors.muted, fontSize: 8, textDecorationLine: "line-through" }, price: { marginTop: 1, color: colors.navy, fontSize: 11, fontWeight: "700" },
   empty: { minHeight: 230, alignItems: "center", justifyContent: "center" }, emptyIcon: { width: 58, height: 58, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: colors.sky50 }, emptyTitle: { marginTop: 8, color: colors.navy, fontSize: 17, fontWeight: "600" }, emptyNote: { marginTop: 4, marginBottom: 13, color: colors.muted, fontSize: 12 },
-  detailBackdrop: { flex: 1, backgroundColor: "rgba(14,32,55,.46)" },
-  detailSafe: { flex: 1, justifyContent: "flex-end" },
+  detailBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(14,32,55,.46)" },
   detailSheet: {width: "100%", maxWidth: 720, alignSelf: "center",  height: "94%", overflow: "hidden", borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.white },
   detailHeader: { minHeight: 70, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.line },
   detailEyebrow: { color: colors.sky600, fontSize: 9, fontWeight: "700", letterSpacing: .8 },

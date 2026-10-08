@@ -1,3 +1,4 @@
+import { BottomSheetSafeArea } from "../components/BottomSheetSafeArea";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { useResponsiveLayout } from "../responsive";
 import { SlivaDatePicker } from "../components/SlivaDatePicker";
@@ -2389,7 +2390,7 @@ export function WorldScreen({
             pointerEvents="box-none"
             style={styles.sheetKeyboard}
           >
-            <SafeAreaView style={styles.sheetWrap}>
+            <BottomSheetSafeArea style={styles.sheetWrap}>
               <View style={styles.sheet}>
                 <View style={styles.handle} />
                 <Pressable
@@ -3871,7 +3872,7 @@ export function WorldScreen({
                   />
                 </ScrollView>
               </View>
-            </SafeAreaView>
+            </BottomSheetSafeArea>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -3883,7 +3884,7 @@ export function WorldScreen({
         onRequestClose={() => setPawDatingChat(undefined)}
       >
         <View style={styles.pawChatBackdrop}>
-          <SafeAreaView style={styles.pawChatSheet}>
+          <BottomSheetSafeArea style={styles.pawChatSheet}>
             <View style={styles.pawChatHeader}>
               <View style={styles.pawChatHeart}>
                 <Ionicons name="heart" size={20} color="#EA5B81" />
@@ -3996,7 +3997,7 @@ export function WorldScreen({
                 </Pressable>
               </View>
             </KeyboardAvoidingView>
-          </SafeAreaView>
+          </BottomSheetSafeArea>
         </View>
       </Modal>
       <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
@@ -4013,7 +4014,7 @@ export function WorldScreen({
             onPress={() => setAcademyTrainer(undefined)}
             style={StyleSheet.absoluteFill}
           />
-          <SafeAreaView style={styles.trainerSheetWrap}>
+          <BottomSheetSafeArea style={styles.trainerSheetWrap}>
             <View style={styles.trainerSheet}>
               <View style={styles.handle} />
               <Pressable
@@ -4108,7 +4109,7 @@ export function WorldScreen({
                 ) : null}
               </ScrollView>
             </View>
-          </SafeAreaView>
+          </BottomSheetSafeArea>
         </View>
       </Modal>
       <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
@@ -4337,7 +4338,7 @@ function PawDatingCreateModal({
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.createModalBackdrop}
       >
-        <SafeAreaView style={styles.createModalSafe}>
+        <BottomSheetSafeArea style={styles.createModalSafe}>
           <View style={styles.createModalSheet}>
             <View style={styles.createModalHeader}>
               <View>
@@ -4456,7 +4457,7 @@ function PawDatingCreateModal({
               />
             </ScrollView>
           </View>
-        </SafeAreaView>
+        </BottomSheetSafeArea>
       </KeyboardAvoidingView>
     </Modal>
   );

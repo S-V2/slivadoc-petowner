@@ -190,6 +190,8 @@ test("home service shortcuts open a filtered catalogue before booking", async ({
 
   await page.getByRole("button", { name: "Lihat detail" }).first().click();
   await expect(page.locator(".service-detail-modal")).toBeVisible();
+  await expect.poll(() => page.locator(".service-detail-modal").evaluate((element) => Math.abs(window.innerHeight - element.getBoundingClientRect().bottom))).toBeLessThanOrEqual(1);
+  await expect(page.getByRole("button", { name: "Pilih jadwal & booking" })).toBeInViewport();
   await expect(page).toHaveURL(/service=[0-9a-f-]+/);
 });
 

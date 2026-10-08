@@ -9,6 +9,7 @@ import {
   BackHandler,
   Easing,
   Image,
+  Linking,
   Modal,
   Platform,
 
@@ -2320,7 +2321,19 @@ function LoginModal({
                   <Text style={styles.legalBody}>
                     {policy === "terms"
                       ? "Slivadoc membantu pet parent mengelola profil pet, booking, transaksi, komunitas, Petship, dan layanan mitra. Data wajib benar; penggunaan yang membahayakan hewan, menipu, atau melanggar privasi dapat dimoderasi. Informasi kesehatan tidak menggantikan pemeriksaan dokter hewan. Detail biaya dan pembatalan ditampilkan sebelum konfirmasi."
-                      : "Slivadoc memproses identitas akun, profil pet, catatan layanan, preferensi, dan data perangkat untuk autentikasi, personalisasi, transaksi, keamanan, serta dukungan. Petship hanya membagikan lokasi tempat, bukan koordinat personal. Akses data dibatasi berdasarkan peran dan aktivitas penting dicatat untuk audit."}
+                      : "Slivadoc memproses data akun, profil pet, transaksi, dan lokasi untuk menjalankan layanan; data dibagikan ke mitra layanan hanya sesuai kebutuhan layanan yang kamu pilih."}
+                    {policy === "privacy" ? (
+                      <>
+                        {"\n\nKebijakan privasi lengkap: "}
+                        <Text
+                          accessibilityRole="link"
+                          onPress={() => void Linking.openURL("https://slivadoc.com/privasi")}
+                          style={styles.legalLink}
+                        >
+                          slivadoc.com/privasi
+                        </Text>
+                      </>
+                    ) : null}
                   </Text>
                 </ScrollView>
                 <PrimaryButton

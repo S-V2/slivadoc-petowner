@@ -74,7 +74,13 @@ export const getSitemapEntries = cache(async (): Promise<MetadataRoute.Sitemap> 
     },
     {
       url: absoluteUrl("/privasi"),
-      lastModified: new Date("2026-10-04T00:00:00Z"),
+      lastModified: new Date("2026-10-08T00:00:00Z"),
+      changeFrequency: "yearly",
+      priority: 0.5,
+    },
+    {
+      url: absoluteUrl("/hapus-akun"),
+      lastModified: new Date("2026-10-08T00:00:00Z"),
       changeFrequency: "yearly",
       priority: 0.5,
     },

@@ -8,6 +8,7 @@ import { responsiveLayout } from "../shared/responsive.ts";
 
 test("web and native share curated copy, plural counts and calendar language", () => {
   assert.equal(translateText("Belanja", "en"), "Shop");
+  for (const source of ["constructor", "toString", "__proto__"]) assert.equal(translateText(source, "en"), source);
   assert.equal(translateText(translateText("Rekomendasi", "en"), "en"), "Recommended");
   assert.equal(translateText(translateText("Beranda", "en"), "en"), "Home");
   assert.equal(translateText("5 bintang", "en"), "5 stars");

@@ -24,7 +24,7 @@ export function translateText(value: string, language: SlivaLanguage, forceConte
   const core = value.trim();
   // Primitives can nest: an English label must never be translated a second time.
   if (englishOutputs.has(core.toLocaleLowerCase("en"))) return value;
-  const exact = englishCopy[core] ?? folded.get(core.toLocaleLowerCase("id"));
+  const exact = Object.prototype.hasOwnProperty.call(englishCopy, core) ? englishCopy[core] : folded.get(core.toLocaleLowerCase("id"));
   let translated: string | undefined = exact;
   if (!translated) {
     const patterns: Array<[RegExp, (match: RegExpMatchArray) => string]> = [

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { petProfilePayload, type PetProfileDraft } from "../shared/pet-profile.ts";
+import { translateText } from "../shared/i18n.ts";
 
 const species = [{ code: "cat", label: "Kucing", group: "cat", scientific_name: "Felis catus", emoji: "🐈" }, { code: "other", label: "Spesies lainnya", group: "other", scientific_name: "", emoji: "🐾" }];
 const draft: PetProfileDraft = { name: " Milo ", speciesCode: "cat", customSpecies: "", customScientificName: "", breed: " Domestic ", sex: "unknown", birthDate: "2024-02-29", weight: "2,5" };
@@ -20,4 +21,12 @@ test("custom species requires its own name and preserves scientific spelling", (
   assert.equal(result.species, "other");
   assert.equal(result.species_common_name, "Binturong");
   assert.equal(result.species_scientific_name, "Arctictis binturong");
+});
+test("English pet headings preserve names and correctly translate age and home copy", () => {
+  assert.equal(translateText("Hai, Raka!", "en"), "Hi, Raka!");
+  assert.equal(translateText("Kondisi Nala", "en"), "Nala's health");
+  assert.equal(translateText("Untuk Milo", "en"), "For Milo");
+  assert.equal(translateText("3 tahun 5 bulan", "en"), "3 years 5 months");
+  assert.equal(translateText("1 bulan", "en"), "1 month");
+  assert.equal(translateText("Yuk, bikin hari pet-mu makin sehat dan happy.", "en"), "Let's make your pet's day healthier and happier.");
 });

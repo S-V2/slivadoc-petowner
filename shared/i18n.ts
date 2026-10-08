@@ -28,6 +28,13 @@ export function translateText(value: string, language: SlivaLanguage, forceConte
   let translated: string | undefined = exact;
   if (!translated) {
     const patterns: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
+      [/^Hai, (.+)!$/i, m => `Hi, ${m[1]}!`],
+      [/^Kondisi (.+)$/i, m => `${m[1]}'s health`],
+      [/^Untuk (.+)$/i, m => `For ${m[1]}`],
+      [/^Ganti profil pet aktif, saat ini (.+)$/i, m => `Switch active pet, currently ${m[1]}`],
+      [/^(\d+) tahun (\d+) bulan$/i, m => `${m[1]} ${m[1] === "1" ? "year" : "years"} ${m[2]} ${m[2] === "1" ? "month" : "months"}`],
+      [/^(\d+) bulan$/i, m => `${m[1]} ${m[1] === "1" ? "month" : "months"}`],
+      [/^(\d+) catatan$/i, m => `${m[1]} ${m[1] === "1" ? "record" : "records"}`],
       [/^(\d+) bintang$/i, m => `${m[1]} ${m[1] === "1" ? "star" : "stars"}`],
       [/^(\d+) tersedia$/i, m => `${m[1]} available`],
       [/^(\d+) (produk|layanan) ditemukan$/i, m => `${m[1]} ${m[2]?.toLowerCase() === "produk" ? "products" : "services"} found`],

@@ -38,23 +38,23 @@ test("renders Slivadoc SEO metadata and entity schema", async () => {
   assert.match(html, /Temukan dokter hewan, pet clinic, petshop, grooming/i);
   assert.match(html, /property="og:image"[^>]+slivadoc-pet-hero\.png/i);
   assert.match(html, /"@type":"Organization"/i);
-  assert.match(html, /href="\/layanan\//i);
+  assert.match(html, /href="\/services\//i);
   assert.doesNotMatch(html, /\/_vinext\/image/i);
   assert.doesNotMatch(html, /codex-preview/i);
 });
 
 test("serves crawlable service, sitemap, robots, and RSS routes", async () => {
-  const service = await render("/layanan/dokter-hewan-online");
+  const service = await render("/services/dokter-hewan-online");
   assert.equal(service.status, 200);
   const serviceHtml = await service.text();
   assert.match(serviceHtml, /Konsultasi Dokter Hewan Online/i);
   assert.match(serviceHtml, /"@type":"Service"/i);
-  assert.match(serviceHtml, /rel="canonical"[^>]+\/layanan\/dokter-hewan-online/i);
+  assert.match(serviceHtml, /rel="canonical"[^>]+\/services\/dokter-hewan-online/i);
 
   const sitemap = await render("/sitemap.xml");
   assert.equal(sitemap.status, 200);
   assert.match(sitemap.headers.get("content-type") ?? "", /xml/i);
-  assert.match(await sitemap.text(), /\/panduan\/panduan-vaksin-kucing/);
+  assert.match(await sitemap.text(), /\/guides\/panduan-vaksin-kucing/);
 
   const robots = await render("/robots.txt");
   assert.equal(robots.status, 200);

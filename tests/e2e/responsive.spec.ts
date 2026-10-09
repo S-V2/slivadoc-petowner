@@ -30,13 +30,13 @@ const appPaths = [
 ];
 
 const publicPaths = [
-  "/layanan",
-  "/layanan/dokter-hewan-online",
-  "/panduan",
-  "/kota",
-  "/tempat",
-  "/mitra",
-  "/tentang",
+  "/services",
+  "/services/dokter-hewan-online",
+  "/guides",
+  "/cities",
+  "/places",
+  "/partners",
+  "/about",
 ];
 
 async function openApp(page: Page, path = "/") {

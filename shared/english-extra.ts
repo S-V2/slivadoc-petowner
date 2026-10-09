@@ -595,7 +595,7 @@ export const englishExtra: Record<string, string> = {
 
   "Belum ada dokumen tersedia": "No documents available yet",
   "Pilihan dokumen dari mitra akan muncul di sini.": "Documents from partners will appear here.",
-  // Reviewed legal copy - /privasi, /hapus-akun, and the deletion request form.
+  // Reviewed legal copy - /privacy, /delete-account, and the deletion request form.
   // These strings must never fall through to machine translation.
   "PRIVASI & DATA": "PRIVACY & DATA",
   "Kebijakan Privasi Slivadoc": "Slivadoc Privacy Policy",

@@ -582,7 +582,7 @@
   .seo-footer small { grid-column: auto; }
 }
 
-/* Legal document layout — /privasi, /hapus-akun.
+/* Legal document layout — /privacy, /delete-account.
    Trust-first reading flow: one column, heading above body, dense lists and
    tables. No marketing split headers, no feature cards. */
 .legal-doc {

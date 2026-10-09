@@ -4,7 +4,7 @@ test("public marketplace is crawlable, responsive, and free of framework overlay
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/belanja", { waitUntil: "domcontentloaded" });
+  await page.goto("/shop", { waitUntil: "domcontentloaded" });
 
   await expect(
     page.getByRole("heading", {

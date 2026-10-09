@@ -6,8 +6,8 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/layanan/", "/belanja/", "/panduan/", "/kota/", "/tempat/", "/tentang", "/mitra"],
-        disallow: ["/api/", "/backend-test/", "/setup/", "/ulasan/"],
+        allow: ["/", "/services/", "/shop/", "/guides/", "/cities/", "/places/", "/about", "/partners"],
+        disallow: ["/api/", "/backend-test/", "/setup/", "/reviews/"],
       },
     ],
     sitemap: absoluteUrl("/sitemap-index.xml"),

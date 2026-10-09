@@ -9,7 +9,7 @@ Dokumen ini adalah handoff implementasi SEO web Pet Owner. Fondasi teknisnya ber
 - Sitemap dinamis untuk halaman inti, layanan, panduan, kota, serta profil mitra aktif.
 - `robots.txt`, web app manifest, dan RSS panduan.
 - Delapan landing page layanan, delapan panduan awal, dan sepuluh hub kota dengan internal linking.
-- Direktori `/tempat` yang membentuk profil local SEO dari API publik mitra. Profil tanpa data aktif tidak diterbitkan sebagai URL sitemap.
+- Direktori `/places` yang membentuk profil local SEO dari API publik mitra. Profil tanpa data aktif tidak diterbitkan sebagai URL sitemap.
 - Endpoint IndexNow terautentikasi untuk mengirim URL baru, berubah, atau dihapus.
 - Tes otomatis untuk metadata, canonical, indexability, schema, sitemap, robots, RSS, dan seluruh URL sitemap.
 
@@ -96,12 +96,12 @@ Implementasi berada di repository Pet Owner, backend, dan metadata Partners. Bel
 
 | Rute | Isi dan kebijakan indeks |
 | --- | --- |
-| `/wilayah` | Direktori 38 provinsi, 514 kabupaten/kota, 7.285 kecamatan, 83.762 desa/kelurahan |
-| `/wilayah/[nama]--[kode]` | Navigasi berdasarkan kode Kemendagri dan layanan cabang di wilayah itu; `noindex,follow` jika tidak ada layanan aktif |
-| `/belanja/kategori/[slug]` | Delapan kategori makanan, kandang, aksesoris, mainan, kebersihan, perlengkapan; `noindex,follow` jika tidak ada produk |
-| `/layanan/[slug]` | Panduan kategori ditambah daftar layanan mitra yang cocok dan tautan ke detail booking |
-| `/untuk/[slug]` | Manfaat pet-owner, dokter-hewan, klinik-hewan, petshop, grooming, pet-hotel |
-| `/gratis` | Akses aplikasi gratis dan program lifetime 1.000 mitra pertama; harga barang/jasa terpisah |
+| `/regions` | Direktori 38 provinsi, 514 kabupaten/kota, 7.285 kecamatan, 83.762 desa/kelurahan |
+| `/regions/[nama]--[kode]` | Navigasi berdasarkan kode Kemendagri dan layanan cabang di wilayah itu; `noindex,follow` jika tidak ada layanan aktif |
+| `/shop/category/[slug]` | Delapan kategori makanan, kandang, aksesoris, mainan, kebersihan, perlengkapan; `noindex,follow` jika tidak ada produk |
+| `/services/[slug]` | Panduan kategori ditambah daftar layanan mitra yang cocok dan tautan ke detail booking |
+| `/for/[slug]` | Manfaat pet-owner, dokter-hewan, klinik-hewan, petshop, grooming, pet-hotel |
+| `/free` | Akses aplikasi gratis dan program lifetime 1.000 mitra pertama; harga barang/jasa terpisah |
 | `/en` | Pengantar berbahasa Inggris untuk pengguna internasional yang mencari layanan di Indonesia |
 | `/sitemap-index.xml` | Indeks sitemap, maksimal 40.000 URL per bagian; hanya kategori/wilayah dengan data aktif |
 | `/products-feed.xml` | RSS atribut Google Merchant Center dari produk nyata; harga IDR, stok, gambar, merek dan GTIN valid jika ada |

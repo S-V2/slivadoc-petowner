@@ -2327,10 +2327,10 @@ function LoginModal({
                         {"\n\nKebijakan privasi lengkap: "}
                         <Text
                           accessibilityRole="link"
-                          onPress={() => void Linking.openURL("https://slivadoc.com/privasi")}
+                          onPress={() => void Linking.openURL("https://slivadoc.com/privacy")}
                           style={styles.legalLink}
                         >
-                          slivadoc.com/privasi
+                          slivadoc.com/privacy
                         </Text>
                       </>
                     ) : null}

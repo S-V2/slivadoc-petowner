@@ -15,6 +15,7 @@ Aplikasi end-user Slivadoc dalam satu monorepo: web responsive dan mobile Androi
 - Sliva Academy: katalog training, profil trainer, jadwal, detail, dan enrollment
 - Pet Event: featured banner, detail acara, kapasitas, tiket, dan registrasi
 - PetSpot: discovery cafe, mall, taman, dan lokasi pet-friendly berbasis jarak
+- Klinik & Petshop: direktori cabang klinik dan petshop terverifikasi, urut terdekat dari lokasi yang dipilih (tamu boleh memakai lokasi perangkat), filter jenis, radius, dan buka sekarang, tampilan daftar atau peta, serta tautan `/?view=clinics&branch=<id>`
 - PetHub: live streaming, channel, feed, pet thread, reaction, komentar, share, dan composer
 - SEO publik: landing page layanan, panduan, hub kota, direktori mitra, schema JSON-LD, sitemap dinamis, robots, RSS, dan IndexNow
 
@@ -174,6 +175,7 @@ Development memakai geolocation browser/native serta OpenStreetMap/Nominatim mel
 | Sliva Academy | `GET /api/v1/public/academy/programs`, `POST /api/v1/academy/enrollments` |
 | Pet Event | `GET /api/v1/public/events`, `POST /api/v1/events/{eventID}/registrations` |
 | PetSpot | `GET /api/v1/public/petspots` dengan koordinat opsional |
+| Klinik & Petshop | `GET /api/v1/public/discovery/branches` (urut terdekat, filter jenis, radius, buka sekarang), `GET /api/v1/public/discovery/branches/{branchID}`, `POST /api/v1/petowner/events` |
 | PetHub | public feed/streams, create thread, dan reaction di `/api/v1/pethub/*` |
 
 Gateway menyimpan posting komunitas lama dan chat ke file JSON lokal untuk development. Modul Sliva World sudah terhubung ke `slivadoc-backend`, PostgreSQL, dan bearer session Slivadoc; UI menyediakan fallback lokal agar tetap dapat dipreview ketika backend belum dinyalakan.

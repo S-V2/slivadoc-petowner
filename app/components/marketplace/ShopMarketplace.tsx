@@ -20,16 +20,21 @@ import {
   ApiError,
   createMarketplaceChat,
   getMarketplaceChatMessages,
+  getDiscoveryBranch,
   getMarketplaceStore,
   getProductReviews,
   saveProductReview,
   sendMarketplaceChatMessage,
   type MarketplaceChatMessage,
+  type DiscoveryBranch,
   type MarketplaceStoreProfile,
   type MarketplaceStoreResponse,
   type ProductReview,
 } from "../../lib/platform-api";
 import { formatRupiah, type Product, type Service } from "../../lib/petowner-domain";
+import { recordStoreOpen } from "../../lib/entry-point";
+import type { LocationResult } from "../../lib/petowner-api";
+import ClinicBranchInfo from "../clinics/ClinicBranchInfo";
 
 type SortMode =
   | "recommended"
@@ -70,6 +75,7 @@ type ShopMarketplaceProps = {
   onRequireLogin: () => void;
   toggleFavorite: (id: string) => void;
   onOpenService: (service: Service) => void;
+  location?: LocationResult | null;
 };
 
 const categoryIcons: Record<string, IconName> = {
@@ -1161,6 +1167,7 @@ function MarketplaceStorefront({
   onOpenService,
   onChat,
   onFavorite,
+  branch,
 }: {
   response?: MarketplaceStoreResponse;
   products: Product[];
@@ -1174,6 +1181,7 @@ function MarketplaceStorefront({
   onOpenService: (service: Service) => void;
   onChat: () => void;
   onFavorite: (product: Product) => void;
+  branch?: DiscoveryBranch;
 }) {
   const [section, setSection] = useState<StoreSection>(initialSection);
   const [sort, setSort] = useState<SortMode>("popular");
@@ -1253,6 +1261,7 @@ function MarketplaceStorefront({
           <span><b><LocalizedCopy>{compactNumber(store.sold_count)}</LocalizedCopy></b><small><LocalizedCopy>{"Terjual"}</LocalizedCopy></small></span>
         </div>
       </section>
+      {branch && <ClinicBranchInfo branch={branch} />}
 
       <div className="market-store-navigation" role="tablist" aria-label="Bagian toko">
         <LocalizedCopy>{([
@@ -1373,6 +1382,7 @@ export default function ShopMarketplace({
   onRequireLogin,
   toggleFavorite,
   onOpenService,
+  location,
 }: ShopMarketplaceProps) {
   const [category, setCategory] = useState("Semua");
   const [store, setStore] = useState("");
@@ -1384,6 +1394,12 @@ export default function ShopMarketplace({
   const [storeResponse, setStoreResponse] = useState<MarketplaceStoreResponse>();
   const [storeLoading, setStoreLoading] = useState(false);
   const [storeError, setStoreError] = useState("");
+  const [selectedBranchId, setSelectedBranchId] = useState("");
+  const [branchResult, setBranchResult] = useState<{ id: string; branch: DiscoveryBranch }>();
+  const branch =
+    branchResult?.id === selectedBranchId && branchResult.branch.business_id === selectedStoreId
+      ? branchResult.branch
+      : undefined;
   const [chat, setChat] = useState<{
     threadId: string;
     businessId: string;
@@ -1489,6 +1505,7 @@ export default function ShopMarketplace({
       setSelected((current) => (current?.id === match?.id ? current : match));
       setSelectedStoreId(match ? "" : storeId);
       setSelectedStoreSection(storeSection === "services" ? "services" : "products");
+      setSelectedBranchId(url.searchParams.get("branch") || "");
       if (match) void loadReviews(match);
     };
     syncProductFromUrl();
@@ -1519,6 +1536,22 @@ export default function ShopMarketplace({
       window.clearTimeout(initial);
     };
   }, [selectedStoreId]);
+
+  useEffect(() => {
+    if (!selectedBranchId) return;
+    let active = true;
+    getDiscoveryBranch(
+      selectedBranchId,
+      location ? { latitude: location.latitude, longitude: location.longitude } : undefined,
+    )
+      .then((result) => {
+        if (active) setBranchResult({ id: selectedBranchId, branch: result });
+      })
+      .catch(() => undefined); // an unknown or ineligible branch just means no branch block
+    return () => {
+      active = false;
+    };
+  }, [selectedBranchId, location?.latitude, location?.longitude]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function setProductUrl(product?: Product) {
     const url = new URL(window.location.href);
@@ -1553,6 +1586,13 @@ export default function ShopMarketplace({
   function openStore(businessId: string, initialSection: StoreSection = "products") {
     const url = new URL(window.location.href);
     url.searchParams.delete("product");
+    // A store opened from a branch card keeps that branch; any other store
+    // open is not from Klinik & Petshop and drops the attribution.
+    if (branch?.business_id !== businessId) {
+      url.searchParams.delete("branch");
+      setSelectedBranchId("");
+      recordStoreOpen("other");
+    }
     url.searchParams.set("store", businessId);
     if (initialSection === "services") url.searchParams.set("store_section", "services");
     else url.searchParams.delete("store_section");
@@ -1568,6 +1608,8 @@ export default function ShopMarketplace({
     const url = new URL(window.location.href);
     url.searchParams.delete("store");
     url.searchParams.delete("store_section");
+    url.searchParams.delete("branch");
+    setSelectedBranchId("");
     setSelectedStoreId("");
     setStoreResponse(undefined);
     window.history.pushState({ view: "shop" }, "", `${url.pathname}${url.search}${url.hash}`);
@@ -1705,6 +1747,7 @@ export default function ShopMarketplace({
           onOpenService={onOpenService}
           onChat={() => void openChat()}
           onFavorite={(product) => toggleFavorite(product.id)}
+          branch={branch}
         />
         {chat && <MarketplaceChatPanel {...chat} onClose={() => setChat(undefined)} onShortcut={openChatShortcut} notify={notify} />}
       </>

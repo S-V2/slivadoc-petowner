@@ -12,6 +12,7 @@ const viewports = [
 const appPaths = [
   "/",
   "/?view=discover",
+  "/?view=clinics",
   "/?view=community",
   "/?view=academy",
   "/?view=events",

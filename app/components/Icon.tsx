@@ -33,7 +33,8 @@ export type IconName =
   | "sparkle"
   | "camera"
   | "phone"
-  | "logout";
+  | "logout"
+  | "clinic";
 
 const paths: Record<IconName, React.ReactNode> = {
   home: <><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/></>,
@@ -69,6 +70,7 @@ const paths: Record<IconName, React.ReactNode> = {
   camera: <><path d="M14 5h-4l-2 3H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-4l-2-3Z"/><circle cx="12" cy="14" r="3"/></>,
   phone: <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.7 2.6a2 2 0 0 1-.5 2.1L8 9.7a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.8.4 1.7.6 2.6.7a2 2 0 0 1 2 2.3Z"/>,
   logout: <><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/></>,
+  clinic: <><path d="M4 21V8l8-5 8 5v13"/><path d="M2 21h20"/><path d="M12 11v6m-3-3h6"/></>,
 };
 
 export function Icon({ name, size = 20, ...props }: SVGProps<SVGSVGElement> & { name: IconName; size?: number }) {

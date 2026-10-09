@@ -3,6 +3,7 @@ export type AppView =
   | "home"
   | "pets"
   | "discover"
+  | "clinics"
   | "bookings"
   | "health"
   | "shop"

@@ -2930,6 +2930,7 @@ function HomeView({
                   <span className="clinic-home-foot">
                     <ClinicOpenState branch={branch} />
                     <span className="clinic-home-go" aria-hidden="true">
+                      <span className="clinic-home-go-label"><LocalizedCopy>{"Lihat detail"}</LocalizedCopy></span>
                       <Icon name="arrow" size={14} />
                     </span>
                   </span>

@@ -921,6 +921,8 @@
   font-size: 11px;
 }
 .home-petspots {
+  display: grid;
+  gap: 18px;
   margin: 30px 0;
 }
 .home-petspot-grid {
@@ -932,7 +934,7 @@
   min-width: 0;
   background: white;
   border: 1px solid #d6eaf7;
-  border-radius: 20px;
+  border-radius: 22px;
   overflow: hidden;
 }
 .home-petspot-cover {

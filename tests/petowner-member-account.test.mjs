@@ -46,7 +46,7 @@ test("native medical records open a detailed bounded sheet", () => {
 });
 
 test("More exposes SlivaWorld destinations directly and marketplace has no fake all-store chip", () => {
-  assert.deepEqual(worldFeatures.map((feature) => feature.mode), ["academy", "events", "petspot", "pethub", "consult", "adoption", "documents", "pawdating"]);
+  assert.deepEqual(worldFeatures.map((feature) => feature.mode), ["academy", "events", "petspot", "pethub", "consult", "adoption", "documents", "pawdating", "petship"]);
   assert.match(mobileApp, /worldFeatures as sharedWorldFeatures/);
   assert.match(mobileApp, /sharedWorldFeatures\.map/);
   assert.doesNotMatch(mobileMarket, /id: "Semua toko"/);

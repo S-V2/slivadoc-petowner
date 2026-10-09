@@ -4,7 +4,8 @@ import { colors } from "../theme";
 export function BrandLogo({ size = 44 }: { size?: number }) {
   return (
     <View style={[styles.mark, { width: size, height: size }]}>
-      <Image
+      <Image alt=""
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- Metro requires static asset paths.
         source={require("../../assets/slivadoc-logo.png")}
         accessibilityLabel="Logo Slivadoc"
         accessible

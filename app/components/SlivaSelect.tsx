@@ -13,6 +13,7 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent,
+  type FocusEventHandler,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -49,6 +50,8 @@ type Props = {
   "aria-label"?: string;
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
+  onBlur?: FocusEventHandler<HTMLButtonElement>;
 };
 
 function textContent(node: ReactNode): string {
@@ -98,6 +101,8 @@ export function SlivaSelect({
   "aria-label": ariaLabel,
   "aria-labelledby": ariaLabelledBy,
   "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
+  onBlur,
 }: Props) {
   const { t } = usePetOwnerI18n();
   const generatedID = useId();
@@ -284,7 +289,8 @@ export function SlivaSelect({
         aria-controls={expanded ? listID : undefined}
         aria-activedescendant={searchable ? undefined : activeID}
         aria-required={required || undefined}
-        aria-invalid={invalid || undefined}
+        aria-invalid={ariaInvalid || invalid || undefined}
+        onBlur={onBlur}
         disabled={isDisabled}
         onClick={() => expanded ? setOpen(false) : show()}
         onKeyDown={handleKey}

@@ -16,30 +16,14 @@ export function PublicHeader() {
         <BrandLogo priority />
       </Link>
       <nav aria-label="Navigasi publik Slivadoc">
-        <Link href="/layanan">
-          <LocalizedCopy>{"Layanan"}</LocalizedCopy>
-        </Link>
-        <Link href="/belanja">
-          <LocalizedCopy>{"Belanja"}</LocalizedCopy>
-        </Link>
-        <Link href="/kota">
-          <LocalizedCopy>{"Kota"}</LocalizedCopy>
-        </Link>
-        <Link href="/wilayah">
-          <LocalizedCopy>{"Wilayah"}</LocalizedCopy>
-        </Link>
-        <Link href="/tempat">
-          <LocalizedCopy>{"Tempat"}</LocalizedCopy>
-        </Link>
-        <Link href="/panduan">
-          <LocalizedCopy>{"Panduan"}</LocalizedCopy>
-        </Link>
-        <Link href="/tentang">
-          <LocalizedCopy>{"Tentang"}</LocalizedCopy>
-        </Link>
-        <Link className="seo-header-cta" href="/?view=discover">
-          <LocalizedCopy>{"Buka Slivadoc"}</LocalizedCopy>
-        </Link>
+        <Link href="/services"><LocalizedCopy>{"Layanan"}</LocalizedCopy></Link>
+        <Link href="/shop"><LocalizedCopy>{"Belanja"}</LocalizedCopy></Link>
+        <Link href="/cities"><LocalizedCopy>{"Kota"}</LocalizedCopy></Link>
+        <Link href="/regions"><LocalizedCopy>{"Wilayah"}</LocalizedCopy></Link>
+        <Link href="/places"><LocalizedCopy>{"Tempat"}</LocalizedCopy></Link>
+        <Link href="/guides"><LocalizedCopy>{"Panduan"}</LocalizedCopy></Link>
+        <Link href="/about"><LocalizedCopy>{"Tentang"}</LocalizedCopy></Link>
+        <Link className="seo-header-cta" href="/?view=discover"><LocalizedCopy>{"Buka Slivadoc"}</LocalizedCopy></Link>
       </nav>
     </header>
   );
@@ -123,7 +107,7 @@ export function DiscoveryLinks() {
           <Link href="/pet-sitter">Pet Sitter & Dog Walking</Link>
           <LocalizedCopy>
             {servicePages.slice(0, 5).map((item) => (
-              <Link key={item.slug} href={`/layanan/${item.slug}`}>
+              <Link key={item.slug} href={`/services/${item.slug}`}>
                 <LocalizedCopy>{item.name}</LocalizedCopy>
               </Link>
             ))}
@@ -134,12 +118,12 @@ export function DiscoveryLinks() {
             <Icon name="bag" size={20} />
             <LocalizedCopy>{"Belanja & panduan"}</LocalizedCopy>
           </strong>
-          <Link href="/belanja">
+          <Link href="/shop">
             <LocalizedCopy>{"Katalog kebutuhan pet"}</LocalizedCopy>
           </Link>
           <LocalizedCopy>
             {guidePages.slice(0, 3).map((item) => (
-              <Link key={item.slug} href={`/panduan/${item.slug}`}>
+              <Link key={item.slug} href={`/guides/${item.slug}`}>
                 <LocalizedCopy>{item.title}</LocalizedCopy>
               </Link>
             ))}
@@ -150,12 +134,12 @@ export function DiscoveryLinks() {
             <Icon name="map" size={20} />
             <LocalizedCopy>{"Area layanan"}</LocalizedCopy>
           </strong>
-          <Link href="/wilayah">
+          <Link href="/regions">
             <LocalizedCopy>{"Jelajahi seluruh Indonesia"}</LocalizedCopy>
           </Link>
           <LocalizedCopy>
             {cityPages.slice(0, 5).map((item) => (
-              <Link key={item.slug} href={`/kota/${item.slug}`}>
+              <Link key={item.slug} href={`/cities/${item.slug}`}>
                 <LocalizedCopy>{"Pet care "}</LocalizedCopy>
                 <LocalizedCopy>{item.name}</LocalizedCopy>
               </Link>
@@ -168,13 +152,13 @@ export function DiscoveryLinks() {
             <LocalizedCopy>{"Kenali manfaatnya"}</LocalizedCopy>
           </strong>
           <Link href="/career">Slivadoc Career</Link>
-          <Link href="/untuk/pet-owner">
+          <Link href="/for/pet-owner">
             <LocalizedCopy>{"Untuk pet owner"}</LocalizedCopy>
           </Link>
-          <Link href="/mitra">
+          <Link href="/partners">
             <LocalizedCopy>{"Untuk pet clinic & bisnis hewan"}</LocalizedCopy>
           </Link>
-          <Link href="/gratis">
+          <Link href="/free">
             <LocalizedCopy>{"Program aplikasi gratis"}</LocalizedCopy>
           </Link>
           <Link href="/en">

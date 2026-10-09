@@ -1605,3 +1605,5 @@
   color: #738b9f;
   font-size: 12px;
 }
+
+.sitter-nearby .sliva-select-trigger { min-width:100px; min-height:44px; border:1px solid #d6e9f4; border-radius:12px; background:#fff; }

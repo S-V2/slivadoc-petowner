@@ -1,4 +1,5 @@
 "use client";
+import { SlivaSelect } from "./SlivaSelect";
 import { getAccessToken, refreshSession } from "../lib/session";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -541,8 +542,10 @@ function CareerForm({
               <span>
                 {c.employment_type} <b>*</b>
               </span>
-              <select
+              <SlivaSelect
                 id="career-employment_type"
+                aria-label={c.employment_type}
+                name="employment_type"
                 required
                 value={draft.employment_type ?? ""}
                 onChange={(e) => change("employment_type", e.target.value)}
@@ -557,7 +560,7 @@ function CareerForm({
                     {careerEmploymentTypes[type]?.[language] ?? type}
                   </option>
                 ))}
-              </select>
+              </SlivaSelect>
               {showError("employment_type")}
             </label>
           )}

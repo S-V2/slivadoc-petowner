@@ -1,4 +1,5 @@
 "use client";
+import { SlivaSelect } from "./SlivaSelect";
 
 import Link from "next/link";
 import { BrandMark } from "./BrandLogo";
@@ -144,7 +145,9 @@ export function CareerFilterBar({
         {fields.map((field) => (
           <label key={field.key}>
             <span>{field.label}</span>
-            <select
+            <SlivaSelect
+              aria-label={field.label}
+              name={field.key}
               disabled={disabled}
               value={filters[field.key]}
               onChange={(e) => onChange(field.key, e.target.value)}
@@ -155,7 +158,7 @@ export function CareerFilterBar({
                   {label}
                 </option>
               ))}
-            </select>
+            </SlivaSelect>
           </label>
         ))}
       </div>

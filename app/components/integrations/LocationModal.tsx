@@ -5,14 +5,17 @@ import { useMemo, useRef, useState } from "react";
 import { Icon } from "../Icon";
 import GeoMap, { type GeoPoint } from "../platform/GeoMap";
 import { reverseGeocode, searchLocation, type LocationResult } from "../../lib/petowner-api";
+import { DEVICE_LOCATION_LABEL, PIN_LOCATION_LABEL, resolveLocation } from "../../lib/device-location";
 
 type Props = {
   current: LocationResult | null;
+  authenticated: boolean;
+  onLogin: () => void;
   onSelect: (location: LocationResult) => void;
   onClose: () => void;
 };
 
-export default function LocationModal({ current, onSelect, onClose }: Props) {
+export default function LocationModal({ current, authenticated, onLogin, onSelect, onClose }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Array<LocationResult & { id?: string }>>([]);
   const [loading, setLoading] = useState(false);
@@ -20,6 +23,7 @@ export default function LocationModal({ current, onSelect, onClose }: Props) {
   const [pin, setPin] = useState<GeoPoint | null>(null);
   const [picked, setPicked] = useState<LocationResult | null>(null);
   const pinSeq = useRef(0);
+  const [loginPrompt, setLoginPrompt] = useState(false);
 
   const useDeviceLocation = () => {
     if (!navigator.geolocation) {
@@ -30,7 +34,10 @@ export default function LocationModal({ current, onSelect, onClose }: Props) {
     setError("");
     navigator.geolocation.getCurrentPosition(async (position) => {
       try {
-        const location = await reverseGeocode(position.coords.latitude, position.coords.longitude);
+        const location = await resolveLocation(
+          { latitude: position.coords.latitude, longitude: position.coords.longitude },
+          { authenticated, reverse: reverseGeocode, guestLabel: DEVICE_LOCATION_LABEL },
+        );
         onSelect(location);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Lokasi tidak dapat diterjemahkan.");
@@ -45,6 +52,10 @@ export default function LocationModal({ current, onSelect, onClose }: Props) {
 
   const runSearch = async () => {
     if (query.trim().length < 3) return;
+    if (!authenticated) {
+      setLoginPrompt(true);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -64,7 +75,7 @@ export default function LocationModal({ current, onSelect, onClose }: Props) {
     setPicked(null);
     setError("");
     try {
-      const location = await reverseGeocode(point.latitude, point.longitude);
+      const location = await resolveLocation(point, { authenticated, reverse: reverseGeocode, guestLabel: PIN_LOCATION_LABEL });
       if (seq === pinSeq.current) setPicked(location);
     } catch (cause) {
       if (seq === pinSeq.current) setError(cause instanceof Error ? cause.message : "Lokasi pin tidak dapat diterjemahkan.");
@@ -87,6 +98,7 @@ export default function LocationModal({ current, onSelect, onClose }: Props) {
           <LocalizedButton type="button" onClick={runSearch} disabled={loading || query.trim().length < 3}><LocalizedCopy>{"Cari"}</LocalizedCopy></LocalizedButton>
         </div>
         <LocalizedCopy>{error && <div className="integration-error"><LocalizedCopy>{error}</LocalizedCopy></div>}</LocalizedCopy>
+        <LocalizedCopy>{loginPrompt && <div className="integration-error location-login-prompt"><LocalizedCopy>{"Masuk untuk mencari alamat. Lokasi perangkat dan pin di peta tetap bisa dipakai tanpa akun."}</LocalizedCopy><LocalizedButton type="button" className="primary-button small" onClick={onLogin}><LocalizedCopy>{"Masuk ke akun"}</LocalizedCopy></LocalizedButton></div>}</LocalizedCopy>
         <LocalizedCopy>{results.length > 0 && <div className="location-results"><LocalizedCopy>{results.map((item) => <LocalizedButton type="button" key={item.id ?? item.label} onClick={() => onSelect(item)}><Icon name="map" size={17} /><span><b><LocalizedCopy>{item.label.split(",")[0]}</LocalizedCopy></b><small><LocalizedCopy>{item.label}</LocalizedCopy></small></span></LocalizedButton>)}</LocalizedCopy></div>}</LocalizedCopy>
         <div className="map-preview"><GeoMap pin={mapPin} onPinChange={(point) => void dropPin(point)} /></div>
         <small className="map-hint"><LocalizedCopy>{"Ketuk peta atau geser pin untuk memilih lokasi."}</LocalizedCopy></small>

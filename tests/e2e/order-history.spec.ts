@@ -125,7 +125,9 @@ test("Activity lists payable reservations first and filters order history", asyn
   const attentionCardWidth = await attentionCard.evaluate((element) =>
     element.getBoundingClientRect().width,
   );
-  expect(attentionCardWidth).toBeLessThanOrEqual(900);
+  const regionWidth = (await attention.boundingBox())!.width;
+  expect(attentionCardWidth).toBeGreaterThan(regionWidth - 70);
+  expect(attentionCardWidth).toBeLessThanOrEqual(regionWidth);
   await page
     .getByRole("group", { name: "Jenis aktivitas" })
     .getByRole("button", { name: "Belanja" })
@@ -141,7 +143,8 @@ test("Activity lists payable reservations first and filters order history", asyn
   const activityCardWidth = await cards.first().evaluate((element) =>
     element.getBoundingClientRect().width,
   );
-  expect(activityCardWidth).toBeLessThanOrEqual(900);
+  expect(activityCardWidth).toBeGreaterThan(1000);
+  expect(activityCardWidth).toBeLessThanOrEqual(1440);
   await page
     .locator(".activity-state-tabs")
     .getByRole("button", { name: "Berlangsung" })

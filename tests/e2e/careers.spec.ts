@@ -33,9 +33,8 @@ test("career catalog filters, restores role links, and submits a role-specific a
     path: testInfo.outputPath("career-mobile.png"),
     fullPage: false,
   });
-  await page
-    .getByRole("combobox", { name: "Divisi", exact: true })
-    .selectOption("engineering");
+  await page.getByRole("combobox", {name: "Divisi", exact:true}).click();
+  await page.getByRole("option", {name:"Engineering",exact:true}).click();
   await expect(page.locator(".career-job")).toHaveCount(5);
   await page.getByRole("button", { name: "EN", exact: true }).click();
   await expect(
@@ -122,9 +121,8 @@ test("career catalog filters, restores role links, and submits a role-specific a
   ).toBeVisible();
   await page.getByRole("button", { name: "Browse more roles" }).click();
   await expect(page.locator(".career-job")).toHaveCount(5);
-  await page
-    .getByRole("combobox", { name: "Department", exact: true })
-    .selectOption("");
+  await page.getByRole("combobox", {name: "Department", exact:true}).click();
+  await page.getByRole("option", {name:"All departments",exact:true}).click();
   await expect(page.locator(".career-job")).toHaveCount(28);
   await page
     .getByRole("link", {
@@ -176,11 +174,10 @@ test("career desktop and mobile layouts fit the viewport and expose employment c
     ),
   ).toBe(true);
   await page.goto("/career/pet-sitter");
-  await expect(page.getByLabel("Pilihan jenis kerja")).toHaveValue("");
-  await page.getByLabel("Pilihan jenis kerja").selectOption("CONTRACTOR");
-  await expect(page.getByLabel("Pilihan jenis kerja")).toHaveValue(
-    "CONTRACTOR",
-  );
+  await expect(page.getByRole("combobox", {name:"Pilihan jenis kerja",exact:true})).toContainText("Pilih jenis kerja");
+  await page.getByRole("combobox", {name:"Pilihan jenis kerja",exact:true}).click();
+  await page.getByRole("option",{name:"Freelance / Kontrak",exact:true}).click();
+  await expect(page.getByRole("combobox", {name:"Pilihan jenis kerja",exact:true})).toHaveText("Freelance / Kontrak");
   await expect(
     page.getByRole("button", { name: "Kirim lamaran", exact: true }),
   ).toBeDisabled();

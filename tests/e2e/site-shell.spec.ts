@@ -49,11 +49,11 @@ test("public pages share official header assets and full desktop width", async (
   for (const path of [
     "/career",
     "/pet-sitter",
-    "/layanan",
-    "/privasi",
-    "/syarat-ketentuan",
+    "/services",
+    "/privacy",
+    "/terms",
     "/en",
-    "/bantuan",
+    "/help",
   ]) {
     await page.goto(path);
     const header = page

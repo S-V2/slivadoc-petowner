@@ -14,7 +14,6 @@ import {
   BackHandler,
   Easing,
   Image,
-  Linking,
   Modal,
   Platform,
 
@@ -50,6 +49,7 @@ import { PetSitterScreen } from "./src/screens/PetSitterScreen";
 import { PetshipScreen } from "./src/screens/PetshipScreen";
 import { WorldScreen, type WorldMode as ScreenWorldMode } from "./src/screens/WorldScreen";
 import { ChatInboxScreen } from "./src/screens/ChatInboxScreen";
+import { ClinicsScreen } from "./src/screens/ClinicsScreen";
 import { type PetView, type Service } from "./src/data";
 import { colors, shadow, typography } from "./src/theme";
 import {
@@ -61,6 +61,9 @@ import {
 import {
   clearMobileCache,
   createMobileBooking,
+  setMobileEntryPoint,
+  trackPetOwnerEvent,
+  type MobileDiscoveryBranch,
   createMobilePaymentIntent,
   getMobileActivityCenter,
   getMobileBootstrap,
@@ -112,6 +115,7 @@ type Tab =
   | "health"
   | "community"
   | "messages"
+  | "clinics"
   | "profile";
 
 type TabItem = {
@@ -157,6 +161,12 @@ const moreTabs: TabItem[] = [
     label: "Layanan",
     icon: "search-outline",
     activeIcon: "search",
+  },
+  {
+    id: "clinics",
+    label: "Klinik & Petshop",
+    icon: "medkit-outline",
+    activeIcon: "medkit",
   },
   {
     id: "world",
@@ -289,6 +299,8 @@ const searchRouteTabs: Record<string, Tab> = {
   sitter: "sitter",
   home: "home",
   discover: "discover",
+  clinics: "clinics",
+  clinic: "clinics",
   shop: "marketplace",
   marketplace: "marketplace",
   product: "marketplace",
@@ -377,6 +389,7 @@ function MobileApp() {
     token: number;
     productId?: string;
     businessId?: string;
+    branchId?: string;
     storeSection?: "products" | "services";
     items?: Array<{ product_id: string; quantity: number }>;
   }>();
@@ -777,7 +790,11 @@ function MobileApp() {
     [screenTransition],
   );
   useEffect(() => {
-    if (!initialLoading && tab === "career" && !hasPlatformSession()) { careerAfterLogin.current = true; setLoginOpen(true); }
+    let active = true;
+    queueMicrotask(() => {
+      if (active && !initialLoading && tab === "career" && !hasPlatformSession()) { careerAfterLogin.current = true; setLoginOpen(true); }
+    });
+    return () => { active = false; };
   }, [tab, initialLoading, bootstrap]);
   const goBack = useCallback(() => {
     const history = [...tabHistoryRef.current];
@@ -912,11 +929,28 @@ function MobileApp() {
     setMarketplaceIntent((current) => current?.token === token ? undefined : current);
   }, []);
   const openMarketplace = (productId?: string) => {
+    setMobileEntryPoint(undefined);
     setMarketplaceIntent({ token: nextIntentToken(), productId });
     navigateTo("marketplace");
   };
-  const openPartnerProfile = (businessId: string) => {
-    setMarketplaceIntent({ token: nextIntentToken(), businessId });
+  // Store page for a directory branch. Only the Klinik & Petshop menu sets the entry point and counts the click.
+  const openBranchStore = (
+    branch: MobileDiscoveryBranch,
+    entryPoint?: "klinik_petshop",
+  ) => {
+    if (entryPoint)
+      trackPetOwnerEvent({
+        event: "clinic_card_click",
+        branch_id: branch.branch_id,
+        business_id: branch.business_id,
+      });
+    setMobileEntryPoint(entryPoint);
+    setMarketplaceIntent({
+      token: nextIntentToken(),
+      businessId: branch.business_id,
+      branchId: branch.branch_id,
+      storeSection: branch.type === "petshop" ? "products" : "services",
+    });
     navigateTo("marketplace");
   };
   const openStoreChat = (chatThread: MobileMarketplaceChatThread) => {
@@ -946,6 +980,7 @@ function MobileApp() {
       openOrderActivity();
       return;
     }
+    setMobileEntryPoint(undefined);
     setMarketplaceIntent({
       token: nextIntentToken(),
       businessId: thread.business_id,
@@ -954,6 +989,7 @@ function MobileApp() {
     navigateTo("marketplace");
   };
   const reorderProducts = (items: MobileActivityOrderItem[]) => {
+    setMobileEntryPoint(undefined);
     setMarketplaceIntent({
       token: nextIntentToken(),
       items: items.map((item) => ({
@@ -1186,7 +1222,7 @@ function MobileApp() {
               {tab === "home" ? (
                 <HomeScreen
                   onExploreService={openServiceCatalog}
-                  onOpenPartner={openPartnerProfile}
+                  onOpenPartner={openBranchStore}
                   onOpenConsultation={openConsultation}
                   onOpenActivity={openActivity}
                   onOpenNotifications={openNotifications}
@@ -1196,7 +1232,6 @@ function MobileApp() {
                   pet={pet}
                   pets={pets}
                   onSelectPet={selectPet}
-                  services={services}
                   activities={activityCenter?.data ?? []}
                 />
               ) : null}
@@ -1263,6 +1298,16 @@ function MobileApp() {
                   onOpenService={(service) => openServiceCatalog(service.category, service.id)}
                   onExploreServices={(category) => openServiceCatalog(category)}
                   onOpenOrders={openOrderActivity}
+                />
+              ) : null}
+              {tab === "clinics" ? (
+                <ClinicsScreen
+                  authenticated={Boolean(bootstrap)}
+                  onRequireLogin={() => {
+                    requireLogin();
+                  }}
+                  onOpenBranch={(branch) => openBranchStore(branch, "klinik_petshop")}
+                  onOpenNotifications={openNotifications}
                 />
               ) : null}
               {tab === "messages" ? (
@@ -1402,7 +1447,10 @@ function MobileApp() {
                   badge={item.id === "activity" ? needsActionCount : 0}
                   onPress={() => {
                     setMoreOpen(false);
-                    if (item.id === "marketplace") setMarketplaceIntent(undefined);
+                    if (item.id === "marketplace") {
+                      setMobileEntryPoint(undefined);
+                      setMarketplaceIntent(undefined);
+                    }
                     navigateTo(item.id);
                   }}
                 />

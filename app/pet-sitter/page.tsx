@@ -204,13 +204,13 @@ export default async function Page() {
       <section className="seo-main-section">
         <h2>Lengkapi rencana perawatan pet</h2>
         <div className="seo-hero-actions">
-          <Link className="seo-secondary" href="/layanan/grooming-hewan">
+          <Link className="seo-secondary" href="/services/grooming-hewan">
             Pet groomer & grooming
           </Link>
-          <Link className="seo-secondary" href="/layanan/pet-hotel">
+          <Link className="seo-secondary" href="/services/pet-hotel">
             Pet hotel & penitipan
           </Link>
-          <Link className="seo-secondary" href="/layanan/klinik-hewan">
+          <Link className="seo-secondary" href="/services/klinik-hewan">
             Klinik & dokter hewan
           </Link>
           <Link className="seo-secondary" href="/career">

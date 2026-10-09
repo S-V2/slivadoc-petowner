@@ -992,6 +992,101 @@ export const getMobileServices = (options?: {
     `/api/v1/public/discovery/services${query.size ? `?${query}` : ""}`,
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 };
+
+export type MobileBranchType = "petclinic" | "petshop" | "hybrid";
+export type MobileDiscoveryBranch = {
+  branch_id: string;
+  business_id: string;
+  business_name: string;
+  branch_name: string;
+  type: MobileBranchType;
+  logo_url: string | null;
+  banner_url: string | null;
+  address: string;
+  district: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  distance_km: number | null;
+  opening_hours: Record<string, unknown>;
+  timezone: string;
+  // null when the branch has not set opening hours.
+  is_open_now: boolean | null;
+  rating: number | null;
+  review_count: number;
+  service_count: number;
+  product_count: number;
+};
+export const getDiscoveryBranches = (options?: {
+  latitude?: number;
+  longitude?: number;
+  max_distance_km?: number;
+  type?: "petclinic" | "petshop";
+  search?: string;
+  open_now?: boolean;
+  limit?: number;
+  offset?: number;
+}) => {
+  const query = new URLSearchParams();
+  Object.entries(options ?? {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== "" && value !== false) query.set(key, String(value));
+  });
+  return platformRequest<{ data: MobileDiscoveryBranch[]; count: number; has_more: boolean }>(
+    `/api/v1/public/discovery/branches${query.size ? `?${query}` : ""}`,
+  );
+};
+export const getDiscoveryBranch = (
+  branchId: string,
+  coordinates?: { latitude: number; longitude: number },
+) =>
+  platformRequest<MobileDiscoveryBranch>(
+    `/api/v1/public/discovery/branches/${encodeURIComponent(branchId)}${
+      coordinates ? `?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}` : ""
+    }`,
+  );
+
+// Fire-and-forget analytics; guests are allowed and failures never surface.
+export const trackPetOwnerEvent = (input: {
+  event: "clinic_card_click";
+  branch_id: string;
+  business_id: string;
+}) => {
+  void platformRequest<unknown>("/api/v1/petowner/events", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }).catch(() => undefined);
+};
+
+// Last-touch attribution for orders and bookings; in memory only, cleared after a successful create.
+let mobileEntryPoint: "klinik_petshop" | undefined;
+export const setMobileEntryPoint = (value?: "klinik_petshop") => {
+  mobileEntryPoint = value;
+};
+// POST that carries the last-touch entry point and clears it once the create succeeds.
+async function postAttributed<T>(path: string, input: object) {
+  const entryPoint = mobileEntryPoint;
+  const result = await platformRequest<T>(path, {
+    method: "POST",
+    body: JSON.stringify(entryPoint ? { ...input, entry_point: entryPoint } : input),
+  });
+  if (mobileEntryPoint === entryPoint) mobileEntryPoint = undefined;
+  return result;
+}
+
+export type MobileLocationResult = {
+  latitude: number;
+  longitude: number;
+  label: string;
+};
+// Address search and reverse geocoding live on petowner-api and need a signed-in owner.
+export const searchMobileLocation = (query: string) =>
+  request<Array<MobileLocationResult & { id: string }>>(
+    `/api/location/search?q=${encodeURIComponent(query)}`,
+  );
+export const reverseMobileGeocode = (latitude: number, longitude: number) =>
+  request<MobileLocationResult>(
+    `/api/location/reverse?lat=${encodeURIComponent(latitude)}&lng=${encodeURIComponent(longitude)}`,
+  );
 export const getMobileServiceAvailability = (
   serviceId: string,
   branchId: string,
@@ -1235,7 +1330,7 @@ export const quoteMobileOrder = (
   });
 
 export const createMobileOrder = (input: MobileOrderInput) =>
-  platformRequest<
+  postAttributed<
     MobileOrderQuote & {
       id: string;
       order_number: string;
@@ -1243,10 +1338,7 @@ export const createMobileOrder = (input: MobileOrderInput) =>
       payment_status: string;
       reference_type: "shop_order";
     }
-  >("/api/v1/petowner/orders", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  >("/api/v1/petowner/orders", input);
 
 export async function getMobileTransactionInvoiceHTML(
   referenceType:
@@ -1316,16 +1408,13 @@ export const getMobileMedicalRecords = (petId: string) =>
     `/api/v1/pets/${petId}/medical-records`,
   ).then((result) => ({ ...result, data: uniqueById(result.data) }));
 export const createMobileBooking = (input: Record<string, unknown>) =>
-  platformRequest<{
+  postAttributed<{
     id: string;
     booking_code: string;
     amount: number;
     status: string;
     message: string;
-  }>("/api/v1/petowner/bookings", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  }>("/api/v1/petowner/bookings", input);
 export const cancelMobileBooking = (id: string, reason?: string) =>
   platformRequest<{ id: string; status: string; refund_queued: boolean }>(
     `/api/v1/petowner/bookings/${id}/cancel`,

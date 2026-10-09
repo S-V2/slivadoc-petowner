@@ -49,11 +49,13 @@ export function PetshipScreen({
     }
   }, []);
   useEffect(() => {
-    void load();
+    let active = true;
+    queueMicrotask(() => { if (active) void load(); });
+    return () => { active = false; };
   }, [load]);
   useEffect(() => {
     let active = true;
-    setPresences([]);
+    queueMicrotask(() => { if (active) setPresences([]); });
     if (selected)
       mobilePetship
         .presences(selected.id)

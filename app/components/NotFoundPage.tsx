@@ -20,7 +20,7 @@ export function NotFoundPage({ career = false }: { career?: boolean }) {
         : "Jelajahi posisi dan kesempatan untuk bertumbuh.",
     },
     {
-      href: "/layanan",
+      href: "/services",
       icon: "heart" as const,
       title: en ? "Pet care services" : "Layanan pet care",
       note: en
@@ -28,7 +28,7 @@ export function NotFoundPage({ career = false }: { career?: boolean }) {
         : "Temukan perawatan yang dibutuhkan sahabatmu.",
     },
     {
-      href: "/bantuan",
+      href: "/help",
       icon: "chat" as const,
       title: en ? "Help centre" : "Pusat bantuan",
       note: en

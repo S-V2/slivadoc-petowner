@@ -31,44 +31,44 @@ export const footerNavigation: { title: FooterText; links: FooterLink[] }[] = [
         },
       },
       {
-        href: "/layanan/dokter-hewan-online",
+        href: "/services/dokter-hewan-online",
         label: {
           id: "Konsultasi dokter hewan",
           en: "Veterinary consultations",
         },
       },
       {
-        href: "/layanan/klinik-hewan",
+        href: "/services/klinik-hewan",
         label: { id: "Klinik hewan", en: "Veterinary clinics" },
       },
       {
-        href: "/layanan/grooming-hewan",
+        href: "/services/grooming-hewan",
         label: { id: "Pet grooming", en: "Pet grooming" },
       },
       {
-        href: "/layanan/pet-hotel",
+        href: "/services/pet-hotel",
         label: { id: "Pet hotel & penitipan", en: "Pet hotels & boarding" },
       },
-      { href: "/layanan", label: { id: "Semua layanan", en: "All services" } },
+      { href: "/services", label: { id: "Semua layanan", en: "All services" } },
     ],
   },
   {
     title: { id: "Jelajahi Slivadoc", en: "Explore Slivadoc" },
     links: [
       {
-        href: "/belanja",
+        href: "/shop",
         label: { id: "Belanja kebutuhan pet", en: "Shop pet essentials" },
       },
       {
-        href: "/tempat",
+        href: "/places",
         label: { id: "Direktori tempat", en: "Places directory" },
       },
       {
-        href: "/wilayah",
+        href: "/regions",
         label: { id: "Cari berdasarkan wilayah", en: "Browse by location" },
       },
       {
-        href: "/panduan",
+        href: "/guides",
         label: { id: "Panduan pet parent", en: "Pet parent guides" },
       },
       { href: "/?view=community", label: { id: "Komunitas", en: "Community" } },
@@ -78,7 +78,7 @@ export const footerNavigation: { title: FooterText; links: FooterLink[] }[] = [
     title: { id: "Perusahaan", en: "Company" },
     links: [
       {
-        href: "/tentang",
+        href: "/about",
         label: { id: "Tentang Slivadoc", en: "About Slivadoc" },
       },
       {
@@ -86,15 +86,15 @@ export const footerNavigation: { title: FooterText; links: FooterLink[] }[] = [
         label: { id: "Slivadoc Career", en: "Slivadoc Career" },
       },
       {
-        href: "/mitra",
+        href: "/partners",
         label: { id: "Menjadi mitra", en: "Become a partner" },
       },
       {
-        href: "/untuk/pet-owner",
+        href: "/for/pet-owner",
         label: { id: "Untuk pet parent", en: "For pet parents" },
       },
       {
-        href: "/gratis",
+        href: "/free",
         label: { id: "Program akses gratis", en: "Free access programme" },
       },
     ],
@@ -102,21 +102,21 @@ export const footerNavigation: { title: FooterText; links: FooterLink[] }[] = [
   {
     title: { id: "Bantuan & kebijakan", en: "Help & policies" },
     links: [
-      { href: "/bantuan", label: { id: "Pusat bantuan", en: "Help centre" } },
+      { href: "/help", label: { id: "Pusat bantuan", en: "Help centre" } },
       {
         href: "/?view=support",
         label: { id: "Buat tiket bantuan", en: "Create a support ticket" },
       },
       {
-        href: "/syarat-ketentuan",
+        href: "/terms",
         label: { id: "Syarat & ketentuan", en: "Terms & conditions" },
       },
       {
-        href: "/privasi",
+        href: "/privacy",
         label: { id: "Kebijakan privasi", en: "Privacy policy" },
       },
       {
-        href: "/hapus-akun",
+        href: "/delete-account",
         label: { id: "Penghapusan akun", en: "Account deletion" },
       },
     ],

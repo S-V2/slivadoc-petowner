@@ -12,6 +12,7 @@ const viewports = [
 const appPaths = [
   "/",
   "/?view=discover",
+  "/?view=clinics",
   "/?view=community",
   "/?view=academy",
   "/?view=events",
@@ -30,13 +31,13 @@ const appPaths = [
 ];
 
 const publicPaths = [
-  "/layanan",
-  "/layanan/dokter-hewan-online",
-  "/panduan",
-  "/kota",
-  "/tempat",
-  "/mitra",
-  "/tentang",
+  "/services",
+  "/services/dokter-hewan-online",
+  "/guides",
+  "/cities",
+  "/places",
+  "/partners",
+  "/about",
 ];
 
 async function openApp(page: Page, path = "/") {
@@ -244,7 +245,9 @@ test("narrow header keeps the native search launcher and controls tappable", asy
   const search = page.locator(".global-search");
   const input = search.getByRole("searchbox", { name: "Cari di seluruh Slivadoc" });
   const launcher = await search.boundingBox();
-  expect(launcher!.width).toBeGreaterThanOrEqual(200);
+  await expect(page.locator(".topbar .mobile-brand img")).toBeVisible();
+  // The official logo shares this compact row with search, chat and notifications.
+  expect(launcher!.width).toBeGreaterThanOrEqual(140);
   expect(launcher!.height).toBeGreaterThanOrEqual(44);
   await search.click();
   await expect(input).toBeFocused();

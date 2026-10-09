@@ -6,7 +6,7 @@ function escapeXml(value: string) {
 }
 
 export async function GET() {
-  const items = guidePages.map((guide) => `<item><title>${escapeXml(guide.title)}</title><link>${absoluteUrl(`/panduan/${guide.slug}`)}</link><guid isPermaLink="true">${absoluteUrl(`/panduan/${guide.slug}`)}</guid><description>${escapeXml(guide.description)}</description><category>${escapeXml(guide.category)}</category><pubDate>${new Date(`${guide.updatedAt}T00:00:00Z`).toUTCString()}</pubDate></item>`).join("");
+  const items = guidePages.map((guide) => `<item><title>${escapeXml(guide.title)}</title><link>${absoluteUrl(`/guides/${guide.slug}`)}</link><guid isPermaLink="true">${absoluteUrl(`/guides/${guide.slug}`)}</guid><description>${escapeXml(guide.description)}</description><category>${escapeXml(guide.category)}</category><pubDate>${new Date(`${guide.updatedAt}T00:00:00Z`).toUTCString()}</pubDate></item>`).join("");
   const xml = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Panduan Pet Parent Slivadoc</title><link>${SEO.siteUrl}</link><description>${escapeXml(SEO.defaultDescription)}</description><language>id-ID</language>${items}</channel></rss>`;
   return new Response(xml, { headers: { "content-type": "application/rss+xml; charset=utf-8", "cache-control": "public, max-age=3600, s-maxage=86400" } });
 }

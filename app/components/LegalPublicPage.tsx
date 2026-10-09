@@ -19,6 +19,6 @@ export function LegalPublicPage({policy}:{policy:LegalPolicy}) {
       </div>
     </nav>
     <LegalDocumentContent policy={policy} language={language} headingLevel={2}/>
-    <Link className="legal-related" href={policy==="privacy"?"/syarat-ketentuan":"/privasi"}>{policy==="privacy"?copy.otherTerms:copy.otherPrivacy}<span aria-hidden="true">→</span></Link>
+    <Link className="legal-related" href={policy==="privacy"?"/terms":"/privacy"}>{policy==="privacy"?copy.otherTerms:copy.otherPrivacy}<span aria-hidden="true">→</span></Link>
   </div></PublicPage>;
 }

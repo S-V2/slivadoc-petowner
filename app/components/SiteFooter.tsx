@@ -159,7 +159,7 @@ export function SiteFooter() {
         <div className="sliva-footer-help">
           <h3>{c.guideTitle}</h3>
           <p>{c.guideDescription}</p>
-          <Link href="/bantuan">
+          <Link href="/help">
             {c.guideLink}
             <Icon name="arrow" size={16} />
           </Link>

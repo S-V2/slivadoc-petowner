@@ -22,6 +22,7 @@ async function catalogueMocks(page: Page, options: { authenticated?: boolean; en
     if (path === "/api/v1/public/petship/places") return json({ data: [], count: 0, privacy: "Petship hanya membagikan lokasi tempat, bukan koordinat pengguna." });
     if (path === "/api/v1/public/pawdating/standards") return json({ principles: [], levels: [], minimum_age_months: {}, report_validity_days: 180, blocked_conditions: [] });
     if (path === "/api/v1/public/pawdating/profiles") return json({ data: [], count: 0, filters: { species: "", breed: "", sex: "", city: "", min_level: 2, min_health_score: 80 } });
+    if (path === "/api/v1/public/discovery/branches") return json({ data: [], count: 0, has_more: false });
     if (path.startsWith("/api/v1/public/") || path === "/api/v1/petowner/marketplace/chats") return json({ data: [], count: 0 });
     return route.fulfill({ status: 404, body: "Unmocked API route" });
   });
@@ -35,7 +36,7 @@ for (const viewport of [{ width: 320, height: 700 }, { width: 812, height: 375 }
     const trigger = page.getByRole("button", { name: "Lainnya", exact: true });
     await trigger.click();
     const dialog = page.getByRole("dialog", { name: "Semua fitur Slivadoc", exact: true });
-    const buttons = dialog.getByRole("button");
+    const buttons = dialog.locator("button, a[href]");
     const labelSizes = await dialog.locator(".mobile-more-grid b").evaluateAll((labels) => labels.map((label) => parseFloat(getComputedStyle(label).fontSize)));
     expect(labelSizes.length).toBeGreaterThan(0);
     expect(Math.min(...labelSizes)).toBeGreaterThanOrEqual(13);

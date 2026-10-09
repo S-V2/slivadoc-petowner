@@ -11,8 +11,8 @@ import {
 const read = (path: string) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
-const catalog = read("app/belanja/page.tsx");
-const detail = read("app/belanja/[slug]/page.tsx");
+const catalog = read("app/shop/page.tsx");
+const detail = read("app/shop/[slug]/page.tsx");
 const marketplace = read("app/lib/public-marketplace.ts");
 const sitemap = read("app/lib/seo-sitemap.ts");
 const robots = read("app/robots.ts");
@@ -31,12 +31,12 @@ test("crawlable marketplace pages use the public product handler", () => {
 });
 
 test("marketplace canonical URLs are discoverable from navigation, robots, and sitemap", () => {
-  assert.match(detail, /path: `\/belanja\/\$\{product\.slug\}`/);
-  assert.match(detail, /permanentRedirect\(`\/belanja\/\$\{product\.slug\}`\)/);
+  assert.match(detail, /path: `\/shop\/\$\{product\.slug\}`/);
+  assert.match(detail, /permanentRedirect\(`\/shop\/\$\{product\.slug\}`\)/);
   assert.match(sitemap, /getPublicProducts/);
-  assert.match(sitemap, /`\/belanja\/\$\{item\.slug\}`/);
-  assert.match(robots, /"\/belanja\/"/);
-  assert.match(navigation, /href="\/belanja"/);
+  assert.match(sitemap, /`\/shop\/\$\{item\.slug\}`/);
+  assert.match(robots, /"\/shop\/"/);
+  assert.match(navigation, /href="\/shop"/);
 });
 
 test("public marketplace normalizes API data into safe canonical products", async (t) => {

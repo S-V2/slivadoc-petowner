@@ -58,8 +58,8 @@ test("registration requires both full documents, submits consent, and completes 
 });
 
 for(const legalCase of [
- {path:"/syarat-ketentuan",title:"Syarat dan Ketentuan Slivadoc",sections:42,englishTitle:"Slivadoc Terms and Conditions",englishLast:"Language, severability, and final statement",clauses:129,last:"Bahasa, keterpisahan klausul, dan pernyataan akhir"},
- {path:"/privasi",title:"Kebijakan Privasi Slivadoc",sections:39,englishTitle:"Slivadoc Privacy Policy",englishLast:"Practical data protection guidance and closing provisions",clauses:119,last:"Panduan praktis menjaga data dan penutup"},
+ {path:"/terms",title:"Syarat dan Ketentuan Slivadoc",sections:42,englishTitle:"Slivadoc Terms and Conditions",englishLast:"Language, severability, and final statement",clauses:129,last:"Bahasa, keterpisahan klausul, dan pernyataan akhir"},
+ {path:"/privacy",title:"Kebijakan Privasi Slivadoc",sections:39,englishTitle:"Slivadoc Privacy Policy",englishLast:"Practical data protection guidance and closing provisions",clauses:119,last:"Panduan praktis menjaga data dan penutup"},
 ]) test(`${legalCase.path} renders complete numbered clauses and official references`,async({page},testInfo)=>{
  await page.setViewportSize({width:390,height:844});
  await page.goto(legalCase.path,{waitUntil:"domcontentloaded"});

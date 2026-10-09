@@ -47,6 +47,7 @@ export function translateText(value: string, language: SlivaLanguage, forceConte
       [/^(\d+) bintang$/i, m => `${m[1]} ${m[1] === "1" ? "star" : "stars"}`],
       [/^(\d+) tersedia$/i, m => `${m[1]} available`],
       [/^(\d+) (produk|layanan) ditemukan$/i, m => `${m[1]} ${m[2]?.toLowerCase() === "produk" ? "products" : "services"} found`],
+      [/^(\d+) layanan · (\d+) produk$/, m => `${m[1]} ${m[1] === "1" ? "service" : "services"} · ${m[2]} ${m[2] === "1" ? "product" : "products"}`],
       [/^(\d+) (toko|terjual|komentar|suka|aktivitas|item|menit|tiket|kursi|ulasan|hari|minggu|tahun)$/i, m => `${m[1]} ${({toko:"stores",terjual:"sold",komentar:"comments",suka:"likes",aktivitas:"activities",item:"items",menit:"minutes",tiket:"tickets",kursi:"seats",ulasan:"reviews",hari:"days",minggu:"weeks",tahun:"years"} as Record<string,string>)[m[2]!.toLowerCase()]}`],
       [/^Belum ada rekam medis untuk (.+)\.?$/i, m => `No medical records for ${m[1]} yet.`],
       [/^(.+) masuk keranjang$/i, m => `${m[1]} added to cart`],

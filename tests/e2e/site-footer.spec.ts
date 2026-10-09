@@ -9,8 +9,8 @@ test("every page uses one complete footer with truthful app availability", async
     "/career",
     "/career/pet-sitter",
     "/pet-sitter",
-    "/privasi",
-    "/syarat-ketentuan",
+    "/privacy",
+    "/terms",
     "/",
     "/footer-missing-page",
   ]) {
@@ -63,7 +63,7 @@ test("footer adapts to desktop and mobile, preserves language, and links to help
     footer.getByRole("heading", { name: "Complaints & customer support" }),
   ).toBeVisible();
   await footer.getByRole("link", { name: "View the help guide" }).click();
-  await expect(page).toHaveURL(/\/bantuan$/);
+  await expect(page).toHaveURL(/\/help$/);
   await expect(footer).toHaveAttribute("lang", "en");
   await footer.getByRole("link", { name: "Back to top" }).click();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);

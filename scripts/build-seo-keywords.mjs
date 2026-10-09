@@ -18,7 +18,7 @@ function location(r) {
   return names.join(", ");
 }
 function regionPath(r) {
-  return `/wilayah/${r.name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}--${r.code}`;
+  return `/regions/${r.name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}--${r.code}`;
 }
 const locationCodes = new Map();
 for (const region of regions) {

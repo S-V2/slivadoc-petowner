@@ -16,11 +16,9 @@ test("career header stays fixed and the job list fills the desktop viewport", as
   await expect(page.locator(".career-list-location")).toHaveText(
     Array(28).fill("DKI Jakarta, Indonesia"),
   );
-  await expect(
-    page
-      .getByRole("combobox", { name: "Lokasi", exact: true })
-      .locator("option"),
-  ).toHaveText(["Semua lokasi", "DKI Jakarta, Indonesia"]);
+  await page.getByRole("combobox", {name:"Lokasi",exact:true}).click();
+  await expect(page.getByRole("option")).toHaveText(["Semua lokasi", "DKI Jakarta, Indonesia"]);
+  await page.keyboard.press("Escape");
   await page.mouse.move(1100, 900);
   await page.mouse.wheel(0, 640);
   await expect(async () => {

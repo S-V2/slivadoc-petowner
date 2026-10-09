@@ -1,5 +1,6 @@
 import type { InvoiceCategory } from "../../shared/invoice-categories";
 import { createSitterClient } from "../../shared/pet-sitter.ts";
+import { clearEntryPoint, readEntryPoint } from "./entry-point.ts";
 import {
   apiRequest,
   hasSession,
@@ -555,6 +556,44 @@ export type DiscoveryService = {
     "not_submitted" | "pending" | "verified" | "rejected";
   cancellation_cutoff_hours?: number;
 };
+
+export type DiscoveryBranchType = "petclinic" | "petshop" | "hybrid";
+
+export type DiscoveryBranch = {
+  branch_id: string;
+  business_id: string;
+  business_name: string;
+  branch_name: string;
+  type: DiscoveryBranchType;
+  logo_url: string | null;
+  banner_url: string | null;
+  address: string;
+  district: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  distance_km: number | null;
+  opening_hours: Record<string, unknown>;
+  timezone: string;
+  is_open_now: boolean | null;
+  rating: number | null;
+  review_count: number;
+  service_count: number;
+  product_count: number;
+};
+
+export type DiscoveryBranchParams = {
+  latitude?: number;
+  longitude?: number;
+  max_distance_km?: number;
+  type?: "petclinic" | "petshop";
+  search?: string;
+  open_now?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
+export type PlatformPage<T> = PlatformList<T> & { has_more: boolean };
 
 export type DiscoveryServiceDetail = DiscoveryService & {
   capacity: number;
@@ -2295,6 +2334,52 @@ export const getDiscoveryService = (serviceId: string, branchId: string) =>
     `/api/v1/public/discovery/services/${encodeURIComponent(serviceId)}?branch_id=${encodeURIComponent(branchId)}`,
   );
 
+// Radius only means something relative to a point; type "all" is the absence of a filter.
+export function discoveryBranchQuery(params: DiscoveryBranchParams = {}) {
+  const hasPoint =
+    Number.isFinite(params.latitude) && Number.isFinite(params.longitude);
+  const q = new URLSearchParams();
+  if (hasPoint) {
+    q.set("latitude", String(params.latitude));
+    q.set("longitude", String(params.longitude));
+    if (params.max_distance_km) q.set("max_distance_km", String(params.max_distance_km));
+  }
+  if (params.type) q.set("type", params.type);
+  if (params.search?.trim()) q.set("search", params.search.trim());
+  if (params.open_now) q.set("open_now", "true");
+  if (params.limit) q.set("limit", String(params.limit));
+  if (params.offset) q.set("offset", String(params.offset));
+  return q.toString();
+}
+
+export const getDiscoveryBranches = (params?: DiscoveryBranchParams) => {
+  const query = discoveryBranchQuery(params);
+  return request<PlatformPage<DiscoveryBranch>>(
+    `/api/v1/public/discovery/branches${query ? `?${query}` : ""}`,
+  );
+};
+
+export const getDiscoveryBranch = (
+  branchId: string,
+  coords?: { latitude: number; longitude: number },
+) => {
+  const query = coords ? discoveryBranchQuery(coords) : "";
+  return request<DiscoveryBranch>(
+    `/api/v1/public/discovery/branches/${encodeURIComponent(branchId)}${query ? `?${query}` : ""}`,
+  );
+};
+
+// Fire-and-forget by contract: callers swallow the rejection.
+export const trackPetOwnerEvent = (body: {
+  event: "clinic_card_click";
+  branch_id: string;
+  business_id: string;
+}) =>
+  request<void>("/api/v1/petowner/events", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
 export const getDiscoveryServiceAvailability = (
   serviceId: string,
   branchId: string,
@@ -2414,8 +2499,8 @@ export const globalSearch = (query: string, category = "") =>
     )}&category=${encodeURIComponent(category)}`,
   );
 
-export const createPetOwnerBooking = (input: Record<string, unknown>) =>
-  request<{
+export const createPetOwnerBooking = async (input: Record<string, unknown>) => {
+  const booking = await request<{
     id: string;
     booking_code: string;
     amount: number;
@@ -2423,8 +2508,11 @@ export const createPetOwnerBooking = (input: Record<string, unknown>) =>
     message: string;
   }>("/api/v1/petowner/bookings", {
     method: "POST",
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, entry_point: readEntryPoint() }),
   });
+  clearEntryPoint();
+  return booking;
+};
 
 export const cancelPetOwnerBooking = (id: string, reason?: string) =>
   request<{ id: string; status: string; refund_queued: boolean }>(
@@ -2521,11 +2609,17 @@ export const quotePetOwnerOrder = (input: OrderQuoteInput) =>
     body: JSON.stringify(petOwnerOrderPayload(input)),
   });
 
-export const createPetOwnerOrder = (input: OrderQuoteInput) =>
-  request<PetOwnerOrder>("/api/v1/petowner/orders", {
+export const createPetOwnerOrder = async (input: OrderQuoteInput) => {
+  const order = await request<PetOwnerOrder>("/api/v1/petowner/orders", {
     method: "POST",
-    body: JSON.stringify(petOwnerOrderPayload(input)),
+    body: JSON.stringify({
+      ...petOwnerOrderPayload(input),
+      entry_point: readEntryPoint(),
+    }),
   });
+  clearEntryPoint();
+  return order;
+};
 
 export const getMedicalRecords = (petId: string) =>
   request<PlatformList<MedicalRecord>>(`/api/v1/pets/${petId}/medical-records`);

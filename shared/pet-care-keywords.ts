@@ -25,21 +25,21 @@ export const petCareTopics = [
     id: "pet-groomer",
     term: "pet groomer",
     aliases: ["grooming hewan", "pet grooming", "petgroomer"],
-    path: "/layanan/grooming-hewan",
+    path: "/services/grooming-hewan",
     career: "/career/pet-groomer",
   },
   {
     id: "cat-groomer",
     term: "grooming kucing",
     aliases: ["cat groomer", "cat grooming"],
-    path: "/layanan/grooming-hewan",
+    path: "/services/grooming-hewan",
     career: "/career/pet-groomer",
   },
   {
     id: "dog-groomer",
     term: "grooming anjing",
     aliases: ["dog groomer", "dog grooming"],
-    path: "/layanan/grooming-hewan",
+    path: "/services/grooming-hewan",
     career: "/career/pet-groomer",
   },
   {
@@ -53,7 +53,7 @@ export const petCareTopics = [
     id: "veterinarian",
     term: "dokter hewan",
     aliases: ["veterinarian", "pet clinic", "klinik hewan", "vet"],
-    path: "/layanan/klinik-hewan",
+    path: "/services/klinik-hewan",
     career: "/career/veterinarian-services",
   },
   {
@@ -65,7 +65,7 @@ export const petCareTopics = [
       "penitipan anjing",
       "pet boarding",
     ],
-    path: "/layanan/pet-hotel",
+    path: "/services/pet-hotel",
     career: "/career/pet-sitter",
   },
   {

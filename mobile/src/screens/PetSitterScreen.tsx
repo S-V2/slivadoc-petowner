@@ -442,7 +442,8 @@ export function PetSitterScreen({
                 Ditemani sepenuh hati, harian atau mingguan.
               </Text>
             </View>
-            <Image
+            <Image alt=""
+              // eslint-disable-next-line @typescript-eslint/no-require-imports -- Metro requires static asset paths.
               source={require("../../assets/pet-sitter-companions-cutout.png")}
               style={s.heroImage}
               resizeMode="contain"
@@ -639,7 +640,7 @@ export function PetSitterScreen({
                         ]}
                       >
                         {p.photo_url ? (
-                          <Image
+                          <Image alt=""
                             source={{ uri: p.photo_url }}
                             style={s.avatar}
                           />
@@ -817,7 +818,7 @@ export function PetSitterScreen({
                 ]}
               >
                 {detail.sitter.photo_url ? (
-                  <Image
+                  <Image alt=""
                     source={{ uri: detail.sitter.photo_url }}
                     style={s.avatar}
                   />
@@ -1230,7 +1231,7 @@ export function PetSitterScreen({
                       <Text style={s.tag}>{u.kind}</Text>
                       <Text style={s.copy}>{u.body}</Text>
                       {u.photo_url && (
-                        <Image source={{ uri: u.photo_url }} style={s.photo} />
+                        <Image alt="Foto kabar perawatan pet" source={{ uri: u.photo_url }} style={s.photo} />
                       )}
                     </View>
                   ))

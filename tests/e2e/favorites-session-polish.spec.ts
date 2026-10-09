@@ -19,8 +19,11 @@ const service = {
   city: "Jakarta Selatan",
   distance_km: 1.5,
   image_url: "https://example.test/clinic.svg",
-  rating: 4.9,
-  review_count: 20,
+  image_urls: [],
+  latitude: -6.24,
+  longitude: 106.8,
+  cancellation_policy: "Hubungi mitra sebelum jadwal",
+  business_license_status: "verified",
   description: "Perawatan untuk anabul",
   inclusions: [],
   supported_species: ["cat", "dog"],
@@ -52,14 +55,21 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/v1/**", (route) => {
     const path = new URL(route.request().url()).pathname;
     const reply = (json: unknown) => route.fulfill({ json });
+    if (path === "/api/v1/auth/logout") return reply({message:"Signed out"});
+    if (path === "/api/v1/public/discovery/branches") return reply({data:[{
+      branch_id:service.branch_id,business_id:service.business_id,business_name:service.business_name,branch_name:service.branch_name,
+      type:"hybrid",logo_url:null,banner_url:service.image_url,address:service.address,district:"Kebayoran Baru",city:service.city,
+      latitude:service.latitude,longitude:service.longitude,distance_km:1.5,opening_hours:{daily:"08:00-21:00"},timezone:"Asia/Jakarta",
+      is_open_now:true,rating:4.9,review_count:20,service_count:4,product_count:5,
+    }],count:1,has_more:false});
     if (path === "/api/v1/auth/me")
       return reply({ ...petOwner, role: "pet_owner" });
     if (path === "/api/v1/petowner/bootstrap")
       return reply({
         ...petOwnerBootstrap({ withPet: true }),
         favorites: [
-          { entity_id: service.id, entity_type: "service" },
-          { entity_id: product.id, entity_type: "product" },
+          { entity_id: service.id, entity_type: "service", created_at: "2026-10-09T04:00:00Z" },
+          { entity_id: product.id, entity_type: "product", created_at: "2026-10-09T04:00:00Z" },
         ],
       });
     if (path === "/api/v1/petowner/activities") return reply(activityCenter());
@@ -100,21 +110,15 @@ for (const width of [390, 1440])
       .locator(".favorites-page")
       .screenshot({ path: testInfo.outputPath(`favorites-${width}.png`) });
     await page.goto("/?view=home");
-    const meta = page.locator(".home-partner-meta");
-    await expect(meta).toBeVisible();
-    for (const row of await meta.locator("span").all()) {
-      expect(
-        await row.evaluate((node) => {
-          const box = node.getBoundingClientRect(),
-            icon = node.querySelector("svg")!.getBoundingClientRect();
-          return (
-            Math.abs(
-              (box.top + box.bottom) / 2 - (icon.top + icon.bottom) / 2,
-            ) < 2
-          );
-        }),
-      ).toBe(true);
-    }
+    const meta = page.locator(".clinic-home-meta");
+    await expect(meta).toContainText("4 layanan · 5 produk");
+    await expect(meta).toContainText(/1[,.]5 km/);
+    const location = page.locator(".clinic-home-body > small");
+    expect(await location.evaluate(node => {
+      const icon=node.querySelector("svg")!.getBoundingClientRect();
+      const text=node.querySelector("span")!.getBoundingClientRect();
+      return Math.abs((icon.top+icon.bottom)/2-(text.top+text.bottom)/2);
+    })).toBeLessThan(2);
     await page
       .locator(".home-service-card")
       .screenshot({ path: testInfo.outputPath(`clinic-card-${width}.png`) });

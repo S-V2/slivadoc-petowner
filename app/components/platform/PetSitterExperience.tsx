@@ -66,7 +66,7 @@ function SitterSelect({
   options: ReadonlyArray<{ value: string; label: string }>;
 }) {
   return (
-    <SlivaSelect {...props}>
+    <SlivaSelect {...props} aria-label={props["aria-label"]}>
       {options.map((o) => (
         <option value={o.value} key={o.value}>
           {o.label}
@@ -509,7 +509,7 @@ export default function PetSitterExperience({
                 </Button>
                 <label>
                   Radius{" "}
-                  <select
+                  <SlivaSelect
                     aria-label="Radius pencarian"
                     value={radius}
                     onChange={(e) => {
@@ -527,7 +527,7 @@ export default function PetSitterExperience({
                         {km} km
                       </option>
                     ))}
-                  </select>
+                  </SlivaSelect>
                 </label>
                 {(filters.city ||
                   filters.species ||

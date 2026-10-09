@@ -5,6 +5,7 @@ import {
   petOwnerBootstrap,
   activityCenter,
   activityItem,
+  paymentMethods,
 } from "./mock-data";
 import { collectionSamples } from "./world-collection-data";
 
@@ -20,12 +21,17 @@ const post = {
   comment_count: 16,
   created_at: "2026-10-09T04:00:00Z",
   verified: false,
+  channel_id: "polish-channel",
+  channel_avatar_url: "",
+  following: false,
+  repost_count: 0,
 };
 const place = {
   id: "polish-place",
   name: "Sliva Pet Park",
   city: "DKI Jakarta",
   category: "park",
+  address: "Jalan Taman 1",
   latitude: -6.2,
   longitude: 106.8,
   active_petowners: 2,
@@ -57,6 +63,7 @@ async function setup(page: Page) {
   const requests: string[] = [];
   let comments = Array.from({ length: 16 }, (_, index) => ({
     id: String(index),
+    user_id: petOwner.id,
     author_name: `Pet Parent ${index}`,
     content: "Senang melihat Milo bermain dengan teman barunya!",
     created_at: "2026-10-09T04:00:00Z",
@@ -68,6 +75,8 @@ async function setup(page: Page) {
     requests.push(url.pathname + url.search);
     const answer = (body: unknown, status = 200) =>
       route.fulfill({ status, json: body });
+    if (path === "/api/v1/public/discovery/branches") return answer({data:[],count:0,has_more:false});
+    if (path === "/api/v1/payment-methods") return answer(paymentMethods());
     if (path === "/api/v1/auth/me")
       return answer({ ...petOwner, role: "pet_owner" });
     if (path === "/api/v1/petowner/shipping-addresses")
@@ -114,6 +123,7 @@ async function setup(page: Page) {
           ...comments,
           {
             id: "new",
+            user_id: petOwner.id,
             author_name: petOwner.full_name,
             content: request.postDataJSON().content,
             created_at: new Date().toISOString(),
@@ -124,7 +134,7 @@ async function setup(page: Page) {
       return answer({ data: comments, count: comments.length });
     }
     if (path === "/api/v1/public/petship/places")
-      return answer({ data: [place], count: 1 });
+      return answer({ data: [place], count: 1, privacy: "Only public venue positions are shared." });
     if (path.endsWith("/presences"))
       return answer({
         data: [
@@ -135,6 +145,9 @@ async function setup(page: Page) {
             message: "Siap bermain",
             breed: "British Shorthair",
             species: "cat",
+            photo_url: "",
+            checked_in_at: "2026-10-09T04:00:00Z",
+            last_seen_at: "2026-10-09T04:00:00Z",
           },
         ],
         count: 1,
@@ -148,7 +161,11 @@ async function setup(page: Page) {
           specialties: ["Behavior"],
           rating: 4.9,
           experience_years: 5,
-          supported_species: ["dog"],
+          pet_types: ["dog"],
+          academy_id: "polish-academy",
+          bio: "Trainer berpengalaman",
+          certification: "Certified",
+          status: "active",
           photo_url: "",
         })),
         count: 8,

@@ -9,7 +9,7 @@ export const provinces = regionIndex.filter((r) => !r.parent);
 export function regionSlug(region: SeoRegion) {
   return `${region.name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}--${region.code}`;
 }
-export const regionPath = (region: SeoRegion) => `/wilayah/${regionSlug(region)}`;
+export const regionPath = (region: SeoRegion) => `/regions/${regionSlug(region)}`;
 export function regionCode(slug: string) {
   return slug.match(/--(\d{2}(?:\.\d{2}(?:\.\d{2}(?:\.\d{4})?)?)?)$/)?.[1] ?? "";
 }

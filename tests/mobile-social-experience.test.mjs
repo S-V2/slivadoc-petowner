@@ -23,7 +23,7 @@ test("home recommendations use runtime-safe sorting and explicit partner detail 
 
   assert.doesNotMatch(home, /\.toSorted\(/);
   assert.match(home, /nearestPartners/);
-  assert.match(home, /onOpenPartner\(partner\.id\)/);
+  assert.match(home, /onOpenPartner\(branch\)/);
   assert.match(app, /businessId\?: string/);
   assert.match(marketplace, /\["services", "Layanan"\]/);
   assert.match(marketplace, /onOpenService\(service\)/);
@@ -32,7 +32,7 @@ test("home recommendations use runtime-safe sorting and explicit partner detail 
 test("Android and iOS get a visible back control outside the home tab", () => {
   const app = read("mobile/App.tsx");
 
-  assert.match(app, /\{tab !== "home" \? \(/);
+  assert.match(app, /\{tab !== "home" && tab !== "career" \? \(/);
   assert.doesNotMatch(app, /Platform\.OS === "android" && tab !== "home"/);
   assert.match(app, /accessibilityLabel="Kembali ke halaman sebelumnya"/);
   assert.match(app, /onPress=\{\(\) => goBack\(\)\}/);

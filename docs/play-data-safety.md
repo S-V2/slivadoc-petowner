@@ -1,11 +1,11 @@
 # Play Console — Data Safety Worksheet (Slivadoc Pet Owner)
 
 Draft jawaban form **App content → Data safety** di Play Console. Sumber kebenaran:
-kebijakan di `https://slivadoc.com/privasi` (kode: `app/privasi/page.tsx`). Kalau kebijakan
+kebijakan di `https://slivadoc.com/privacy` (kode: `app/privacy/page.tsx`). Kalau kebijakan
 berubah, worksheet ini dan form Play Console WAJIB ikut berubah.
 
 - Package: `com.slivadoc.petowner`
-- Privacy policy URL: `https://slivadoc.com/privasi`
+- Privacy policy URL: `https://slivadoc.com/privacy`
 - Account deletion URL: `https://slivadoc.com/hapus-akun`
 
 ## Ringkasan deklarasi
@@ -15,7 +15,7 @@ berubah, worksheet ini dan form Play Console WAJIB ikut berubah.
 | Atribut | Jawaban |
 |---|---|
 | Semua data dikumpulkan diproses secara aman (enkripsi transit) | Ya |
-| Data dapat dihapus oleh user atas permintaan | Ya — in-app (Profil → Hapus akun) dan web (`/hapus-akun`) |
+| Data dapat dihapus oleh user atas permintaan | Ya — in-app (Profil → Hapus akun) dan web (`/delete-account`) |
 | Pengumpulan data bersifat opsional | Sebagian — lokasi & kamera opsional (izin perangkat); akun & transaksi wajib untuk layanan |
 
 ## Detail per kategori

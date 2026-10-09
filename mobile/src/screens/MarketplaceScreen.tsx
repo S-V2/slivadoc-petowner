@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Linking,
 
   ScrollView,
   StyleSheet,
@@ -29,6 +30,7 @@ import {
   MobileApiError,
   createMobilePaymentIntent,
   getMobileDistricts,
+  getDiscoveryBranch,
   getMobileProductReviews,
   getMobileProducts,
   getMobileMarketplaceChatMessages,
@@ -40,6 +42,7 @@ import {
   saveMobileProductReview,
   sendMobileMarketplaceChatMessage,
   type MobileMarketplaceChatMessage,
+  type MobileDiscoveryBranch,
   type MobileMarketplaceStoreResponse,
   type MobileOrderQuote,
   type MobileOrderInput,
@@ -68,6 +71,8 @@ import {
   LocalizedTextInput as TextInput,
   useI18n,
 } from "../i18n";
+import { branchTypeLabel, directionsUrl, openingHoursRows } from "../clinics";
+import { loadStoredLocation } from "../location";
 import {
   buildMarketplaceShippingPayload,
   createEmptyShippingAddress,
@@ -165,6 +170,7 @@ type MarketplaceScreenProps = {
     token: number;
     productId?: string;
     businessId?: string;
+    branchId?: string;
     storeSection?: "products" | "services";
     items?: Array<{ product_id: string; quantity: number }>;
   };
@@ -499,6 +505,7 @@ export function MarketplaceScreen({
   const [storeResponse, setStoreResponse] =
     useState<MobileMarketplaceStoreResponse>();
   const storeRequest = useRef(0);
+  const [storeBranch, setStoreBranch] = useState<MobileDiscoveryBranch>();
   const [storeLoading, setStoreLoading] = useState(false);
   const [storeError, setStoreError] = useState("");
   const [chat, setChat] = useState<{
@@ -896,14 +903,28 @@ export function MarketplaceScreen({
   };
 
   const openStore = useCallback(
-    async (businessId: string, initialSection: StoreSection = "products") => {
+    async (
+      businessId: string,
+      initialSection: StoreSection = "products",
+      branchId?: string,
+    ) => {
       const requestId = ++storeRequest.current;
       setSelected(undefined);
       setStoreResponse(undefined);
+      setStoreBranch(undefined);
       setStoreInitialSection(initialSection);
       setSelectedStoreId(businessId);
       setStoreLoading(true);
       setStoreError("");
+      // The branch block is optional context; a failed lookup never blocks the store page.
+      if (branchId) {
+        void loadStoredLocation()
+          .then((stored) => getDiscoveryBranch(branchId, stored))
+          .then((branch) => {
+            if (requestId === storeRequest.current) setStoreBranch(branch);
+          })
+          .catch(() => undefined);
+      }
       try {
         const result = await getMobileMarketplaceStore(businessId);
         if (requestId === storeRequest.current) setStoreResponse(result);
@@ -992,7 +1013,7 @@ export function MarketplaceScreen({
         return;
       }
       if (intent.businessId) {
-        void openStore(intent.businessId, intent.storeSection ?? "services");
+        void openStore(intent.businessId, intent.storeSection ?? "services", intent.branchId);
         return;
       }
       if (intent.items?.length) {
@@ -1559,6 +1580,7 @@ export function MarketplaceScreen({
         )}
         services={partners.filter((service) => service.businessId === selectedStoreId)}
         initialSection={storeInitialSection}
+        branch={storeBranch}
         loading={storeLoading}
         error={storeError}
         favorites={favorites}
@@ -2112,6 +2134,7 @@ function StorefrontSheet({
   products,
   services,
   initialSection,
+  branch,
   loading,
   error,
   favorites,
@@ -2123,6 +2146,7 @@ function StorefrontSheet({
 }: {
   visible: boolean;
   onDismiss: () => void;
+  branch?: MobileDiscoveryBranch;
   response?: MobileMarketplaceStoreResponse;
   products: MobileProduct[];
   services: Service[];
@@ -2292,6 +2316,42 @@ function StorefrontSheet({
               </View>
             ))}
           </View>
+
+          {branch ? (
+            <View style={styles.storefrontBranch}>
+              <View style={styles.storefrontBranchTop}>
+                <Ionicons name="location" size={16} color={colors.sky600} />
+                <Text style={styles.storefrontBranchTitle}>Cabang yang kamu pilih</Text>
+                <Pill tone={branch.type === "petclinic" ? "blue" : branch.type === "petshop" ? "mint" : "violet"}>{branchTypeLabel(branch.type)}</Pill>
+              </View>
+              <Text translate={false} style={styles.storefrontBranchText}>
+                {[branch.branch_name, branch.address, [branch.district, branch.city].filter(Boolean).join(", ")].filter(Boolean).join(", ")}
+              </Text>
+              <Text style={[styles.storefrontBranchText, { fontWeight: "700", color: branch.is_open_now === null ? colors.muted : branch.is_open_now ? colors.mint : colors.red }]}>
+                {branch.is_open_now === null ? "Jam belum diatur" : branch.is_open_now ? "Buka sekarang" : "Tutup"}
+              </Text>
+              {openingHoursRows(branch.opening_hours).length ? (
+                <>
+                  <Text style={styles.storefrontBranchDay}>Jam buka</Text>
+                  {openingHoursRows(branch.opening_hours).map(([day, hours]) => (
+                    <View key={day} style={styles.storefrontBranchRow}>
+                      <Text style={styles.storefrontBranchDay}>{day}</Text>
+                      <Text translate={false} style={styles.storefrontBranchHours}>{hours}</Text>
+                    </View>
+                  ))}
+                </>
+              ) : null}
+              <Pressable
+                accessibilityLabel="Petunjuk arah"
+                onPress={() => void Linking.openURL(directionsUrl(branch.latitude, branch.longitude)).catch(() => undefined)}
+                style={styles.storefrontBranchDirections}
+              >
+                <Ionicons name="navigate-outline" size={15} color={colors.white} />
+                <Text style={styles.storefrontBranchDirectionsText}>Petunjuk arah</Text>
+              </Pressable>
+              <Text style={styles.storefrontBranchNote}>Stok dikirim dari cabang terdekat yang tersedia</Text>
+            </View>
+          ) : null}
 
           <View style={styles.storefrontTabs}>
             {(
@@ -4265,6 +4325,31 @@ const styles = StyleSheet.create({
   },
   storefrontStatValue: { color: colors.navy, fontSize: 13, fontWeight: "700" },
   storefrontStatLabel: { color: colors.muted, fontSize: 8 },
+  storefrontBranch: {
+    gap: 8,
+    padding: 13,
+    borderWidth: 1,
+    borderColor: colors.sky100,
+    borderRadius: 17,
+    backgroundColor: colors.white,
+  },
+  storefrontBranchTop: { flexDirection: "row", alignItems: "center", gap: 8 },
+  storefrontBranchTitle: { flex: 1, color: colors.navy, fontSize: 13, fontWeight: "700" },
+  storefrontBranchText: { color: colors.text, fontSize: 12, lineHeight: 17 },
+  storefrontBranchRow: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
+  storefrontBranchDay: { color: colors.muted, fontSize: 11 },
+  storefrontBranchHours: { color: colors.text, fontSize: 11, fontWeight: "600" },
+  storefrontBranchDirections: {
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 12,
+    backgroundColor: colors.sky600,
+  },
+  storefrontBranchDirectionsText: { color: colors.white, fontSize: 12, fontWeight: "700" },
+  storefrontBranchNote: { color: colors.muted, fontSize: 11, lineHeight: 15 },
   storefrontTabs: {
     width: "100%",
     flexDirection: "row",

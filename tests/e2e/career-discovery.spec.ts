@@ -31,12 +31,10 @@ test("filters persist through grid, split detail, refresh and browser history", 
     return footer.top - badges.bottom;
   });
   expect(gap).toBeGreaterThanOrEqual(20);
-  await page
-    .getByRole("combobox", { name: "Jenis kerja", exact: true })
-    .selectOption("PART_TIME");
-  await page
-    .getByRole("combobox", { name: "Sistem kerja", exact: true })
-    .selectOption("on_site");
+  await page.getByRole("combobox", {name: "Jenis kerja", exact:true}).click();
+  await page.getByRole("option", {name:"Part-time",exact:true}).click();
+  await page.getByRole("combobox", {name: "Sistem kerja", exact:true}).click();
+  await page.getByRole("option", {name:"On-site",exact:true}).click();
   await expect(page.locator(".career-job")).toHaveCount(6);
   await page
     .getByRole("link", { name: "Lihat posisi: Pet Sitter", exact: true })
@@ -65,7 +63,7 @@ test("filters persist through grid, split detail, refresh and browser history", 
   await expect(page.locator(".career-list-item")).toHaveCount(6);
   await expect(
     page.getByRole("combobox", { name: "Jenis kerja", exact: true }),
-  ).toHaveValue("PART_TIME");
+  ).toHaveText("Part-time");
   await page.goBack();
   await expect(
     page.getByRole("heading", { name: "Pet Sitter", level: 1, exact: true }),
@@ -74,7 +72,7 @@ test("filters persist through grid, split detail, refresh and browser history", 
   await expect(page.locator(".career-job")).toHaveCount(6);
   await expect(
     page.getByRole("combobox", { name: "Sistem kerja", exact: true }),
-  ).toHaveValue("on_site");
+  ).toHaveText("On-site");
 });
 
 test("all filters, English copy, empty states and application drafts work together", async ({
@@ -91,20 +89,19 @@ test("all filters, English copy, empty states and application drafts work togeth
     .click();
   await expect(
     page.getByRole("combobox", { name: "Work arrangement", exact: true }),
-  ).toHaveValue("on_site");
+  ).toHaveText("On-site");
   await expect(
     page.getByRole("heading", { name: "Backend Engineer", level: 1 }),
   ).toBeVisible();
   await page.getByLabel("Full name").fill("Draft preserved");
-  await page
-    .getByRole("combobox", { name: "Work arrangement", exact: true })
-    .selectOption("remote");
+  await page.getByRole("combobox", {name: "Work arrangement", exact:true}).click();
+  await page.getByRole("option", {name:"WFH",exact:true}).click();
   await expect(page.locator(".career-list-item")).toHaveCount(0);
   await expect(page.getByRole("status")).toContainText(
     "outside your current filters",
   );
   await expect(page.getByLabel("Full name")).toHaveValue("Draft preserved");
-  await page.locator(".career-filter-panel").getByRole("button").click();
+  await page.locator(".career-filter-panel .career-clear").click();
   await expect(page.locator(".career-list-item")).toHaveCount(28);
   await expect(page.getByLabel("Full name")).toHaveValue("Draft preserved");
 });
@@ -134,7 +131,7 @@ test("responsive discovery and back-to-results navigation keep all filters", asy
     ).toBe(true);
     await expect(
       page.getByRole("combobox", { name: "Jenis kerja", exact: true }),
-    ).toHaveValue("PART_TIME");
+    ).toHaveText("Part-time");
     if (width <= 900)
       await expect(page.locator(".career-results-panel")).toBeHidden();
     if (width === 390)

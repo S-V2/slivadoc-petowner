@@ -79,8 +79,8 @@ test("Event and Academy details keep a bounded independently scrollable body", (
 });
 
 test("Academy rails and Pet Event cards expose swipe and next-button affordances", () => {
-  assert.match(academy, /aria-label="Lihat jenis pet berikutnya"/);
-  assert.match(academy, /aria-label="Lihat pet trainer berikutnya"/);
+  assert.match(academy, /<RailArrows rail=\{speciesRailRef\} label="jenis pet"/);
+  assert.match(academy, /<RailArrows rail=\{trainerRailRef\} label="pet trainer"/);
   assert.match(discoveryCss, /grid-auto-columns:calc\(\(100% - 16px\)\/3\)/);
   assert.match(academy, /event-card--experience/);
   assert.match(academy, /event-social-summary/);

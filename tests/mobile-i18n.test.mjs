@@ -83,5 +83,5 @@ test("shared surfaces consistently use Slivadoc sky styling", () => {
   assert.match(theme, /lg:\s*22/);
   assert.match(theme, /shadowRadius:\s*16/);
   assert.match(ui, /card:[^\n]*borderColor:\s*colors\.sky100/);
-  assert.match(ui, /name="sparkles"/);
+  assert.match(ui, /<BrandLogo/);
 });

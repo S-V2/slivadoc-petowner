@@ -128,7 +128,7 @@ export default async function PlaceDetailPage({
             <p>
               <LocalizedCopy>{place.address}</LocalizedCopy><LocalizedCopy>{". Lihat layanan yang dipublikasikan dari sistem mitra dan lanjutkan pencarian atau booking melalui Slivadoc."}</LocalizedCopy></p>
             <div className="seo-hero-actions">
-              <Link className="seo-primary" href="/?view=discover"><LocalizedCopy>{"Buka di Slivadoc"}</LocalizedCopy></Link>
+              <Link className="seo-primary" href={`/?view=clinics&branch=${place.branchId}`}><LocalizedCopy>{"Buka di Slivadoc"}</LocalizedCopy></Link>
               <Link className="seo-secondary" href="/tempat"><LocalizedCopy>{"Kembali ke direktori"}</LocalizedCopy></Link>
             </div>
             <LocalizedCopy>{place.latitude != null && place.longitude != null && (

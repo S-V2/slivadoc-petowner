@@ -34,11 +34,14 @@ import { usePetOwnerI18n } from "./PetOwnerI18n";
 import AddPetExperience from "./integrations/AddPetExperience";
 import CommunityExperience from "./integrations/CommunityExperience";
 import LocationModal from "./integrations/LocationModal";
+import ClinicDirectory from "./clinics/ClinicDirectory";
 import SlivaCareDrawer from "./integrations/SlivaCareDrawer";
 import PlatformDiscovery from "./platform/PlatformDiscovery";
 import PawDatingExperience from "./pawdating/PawDatingExperience";
 import { FundraisingView, PetshipView } from "./platform/PetshipFundraising";
 import type { LocationResult } from "../lib/petowner-api";
+import { CLINIC_ENTRY_POINT, recordStoreOpen } from "../lib/entry-point";
+import { clinicTypeLabel, formatDistanceKm } from "../lib/clinic-directory";
 import { ApiError } from "../lib/session";
 import ShippingAddressModal from "./ShippingAddressModal";
 import { downloadPetMedicalPDF } from "../lib/pet-pdf";
@@ -101,6 +104,8 @@ import {
   createPaymentIntent,
   createPetOwnerOrder,
   quotePetOwnerOrder,
+  trackPetOwnerEvent,
+  getDiscoveryBranches,
   snoozeCareReminder,
   type ActivityShipment,
   type PetOwnerInvoice,
@@ -130,6 +135,7 @@ import {
   type SupportMessage,
   type ServiceAvailability,
   type Veterinarian,
+  type DiscoveryBranch,
 } from "../lib/platform-api";
 import { QrisPaymentPanel, PaymentMethodPicker } from "./payments/QrisPayment";
 import {
@@ -216,6 +222,7 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
   { id: "home", label: "Beranda", icon: "home" },
   { id: "pets", label: "Hewan Saya", icon: "paw" },
   { id: "discover", label: "Layanan", icon: "search" },
+  { id: "clinics", label: "Klinik & Petshop", icon: "clinic" },
   { id: "bookings", label: "Aktivitas", icon: "calendar" },
   { id: "health", label: "Kesehatan", icon: "heart" },
   { id: "shop", label: "Belanja", icon: "bag" },
@@ -239,7 +246,7 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
 
 const navGroups: { label: string; items: AppView[] }[] = [
   { label: "Navigasi utama", items: ["home", "shop", "community", "bookings"] },
-  { label: "Akun & perawatan", items: ["messages", "discover", "world", "health", "profile"] },
+  { label: "Akun & perawatan", items: ["messages", "discover", "clinics", "world", "health", "profile"] },
   { label: "Kebutuhan pet", items: ["pets", "favorites", "petship", "fundraising", "support"] },
 ];
 
@@ -268,6 +275,10 @@ const titles: Record<AppView, { title: string; subtitle: string }> = {
   discover: {
     title: "Jelajahi Layanan",
     subtitle: "Temukan perawatan terbaik di sekitar kamu.",
+  },
+  clinics: {
+    title: "Klinik & Petshop",
+    subtitle: "Klinik hewan dan petshop terdekat dari lokasimu.",
   },
   bookings: {
     title: "Aktivitas",
@@ -970,6 +981,7 @@ export default function PetOwnerApp() {
     if (view !== "shop") {
       url.searchParams.delete("product");
       url.searchParams.delete("store");
+      url.searchParams.delete("branch");
       url.searchParams.delete("store_section");
     }
     if (view !== "discover") {
@@ -1014,20 +1026,31 @@ export default function PetOwnerApp() {
     window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
-  const openPartnerProfile = (businessId: string) => {
+  // Card click in Klinik & Petshop attributes the session to the menu and is
+  // counted; the Home teaser and deep links open the same store unattributed.
+  const openClinicBranch = (
+    branch: DiscoveryBranch,
+    { fromMenu = false, replace = false } = {},
+  ) => {
+    recordStoreOpen(fromMenu ? CLINIC_ENTRY_POINT : "other");
+    if (fromMenu)
+      void trackPetOwnerEvent({
+        event: "clinic_card_click",
+        branch_id: branch.branch_id,
+        business_id: branch.business_id,
+      }).catch(() => undefined);
     setActiveView("shop");
     window.localStorage.setItem("slivadoc.active_view", "shop");
     const url = new URL(window.location.href);
     url.searchParams.set("view", "shop");
-    url.searchParams.set("store", businessId);
-    url.searchParams.set("store_section", "services");
-    url.searchParams.delete("product");
-    url.searchParams.delete("service");
-    url.searchParams.delete("service_type");
-    url.searchParams.delete("activity");
-    url.searchParams.delete("veterinarian");
-    window.history.pushState(
-      { view: "shop", store: businessId, section: "services" },
+    url.searchParams.set("store", branch.business_id);
+    url.searchParams.set("branch", branch.branch_id);
+    if (branch.type === "petclinic") url.searchParams.set("store_section", "services");
+    else url.searchParams.delete("store_section");
+    for (const key of ["product", "service", "service_type", "activity", "veterinarian"])
+      url.searchParams.delete(key);
+    window.history[replace ? "replaceState" : "pushState"](
+      { view: "shop", store: branch.business_id, branch: branch.branch_id },
       "",
       `${url.pathname}${url.search}${url.hash}`,
     );
@@ -1053,6 +1076,7 @@ export default function PetOwnerApp() {
       );
       return;
     }
+    recordStoreOpen("other");
     setActiveView("shop");
     window.localStorage.setItem("slivadoc.active_view", "shop");
     const url = new URL(window.location.href);
@@ -1355,10 +1379,11 @@ export default function PetOwnerApp() {
               onSelectPet={setSelectedPetId}
               setActiveView={navigate}
               openServiceCatalog={openServiceCatalog}
-              openPartnerProfile={openPartnerProfile}
+              openClinicBranch={openClinicBranch}
+              location={currentLocation}
+              onOpenLocation={() => setLocationOpen(true)}
               openConsultation={openConsultation}
               setChatOpen={(open) => { if (!open || requireLogin()) setChatOpen(open); }}
-              services={serviceCatalog}
               activities={activities}
               openActivity={openActivity}
               ownerName={account?.full_name}
@@ -1382,6 +1407,13 @@ export default function PetOwnerApp() {
               openBooking={openBooking}
               notify={notify}
               serviceCatalog={serviceCatalog}
+            />
+          )}</LocalizedCopy>
+          <LocalizedCopy>{featureView === "clinics" && (
+            <ClinicDirectory
+              location={currentLocation}
+              onOpenLocation={() => setLocationOpen(true)}
+              onOpenBranch={openClinicBranch}
             />
           )}</LocalizedCopy>
           <LocalizedCopy>{!authenticated && (featureView === "bookings" || featureView === "messages") && (
@@ -1427,6 +1459,7 @@ export default function PetOwnerApp() {
               authenticated={authenticated}
               onRequireLogin={() => setLoginOpen(true)}
               toggleFavorite={(id) => void toggleFavorite("product", id)}
+              location={currentLocation}
             />
           )}</LocalizedCopy>
           <LocalizedCopy>{featureView === "community" && (
@@ -1654,6 +1687,11 @@ export default function PetOwnerApp() {
       <LocalizedCopy>{locationOpen && (
         <LocationModal
           current={currentLocation}
+          authenticated={authenticated}
+          onLogin={() => {
+            setLocationOpen(false);
+            setLoginOpen(true);
+          }}
           onClose={() => setLocationOpen(false)}
           onSelect={(location) => {
             setCurrentLocation(location);
@@ -2638,10 +2676,11 @@ function HomeView({
   onSelectPet,
   setActiveView,
   openServiceCatalog,
-  openPartnerProfile,
+  openClinicBranch,
+  location,
+  onOpenLocation,
   openConsultation,
   setChatOpen,
-  services,
   activities,
   openActivity,
   ownerName,
@@ -2652,15 +2691,16 @@ function HomeView({
   onSelectPet: (petId: string) => void;
   setActiveView: (view: AppView) => void;
   openServiceCatalog: (serviceType?: Service["type"], serviceId?: string) => void;
-  openPartnerProfile: (businessId: string) => void;
+  openClinicBranch: (branch: DiscoveryBranch) => void;
+  location: LocationResult | null;
+  onOpenLocation: () => void;
   openConsultation: (veterinarianId?: string) => void;
   setChatOpen: (value: boolean) => void;
-  services: Service[];
   activities: PetOwnerActivityCenterItem[];
   openActivity: (type: ActivityType, id: string) => void;
   ownerName?: string;
 }) {
-  const { t } = usePetOwnerI18n();
+  const { t, language } = usePetOwnerI18n();
   const [campaign, setCampaign] = useState<PublicCampaign | null>(null);
   const [veterinarians, setVeterinarians] = useState<Veterinarian[]>([]);
   const [doctorsLoading, setDoctorsLoading] = useState(true);
@@ -2680,6 +2720,18 @@ function HomeView({
       .finally(() => { if (active) setDoctorsLoading(false); });
     return () => { active = false; };
   }, [doctorsAttempt]);
+  const [nearbyBranches, setNearbyBranches] = useState<
+    { key: string; state: "ready"; items: DiscoveryBranch[] } | { key: string; state: "error" }
+  >();
+  const [branchesAttempt, setBranchesAttempt] = useState(0);
+  useEffect(() => {
+    let active = true;
+    const key = `${location?.latitude}:${location?.longitude}:${branchesAttempt}`;
+    getDiscoveryBranches({ limit: 6, latitude: location?.latitude, longitude: location?.longitude })
+      .then((result) => { if (active) setNearbyBranches({ key, state: "ready", items: result.data }); })
+      .catch(() => { if (active) setNearbyBranches({ key, state: "error" }); });
+    return () => { active = false; };
+  }, [location?.latitude, location?.longitude, branchesAttempt]);
 
   const firstName = ownerName?.trim().split(/\s+/)[0];
   const featuredActivities = activities
@@ -2690,51 +2742,11 @@ function HomeView({
         new Date(b.scheduled_at ?? b.occurred_at).getTime(),
     )
     .slice(0, 3);
-  const nearestPartners = Array.from(
-    services
-      .filter((item) => item.type === "Clinic" || item.type === "Pet Shop")
-      .reduce(
-        (partners, service) => {
-          const id = service.businessId || service.branchId || service.id;
-          const current = partners.get(id);
-          if (current) {
-            current.serviceCount += 1;
-            current.types.add(service.type);
-            if (
-              (Number.parseFloat(service.distance) || Number.MAX_SAFE_INTEGER) <
-              (Number.parseFloat(current.service.distance) || Number.MAX_SAFE_INTEGER)
-            )
-              current.service = service;
-          } else {
-            partners.set(id, {
-              id,
-              name: service.businessName || service.branchName || service.name,
-              service,
-              serviceCount: 1,
-              types: new Set<Service["type"]>([service.type]),
-            });
-          }
-          return partners;
-        },
-        new Map<
-          string,
-          {
-            id: string;
-            name: string;
-            service: Service;
-            serviceCount: number;
-            types: Set<Service["type"]>;
-          }
-        >(),
-      )
-      .values(),
-  )
-    .sort(
-      (a, b) =>
-        (Number.parseFloat(a.service.distance) || Number.MAX_SAFE_INTEGER) -
-        (Number.parseFloat(b.service.distance) || Number.MAX_SAFE_INTEGER),
-    )
-    .slice(0, 6);
+  const latitude = location?.latitude;
+  const longitude = location?.longitude;
+  const branchesKey = `${latitude}:${longitude}:${branchesAttempt}`;
+  const nearby: { state: "loading" } | NonNullable<typeof nearbyBranches> =
+    nearbyBranches?.key === branchesKey ? nearbyBranches : { state: "loading" };
   const recommendedDoctors = [...veterinarians]
     .sort(
       (a, b) =>
@@ -2880,55 +2892,64 @@ function HomeView({
               <h2><LocalizedCopy>{"Pet clinic & petshop terdekat"}</LocalizedCopy></h2>
               <p><LocalizedCopy>{"Diurutkan dari titik lokasi yang kamu pilih"}</LocalizedCopy></p>
             </div>
-            <LocalizedButton type="button" onClick={() => openServiceCatalog()}><LocalizedCopy>{"Jelajahi "}</LocalizedCopy><Icon name="arrow" size={14} />
+            <LocalizedButton type="button" onClick={() => setActiveView("clinics")}><LocalizedCopy>{"Jelajahi "}</LocalizedCopy><Icon name="arrow" size={14} />
             </LocalizedButton>
           </header>
-          <div className="home-service-row">
-            <LocalizedCopy>{nearestPartners.map((partner) => {
-              const service = partner.service;
-              const typeLabel = partner.types.size > 1
-                ? "Pet Clinic & Shop"
-                : [...partner.types][0];
+          <LocalizedCopy>{!location && (
+            <button type="button" className="clinic-home-prompt" onClick={onOpenLocation}>
+              <Icon name="map" size={15} />
+              <LocalizedCopy>{"Pilih lokasi agar urutannya dari yang terdekat"}</LocalizedCopy>
+              <b><LocalizedCopy>{"Pilih lokasi"}</LocalizedCopy></b>
+            </button>
+          )}</LocalizedCopy>
+          <div className="home-service-row" aria-busy={nearby.state === "loading"}>
+            <LocalizedCopy>{nearby.state === "loading" && [0, 1, 2].map((index) => (
+              <div className="home-service-card clinic-home-skeleton" key={index} aria-hidden="true">
+                <span className="home-service-visual" />
+                <div><i style={{ width: "70%" }} /><i style={{ width: "45%" }} /><i style={{ width: "85%" }} /></div>
+              </div>
+            ))}</LocalizedCopy>
+            <LocalizedCopy>{nearby.state === "ready" && nearby.items.map((branch, index) => {
+              const image = branch.banner_url || branch.logo_url;
+              const distance = formatDistanceKm(branch.distance_km);
               return (
               <article
                 className="home-service-card"
-                key={partner.id}
-                onClick={() => openPartnerProfile(partner.id)}
+                key={branch.branch_id}
+                onClick={() => openClinicBranch(branch)}
               >
-                <div className={`home-service-visual ${service.accent}`}>
-                  <span><LocalizedCopy>{typeLabel}</LocalizedCopy></span>
-                  <LocalizedButton type="button" aria-label={`Simpan ${partner.name}`} onClick={(event) => event.stopPropagation()}>
-                    <Icon name="heart" size={14} />
-                  </LocalizedButton>
-                  <LocalizedCopy>{service.imageUrl ? (
+                <div className={`home-service-visual ${["mint", "blue", "violet", "peach"][index % 4]}`}>
+                  <span>{clinicTypeLabel(branch.type, language)}</span>
+                  <LocalizedCopy>{image ? (
                     <Image
                       className="catalog-cover-image"
-                      src={service.imageUrl}
-                      alt={`Gambar ${partner.name}`}
+                      src={image}
+                      alt=""
                       fill
                       sizes="220px"
                       unoptimized
                     />
                   ) : (
-                    <i><LocalizedCopy>{service.emoji}</LocalizedCopy></i>
+                    <i><Icon name="clinic" size={30} /></i>
                   )}</LocalizedCopy>
                 </div>
                 <div>
-                  <b><LocalizedCopy>{partner.name}</LocalizedCopy></b>
+                  <b>{branch.business_name}</b>
                   <small>
-                    <Icon name="map" size={11} /> <LocalizedCopy>{service.branchName || service.address}</LocalizedCopy>
+                    <Icon name="map" size={11} /> {branch.branch_name}
                   </small>
                   <p>
                     <span>
-                      <Icon name="bag" size={10} /> <LocalizedCopy>{partner.serviceCount}</LocalizedCopy><LocalizedCopy>{" layanan"}</LocalizedCopy></span><LocalizedCopy>{"· "}</LocalizedCopy><LocalizedCopy>{service.distance}</LocalizedCopy>
+                      <Icon name="bag" size={10} /> {t(`${branch.service_count} layanan · ${branch.product_count} produk`)}</span>
+                    {distance ? ` · ${distance}` : ""}
                   </p>
                   <footer>
-                    <strong><LocalizedCopy>{service.city || service.price}</LocalizedCopy></strong>
+                    <strong>{branch.city}</strong>
                     <LocalizedButton
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        openPartnerProfile(partner.id);
+                        openClinicBranch(branch);
                       }}
                     ><LocalizedCopy>{"Lihat profil "}</LocalizedCopy><Icon name="arrow" size={12} />
                     </LocalizedButton>
@@ -2937,8 +2958,14 @@ function HomeView({
               </article>
               );
             })}</LocalizedCopy>
-            <LocalizedCopy>{nearestPartners.length === 0 && (
-              <div className="empty-state compact"><LocalizedCopy>{"Belum ada pet clinic atau petshop di titik lokasi ini."}</LocalizedCopy></div>
+            <LocalizedCopy>{nearby.state === "ready" && nearby.items.length === 0 && (
+              <div className="empty-state compact"><LocalizedCopy>{location ? "Belum ada pet clinic atau petshop di titik lokasi ini." : "Belum ada pet clinic atau petshop yang terdaftar."}</LocalizedCopy></div>
+            )}</LocalizedCopy>
+            <LocalizedCopy>{nearby.state === "error" && (
+              <div className="empty-state compact">
+                <LocalizedCopy>{"Pet clinic dan petshop belum dapat dimuat."}</LocalizedCopy>
+                <LocalizedButton type="button" className="secondary-button small" onClick={() => setBranchesAttempt((value) => value + 1)}><LocalizedCopy>{"Coba lagi"}</LocalizedCopy></LocalizedButton>
+              </div>
             )}</LocalizedCopy>
           </div>
         </section>
@@ -7966,7 +7993,7 @@ function MobileNav({
   const moreDialog = useDialogFocus<HTMLElement>(more, () => setMore(false));
   const primaryIds: AppView[] = ["home", "shop", "community", "bookings"];
   const worldIds: AppView[] = worldFeatures.map((item) => item.mode);
-  const moreIds: AppView[] = ["messages", "discover", "health", "profile"];
+  const moreIds: AppView[] = ["messages", "discover", "clinics", "health", "profile"];
   const items = primaryIds
     .map((id) => navItems.find((item) => item.id === id))
     .filter((item): item is (typeof navItems)[number] => Boolean(item));

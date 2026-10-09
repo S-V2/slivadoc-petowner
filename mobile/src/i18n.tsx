@@ -42,12 +42,79 @@ const localeByLanguage: Record<AppLanguage, string> = {
   en: "en-US",
 };
 
+// Native-only copy that the shared English dictionaries do not cover yet.
+const mobileEnglish: Record<string, string> = {
+  "Klinik & Petshop": "Clinics & Pet Shops",
+  "Mitra terverifikasi di sekitarmu": "Verified partners near you",
+  "Ubah": "Change",
+  "Ubah lokasi": "Change location",
+  "Pilih lokasi": "Choose location",
+  "Pilih lokasi untuk melihat yang terdekat dan memakai filter radius.": "Choose a location to see the nearest places and use the radius filter.",
+  "Cari klinik atau petshop": "Search clinics or pet shops",
+  "Semua": "All",
+  "Klinik": "Clinic",
+  "Petshop": "Pet shop",
+  "Buka sekarang": "Open now",
+  "Tutup": "Closed",
+  "Jam belum diatur": "Hours not set",
+  "Radius": "Radius",
+  "Radius (pilih lokasi dulu)": "Radius (choose a location first)",
+  "Rating toko dihitung dari semua cabang toko tersebut.": "Store rating is calculated across all branches of that store.",
+  "Daftar belum dapat dimuat": "The list could not be loaded",
+  "Daftar belum dapat dimuat.": "The list could not be loaded.",
+  "Coba lagi": "Try again",
+  "Belum ada klinik atau petshop": "No clinics or pet shops yet",
+  "Coba ubah filter, radius, atau kata kunci.": "Try changing the filters, radius, or keywords.",
+  "Belum ada mitra yang tersedia saat ini.": "No partners are available right now.",
+  "Reset filter": "Reset filters",
+  "Muat ulang": "Reload",
+  "Muat lagi": "Load more",
+  "Pilih lokasi di menu Klinik & Petshop untuk urutan terdekat": "Choose a location in the Clinics & Pet Shops menu for nearest-first order",
+  "LOKASI LAYANAN": "SERVICE LOCATION",
+  "Pilih lokasi spesifik": "Choose a specific location",
+  "Dipakai untuk mengurutkan klinik dan petshop terdekat.": "Used to sort the nearest clinics and pet shops.",
+  "Gunakan lokasi perangkat": "Use device location",
+  "Mencari lokasi…": "Finding location…",
+  "Cari alamat atau area": "Search an address or area",
+  "Cari": "Search",
+  "Login untuk mencari alamat. Lokasi perangkat tetap bisa dipakai tanpa login.": "Log in to search addresses. Device location works without logging in.",
+  "Peta belum tersedia. Gunakan lokasi perangkat.": "The map is not available. Use device location.",
+  "Peta belum tersedia. Gunakan lokasi perangkat atau cari alamat.": "The map is not available. Use device location or search an address.",
+  "Geser peta sampai pin berada tepat di lokasimu.": "Drag the map until the pin sits exactly on your location.",
+  "Simpan lokasi": "Save location",
+  "Lokasi perangkat": "Device location",
+  "Titik pilihan di peta": "Point chosen on the map",
+  "Izin lokasi ditolak. Izinkan lokasi di pengaturan perangkat atau cari alamat manual.": "Location permission denied. Allow location in device settings or search an address manually.",
+  "Lokasi perangkat belum dapat ditemukan.": "Device location could not be found.",
+  "Pencarian lokasi gagal.": "Location search failed.",
+  "Cabang yang kamu pilih": "Your selected branch",
+  "Petunjuk arah": "Get directions",
+  "Jam buka": "Opening hours",
+  "Stok dikirim dari cabang terdekat yang tersedia": "Stock is shipped from the nearest available branch",
+  "Memuat klinik & petshop…": "Loading clinics & pet shops…",
+  "Klinik & petshop belum dapat dimuat.": "Clinics & pet shops could not be loaded.",
+  "Belum ada klinik atau petshop yang tersedia.": "No clinics or pet shops are available yet.",
+  "Senin": "Monday",
+  "Selasa": "Tuesday",
+  "Rabu": "Wednesday",
+  "Kamis": "Thursday",
+  "Jumat": "Friday",
+  "Sabtu": "Saturday",
+  "Minggu": "Sunday",
+};
+
+function translateMobile(value: string, language: AppLanguage, catalogue = false) {
+  const key = value.trim();
+  const own = language === "en" && Object.hasOwn(mobileEnglish, key) ? mobileEnglish[key] : undefined;
+  return own ?? translateText(value, language, catalogue);
+}
+
 export function translateCopy(value: string, language: AppLanguage) {
-  return translateText(value, language);
+  return translateMobile(value, language);
 }
 
 function translateNode(node: ReactNode, language: AppLanguage, catalogue = false): ReactNode {
-  if (typeof node === "string") return translateText(node, language, catalogue);
+  if (typeof node === "string") return translateMobile(node, language, catalogue);
   if (Array.isArray(node)) return node.map((child) => translateNode(child, language, catalogue));
   return node;
 }

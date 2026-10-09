@@ -15,32 +15,36 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as ExpoLocation from "expo-location";
 import {
   getMobileGlobalSearch,
+  getDiscoveryBranches,
   getMobileVeterinarians,
   type MobileActivityCenterItem,
   type MobileActivityType,
   type MobileGlobalSearchResult,
+  type MobileDiscoveryBranch,
   type WorldItem,
 } from "../api";
 import type { PetView, Service } from "../data";
 import { getActivityTypePresentation } from "../activity";
+import { branchCountsLabel, branchTypeLabel, formatDistanceKm } from "../clinics";
+import { loadStoredLocation } from "../location";
 import { colors, radius, shadow, spacing, typography } from "../theme";
 import { ChatUnreadBadge, Pill, Screen, useAppSurface } from "../components/ui";
 import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
 
 type Props = {
   onExploreService: (category?: string, serviceId?: string) => void;
-  onOpenPartner: (businessId: string) => void;
+  onOpenPartner: (branch: MobileDiscoveryBranch) => void;
   onOpenConsultation: (doctorId?: string) => void;
   onOpenNotifications: () => void;
   onSearchResult: (result: MobileGlobalSearchResult) => void;
-  onNavigate: (tab: "discover" | "world" | "activity" | "health") => void;
+  onNavigate: (tab: "discover" | "world" | "activity" | "health" | "clinics") => void;
   ownerName?: string;
   pet?: PetView;
   pets: PetView[];
   onSelectPet: (petId: string) => void;
-  services: Service[];
   activities: MobileActivityCenterItem[];
   onOpenActivity: (type: MobileActivityType, id: string) => void;
 };
@@ -293,10 +297,9 @@ export function HomeScreen({
   pet,
   pets,
   onSelectPet,
-  services,
   activities,
 }: Props) {
-  const { formatDate } = useI18n();
+  const { formatDate, language, locale } = useI18n();
   const { unreadNotifications, openChatInbox } = useAppSurface();
   const [searchOpen, setSearchOpen] = useState(false);
   const [petPickerOpen, setPetPickerOpen] = useState(false);
@@ -319,51 +322,42 @@ export function HomeScreen({
     .sort((left, right) => Date.parse(left.scheduled_at ?? left.occurred_at) - Date.parse(right.scheduled_at ?? right.occurred_at))
     .slice(0, 3);
   const healthStatus = petView.score >= 80 ? "Kondisi prima" : petView.score >= 60 ? "Tetap terpantau" : pet ? "Lengkapi datanya" : "Mulai profil pet";
-  const nearestPartners = Array.from(
-    services
-      .filter((item) => /clinic|klinik|pet shop|petshop/i.test(item.category))
-      .reduce((partners, service) => {
-        const id = service.businessId || service.branchId;
-        const current = partners.get(id);
-        const distance = Number.parseFloat(service.distance) || Number.MAX_SAFE_INTEGER;
-        if (!current) {
-          partners.set(id, {
-            id,
-            name: service.businessName || service.branchName || service.name,
-            address: service.address || service.city || "Terdekat dari kamu",
-            distance,
-            distanceLabel: service.distance,
-            rating: service.rating,
-            imageUrl: service.imageUrl,
-            tone: service.tone,
-            categories: new Set([service.category]),
-            serviceCount: 1,
-          });
-          return partners;
+  const [branches, setBranches] = useState<MobileDiscoveryBranch[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(true);
+  const [branchesError, setBranchesError] = useState(false);
+  const [branchesAttempt, setBranchesAttempt] = useState(0);
+  const [branchesLocated, setBranchesLocated] = useState(false);
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => { if (active) { setBranchesLoading(true); setBranchesError(false); } });
+    void (async () => {
+      // Chosen location first, then device GPS only when permission is already granted (no prompt on Home).
+      let coordinates: { latitude: number; longitude: number } | undefined = await loadStoredLocation();
+      if (!coordinates) {
+        try {
+          const permission = await ExpoLocation.getForegroundPermissionsAsync();
+          if (permission.status === "granted") {
+            const position = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.Balanced });
+            coordinates = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+          }
+        } catch {
+          coordinates = undefined;
         }
-        current.serviceCount += 1;
-        current.categories.add(service.category);
-        if (distance < current.distance) {
-          current.distance = distance;
-          current.distanceLabel = service.distance;
-        }
-        return partners;
-      }, new Map<string, {
-        id: string;
-        name: string;
-        address: string;
-        distance: number;
-        distanceLabel: string;
-        rating: string;
-        imageUrl?: string;
-        tone: Service["tone"];
-        categories: Set<string>;
-        serviceCount: number;
-      }>())
-      .values(),
-  )
-    .sort((a, b) => a.distance - b.distance)
-    .slice(0, 6);
+      }
+      if (active) setBranchesLocated(Boolean(coordinates));
+      const page = await getDiscoveryBranches({ ...coordinates, limit: 6 });
+      if (active) setBranches(page.data);
+    })()
+      .catch(() => { if (active) { setBranches([]); setBranchesError(true); } })
+      .finally(() => { if (active) setBranchesLoading(false); });
+    return () => { active = false; };
+  }, [branchesAttempt]);
+  const nearestPartners = branches.map((branch) => ({
+    branch,
+    tone: (branch.type === "petshop" ? "mint" : branch.type === "hybrid" ? "violet" : "blue") as Service["tone"],
+    imageUrl: branch.banner_url || branch.logo_url || undefined,
+    place: [branch.district, branch.city].filter(Boolean).join(", ") || branch.address,
+  }));
   const recommendedDoctors = [...veterinarians]
     .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (b.consultation_count ?? 0) - (a.consultation_count ?? 0))
     .slice(0, 5);
@@ -524,26 +518,29 @@ export function HomeScreen({
         </View>
 
         <View style={styles.sectionBlock}>
-          <HomeSectionHeader icon="location" eyebrow="TERDEKAT" title="Pet clinic & petshop" note="Diurutkan dari titik lokasi kamu" action="Jelajahi" onAction={() => onExploreService()} tone="violet" />
+          <HomeSectionHeader icon="location" eyebrow="TERDEKAT" title="Pet clinic & petshop" note={branchesLocated ? "Diurutkan dari titik lokasi kamu" : "Pilih lokasi di menu Klinik & Petshop untuk urutan terdekat"} action="Jelajahi" onAction={() => onNavigate("clinics")} tone="violet" />
+          {!nearestPartners.length && <View style={styles.doctorEmpty} accessibilityLiveRegion="polite">
+            <Text style={styles.doctorEmptyText}>{branchesLoading ? "Memuat klinik & petshop…" : branchesError ? "Klinik & petshop belum dapat dimuat." : "Belum ada klinik atau petshop yang tersedia."}</Text>
+            {branchesError && <Pressable onPress={() => setBranchesAttempt((attempt) => attempt + 1)} style={styles.doctorRetry}><Text style={styles.doctorRetryText}>Coba lagi</Text></Pressable>}
+          </View>}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.serviceScroll}>
-            {nearestPartners.map((partner) => (
-              <Pressable key={partner.id} onPress={() => onOpenPartner(partner.id)} style={({ pressed }) => [styles.serviceCard, pressed && styles.pressed]}>
-                <LinearGradient colors={serviceGradient(partner.tone)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.serviceVisual}>
-                  {partner.imageUrl ? <Image source={{ uri: partner.imageUrl }} alt={`Gambar ${partner.name}`} style={styles.serviceImage} resizeMode="cover" /> : null}
+            {nearestPartners.map(({ branch, tone, imageUrl, place }) => (
+              <Pressable key={branch.branch_id} onPress={() => onOpenPartner(branch)} style={({ pressed }) => [styles.serviceCard, pressed && styles.pressed]}>
+                <LinearGradient colors={serviceGradient(tone)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.serviceVisual}>
+                  {imageUrl ? <Image source={{ uri: imageUrl }} alt={`Gambar ${branch.business_name}`} style={styles.serviceImage} resizeMode="cover" /> : null}
                   <View style={styles.serviceShine} />
-                  <View style={styles.serviceVisualTop}><Pill tone={partner.tone === "peach" ? "yellow" : partner.tone}>{[...partner.categories][0]}</Pill><View style={styles.serviceFavorite}><Ionicons name="storefront-outline" size={14} color={colors.navy} /></View></View>
-                  {!partner.imageUrl ? <View style={styles.serviceEmojiWrap}><Ionicons name="storefront-outline" size={34} color={partner.tone === "mint" ? "#14836E" : partner.tone === "violet" ? "#6655C7" : partner.tone === "peach" ? "#8B4A20" : colors.sky600} /></View> : null}
+                  <View style={styles.serviceVisualTop}><Pill tone={tone === "peach" ? "yellow" : tone}>{branchTypeLabel(branch.type)}</Pill><View style={styles.serviceFavorite}><Ionicons name="storefront-outline" size={14} color={colors.navy} /></View></View>
+                  {!imageUrl ? <View style={styles.serviceEmojiWrap}><Ionicons name="storefront-outline" size={34} color={tone === "mint" ? "#14836E" : tone === "violet" ? "#6655C7" : colors.sky600} /></View> : null}
                   <View style={styles.topPick}><Ionicons name="sparkles" size={10} color="#6757C9" /><Text style={styles.topPickText}>TOP PICK</Text></View>
                 </LinearGradient>
                 <View style={styles.serviceCardBody}>
-                  <Text numberOfLines={1} style={styles.serviceName}>{partner.name}</Text>
-                  <View style={styles.serviceLocation}><Ionicons name="location-outline" size={11} color={colors.muted} /><Text numberOfLines={1} style={styles.serviceLocationText}>{partner.address}</Text></View>
+                  <Text translate={false} numberOfLines={1} style={styles.serviceName}>{branch.business_name}</Text>
+                  <View style={styles.serviceLocation}><Ionicons name="location-outline" size={11} color={colors.muted} /><Text translate={false} numberOfLines={1} style={styles.serviceLocationText}>{place}</Text></View>
                   <View style={styles.serviceMeta}>
-                    <View style={styles.ratingPill}><Ionicons name="star" size={10} color={colors.yellow} /><Text style={styles.ratingText}>{partner.rating}</Text></View>
-                    <Text style={styles.serviceMetaDot}>•</Text>
-                    <Text numberOfLines={1} style={styles.serviceMetaText}>{partner.distanceLabel}</Text>
+                    <View style={styles.ratingPill}><Ionicons name="star" size={10} color={colors.yellow} /><Text translate={false} style={styles.ratingText}>{branch.rating !== null ? branch.rating.toFixed(1) : "-"}</Text></View>
+                    {branch.distance_km !== null ? <><Text style={styles.serviceMetaDot}>•</Text><Text translate={false} numberOfLines={1} style={styles.serviceMetaText}>{formatDistanceKm(branch.distance_km, locale)}</Text></> : null}
                   </View>
-                  <View style={styles.serviceFooter}><Text numberOfLines={1} style={styles.servicePrice}>{partner.serviceCount} layanan</Text><View style={styles.bookPill}><Text style={styles.bookPillText}>Profil</Text><Ionicons name="arrow-forward" size={12} color={colors.white} /></View></View>
+                  <View style={styles.serviceFooter}><Text translate={false} numberOfLines={1} style={styles.servicePrice}>{branchCountsLabel(branch.service_count, branch.product_count, language)}</Text><View style={styles.bookPill}><Text style={styles.bookPillText}>Profil</Text><Ionicons name="arrow-forward" size={12} color={colors.white} /></View></View>
                 </View>
               </Pressable>
             ))}

@@ -151,7 +151,7 @@ test("home care sections use lively layered cards instead of rigid panels", () =
   assert.match(home, /Buat care plan pertama/);
   assert.match(home, /serviceFavorite/);
   assert.match(home, /TOP PICK/);
-  assert.match(home, /serviceGradient\(partner\.tone\)/);
+  assert.match(home, /serviceGradient\(tone\)/);
 });
 
 test("android start replaces stale project Metro and clears its cache", () => {

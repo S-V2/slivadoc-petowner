@@ -23,7 +23,7 @@ test("home recommendations use runtime-safe sorting and explicit partner detail 
 
   assert.doesNotMatch(home, /\.toSorted\(/);
   assert.match(home, /nearestPartners/);
-  assert.match(home, /onOpenPartner\(partner\.id\)/);
+  assert.match(home, /onOpenPartner\(branch\)/);
   assert.match(app, /businessId\?: string/);
   assert.match(marketplace, /\["services", "Layanan"\]/);
   assert.match(marketplace, /onOpenService\(service\)/);

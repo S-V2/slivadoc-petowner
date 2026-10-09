@@ -17,7 +17,6 @@ import "./legal.css";
 import "./career.css";
 import "./site-shell.css";
 import "./site-footer.css";
-import "./experience-polish.css";
 import { SEO, absoluteUrl } from "./lib/seo-config";
 
 export const metadata: Metadata = {

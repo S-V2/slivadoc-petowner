@@ -130,6 +130,52 @@
   border-radius: 32px;
   background: linear-gradient(125deg, #e5f5ff, #f7fcff 60%, #fff);
 }
+
+/* App shell polish: keep the owner header pinned for the full document, including
+   the footer, and keep recommendation cards on one clean baseline. */
+.main-shell {
+  --app-sidebar-width: 250px;
+  padding-top: 72px;
+}
+
+.main-shell > .topbar {
+  position: fixed;
+  inset: 0 0 auto var(--app-sidebar-width);
+  z-index: 60;
+}
+
+.home-service-row {
+  align-items: stretch;
+  padding-bottom: 0;
+  background: transparent;
+}
+
+.home-service-card.clinic-home-card,
+.home-service-card.clinic-home-skeleton {
+  align-self: stretch;
+  transform: none;
+}
+
+.home-service-card.clinic-home-card:nth-child(3n + 2) {
+  transform: none;
+}
+
+.clinic-home-card .home-service-visual {
+  background: #fff;
+}
+
+@media (min-width: 861px) and (max-width: 1180px) {
+  .main-shell {
+    --app-sidebar-width: 218px;
+  }
+}
+
+@media (max-width: 860px) {
+  .main-shell {
+    --app-sidebar-width: 0px;
+    padding-top: 66px;
+  }
+}
 .not-found-art {
   position: relative;
   display: flex;

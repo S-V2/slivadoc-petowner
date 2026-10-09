@@ -8,6 +8,7 @@ export const worldFeatures = [
   { mode: "adoption", label: "Adopsi" },
   { mode: "documents", label: "Pet Documents" },
   { mode: "pawdating", label: "PAW Dating" },
+  { mode: "petship", label: "Petship" },
 ] as const;
 
 export type PetOwnerWorldMode = (typeof worldFeatures)[number]["mode"];
@@ -19,6 +20,7 @@ export const PET_PROFILE_REQUIRED_MESSAGE =
   "Tambahkan profil pet terlebih dahulu. Tanpa pet, akun hanya dapat melihat konten.";
 
 const petProtectedMutationPatterns = [
+  /^\/api\/v1\/pet-sitting\/bookings(?:\/|$)/,
   /^\/api\/v1\/petowner\/(?:bookings|orders|favorites\/toggle|products\/[^/]+\/reviews|academy\/programs\/[^/]+\/reviews|petship|fundraisers|reminders)(?:\/|$)/,
   /^\/api\/v1\/community\//,
   /^\/api\/v1\/pethub\//,

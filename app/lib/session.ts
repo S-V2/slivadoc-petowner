@@ -1,4 +1,7 @@
-import { PET_PROFILE_REQUIRED_MESSAGE, petOwnerMutationRequiresPet } from "../../shared/petowner-flow.ts";
+import {
+  PET_PROFILE_REQUIRED_MESSAGE,
+  petOwnerMutationRequiresPet,
+} from "../../shared/petowner-flow.ts";
 
 export const PLATFORM_API_URL =
   process.env.NEXT_PUBLIC_PLATFORM_API_URL ?? "http://localhost:8080";
@@ -70,6 +73,7 @@ const inFlightRequests = new Map<string, Promise<unknown>>();
 const inFlightMutations = new Map<string, Promise<unknown>>();
 const getCacheTTL = 15_000;
 let refreshPromise: Promise<AuthTokens> | null = null;
+let sessionGeneration = 0;
 let cachedUser: UserIdentity | null = null;
 let userPromise: Promise<UserIdentity | null> | null = null;
 let petOwnerProfile: { token: string; hasPet: boolean } | undefined;
@@ -79,7 +83,10 @@ function beginMutationUI(method: string) {
     return () => undefined;
   }
 
-  const buttonsToRestore: Array<{ btn: HTMLButtonElement; wasDisabled: boolean }> = [];
+  const buttonsToRestore: Array<{
+    btn: HTMLButtonElement;
+    wasDisabled: boolean;
+  }> = [];
   const active = document.activeElement;
 
   if (active instanceof HTMLButtonElement) {
@@ -93,7 +100,10 @@ function beginMutationUI(method: string) {
       'button[type="submit"], button:not([type])',
     );
     if (submitBtn && submitBtn instanceof HTMLButtonElement) {
-      buttonsToRestore.push({ btn: submitBtn, wasDisabled: submitBtn.disabled });
+      buttonsToRestore.push({
+        btn: submitBtn,
+        wasDisabled: submitBtn.disabled,
+      });
       submitBtn.disabled = true;
       submitBtn.classList.add("api-button-loading");
       submitBtn.setAttribute("aria-busy", "true");
@@ -145,10 +155,17 @@ export function getRefreshToken(): string {
 
 export function saveTokens(tokens: AuthTokens, preservePetProfile = false) {
   if (typeof localStorage === "undefined") return;
+  if (!preservePetProfile) {
+    sessionGeneration++;
+    requestCache.clear();
+    inFlightRequests.clear();
+    inFlightMutations.clear();
+  }
   const previousToken = getAccessToken();
-  petOwnerProfile = preservePetProfile && petOwnerProfile?.token === previousToken
-    ? { ...petOwnerProfile, token: tokens.access_token }
-    : undefined;
+  petOwnerProfile =
+    preservePetProfile && petOwnerProfile?.token === previousToken
+      ? { ...petOwnerProfile, token: tokens.access_token }
+      : undefined;
   localStorage.setItem(accessKey, tokens.access_token);
   localStorage.setItem(refreshKey, tokens.refresh_token);
   if (tokens.session_id) localStorage.setItem(sessionKey, tokens.session_id);
@@ -164,6 +181,7 @@ export function saveTokens(tokens: AuthTokens, preservePetProfile = false) {
 }
 
 export function clearSession() {
+  sessionGeneration++;
   petOwnerProfile = undefined;
   if (typeof localStorage === "undefined") return;
   localStorage.removeItem(accessKey);
@@ -202,13 +220,19 @@ async function performSessionRefresh(): Promise<AuthTokens> {
     code?: string;
   };
   if (!response.ok || !data.access_token || !data.refresh_token) {
-    clearSession();
+    if (
+      (response.status === 401 || response.status === 403) &&
+      refreshToken === getRefreshToken()
+    )
+      clearSession();
     throw new ApiError(
       data.message ?? "Session sudah berakhir. Silakan login kembali.",
       response.status,
       data.code,
     );
   }
+  if (refreshToken !== getRefreshToken())
+    throw new ApiError("Sesi telah berubah.", 409, "session_changed");
   saveTokens(data as AuthTokens, true);
   return data as AuthTokens;
 }
@@ -238,7 +262,7 @@ export async function getCurrentUser(): Promise<UserIdentity | null> {
   userPromise = (async () => {
     try {
       const user = await apiRequest<UserIdentity>("/api/v1/auth/me", {}, true);
-      cachedUser = user;
+      if (hasSession()) cachedUser = user;
       return user;
     } catch {
       return null;
@@ -262,10 +286,19 @@ export async function apiRequest<T>(
   retry = true,
 ): Promise<T> {
   const method = String(init.method ?? "GET").toUpperCase();
-  if (petOwnerProfile && petOwnerProfile.token === getAccessToken() && !petOwnerProfile.hasPet &&
-      petOwnerMutationRequiresPet(path, method)) {
-    if (typeof window !== "undefined") window.dispatchEvent(new Event("slivadoc:pet-required"));
-    throw new ApiError(PET_PROFILE_REQUIRED_MESSAGE, 428, "pet_profile_required");
+  if (
+    petOwnerProfile &&
+    petOwnerProfile.token === getAccessToken() &&
+    !petOwnerProfile.hasPet &&
+    petOwnerMutationRequiresPet(path, method)
+  ) {
+    if (typeof window !== "undefined")
+      window.dispatchEvent(new Event("slivadoc:pet-required"));
+    throw new ApiError(
+      PET_PROFILE_REQUIRED_MESSAGE,
+      428,
+      "pet_profile_required",
+    );
   }
   const key = requestKey(path, init);
   const useGetCache = method === "GET" && init.cache !== "no-store";
@@ -285,13 +318,12 @@ export async function apiRequest<T>(
 
   const finishMutationUI = beginMutationUI(method);
 
+  const generation = sessionGeneration;
   const execute = async () => {
     let token = getAccessToken();
     if (!token && retry && getRefreshToken()) {
-      try {
-        await refreshSession();
-        token = getAccessToken();
-      } catch {}
+      await refreshSession();
+      token = getAccessToken();
     }
 
     const send = (accessToken: string) => {
@@ -310,12 +342,26 @@ export async function apiRequest<T>(
     };
 
     let response = await send(token);
+    if (generation !== sessionGeneration || (token && !hasSession()))
+      throw new ApiError("Sesi telah berubah.", 409, "session_changed");
+    if (
+      response.status === 401 &&
+      retry &&
+      token !== getAccessToken() &&
+      getAccessToken()
+    ) {
+      token = getAccessToken();
+      response = await send(token);
+    }
     if (response.status === 401 && retry && getRefreshToken()) {
       try {
         await refreshSession();
         token = getAccessToken();
         response = await send(token);
-      } catch {}
+      } catch (cause) {
+        // A network or server failure while refreshing is not a revoked session.
+        throw cause;
+      }
     }
 
     const data = (await response.json().catch(() => ({}))) as T & {
@@ -327,7 +373,11 @@ export async function apiRequest<T>(
       available_stock?: number;
     };
 
+    if (generation !== sessionGeneration && response.ok && token)
+      throw new ApiError("Sesi telah berubah.", 409, "session_changed");
     if (!response.ok) {
+      if (response.status === 401 && token && token === getAccessToken())
+        clearSession();
       throw new ApiError(
         data.message ?? data.error ?? `Permintaan gagal (${response.status})`,
         response.status,
@@ -339,8 +389,12 @@ export async function apiRequest<T>(
       );
     }
 
-    if (path === "/api/v1/petowner/bootstrap" && method === "GET" &&
-        token && token === getAccessToken()) {
+    if (
+      path === "/api/v1/petowner/bootstrap" &&
+      method === "GET" &&
+      token &&
+      token === getAccessToken()
+    ) {
       const bootstrap = data as { pets?: unknown[] };
       if (Array.isArray(bootstrap.pets)) {
         petOwnerProfile = { token, hasPet: bootstrap.pets.length > 0 };
@@ -348,8 +402,13 @@ export async function apiRequest<T>(
     }
 
     // Creating the first pet unlocks actions immediately, before the next bootstrap poll.
-    if (path === "/api/v1/petowner/pets" && method === "POST" &&
-        token && token === getAccessToken() && typeof data.id === "string") {
+    if (
+      path === "/api/v1/petowner/pets" &&
+      method === "POST" &&
+      token &&
+      token === getAccessToken() &&
+      typeof data.id === "string"
+    ) {
       petOwnerProfile = { token, hasPet: true };
     }
 
@@ -382,30 +441,48 @@ export function startAutomaticRefresh(onExpired: () => void) {
   const refreshIfNeeded = async () => {
     if (running || !hasSession()) return;
     const expiresAt = Number(
-      (typeof localStorage !== "undefined" && localStorage.getItem(expiryKey)) || 0,
+      (typeof localStorage !== "undefined" &&
+        localStorage.getItem(expiryKey)) ||
+        0,
     );
     if (expiresAt > Date.now() + 5 * 60 * 1000) return;
     running = true;
     try {
       await refreshSession();
-    } catch {
-      onExpired();
+    } catch (cause) {
+      if (
+        cause instanceof ApiError &&
+        (cause.status === 401 || cause.status === 403) &&
+        !hasSession()
+      )
+        onExpired();
     } finally {
       running = false;
     }
   };
 
   void refreshIfNeeded();
-  const timer = typeof window !== "undefined" ? window.setInterval(refreshIfNeeded, 60_000) : null;
+  const timer =
+    typeof window !== "undefined"
+      ? window.setInterval(refreshIfNeeded, 60_000)
+      : null;
   const ended = () => onExpired();
+  const restored = () => {
+    if (!hasSession()) onExpired();
+    else void refreshIfNeeded();
+  };
   if (typeof window !== "undefined") {
     window.addEventListener("slivadoc:session-ended", ended);
+    window.addEventListener("storage", restored);
+    window.addEventListener("pageshow", restored);
   }
 
   return () => {
     if (timer && typeof window !== "undefined") window.clearInterval(timer);
     if (typeof window !== "undefined") {
       window.removeEventListener("slivadoc:session-ended", ended);
+      window.removeEventListener("storage", restored);
+      window.removeEventListener("pageshow", restored);
     }
   };
 }

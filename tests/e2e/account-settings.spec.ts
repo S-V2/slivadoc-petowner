@@ -191,6 +191,10 @@ test("account settings update the profile, filter security alerts, and manage fa
   await expect(page.getByRole("textbox", { name: "Nomor telepon" })).toHaveValue(
     "081234567890",
   );
+  await expect(page.getByRole("button", { name: "Simpan perubahan" })).toBeDisabled();
+  await page.getByRole("textbox", { name: "Nomor telepon" }).fill("abc");
+  await expect(page.getByRole("textbox", { name: "Nomor telepon" })).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Simpan perubahan" })).toBeDisabled();
   await page.getByRole("textbox", { name: "Nama lengkap" }).fill("Pet Parent Baru");
   await page.getByRole("textbox", { name: "Nomor telepon" }).fill("081298765432");
   await page.getByRole("button", { name: "Simpan perubahan" }).click();

@@ -1,3 +1,4 @@
+import { BrandLogo } from "../components/BrandLogo";
 import { TabRail } from "../components/TabRail";
 import { BottomSheetSafeArea } from "../components/BottomSheetSafeArea";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
@@ -498,6 +499,7 @@ function ActivityDetailSheet({
   const autoPayStarted = useRef(false);
   const [cancelBusy, setCancelBusy] = useState(false);
   const [orderCancelBusy, setOrderCancelBusy] = useState(false);
+  const [documentUploading, setDocumentUploading] = useState(false);
   const [documentPhotos, setDocumentPhotos] = useState<DocumentPhotos>({});
   const [resubmitBusy, setResubmitBusy] = useState(false);
   const bookingCancellable =
@@ -582,12 +584,13 @@ function ActivityDetailSheet({
       ],
     );
   const resubmit = async () => {
+    if (documentUploading || resubmitBusy) return;
     const documents = completeDocuments(
       item.missing_requirements ?? [],
       documentPhotos,
     );
     if (!documents) {
-      SlivaAlert.alert("Unggah foto untuk semua dokumen yang kurang");
+      SlivaAlert.alert("Unggah berkas untuk semua dokumen yang kurang");
       return;
     }
     setResubmitBusy(true);
@@ -1280,7 +1283,7 @@ function ActivityDetailSheet({
                       <Text style={styles.detailSectionTitle}>
                         Lengkapi dokumen
                       </Text>
-                      <DocumentPhotoPicker
+                      <DocumentPhotoPicker onUploadingChange={setDocumentUploading}
                         requirements={item.missing_requirements}
                         photos={documentPhotos}
                         onChange={(requirement, document) =>
@@ -1290,11 +1293,11 @@ function ActivityDetailSheet({
                           }))
                         }
                         onAction={(message) => SlivaAlert.alert(message)}
-                        disabled={resubmitBusy}
+                        disabled={resubmitBusy || documentUploading}
                       />
                       <PrimaryButton
                         compact
-                        disabled={resubmitBusy}
+                        disabled={resubmitBusy || documentUploading}
                         label={resubmitBusy ? "Mengirim…" : "Kirim ulang dokumen"}
                         icon="cloud-upload-outline"
                         onPress={() => void resubmit()}
@@ -1652,6 +1655,7 @@ export function ActivityScreen({
     return (
       <Screen>
         <View style={styles.header}>
+          <BrandLogo size={38} />
           <View style={styles.headerCopy}>
             <Text style={styles.headerEyebrow}>PUSAT AKTIVITAS</Text>
             <Text style={styles.headerTitle}>Semua perjalanan pet-mu</Text>
@@ -1695,6 +1699,7 @@ export function ActivityScreen({
     <>
       <Screen contentStyle={styles.screenContent}>
         <View style={styles.header}>
+          <BrandLogo size={38} />
           <View style={styles.headerCopy}>
             <Text style={styles.headerEyebrow}>PUSAT AKTIVITAS</Text>
             <Text style={styles.headerTitle}>Semua perjalanan pet-mu</Text>

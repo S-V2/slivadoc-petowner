@@ -2,7 +2,7 @@ export const PET_HUB_STORY_DURATION_MS = 30_000;
 export const PET_HUB_DOUBLE_TAP_MS = 300;
 
 export function petHubContentLink(postID: string) {
-  const url = new URL("https://slivadoc.com/");
+  const url = new URL("/", typeof window !== "undefined" ? window.location.origin : "https://slivadoc.com");
   url.searchParams.set("view", "pethub");
   url.searchParams.set("post", postID);
   return url.toString();

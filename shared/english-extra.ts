@@ -1,6 +1,10 @@
+import { englishPolish } from "./english-polish.ts";
 import { englishSpecies } from "./english-species.ts";
 export const englishExtra: Record<string, string> = {
   ...englishSpecies,
+  ...englishPolish,
+  "Saya menyetujui Syarat dan Ketentuan": "I agree to the Terms and Conditions",
+  "Saya menyetujui Kebijakan Privasi": "I agree to the Privacy Policy",
   "Tempat tujuan": "Destination",
   "Ke mana bersama pet-mu?": "Where to with your pet?",
   "Belum ada event yang cocok": "No matching events yet",

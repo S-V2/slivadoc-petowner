@@ -520,6 +520,9 @@ function MobilePawDatingDeck({
 }
 
 export function WorldScreen({
+  mode,
+  onModeChange: setMode,
+  onIntentHandled,
   refreshVersion,
   onAction,
   onOpenNotifications,
@@ -533,6 +536,9 @@ export function WorldScreen({
   intent,
   onOpenActivity,
 }: {
+  mode: WorldMode;
+  onModeChange: (mode: WorldMode) => void;
+  onIntentHandled: () => void;
   refreshVersion: number;
   onAction: (message: string) => void;
   onOpenNotifications: () => void;
@@ -568,7 +574,6 @@ export function WorldScreen({
           part === "day" ? { day: "2-digit" } : { month: "short" },
         )
       : "—";
-  const [mode, setMode] = useState<Mode>(intent?.mode ?? "academy");
   const [items, setItems] = useState<Record<Mode, WorldItem[]>>(emptyWorld);
   const [consultProvider, setConsultProvider] =
     useState<ConsultProviderFilter>("all");
@@ -703,6 +708,7 @@ export function WorldScreen({
     useState<AdoptionForm>(emptyAdoptionForm);
   const [documentForm, setDocumentForm] =
     useState<DocumentForm>(emptyDocumentForm);
+  const [documentUploading, setDocumentUploading] = useState(false);
   const [documentPhotos, setDocumentPhotos] = useState<DocumentPhotos>({});
   const handledIntent = useRef(0);
   const consultSpecialties = useMemo<Array<[string, string]>>(() => {
@@ -1054,6 +1060,7 @@ export function WorldScreen({
     if (!intent || loading || handledIntent.current === intent.token) return;
     queueMicrotask(() => {
       handledIntent.current = intent.token;
+      onIntentHandled();
       setMode(intent.mode);
       if (intent.mode === "consult") {
         setConsultProvider(intent.veterinarianId ? "veterinarian" : "all");
@@ -1096,7 +1103,7 @@ export function WorldScreen({
       }
       setSelected(item);
     });
-  }, [intent, items, loadTrainerSlots, loading, onAction]);
+  }, [intent, items, loadTrainerSlots, loading, onAction, onIntentHandled, setMode]);
   useEffect(() => {
     if (mode === "academy" && selected)
       void trackMobileAcademyProgramClick(selected.id).catch(() => undefined);
@@ -1307,7 +1314,7 @@ export function WorldScreen({
     }
   };
   const runPrimaryAction = async () => {
-    if (!selected) return;
+    if (!selected || busy || documentUploading) return;
     if (
       !owner &&
       (mode !== "petspot" || selected.reservable) &&
@@ -1345,7 +1352,7 @@ export function WorldScreen({
         ? completeDocuments(selected.requirements ?? [], documentPhotos)
         : [];
     if (!submittedDocuments) {
-      onAction("Unggah foto untuk semua dokumen yang diperlukan");
+      onAction("Unggah berkas untuk semua dokumen yang diperlukan");
       return;
     }
     let departureAt: string | undefined;
@@ -1950,11 +1957,7 @@ export function WorldScreen({
                     <Ionicons
                       name={species.icon}
                       size={15}
-                      color={
-                        academySpecies === species.id
-                          ? colors.white
-                          : colors.sky600
-                      }
+                      color={colors.sky600}
                     />
                     <Text
                       numberOfLines={1}
@@ -3543,7 +3546,7 @@ export function WorldScreen({
                           <Text style={styles.formLabel}>
                             Unggah dokumen yang diperlukan
                           </Text>
-                          <DocumentPhotoPicker
+                          <DocumentPhotoPicker onUploadingChange={setDocumentUploading}
                             requirements={selected.requirements}
                             photos={documentPhotos}
                             onChange={(requirement, document) =>
@@ -3553,7 +3556,7 @@ export function WorldScreen({
                               }))
                             }
                             onAction={onAction}
-                            disabled={busy}
+                            disabled={busy || documentUploading}
                           />
                         </View>
                       ) : null}
@@ -3563,7 +3566,7 @@ export function WorldScreen({
                     <MobilePaymentMethods
                       value={paymentMethod}
                       onChange={setPaymentMethod}
-                      disabled={busy}
+                      disabled={busy || documentUploading}
                     />
                   ) : null}
                   <PrimaryButton
@@ -3590,7 +3593,7 @@ export function WorldScreen({
                     }
                     onPress={runPrimaryAction}
                     disabled={
-                      busy ||
+                      busy || documentUploading ||
                       (!!owner && requiresPayment && !paymentMethod) ||
                       (mode === "events" &&
                         selected?.ticket_unit === "owner_pet" &&

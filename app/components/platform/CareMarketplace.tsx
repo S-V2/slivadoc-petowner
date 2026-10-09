@@ -143,6 +143,7 @@ export default function CareMarketplace({
   const [adoptionComposer, setAdoptionComposer] = useState(false);
   const [adoptionVersion, setAdoptionVersion] = useState(0);
   const [adoptionSearch, setAdoptionSearch] = useState("");
+  const [adoptionFiltersOpen, setAdoptionFiltersOpen] = useState(false);
   const [adoptionTab, setAdoptionTab] = useState<
     "browse" | "listings" | "applications"
   >("browse");
@@ -357,10 +358,10 @@ export default function CareMarketplace({
               ><LocalizedCopy>{"Konsultasi saya"}</LocalizedCopy></LocalizedButton>
         </WorldCollectionHeader>
         <div className="care-trust">
-          <span><LocalizedCopy>{"✓ Dokter & trainer terverifikasi"}</LocalizedCopy></span>
-          <span><LocalizedCopy>{"🔒 Room privat"}</LocalizedCopy></span>
-          <span><LocalizedCopy>{"📅 Slot jadwal real-time"}</LocalizedCopy></span>
-          <span><LocalizedCopy>{"⚡ Provider online saat ini"}</LocalizedCopy></span>
+          <span><Icon name="shield" size={18}/><LocalizedCopy>{"Dokter & trainer terverifikasi"}</LocalizedCopy></span>
+          <span><Icon name="shield" size={18}/><LocalizedCopy>{"Room privat"}</LocalizedCopy></span>
+          <span><Icon name="calendar" size={18}/><LocalizedCopy>{"Slot jadwal real-time"}</LocalizedCopy></span>
+          <span><Icon name="video" size={18}/><LocalizedCopy>{"Provider online saat ini"}</LocalizedCopy></span>
         </div>
         <aside className="consult-safety-note" role="note">
           <b><LocalizedCopy>{"Butuh pertolongan darurat?"}</LocalizedCopy></b>
@@ -783,7 +784,7 @@ export default function CareMarketplace({
               aria-label="Filter adopsi"
             >
               <label className="adoption-search">
-                <span><LocalizedCopy>{"⌕"}</LocalizedCopy></span>
+                <Icon name="search" size={19}/>
                 <LocalizedInput
                   value={adoptionSearch}
                   onChange={(event) => setAdoptionSearch(event.target.value)}
@@ -799,6 +800,9 @@ export default function CareMarketplace({
                 <option value="dog">Anjing</option>
                 <option value="cat">Kucing</option>
               </SlivaSelect>
+              <div className="adoption-filter-actions"><LocalizedButton className="secondary-button" aria-expanded={adoptionFiltersOpen} aria-controls="adoption-extra-filters" onClick={() => setAdoptionFiltersOpen(value => !value)}><Icon name="filter" size={18}/><LocalizedCopy>{"Filter lainnya"}</LocalizedCopy><span>{[sex, size, city, health].filter(value => value !== "all").length || ""}</span></LocalizedButton>
+                {[species, sex, size, city, health].some(value => value !== "all") || adoptionSearch ? <LocalizedButton className="ghost-text" onClick={() => { setAdoptionSearch(""); setSpecies("all"); setSex("all"); setSize("all"); setCity("all"); setHealth("all"); }}><LocalizedCopy>{"Reset"}</LocalizedCopy></LocalizedButton> : null}</div>
+              <div id="adoption-extra-filters" className="adoption-extra-filters" hidden={!adoptionFiltersOpen}>
               <SlivaSelect
                 value={sex}
                 onChange={(event) => setSex(event.target.value)}
@@ -837,6 +841,7 @@ export default function CareMarketplace({
                 <option value="vaccinated">Sudah vaksin</option>
                 <option value="sterilized">Sudah steril</option>
               </SlivaSelect>
+              </div>
             </section>
             <div className="adoption-result-count">
               <b><LocalizedCopy>{filteredAdoptions.length}</LocalizedCopy><LocalizedCopy>{" pet"}</LocalizedCopy></b>
@@ -2138,13 +2143,14 @@ function DocumentModal({
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [requestNumber, setRequestNumber] = useState("");
   const [requestId, setRequestId] = useState("");
+  const [documentsUploading, setDocumentsUploading] = useState(false);
   const [uploaded, setUploaded] = useState<UploadedDocument[]>([]);
   const allUploaded = item.requirements.every((req) =>
     uploaded.some((doc) => doc.requirement === req),
   );
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!requirePet()) return;
+    if (documentsUploading || busy || !allUploaded || !requirePet()) return;
     if (item.total_fee > 0 && !paymentMethod) return;
     setBusy(true);
     const v = Object.fromEntries(new FormData(event.currentTarget));
@@ -2257,7 +2263,7 @@ function DocumentModal({
                   </div>
                 </>
               )}</LocalizedCopy>
-              <RequirementUploads
+              <RequirementUploads onUploadingChange={setDocumentsUploading}
                 requirements={item.requirements}
                 value={uploaded}
                 onChange={setUploaded}
@@ -2280,7 +2286,7 @@ function DocumentModal({
               <LocalizedButton
                 className="primary-button full"
                 disabled={
-                  busy || !allUploaded || (item.total_fee > 0 && !paymentMethod)
+                  busy || documentsUploading || !allUploaded || (item.total_fee > 0 && !paymentMethod)
                 }
               >
                 <LocalizedCopy>{busy

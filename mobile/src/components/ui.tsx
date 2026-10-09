@@ -15,6 +15,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { BottomSheetSafeArea } from "./BottomSheetSafeArea";
+import { BrandLogo } from "./BrandLogo";
 import { Ionicons } from "@expo/vector-icons";
 import { LocalizedText as Text } from "../i18n";
 import { colors, radius, shadow, spacing, typography } from "../theme";
@@ -82,7 +83,7 @@ export function TopHeader({ title, subtitle, onNotification, brandIcon, compact 
   const { unreadNotifications, openChatInbox } = useAppSurface();
   return (
     <View style={styles.topHeader}>
-      {brandIcon ?? <View style={styles.brandIcon}><Ionicons name="sparkles" size={18} color={colors.white} /></View>}
+      {brandIcon ?? <BrandLogo />}
       <View style={styles.topHeaderCopy}>
         <Text style={styles.topKicker}>{subtitle}</Text>
         <Text style={[styles.topTitle, compact && { fontSize: 18 }]} numberOfLines={1}>{title}</Text>

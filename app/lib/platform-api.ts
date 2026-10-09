@@ -1,3 +1,5 @@
+import type { InvoiceCategory } from "../../shared/invoice-categories";
+import { createSitterClient } from "../../shared/pet-sitter.ts";
 import {
   apiRequest,
   hasSession,
@@ -306,6 +308,7 @@ export type PetOwnerActivityCenterResponse =
   };
 
 export type PetOwnerInvoice = {
+  category?: Exclude<InvoiceCategory, "all">;
   id: string;
   invoice_number: string;
   business_name: string;
@@ -2242,9 +2245,9 @@ export const getPetOwnerActivityCenter = (cursor = "") =>
     { cache: "no-store" },
   );
 
-export const getPetOwnerInvoices = (limit = 50) =>
+export const getPetOwnerInvoices = (limit = 50, category: InvoiceCategory = "all") =>
   request<PlatformList<PetOwnerInvoice>>(
-    `/api/v1/petowner/invoices?limit=${limit}`,
+    `/api/v1/petowner/invoices?limit=${limit}&category=${category}`,
     { cache: "no-store" },
   );
 
@@ -2666,3 +2669,8 @@ export const getPetOwnerAccountDeletionStatus = () =>
     "/api/v1/petowner/account-deletion/status",
     { cache: "no-store" },
   );
+
+export const sitterClient = createSitterClient(request);
+
+export const changePetOwnerPassword = (current_password: string, new_password: string) =>
+  request<{ message: string }>("/api/v1/auth/change-password", { method: "POST", body: JSON.stringify({ current_password, new_password }) });

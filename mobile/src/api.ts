@@ -1,3 +1,6 @@
+import type { InvoiceCategory } from "../../shared/invoice-categories";
+import type { LegalConsent } from "../../shared/legal";
+import { createSitterClient } from "../../shared/pet-sitter";
 import * as SecureStore from "expo-secure-store";
 
 import { NativeModules, Platform } from "react-native";
@@ -100,6 +103,8 @@ export async function setPlatformTokens(access: string, refresh: string) {
 export function setPlatformAccessToken(token: string) {
   platformAccessToken = token;
 }
+
+export function getPlatformAccessToken() { return platformAccessToken; }
 
 export function hasPlatformSession() {
   return Boolean(platformAccessToken || platformRefreshToken);
@@ -873,7 +878,7 @@ export async function loginMobile(email: string, password: string) {
   mobileCache.clear();
   return payload as { access_token: string; refresh_token: string };
 }
-export async function registerMobileOwner(input: {
+export async function registerMobileOwner(input: LegalConsent & {
   full_name: string;
   phone: string;
   email: string;
@@ -1132,6 +1137,7 @@ export const requestMobileOrderReturn = (
   );
 
 export type MobileInvoice = {
+  category?: Exclude<InvoiceCategory, "all">;
   id: string;
   invoice_number: string;
   business_name: string;
@@ -1157,9 +1163,9 @@ export type MobileInvoiceDetail = MobileInvoice & {
   }>;
 };
 
-export const getMobileInvoices = (limit = 50) =>
+export const getMobileInvoices = (limit = 50, category: InvoiceCategory = "all") =>
   platformRequest<{ data: MobileInvoice[]; count: number }>(
-    `/api/v1/petowner/invoices?limit=${limit}`,
+    `/api/v1/petowner/invoices?limit=${limit}&category=${category}`,
     { cache: "no-store" },
   );
 
@@ -2363,3 +2369,35 @@ export function petownerRealtime() {
   }
   return petownerSocket;
 }
+
+export const mobileSitterClient = createSitterClient(platformRequest);
+
+export const changeMobilePassword = (current_password: string, new_password: string) =>
+  platformRequest<{ message: string }>("/api/v1/auth/change-password", { method: "POST", body: JSON.stringify({ current_password, new_password }) });
+
+export async function uploadMobileDocument(uri: string, mimeType: string, fileName: string) {
+  if (!["application/pdf", "image/jpeg", "image/png"].includes(mimeType)) throw new Error("Pilih berkas PDF, JPG, atau PNG maksimal 10 MB");
+  const baseURL = requireServiceURL(PETOWNER_API_URL, "EXPO_PUBLIC_PETOWNER_API_URL");
+  const send = (token: string) => {
+    const body = new FormData();
+    body.append("folder", "documents");
+    body.append("file", { uri, type: mimeType, name: fileName } as unknown as Blob);
+    return fetch(`${baseURL}/api/uploads/documents`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : undefined, body });
+  };
+  let response = await send(platformAccessToken);
+  if (response.status === 401 && platformRefreshToken) response = await send(await refreshMobileSession());
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.message ?? "Upload dokumen gagal. Silakan coba lagi.");
+  if (typeof payload.url !== "string" || !payload.url.startsWith("https://") || !payload.publicId) throw new Error("Penyimpanan dokumen belum mengembalikan berkas yang valid");
+  return payload as { url: string; publicId: string; mimeType: string };
+}
+
+export type MobilePetshipPlace = { id: string; name: string; city: string; active_petowners: number; distance_km?: number | null };
+export type MobilePetshipPresence = { id: string; pet_name: string; owner_first_name: string; message: string };
+export const mobilePetship = {
+  places: () => platformRequest<{ data: MobilePetshipPlace[] }>("/api/v1/public/petship/places", { cache: "no-store" }),
+  presences: (id: string) => platformRequest<{ data: MobilePetshipPresence[] }>(`/api/v1/public/petship/places/${encodeURIComponent(id)}/presences`, { cache: "no-store" }),
+  checkIn: (petId: string, placeId: string) => platformRequest<{ message: string }>("/api/v1/petowner/petship/presence", { method: "PUT", body: JSON.stringify({ pet_id: petId, place_id: placeId, visibility: "nearby", message: "Siap berkenalan dengan teman baru." }) }),
+  checkOut: () => platformRequest<{ message: string }>("/api/v1/petowner/petship/presence", { method: "DELETE" }),
+  heartbeat: () => platformRequest("/api/v1/petowner/petship/heartbeat", { method: "POST" }),
+};

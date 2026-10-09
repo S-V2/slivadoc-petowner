@@ -1,5 +1,6 @@
+import { invoiceCategories, type InvoiceCategory } from "../../../shared/invoice-categories";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator,  ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -42,6 +43,9 @@ export function InvoicesScreen({
   onOpenNotifications: () => void;
 }) {
   const { formatCurrency, formatDate } = useI18n();
+  const requestVersion = useRef(0);
+  const detailVersion = useRef(0);
+  const [category, setCategory] = useState<InvoiceCategory>("all");
   const [invoices, setInvoices] = useState<MobileInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -50,27 +54,29 @@ export function InvoicesScreen({
   const [detailError, setDetailError] = useState("");
 
   const load = useCallback(() => {
+    const version = ++requestVersion.current;
     setLoading(true);
     setError("");
-    getMobileInvoices()
-      .then((result) => setInvoices(result.data))
+    getMobileInvoices(100, category)
+      .then((result) => { if (version === requestVersion.current) setInvoices(result.data); })
       .catch((cause) =>
-        setError(cause instanceof Error ? cause.message : "Invoice belum dapat dimuat"),
+        version === requestVersion.current && setError(cause instanceof Error ? cause.message : "Invoice belum dapat dimuat"),
       )
-      .finally(() => setLoading(false));
-  }, []);
+      .finally(() => { if (version === requestVersion.current) setLoading(false); });
+  }, [category]);
   useEffect(() => {
     const timer = setTimeout(load, 0);
     return () => clearTimeout(timer);
   }, [load]);
 
   const loadDetail = useCallback((invoice: MobileInvoice) => {
+    const version = ++detailVersion.current;
     setDetail(undefined);
     setDetailError("");
     getMobileInvoice(invoice.id)
-      .then(setDetail)
+      .then(result => { if (version === detailVersion.current) setDetail(result); })
       .catch((cause) =>
-        setDetailError(cause instanceof Error ? cause.message : "Detail invoice belum dapat dimuat"),
+        version === detailVersion.current && setDetailError(cause instanceof Error ? cause.message : "Detail invoice belum dapat dimuat"),
       );
   }, []);
   const open = (invoice: MobileInvoice) => {
@@ -91,6 +97,9 @@ export function InvoicesScreen({
         <Ionicons name="arrow-back" size={18} color={colors.navy} />
         <Text style={styles.backText}>Akun</Text>
       </Pressable>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} accessibilityRole="tablist">
+        {invoiceCategories.map(item => <Pressable key={item.value} accessibilityRole="tab" accessibilityState={{ selected: category === item.value }} onPress={() => setCategory(item.value)} style={{ padding: 12, borderRadius: 14, borderWidth: 1, borderColor: category === item.value ? colors.sky600 : colors.line, backgroundColor: category === item.value ? colors.sky50 : colors.white }}><Text style={{ color: category === item.value ? colors.sky600 : colors.text }}>{item.label}</Text></Pressable>)}
+      </ScrollView>
       {loading ? (
         <View style={styles.loading} accessibilityRole="progressbar"><ActivityIndicator color={colors.sky600} /><Text style={styles.note}>Memuat invoice…</Text></View>
       ) : error ? (
@@ -113,7 +122,7 @@ export function InvoicesScreen({
           ))}
         </View>
       ) : (
-        <EmptyState icon="receipt-outline" title="Belum ada invoice" note="Belum ada invoice tertaut. Tautkan kode pet owner di klinik agar invoice muncul di sini." action="Muat ulang" onAction={load} />
+        <EmptyState icon="receipt-outline" title="Belum ada invoice" note={category === "all" ? "Belum ada invoice tertaut. Tautkan kode pet owner di klinik agar invoice muncul di sini." : "Belum ada invoice pada kategori ini. Pilih kategori lain."} action="Muat ulang" onAction={load} />
       )}
 
       <BoundedBottomSheet visible={Boolean(selected)} onClose={() => setSelected(undefined)} maxHeight="88%">

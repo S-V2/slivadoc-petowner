@@ -1,4 +1,11 @@
 "use client";
+import { careerReturnPath } from "../../shared/career-auth";
+import { invoiceCategories, type InvoiceCategory } from "../../shared/invoice-categories";
+import { LegalConsentDialog } from "./LegalConsentDialog";
+import { LEGAL_VERSION } from "../../shared/legal";
+import { normalizePhoneInput, profileValidation } from "../../shared/account-validation";
+import { HomePetSpotRecommendations } from "./HomePetSpotRecommendations";
+import { ChangePasswordForm } from "./ChangePasswordForm";
 import { HorizontalTabPositioning } from "./HorizontalTabPositioning";
 import { petOwnerIntlLocale } from "../lib/petowner-locale";
 import { confirmSlivaDialog } from "./SlivaDialog";
@@ -35,6 +42,7 @@ import AddPetExperience from "./integrations/AddPetExperience";
 import CommunityExperience from "./integrations/CommunityExperience";
 import LocationModal from "./integrations/LocationModal";
 import SlivaCareDrawer from "./integrations/SlivaCareDrawer";
+import PetSitterExperience from "./platform/PetSitterExperience";
 import PlatformDiscovery from "./platform/PlatformDiscovery";
 import PawDatingExperience from "./pawdating/PawDatingExperience";
 import { FundraisingView, PetshipView } from "./platform/PetshipFundraising";
@@ -225,6 +233,7 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
   { id: "academy", label: "Pet Academy", icon: "sparkle" },
   { id: "events", label: "Pet Event", icon: "calendar" },
   { id: "petspot", label: "PetSpot", icon: "map" },
+  { id: "sitter", label: "Pet Sitter", icon: "paw" },
   { id: "pethub", label: "PetHub", icon: "video" },
   { id: "consult", label: "Konsultasi", icon: "heart" },
   { id: "adoption", label: "Adopsi", icon: "paw" },
@@ -239,8 +248,8 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
 
 const navGroups: { label: string; items: AppView[] }[] = [
   { label: "Navigasi utama", items: ["home", "shop", "community", "bookings"] },
-  { label: "Akun & perawatan", items: ["messages", "discover", "world", "health", "profile"] },
-  { label: "Kebutuhan pet", items: ["pets", "favorites", "petship", "fundraising", "support"] },
+  { label: "Akun & perawatan", items: ["messages", "discover", "sitter", "world", "health", "profile"] },
+  { label: "Kebutuhan pet", items: ["pets", "favorites", "fundraising"] },
 ];
 
 // Pages arrive newest first; entries of `later` already in `first` are dropped.
@@ -256,6 +265,7 @@ function mergeActivityPages(
 }
 
 const titles: Record<AppView, { title: string; subtitle: string }> = {
+  sitter: {title:"Pet Sitter",subtitle:"Teman perawatan harian dan mingguan untuk pet-mu."},
   world: { title: "Sliva World", subtitle: "Seluruh dunia pet dalam satu aplikasi." },
   home: {
     title: "Selamat datang di Slivadoc",
@@ -417,6 +427,7 @@ const checkoutSuccessStorageKey = "slivadoc.checkout-success";
 export default function PetOwnerApp() {
   const { language } = usePetOwnerI18n();
   const router = useRouter();
+  const [sittingBookingId, setSittingBookingId] = useState<string>();
   const [activeView, setActiveView] = useState<AppView>("home");
   const [navigationVersion, setNavigationVersion] = useState(0);
   const [worldMode, setWorldMode] = useState<PetOwnerWorldMode>("academy");
@@ -500,6 +511,7 @@ export default function PetOwnerApp() {
   const cartAddedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [toast, setToast] = useState("");
   const [loginOpen, setLoginOpen] = useState(false);
+  const careerReturn = useRef<string | null>(null);
   function completeCheckout() {
     window.sessionStorage.setItem(checkoutSuccessStorageKey, "1");
     setCheckoutSuccess(true);
@@ -605,6 +617,11 @@ export default function PetOwnerApp() {
   );
 
   useEffect(() => {
+    const loginQuery = new URLSearchParams(window.location.search);
+    if (loginQuery.get("login") === "1" && !isPetOwnerAuthenticated()) {
+      careerReturn.current = careerReturnPath(loginQuery.get("returnTo"));
+      queueMicrotask(() => setLoginOpen(true));
+    }
     const savedLocation = window.localStorage.getItem("slivadoc.location");
     const savedCart = window.localStorage.getItem("slivadoc.cart");
     try {
@@ -624,7 +641,7 @@ export default function PetOwnerApp() {
               ? savedView
               : "home";
         setActiveView(view);
-        const mode = new URLSearchParams(window.location.search).get("world_mode");
+        const mode = new URLSearchParams(window.location.search).get("world_mode") ?? window.localStorage.getItem("slivadoc.world_mode");
         setWorldMode(isWorldMode(mode) ? mode : "academy");
         const savedPet = window.localStorage.getItem("slivadoc.active_pet");
         if (savedPet) setSelectedPetId(savedPet);
@@ -640,7 +657,7 @@ export default function PetOwnerApp() {
     window.localStorage.setItem("slivadoc.cart", JSON.stringify(cart));
   }, [cart]);
   useEffect(() => {
-    const listener = () => setLoginOpen(true);
+    const listener = () => { if (!isPetOwnerAuthenticated()) setLoginOpen(true); };
     window.addEventListener("slivadoc:login-required", listener);
     return () =>
       window.removeEventListener("slivadoc:login-required", listener);
@@ -665,13 +682,24 @@ export default function PetOwnerApp() {
       }
       setNavigationVersion((value) => value + 1);
       setActiveView(next);
-      const mode = new URLSearchParams(window.location.search).get("world_mode");
+      const mode = new URLSearchParams(window.location.search).get("world_mode") ?? window.localStorage.getItem("slivadoc.world_mode");
       setWorldMode(isWorldMode(mode) ? mode : "academy");
       window.localStorage.setItem("slivadoc.active_view", next);
     };
     window.addEventListener("popstate", restoreViewFromURL);
     return () => window.removeEventListener("popstate", restoreViewFromURL);
   }, [authenticated]);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    queueMicrotask(() => setLoginOpen(false));
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("login") !== "1") return;
+    const target = careerReturnPath(url.searchParams.get("returnTo"));
+    url.searchParams.delete("login"); url.searchParams.delete("returnTo");
+    window.history.replaceState(window.history.state, "", url);
+    if (target) router.replace(target);
+  }, [authenticated, router]);
 
   const notify: Notify = useCallback((message) => {
     setToast(message);
@@ -684,7 +712,8 @@ export default function PetOwnerApp() {
   useEffect(() => {
     return startAutomaticRefresh(() => {
       setAuthenticated(false);
-      notify("Session pet owner berakhir. Silakan login kembali.");
+      setAccount(null); setPetProfiles([]); setActivities([]); setFavoriteIds([]); setPoints(0); setActivitySummary(null); setActivityCursor(null); applyNotifications([], 0); setChatUnread(0);
+      setLoginOpen(false);
     });
   }, [notify]);
   const syncActivities = useCallback(async () => {
@@ -737,7 +766,7 @@ export default function PetOwnerApp() {
   );
 
   async function loadBootstrap() {
-    setBootstrapLoading(true);
+    if (!account) setBootstrapLoading(true);
     const loggedIn = isPetOwnerAuthenticated();
     setAuthenticated(loggedIn);
     if (!loggedIn) {
@@ -768,6 +797,7 @@ export default function PetOwnerApp() {
         getPetOwnerBootstrap(),
         syncActivities().catch(() => undefined),
       ]);
+      if (!isPetOwnerAuthenticated()) return;
       const mapped = data.pets.map(apiPetToView);
       setAccount(data.user);
       setPetProfiles(mapped);
@@ -783,11 +813,8 @@ export default function PetOwnerApp() {
       setRewardFormula(data.points.formula);
       setAuthenticated(true);
     } catch (error) {
-      clearSession();
-      setAuthenticated(false);
-      notify(
-        error instanceof Error ? error.message : "Session pet owner berakhir",
-      );
+      if (error instanceof ApiError && error.status === 401) { clearSession(); setAuthenticated(false); setAccount(null); }
+      notify(error instanceof Error ? error.message : "Data akun belum dapat dimuat. Coba lagi.");
     } finally {
       setBootstrapLoading(false);
     }
@@ -799,7 +826,7 @@ export default function PetOwnerApp() {
       clearPlatformCache();
       void getPetOwnerBootstrap()
         .then((data) => {
-          if (cancelled) return;
+          if (cancelled || !isPetOwnerAuthenticated()) return;
           const mapped = data.pets.map(apiPetToView);
           setPetProfiles(mapped);
           setSelectedPetId((current) => mapped.some((pet) => pet.id === current) ? current : mapped[0]?.id ?? "");
@@ -963,7 +990,7 @@ export default function PetOwnerApp() {
       setLoginOpen(true);
       return;
     }
-    if (view === "world") setWorldMode("academy");
+    if (isWorldMode(view)) { openWorld(view); return; }
     setActiveView(view);
     window.localStorage.setItem("slivadoc.active_view", view);
     const url = new URL(window.location.href);
@@ -980,12 +1007,13 @@ export default function PetOwnerApp() {
       url.searchParams.delete("activity");
       url.searchParams.delete("activity_type");
     }
-    if (view !== "consult" && view !== "world") url.searchParams.delete("veterinarian");
+    if (view !== "world") url.searchParams.delete("veterinarian");
     url.searchParams.delete("world_item");
-    if (view === "world") url.searchParams.set("world_mode", "academy");
+    if (view === "world") url.searchParams.set("world_mode", worldMode);
     else url.searchParams.delete("world_mode");
     if (view === "home") url.searchParams.delete("view");
     else url.searchParams.set("view", view);
+    if (`${url.pathname}${url.search}${url.hash}` === `${location.pathname}${location.search}${location.hash}`) return;
     window.history.pushState(
       { view },
       "",
@@ -1073,6 +1101,7 @@ export default function PetOwnerApp() {
 
   const openWorld = (mode: PetOwnerWorldMode, itemId?: string, veterinarianId?: string) => {
     setWorldMode(mode);
+    window.localStorage.setItem("slivadoc.world_mode", mode);
     setActiveView("world");
     window.localStorage.setItem("slivadoc.active_view", "world");
     const url = new URL(window.location.href);
@@ -1231,6 +1260,9 @@ export default function PetOwnerApp() {
   };
 
   const openNotificationTarget = (item: NotificationItem) => {
+    if (item.metadata?.activity_type === "sitting" && typeof item.metadata.activity_id === "string") {
+      setSittingBookingId(item.metadata.activity_id); navigate("sitter"); return;
+    }
     const type = item.metadata?.activity_type;
     const id = item.metadata?.activity_id;
     if (
@@ -1362,6 +1394,9 @@ export default function PetOwnerApp() {
               activities={activities}
               openActivity={openActivity}
               ownerName={account?.full_name}
+              location={currentLocation}
+              onOpenPetSpot={(id) => openWorld("petspot", id)}
+              onLocation={() => setLocationOpen(true)}
             />
           )}</LocalizedCopy>
           <LocalizedCopy>{featureView === "pets" && (
@@ -1429,6 +1464,7 @@ export default function PetOwnerApp() {
               toggleFavorite={(id) => void toggleFavorite("product", id)}
             />
           )}</LocalizedCopy>
+          {featureView === "sitter" && <PetSitterExperience initialBookingId={sittingBookingId} pets={petProfiles} authenticated={authenticated} onLogin={()=>setLoginOpen(true)}/>}
           <LocalizedCopy>{featureView === "community" && (
             <CommunityExperience
               notify={notify}
@@ -1546,10 +1582,11 @@ export default function PetOwnerApp() {
           <LocalizedCopy>{featureView === "support" && (
             <SupportCenter activities={activities} notify={notify} />
           )}</LocalizedCopy>
-          <LocalizedCopy>{featureView === "profile" && !account && (
+          <LocalizedCopy>{featureView === "profile" && !authenticated && (
             <GuestAccount onLogin={() => setLoginOpen(true)} />
           )}</LocalizedCopy>
-          <LocalizedCopy>{featureView === "profile" && account && (
+          {featureView === "profile" && authenticated && !account && <section className="panel empty-state"><Icon name="user" size={30}/><h2><LocalizedCopy>{"Profil belum dapat dimuat"}</LocalizedCopy></h2><p><LocalizedCopy>{"Akunmu masih masuk. Periksa koneksi dan coba muat profil kembali."}</LocalizedCopy></p><LocalizedButton className="primary-button" onClick={() => void loadBootstrap()}><LocalizedCopy>{"Coba lagi"}</LocalizedCopy></LocalizedButton></section>}
+          <LocalizedCopy>{featureView === "profile" && authenticated && account && (
             <ProfileView
               notify={notify}
               account={account}
@@ -1574,7 +1611,7 @@ export default function PetOwnerApp() {
       </main>
 
       <MobileNav
-        activeView={activeView}
+        activeView={featureView}
         setActiveView={navigate}
         cartCount={cartCount}
         authenticated={authenticated}
@@ -1681,11 +1718,11 @@ export default function PetOwnerApp() {
           }}
         />
       )}</LocalizedCopy>
-      <LocalizedCopy>{loginOpen && (
+      <LocalizedCopy>{loginOpen && !authenticated && (
         <PetOwnerLogin
-          close={() => setLoginOpen(false)}
+          close={() => { setLoginOpen(false); careerReturn.current = null; const url = new URL(location.href); url.searchParams.delete("login"); url.searchParams.delete("returnTo"); history.replaceState(history.state, "", url); }}
           notify={notify}
-          onSuccess={loadBootstrap}
+          onSuccess={async () => { const target = careerReturn.current; if (target) { careerReturn.current = null; router.replace(target); return; } await loadBootstrap(); }}
         />
       )}</LocalizedCopy>
       <LocalizedCopy>{checkoutSuccess && (
@@ -1740,25 +1777,6 @@ export default function PetOwnerApp() {
   );
 }
 
-const legalCopy = {
-  terms: {
-    title: "Syarat dan Ketentuan Slivadoc",
-    sections: [
-      "Slivadoc membantu pet parent mengelola profil pet, booking, transaksi, komunitas, lokasi Petship, dan layanan mitra. Informasi kesehatan di aplikasi bukan pengganti pemeriksaan langsung oleh dokter hewan.",
-      "Kamu bertanggung jawab menjaga kerahasiaan akun, memberikan data yang benar, dan menggunakan komunitas secara aman. Konten yang menipu, membahayakan hewan, melanggar hak orang lain, atau memuat kontak pribadi pada area publik dapat dimoderasi.",
-      "Booking, pembayaran, pembatalan, donasi, dan layanan mitra mengikuti detail yang ditampilkan sebelum konfirmasi. Slivadoc mencatat aktivitas penting untuk keamanan, dukungan, dan penyelesaian kendala.",
-    ],
-    headings: ["Ruang lingkup", "Penggunaan yang bertanggung jawab", "Data dan layanan"],
-  },
-  privacy: {
-    title: "Kebijakan Privasi Slivadoc",
-    sections: [
-      "Kami memproses data akun, profil pet, transaksi, dan lokasi yang diperlukan untuk menjalankan fitur Slivadoc. Data lokasi Petship dibagikan pada tingkat tempat; koordinat personal tidak ditampilkan kepada pengguna lain. Data dibagikan kepada mitra layanan hanya sebatas yang dibutuhkan untuk memproses booking, pesanan, dan pembayaran kamu.",
-      "Kamu berhak mengakses dan memperbarui data, mengelola akses keluarga, serta meminta penghapusan akun langsung dari aplikasi di Profil > Hapus akun. Data pribadi dihapus setelah masa tenggang 14 hari, sedangkan data transaksi dipertahankan secara teranonim sesuai kewajiban hukum.",
-    ],
-    headings: ["Data dan mitra layanan", "Hak kamu"],
-  },
-} as const;
 
 function PetOwnerLogin({
   close,
@@ -1770,6 +1788,7 @@ function PetOwnerLogin({
   onSuccess: () => Promise<void>;
 }) {
   const router = useRouter();
+  const registrationFormRef = useRef<HTMLFormElement>(null);
   const [mode, setMode] = useState<"login" | "register" | "verify">("login");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -1781,15 +1800,16 @@ function PetOwnerLogin({
   const [formValid, setFormValid] = useState(false);
   const [registrationEmail, setRegistrationEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [policy, setPolicy] = useState<keyof typeof legalCopy | null>(null);
+  const [policy, setPolicy] = useState<"terms" | "privacy" | null>(null);
   const passwordValid = /(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}/.test(
     password,
   );
   const registrationConsent =
     mode !== "register" || (terms && privacy && /^0[0-9]{8,15}$/.test(phone));
+  useEffect(() => { queueMicrotask(() => setFormValid(registrationFormRef.current?.checkValidity() ?? false)); }, [terms, privacy, mode]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!registrationConsent) return;
+    if (busy || !registrationConsent || !event.currentTarget.checkValidity()) return;
     setBusy(true);
     setMessage("");
     const values = Object.fromEntries(new FormData(event.currentTarget));
@@ -1821,7 +1841,7 @@ function PetOwnerLogin({
       const response = await fetch(`${PLATFORM_API_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify(mode === "register" ? { ...values, terms_accepted: terms, privacy_accepted: privacy, legal_version: LEGAL_VERSION } : values),
       });
       const data = await response.json();
       if (!response.ok)
@@ -1908,6 +1928,7 @@ function PetOwnerLogin({
           </h2>
           <p><LocalizedCopy>{"Profil pet, rekam medis, booking, komunitas, dan benefit tersinkron aman dalam satu akun."}</LocalizedCopy></p>
           <form
+            ref={registrationFormRef}
             className="world-form login-form"
             onSubmit={submit}
             onInput={(event) =>
@@ -2025,7 +2046,7 @@ function PetOwnerLogin({
                   <LocalizedInput
                     type="checkbox"
                     checked={terms}
-                    onChange={(event) => setTerms(event.target.checked)}
+                    onChange={() => terms ? setTerms(false) : setPolicy("terms")}
                     required
                   />
                   <span><LocalizedCopy>{"Saya menyetujui"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
@@ -2037,7 +2058,7 @@ function PetOwnerLogin({
                   <LocalizedInput
                     type="checkbox"
                     checked={privacy}
-                    onChange={(event) => setPrivacy(event.target.checked)}
+                    onChange={() => privacy ? setPrivacy(false) : setPolicy("privacy")}
                     required
                   />
                   <span><LocalizedCopy>{"Saya menyetujui"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
@@ -2098,50 +2119,8 @@ function PetOwnerLogin({
           </LocalizedButton>
         </section>
       </div>
-      {policy && (
-        <div
-          className="modal-overlay legal-overlay"
-          onMouseDown={() => setPolicy(null)}
-        >
-          <section
-            className="modal legal-modal"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <LocalizedButton
-              className="modal-close"
-              onClick={() => setPolicy(null)}
-              aria-label="Tutup"
-            >
-              <Icon name="close" />
-            </LocalizedButton>
-            <span className="section-eyebrow"><LocalizedCopy>{"LEGAL · SLIVADOC PET OWNER"}</LocalizedCopy></span>
-            <h2><LocalizedCopy>{legalCopy[policy].title}</LocalizedCopy></h2>
-            <p><LocalizedCopy>{"Berlaku sejak 26 Agustus 2026"}</LocalizedCopy></p>
-            <div>
-              <LocalizedCopy>{legalCopy[policy].sections.map((section, index) => (
-                <article key={section}>
-                  <b>
-                    <LocalizedCopy>{index + 1}</LocalizedCopy><LocalizedCopy>{"."}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
-                    <LocalizedCopy>{legalCopy[policy].headings[index]}</LocalizedCopy>
-                  </b>
-                  <p><LocalizedCopy>{section}</LocalizedCopy></p>
-                </article>
-              ))}</LocalizedCopy>
-              {policy === "privacy" && (
-                <p>
-                  <LocalizedCopy>{"Kebijakan privasi lengkap tersedia di "}</LocalizedCopy>
-                  <Link href="/privasi"><LocalizedCopy>{"slivadoc.com/privasi"}</LocalizedCopy></Link>
-                  <LocalizedCopy>{"."}</LocalizedCopy>
-                </p>
-              )}
-            </div>
-            <LocalizedButton
-              className="primary-button full"
-              onClick={() => setPolicy(null)}
-            ><LocalizedCopy>{"Saya mengerti"}</LocalizedCopy></LocalizedButton>
-          </section>
-        </div>
-      )}
+      {policy && <LegalConsentDialog key={policy} policy={policy} onClose={() => setPolicy(null)} onAccept={() => { if (policy === "terms") setTerms(true); else setPrivacy(true); setPolicy(null); }} />}
+
     </>
   );
 }
@@ -2503,7 +2482,7 @@ function PageHeading({
   account: PetOwnerBootstrap["user"] | null;
 }) {
   const { t } = usePetOwnerI18n();
-  if (activeView === "world" || isWorldMode(activeView)) return null;
+  if (activeView === "world" || activeView === "sitter" || isWorldMode(activeView)) return null;
   const item = titles[activeView];
   return (
     <div
@@ -2645,6 +2624,7 @@ function HomeView({
   activities,
   openActivity,
   ownerName,
+  location, onOpenPetSpot, onLocation,
 }: {
   selectedPet: Pet;
   petProfiles: Pet[];
@@ -2659,6 +2639,9 @@ function HomeView({
   activities: PetOwnerActivityCenterItem[];
   openActivity: (type: ActivityType, id: string) => void;
   ownerName?: string;
+  location: LocationResult | null;
+  onOpenPetSpot: (id?: string) => void;
+  onLocation: () => void;
 }) {
   const { t } = usePetOwnerI18n();
   const [campaign, setCampaign] = useState<PublicCampaign | null>(null);
@@ -2897,9 +2880,6 @@ function HomeView({
               >
                 <div className={`home-service-visual ${service.accent}`}>
                   <span><LocalizedCopy>{typeLabel}</LocalizedCopy></span>
-                  <LocalizedButton type="button" aria-label={`Simpan ${partner.name}`} onClick={(event) => event.stopPropagation()}>
-                    <Icon name="heart" size={14} />
-                  </LocalizedButton>
                   <LocalizedCopy>{service.imageUrl ? (
                     <Image
                       className="catalog-cover-image"
@@ -2918,10 +2898,7 @@ function HomeView({
                   <small>
                     <Icon name="map" size={11} /> <LocalizedCopy>{service.branchName || service.address}</LocalizedCopy>
                   </small>
-                  <p>
-                    <span>
-                      <Icon name="bag" size={10} /> <LocalizedCopy>{partner.serviceCount}</LocalizedCopy><LocalizedCopy>{" layanan"}</LocalizedCopy></span><LocalizedCopy>{"· "}</LocalizedCopy><LocalizedCopy>{service.distance}</LocalizedCopy>
-                  </p>
+                  <div className="home-partner-meta"><span><Icon name="bag" size={14} />{partner.serviceCount} <LocalizedCopy>{"layanan"}</LocalizedCopy></span><span><Icon name="map" size={14} />{service.distance}</span></div>
                   <footer>
                     <strong><LocalizedCopy>{service.city || service.price}</LocalizedCopy></strong>
                     <LocalizedButton
@@ -2942,6 +2919,8 @@ function HomeView({
             )}</LocalizedCopy>
           </div>
         </section>
+
+        <HomePetSpotRecommendations location={location} onOpen={onOpenPetSpot} onLocation={onLocation}/>
 
         <section className="home-doctors-section">
           <header className="home-section-heading home-section-heading--action">
@@ -4704,23 +4683,27 @@ const invoiceStatusLabels: Record<PetOwnerInvoice["status"], string> = {
 };
 
 function InvoicesPanel({ close }: { close: () => void }) {
+  const requestVersion = useRef(0);
+  const [category, setCategory] = useState<InvoiceCategory>("all");
   const [invoices, setInvoices] = useState<PetOwnerInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const load = useCallback(async () => {
+    const version = ++requestVersion.current;
     setLoading(true);
     setError("");
     try {
-      setInvoices((await getPetOwnerInvoices()).data);
+      const result = await getPetOwnerInvoices(100, category);
+      if (version === requestVersion.current) setInvoices(result.data);
     } catch (cause) {
-      setError(
+      if (version === requestVersion.current) setError(
         cause instanceof Error ? cause.message : "Invoice belum dapat dimuat",
       );
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
-  }, []);
+  }, [category]);
   useEffect(() => {
     queueMicrotask(() => void load());
   }, [load]);
@@ -4751,6 +4734,7 @@ function InvoicesPanel({ close }: { close: () => void }) {
             <h2><LocalizedCopy>{"Invoice klinik & toko"}</LocalizedCopy></h2>
           </div>
         </header>
+        <div className="invoice-category-tabs" role="tablist" aria-label="Kategori invoice">{invoiceCategories.map(item => <button type="button" role="tab" aria-selected={category === item.value} key={item.value} onClick={() => setCategory(item.value)}>{item.label}</button>)}</div>
         <LocalizedCopy>{loading ? (
           <p className="form-message" role="status"><LocalizedCopy>{"Memuat invoice…"}</LocalizedCopy></p>
         ) : error ? (
@@ -6295,6 +6279,7 @@ function ProfileView({
       <LocalizedCopy>{deleteOpen && (
         <AccountDeletionModal close={() => setDeleteOpen(false)} notify={notify} />
       )}</LocalizedCopy>
+      <section className="panel"><ChangePasswordForm /></section>
       <LocalizedCopy>{addressModalOpen && (
         <ShippingAddressModal
           account={account}
@@ -6369,15 +6354,18 @@ function ProfileEditModal({
   const [phoneOverride, setPhoneOverride] = useState<string | null>(null);
   const fullName = fullNameOverride ?? account.full_name;
   const phone = phoneOverride ?? account.phone ?? "";
+  const errors = profileValidation(fullName, phone, account.email);
+  const canSave = !busy && !Object.values(errors).some(Boolean) && (fullName.trim() !== account.full_name.trim() || phone !== (account.phone ?? ""));
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canSave) return;
     const normalizedName = fullName.trim();
     const normalizedPhone = phone.trim();
-    if (normalizedName.length < 2) {
-      notify("Nama lengkap minimal 2 karakter.");
+    if (normalizedName.length < 3) {
+      notify("Nama lengkap minimal 3 karakter.");
       return;
     }
-    if (normalizedPhone && !/^0[0-9]{8,15}$/.test(normalizedPhone)) {
+    if (!/^0[0-9]{8,15}$/.test(normalizedPhone)) {
       notify("Nomor telepon harus diawali 0 dan berisi 9 sampai 16 angka.");
       return;
     }
@@ -6412,13 +6400,14 @@ function ProfileEditModal({
         <span className="section-eyebrow"><LocalizedCopy>{"DATA AKUN"}</LocalizedCopy></span>
         <h2><LocalizedCopy>{"Edit profil pet parent"}</LocalizedCopy></h2>
         <form className="world-form" onSubmit={submit}>
+          <p>Semua kolom wajib diisi. Email login tidak dapat diubah di sini.</p>
           <label>
             <span><LocalizedCopy>{"Nama lengkap"}</LocalizedCopy></span>
             <LocalizedInput
               name="full_name"
               value={fullName}
               onChange={(event) => setFullNameOverride(event.target.value)}
-              minLength={2}
+              minLength={3}
               required
             />
           </label>
@@ -6431,14 +6420,16 @@ function ProfileEditModal({
             <LocalizedInput
               name="phone"
               value={phone}
-              onChange={(event) => setPhoneOverride(event.target.value)}
-              inputMode="tel"
+              onChange={(event) => setPhoneOverride(normalizePhoneInput(event.target.value))}
+              required
+              maxLength={16}
+              inputMode="numeric"
               pattern="0[0-9]{8,15}"
               autoComplete="tel"
               placeholder="08xxxxxxxxxx"
             />
           </label>
-          <LocalizedButton className="primary-button full" disabled={busy}>
+          <LocalizedButton className="primary-button full" disabled={!canSave}>
             <LocalizedCopy>{busy ? "Menyimpan…" : "Simpan perubahan"}</LocalizedCopy>
           </LocalizedButton>
         </form>
@@ -7676,137 +7667,35 @@ function ActivityDetail({
   );
 }
 
-function FavoritesView({
-  services,
-  products,
-  openBooking,
-  addToCart,
-  remove,
-}: {
-  services: Service[];
-  products: Product[];
-  openBooking: (service: Service) => void;
-  addToCart: (id: string) => void;
+function FavoritesView({ services, products, openBooking, addToCart, remove }: {
+  services: Service[]; products: Product[];
+  openBooking: (service: Service) => void; addToCart: (id: string) => void;
   remove: (type: string, id: string) => void | Promise<void>;
 }) {
-  const empty = !services.length && !products.length;
-  return (
-    <div>
-      <div className="favorites-intro">
-        <span><LocalizedCopy>{"♡"}</LocalizedCopy></span>
-        <div>
-          <h2><LocalizedCopy>{"Koleksi favoritmu"}</LocalizedCopy></h2>
-          <p><LocalizedCopy>{"Layanan dan produk favorit tersimpan pada akun di semua perangkat."}</LocalizedCopy></p>
+  const [tab, setTab] = useState<"all" | "services" | "products">("all");
+  const showServices = tab !== "products" ? services : [];
+  const showProducts = tab !== "services" ? products : [];
+  return <div className="favorites-page">
+    <header className="favorites-intro"><span><Icon name="heart" size={28}/></span><div><span className="section-eyebrow"><LocalizedCopy>{"DIPILIH OLEHMU"}</LocalizedCopy></span><h2><LocalizedCopy>{"Koleksi favoritmu"}</LocalizedCopy></h2><p><LocalizedCopy>{"Layanan dan produk favorit tersimpan pada akun di semua perangkat."}</LocalizedCopy></p></div><aside className="favorites-total"><b>{services.length + products.length}</b><small><LocalizedCopy>{"pilihan tersimpan"}</LocalizedCopy></small></aside></header>
+    <div className="favorite-tabs" role="group" aria-label="Jenis favorit">{([{ id:"all", label:"Semua favorit", count:services.length + products.length }, { id:"services", label:"Layanan", count:services.length }, { id:"products", label:"Produk", count:products.length }] as const).map(item => <LocalizedButton key={item.id} className={tab === item.id ? "active" : ""} aria-pressed={tab === item.id} onClick={() => setTab(item.id)}><LocalizedCopy>{item.label}</LocalizedCopy><span>{item.count}</span></LocalizedButton>)}</div>
+    <div className="favorites-collection">
+      {showServices.map(service => <article className="favorite-collection-card service-result-card" key={`service-${service.id}`}>
+        <div className="favorite-collection-cover">{service.imageUrl ? <Image src={service.imageUrl} alt={service.name} fill sizes="(max-width:760px) 50vw, 33vw" unoptimized/> : <Icon name="paw" size={48}/>}
+          <span className="favorite-kind"><Icon name="calendar" size={13}/><LocalizedCopy>{"Layanan"}</LocalizedCopy></span>
+          <LocalizedButton className="favorite" aria-label={`Hapus ${service.name} dari favorit`} onClick={() => void remove("service",service.id)}><Icon name="heart"/></LocalizedButton>
         </div>
-      </div>
-      <LocalizedCopy catalogue>{services.length > 0 && (
-        <>
-          <div className="panel-heading">
-            <div>
-              <span className="section-eyebrow"><LocalizedCopy>{"LAYANAN"}</LocalizedCopy></span>
-              <h3><LocalizedCopy>{"Favorit layanan"}</LocalizedCopy></h3>
-            </div>
-          </div>
-          <div className="service-list-grid">
-            <LocalizedCopy catalogue>{services.map((service) => (
-              <article
-                className="service-result-card"
-                key={`${service.id}:${service.branchId}`}
-              >
-                <div className={`service-result-cover ${service.accent}`}>
-                  <LocalizedCopy catalogue>{service.imageUrl ? (
-                    <Image
-                      className="catalog-cover-image"
-                      src={service.imageUrl}
-                      alt={`Gambar ${service.name}`}
-                      fill
-                      sizes="(max-width: 620px) 100vw, 155px"
-                      unoptimized
-                    />
-                  ) : (
-                    <span><LocalizedCopy>{service.emoji}</LocalizedCopy></span>
-                  )}</LocalizedCopy>
-                  <em><LocalizedCopy>{service.type}</LocalizedCopy></em>
-                  <LocalizedButton
-                    className="favorite"
-                    onClick={() => void remove("service", service.id)}
-                    aria-label={`Hapus ${service.name} dari favorit`}
-                  >
-                    <Icon name="heart" />
-                  </LocalizedButton>
-                </div>
-                <div className="service-result-body">
-                  <h3><LocalizedCopy catalogue>{service.name}</LocalizedCopy></h3>
-                  <p><LocalizedCopy>{service.address}</LocalizedCopy></p>
-                  <div className="service-result-footer">
-                    <b><LocalizedCopy>{service.price}</LocalizedCopy></b>
-                    <LocalizedButton
-                      className="primary-button small"
-                      onClick={() => openBooking(service)}
-                    ><LocalizedCopy>{"Booking"}</LocalizedCopy></LocalizedButton>
-                  </div>
-                </div>
-              </article>
-            ))}</LocalizedCopy>
-          </div>
-        </>
-      )}</LocalizedCopy>
-      <LocalizedCopy catalogue>{products.length > 0 && (
-        <>
-          <div className="panel-heading favorite-product-heading">
-            <div>
-              <span className="section-eyebrow"><LocalizedCopy>{"PRODUK"}</LocalizedCopy></span>
-              <h3><LocalizedCopy>{"Favorit produk"}</LocalizedCopy></h3>
-            </div>
-          </div>
-          <div className="product-grid">
-            <LocalizedCopy catalogue>{products.map((product) => (
-              <article className="product-card" key={product.id}>
-                <div className="product-visual">
-                  <LocalizedCopy catalogue>{product.imageUrl ? (
-                    <Image
-                      className="catalog-cover-image"
-                      src={product.imageUrl}
-                      alt={`Gambar ${product.name}`}
-                      fill
-                      sizes="(max-width: 580px) 50vw, 25vw"
-                      unoptimized
-                    />
-                  ) : (
-                    <span><LocalizedCopy>{product.emoji}</LocalizedCopy></span>
-                  )}</LocalizedCopy>
-                  <LocalizedButton
-                    className="favorite"
-                    onClick={() => void remove("product", product.id)}
-                    aria-label={`Hapus ${product.name} dari favorit`}
-                  >
-                    <Icon name="heart" />
-                  </LocalizedButton>
-                </div>
-                <div className="product-body">
-                  <small><LocalizedCopy>{product.brand}</LocalizedCopy></small>
-                  <h3><LocalizedCopy catalogue>{product.name}</LocalizedCopy></h3>
-                  <div className="product-price">
-                    <b><LocalizedCopy>{formatRupiah(product.price)}</LocalizedCopy></b>
-                    <LocalizedButton onClick={() => addToCart(product.id)}>
-                      <Icon name="plus" />
-                    </LocalizedButton>
-                  </div>
-                </div>
-              </article>
-            ))}</LocalizedCopy>
-          </div>
-        </>
-      )}</LocalizedCopy>
-      <LocalizedCopy>{empty && (
-        <div className="empty-state">
-          <span><LocalizedCopy>{"♡"}</LocalizedCopy></span>
-          <h3><LocalizedCopy>{"Belum ada favorit"}</LocalizedCopy></h3>
-          <p><LocalizedCopy>{"Tekan ikon hati di Jelajahi atau Pet Shop untuk menyimpan pilihan."}</LocalizedCopy></p>
+        <div className="favorite-collection-body"><small><LocalizedCopy>{service.businessName || service.type}</LocalizedCopy></small><h3><LocalizedCopy catalogue>{service.name}</LocalizedCopy></h3><p><Icon name="map" size={14}/><LocalizedCopy>{service.address}</LocalizedCopy></p><footer><b><LocalizedCopy>{service.price}</LocalizedCopy></b><LocalizedButton className="primary-button small" onClick={() => openBooking(service)}><LocalizedCopy>{"Booking"}</LocalizedCopy><Icon name="arrow" size={16}/></LocalizedButton></footer></div>
+      </article>)}
+      {showProducts.map(product => <article className="favorite-collection-card product-card" key={`product-${product.id}`}>
+        <div className="favorite-collection-cover">{product.imageUrl ? <Image src={product.imageUrl} alt={product.name} fill sizes="(max-width:760px) 50vw, 33vw" unoptimized/> : <Icon name="bag" size={48}/>}
+          <span className="favorite-kind"><Icon name="bag" size={13}/><LocalizedCopy>{"Produk"}</LocalizedCopy></span>
+          <LocalizedButton className="favorite" aria-label={`Hapus ${product.name} dari favorit`} onClick={() => void remove("product",product.id)}><Icon name="heart"/></LocalizedButton>
         </div>
-      )}</LocalizedCopy>
+        <div className="favorite-collection-body"><small><LocalizedCopy>{product.brand}</LocalizedCopy></small><h3><LocalizedCopy catalogue>{product.name}</LocalizedCopy></h3><p><Icon name="bag" size={14}/><LocalizedCopy>{product.category}</LocalizedCopy></p><footer><b>{formatRupiah(product.price)}</b><LocalizedButton className="primary-button small" aria-label={`Tambah ${product.name} ke keranjang`} disabled={product.available === false} onClick={() => addToCart(product.id)}><Icon name="plus" size={16}/><LocalizedCopy>{product.available === false ? "Stok habis" : "Keranjang"}</LocalizedCopy></LocalizedButton></footer></div>
+      </article>)}
     </div>
-  );
+    {!showServices.length && !showProducts.length && <div className="empty-state"><Icon name="heart" size={36}/><h3><LocalizedCopy>{"Belum ada favorit"}</LocalizedCopy></h3><p><LocalizedCopy>{"Tekan ikon hati di Jelajahi atau Pet Shop untuk menyimpan pilihan."}</LocalizedCopy></p></div>}
+  </div>;
 }
 
 function NotificationDetail({ item, onBack, onOpen }: {
@@ -7961,7 +7850,7 @@ function MobileNav({
   authenticated: boolean;
   onOpenChat: () => void;
 }) {
-  const { t } = usePetOwnerI18n();
+  const { t, language } = usePetOwnerI18n();
   const [more, setMore] = useState(false);
   const moreDialog = useDialogFocus<HTMLElement>(more, () => setMore(false));
   const primaryIds: AppView[] = ["home", "shop", "community", "bookings"];
@@ -8070,6 +7959,8 @@ function MobileNav({
                     <LocalizedButton
                       type="button"
                       key={item.id}
+                      className={activeView === item.id ? "active" : ""}
+                      aria-current={activeView === item.id ? "page" : undefined}
                       onClick={() => {
                         setMore(false);
                         setActiveView(item.id);
@@ -8080,6 +7971,10 @@ function MobileNav({
                     </LocalizedButton>
                   ))}</LocalizedCopy>
                 </div>
+              </section>
+              <section className="mobile-more-group">
+                <h3>{language === "en" ? "OTHERS" : "LAINNYA"}</h3>
+                <div className="mobile-more-grid"><Link href="/career" className="mobile-more-career"><span><Icon name="bag"/></span><b>Career</b></Link></div>
               </section>
             </div>
           </section>

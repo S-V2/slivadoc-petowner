@@ -394,22 +394,6 @@
 .seo-discovery-columns a { color: var(--text); font-size: var(--type-body); line-height: 1.45; }
 .seo-discovery-columns a:hover { color: var(--sky-600); }
 
-.seo-footer {
-  display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr;
-  gap: 32px;
-  padding: 38px max(20px, calc((100vw - 1180px) / 2));
-  color: rgba(255, 255, 255, 0.8);
-  background: var(--navy);
-}
-
-.seo-footer .seo-brand { color: var(--white); }
-.seo-footer p,
-.seo-footer a { font-size: var(--type-body); line-height: 1.5; }
-.seo-footer > div:not(:first-child) { display: grid; align-content: start; gap: 8px; }
-.seo-footer strong { margin-bottom: 3px; color: var(--white); font-size: var(--type-control); font-weight: 600; }
-.seo-footer small { grid-column: 1 / -1; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.16); font-size: var(--type-caption); }
-
 .seo-empty { padding: 36px; text-align: center; }
 .seo-empty h1 { color: var(--navy); font-size: var(--type-page-title); font-weight: 700; }
 .seo-actions-centered { justify-content: center; }
@@ -551,9 +535,7 @@
   .seo-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .seo-product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .seo-product-detail-grid { grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr); gap: 24px; }
-  .seo-discovery-columns,
-  .seo-footer { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .seo-footer > div:first-child { grid-column: 1 / -1; }
+  .seo-discovery-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 600px) {
@@ -568,8 +550,7 @@
   .seo-product-detail-grid,
   .seo-product-assurance,
   .seo-info-grid,
-  .seo-discovery-columns,
-  .seo-footer { grid-template-columns: 1fr; }
+  .seo-discovery-columns { grid-template-columns: 1fr; }
   .seo-card { min-height: 0; }
   .seo-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
   .seo-product-copy { padding: 11px; }
@@ -578,6 +559,4 @@
   .seo-section-heading h2,
   .seo-discovery-heading h2 { font-size: var(--type-section-title); }
   .seo-article { padding: 18px 16px; }
-  .seo-footer > div:first-child,
-  .seo-footer small { grid-column: auto; }
 }

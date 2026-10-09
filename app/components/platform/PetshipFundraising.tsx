@@ -55,7 +55,7 @@ export function PetshipView({
     latitude: place.latitude,
     longitude: place.longitude,
     label: `${place.name} · ${place.active_petowners} online`,
-    color: "#8b5cf6",
+    color: "#18a4df",
     onClick: () => {
       setSelected(place);
       document.querySelector(`[data-place-card="${place.id}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -66,11 +66,13 @@ export function PetshipView({
     latitude: place.latitude,
     longitude: place.longitude,
     radiusM: place.geofence_radius_m,
-    color: "#8b5cf6",
+    color: "#18a4df",
   })), [places]);
   const [pawrents, setPawrents] = useState<PetshipPresence[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState("");
+  const filteredPlaces = places.filter(place => `${place.name} ${place.city}`.toLowerCase().includes(query.trim().toLowerCase()));
   const [checkedIn, setCheckedIn] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
@@ -171,10 +173,10 @@ export function PetshipView({
     <div className="petship-page">
       <section className="petship-hero">
         <div>
-          <span className="world-kicker"><LocalizedCopy>{"LIVE · PRIVACY-FIRST"}</LocalizedCopy></span>
+          <span className="world-kicker"><LocalizedCopy>{"PETSHIP · MEET & CONNECT"}</LocalizedCopy></span>
           <h2><LocalizedCopy>{"Temukan teman anabul di sekitarmu"}</LocalizedCopy></h2>
           <p><LocalizedCopy>{"Check-in pada tempat yang kamu kunjungi. Pawrents lain hanya melihat nama tempat dan profil pet—bukan koordinat personal."}</LocalizedCopy></p>
-          <div>
+          <div className="petship-hero-actions">
             <LocalizedButton
               className="primary-button"
               disabled={busy || !selected}
@@ -182,9 +184,11 @@ export function PetshipView({
             >
               <LocalizedCopy>{checkedIn ? "Check-out Petship" : `Check-in ${pet.name}`}</LocalizedCopy>
             </LocalizedButton>
-            <LocalizedButton className="secondary-button" onClick={() => void load()}><LocalizedCopy>{"↻ Update live"}</LocalizedCopy></LocalizedButton>
+            <LocalizedButton className="secondary-button" onClick={() => void load()}><Icon name="clock" size={17}/><LocalizedCopy>{"Perbarui"}</LocalizedCopy></LocalizedButton>
           </div>
+          <small className="petship-privacy"><Icon name="shield" size={16}/><LocalizedCopy>{checkedIn ? "Check-in aktif. Kamu bisa check-out kapan saja." : "Kamu menentukan kapan ingin terlihat oleh pawrents lain."}</LocalizedCopy></small>
         </div>
+        <aside className="petship-stats"><div><Icon name="map" size={25}/><span><b>{places.length}</b><small><LocalizedCopy>{"tempat untuk bertemu"}</LocalizedCopy></small></span></div><div><Icon name="users" size={25}/><span><b>{places.reduce((sum, place) => sum + place.active_petowners, 0)}</b><small><LocalizedCopy>{"pawrents sedang aktif"}</LocalizedCopy></small></span></div></aside>
       </section>
       <div className="world-split">
         <div className="world-split-list">
@@ -195,11 +199,13 @@ export function PetshipView({
               <h3><LocalizedCopy>{places.length}</LocalizedCopy><LocalizedCopy>{" lokasi aktif"}</LocalizedCopy></h3>
             </div>
           </div>
+          <LocalizedInput className="petship-search" aria-label="Cari lokasi Petship" placeholder="Cari tempat atau kota…" value={query} onChange={event => setQuery(event.target.value)}/>
           <LocalizedCopy>{loading ? (
             <div className="empty-state compact"><LocalizedCopy>{"Mencari lokasi Petship…"}</LocalizedCopy></div>
           ) : (
             <div className="petship-places">
-              <LocalizedCopy>{places.map((place) => (
+              {!filteredPlaces.length && <div className="empty-state compact"><Icon name="map" size={26}/><p><LocalizedCopy>{query ? "Tidak ada tempat yang cocok. Coba kata kunci lain." : "Belum ada tempat Petship di sekitar lokasi ini."}</LocalizedCopy></p></div>}
+              <LocalizedCopy>{filteredPlaces.map((place) => (
                 <LocalizedButton
                   className={selected?.id === place.id ? "active" : ""}
                   key={place.id}
@@ -207,11 +213,7 @@ export function PetshipView({
                   onClick={() => setSelected(place)}
                 >
                   <span>
-                    <LocalizedCopy>{place.category === "mall"
-                      ? "🏬"
-                      : place.category === "park"
-                        ? "🌳"
-                        : "☕"}</LocalizedCopy>
+                    <Icon name="map" size={22}/>
                   </span>
                   <div>
                     <b><LocalizedCopy>{place.name}</LocalizedCopy></b>
@@ -265,6 +267,7 @@ export function PetshipView({
             activeId={selected ? `petship-${selected.id}` : null}
             focus={selected ? { latitude: selected.latitude, longitude: selected.longitude } : null}
           />
+          <section className="petship-map-fallback"><span><Icon name="map" size={40}/></span><small><LocalizedCopy>{"TEMPAT PILIHANMU"}</LocalizedCopy></small><h3>{selected?.name ?? "Petship"}</h3><p>{selected?.address || selected?.city}</p><p><LocalizedCopy>{"Peta interaktif belum tersedia. Daftar tempat dan pawrents tetap bisa kamu jelajahi."}</LocalizedCopy></p>{selected && <a className="primary-button" href={`https://www.google.com/maps/dir/?api=1&destination=${selected.latitude},${selected.longitude}`} target="_blank" rel="noreferrer"><Icon name="map" size={17}/><LocalizedCopy>{"Lihat arah"}</LocalizedCopy></a>}</section>
         </div>
       </div>
     </div>

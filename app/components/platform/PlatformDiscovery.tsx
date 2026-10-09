@@ -1,4 +1,5 @@
 "use client";
+import { RailArrows } from "../RailArrows";
 import { SlivaVideo } from "../SlivaVideo";
 import { petOwnerIntlLocale } from "../../lib/petowner-locale";
 import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } from "../LocalizedCopy";
@@ -403,12 +404,6 @@ export default function PlatformDiscovery({
   const pendingSaves = useRef(new Set<string>());
   const speciesRailRef = useRef<HTMLDivElement>(null);
   const trainerRailRef = useRef<HTMLDivElement>(null);
-  const advanceRail = (node: HTMLDivElement | null) => {
-    if (!node) return;
-    const nextLeft = node.scrollLeft + Math.max(240, node.clientWidth * 0.82);
-    const reachedEnd = nextLeft >= node.scrollWidth - 8;
-    node.scrollTo({ left: reachedEnd ? 0 : nextLeft, behavior: "smooth" });
-  };
   useEffect(() => {
     let active = true;
     void Promise.resolve().then(() => {
@@ -652,6 +647,7 @@ export default function PlatformDiscovery({
       pendingLikes.current.delete(post.id);
     }
   }
+  const [sharingPost, setSharingPost] = useState<PetHubPost | null>(null);
   async function sharePost(post: PetHubPost) {
     try {
       if (navigator.share)
@@ -749,14 +745,7 @@ export default function PlatformDiscovery({
                   </LocalizedButton>
                 ))}</LocalizedCopy>
               </div>
-              <LocalizedButton
-                type="button"
-                className="academy-carousel-next"
-                onClick={() => advanceRail(speciesRailRef.current)}
-                aria-label="Lihat jenis pet berikutnya"
-              >
-                <Icon name="arrow" size={17} />
-              </LocalizedButton>
+              <RailArrows rail={speciesRailRef} label="jenis pet" />
             </div>
           </div>
           <div className="academy-carousel academy-trainer-carousel">
@@ -791,16 +780,7 @@ export default function PlatformDiscovery({
                 </LocalizedButton>
               ))}</LocalizedCopy>
             </div>
-            <LocalizedCopy>{academyTrainers.length > 3 ? (
-              <LocalizedButton
-                type="button"
-                className="academy-carousel-next academy-trainer-next"
-                onClick={() => advanceRail(trainerRailRef.current)}
-                aria-label="Lihat pet trainer berikutnya"
-              >
-                <Icon name="arrow" size={18} />
-              </LocalizedButton>
-            ) : null}</LocalizedCopy>
+            <RailArrows rail={trainerRailRef} label="pet trainer" />
           </div>
         </section>
         <div className="world-toolbar">
@@ -958,7 +938,7 @@ export default function PlatformDiscovery({
                 <div>
                   <small><LocalizedCopy>{when(item.starts_at)}</LocalizedCopy></small>
                   <h3><LocalizedCopy>{item.title}</LocalizedCopy></h3>
-                  <p><LocalizedCopy>{"⌖ "}</LocalizedCopy><LocalizedCopy>{item.venue}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{item.city}</LocalizedCopy>
+                  <p className="event-location"><Icon name="map" size={17}/><LocalizedCopy>{item.venue}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{item.city}</LocalizedCopy>
                   </p>
                   <span className="world-event-availability"><Icon name="users" size={12}/><LocalizedCopy>{remaining}</LocalizedCopy> <LocalizedCopy>{"slot tersisa"}</LocalizedCopy></span>
                   <footer>
@@ -1335,9 +1315,9 @@ export default function PlatformDiscovery({
                   </LocalizedButton>
                   <LocalizedButton
                     aria-label="Bagikan konten"
-                    onClick={() => void sharePost(post)}
+                    onClick={() => setSharingPost(post)}
                   >
-                    <Icon name="download" size={18} /> <span><LocalizedCopy>{"Bagikan"}</LocalizedCopy></span>
+                    <Icon name="send" size={18} /> <span><LocalizedCopy>{"Bagikan"}</LocalizedCopy></span>
                   </LocalizedButton>
                 </footer>
               </article>
@@ -1423,6 +1403,20 @@ export default function PlatformDiscovery({
           />
         </Modal>
       )}{" "}
+      {sharingPost && (
+        <Modal close={() => setSharingPost(null)} className="hub-share-modal">
+          <span className="share-hero-icon"><Icon name="send" size={28}/></span>
+          <h2><LocalizedCopy>{"Bagikan momen ini"}</LocalizedCopy></h2>
+          <p><LocalizedCopy>{"Kirim tautan ini ke temanmu untuk membuka postingan yang sama di PetHub."}</LocalizedCopy></p>
+          <div className="share-post-preview"><Icon name="paw"/><span>{sharingPost.content}</span></div>
+          <label><LocalizedCopy>{"Tautan postingan"}</LocalizedCopy><input aria-label="Tautan postingan" readOnly value={petHubContentLink(sharingPost.id)} onFocus={event => event.target.select()}/></label>
+          <div className="share-actions"><LocalizedButton className="primary-button" onClick={async () => {
+            try { await navigator.clipboard.writeText(petHubContentLink(sharingPost.id)); notify("Tautan konten Slivadoc disalin"); }
+            catch { notify("Pilih dan salin tautan postingan di atas."); }
+          }}><Icon name="check" size={17}/><LocalizedCopy>{"Salin tautan"}</LocalizedCopy></LocalizedButton>
+          {typeof navigator !== "undefined" && typeof navigator.share === "function" && <LocalizedButton className="secondary-button" onClick={() => void sharePost(sharingPost)}><Icon name="send" size={17}/><LocalizedCopy>{"Bagikan ke…"}</LocalizedCopy></LocalizedButton>}</div>
+        </Modal>
+      )}
       {commentPost && (
         <CommentsModal
           post={commentPost}
@@ -2457,14 +2451,14 @@ function CommentsModal({
         <h2><LocalizedCopy>{"Komentar ("}</LocalizedCopy><LocalizedCopy>{comments.length}</LocalizedCopy><LocalizedCopy>{")"}</LocalizedCopy></h2>
         <p><LocalizedCopy>{post.content}</LocalizedCopy></p>
       </div>
-      <div className="comments-list">
+      <div className="comments-list" role="log" aria-label="Daftar komentar">
         <LocalizedCopy>{busy ? (
           <span role="status"><LocalizedCopy>{"Memuat komentar…"}</LocalizedCopy></span>
         ) : error ? (
           <span role="alert"><LocalizedCopy>{error}</LocalizedCopy></span>
         ) : comments.length ? (
           comments.map((item) => (
-            <div key={item.id}>
+            <div className="comment-row" key={item.id}>
               <i><LocalizedCopy>{item.author_name.slice(0, 1)}</LocalizedCopy></i>
               <p>
                 <b><LocalizedCopy preserve>{item.author_name}</LocalizedCopy></b>

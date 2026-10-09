@@ -91,15 +91,18 @@ export async function uploadImage(
 }
 
 export async function uploadDocument(file: File, folder: string) {
+  if (!["application/pdf", "image/jpeg", "image/png"].includes(file.type) || !file.size || file.size > 10 * 1024 * 1024) throw new Error("Pilih berkas PDF, JPG, atau PNG maksimal 10 MB");
   const body = new FormData();
   body.append("file", file);
   body.append("folder", folder);
-  return apiFetch<{
+  const result = await apiFetch<{
     url: string;
     publicId: string;
     mimeType: string;
     bytes: number;
   }>("/api/uploads/documents", { method: "POST", body });
+  if (!result.url?.startsWith("https://") || !result.publicId) throw new Error("Penyimpanan dokumen belum mengembalikan berkas yang valid");
+  return result;
 }
 
 export async function uploadPetHubMedia(file: File, folder = "pethub/posts") {

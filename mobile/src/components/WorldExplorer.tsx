@@ -1,12 +1,11 @@
 import type { PropsWithChildren } from "react";
 import { StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { TopHeader } from "./ui";
 import { colors } from "../theme";
 
 export function WorldExplorer({ children, onNotification }: PropsWithChildren<{ onNotification: () => void }>) {
   return <View style={styles.panel}>
-    <TopHeader compact title="Sliva World" subtitle="Dunia pet, satu destinasi" onNotification={onNotification} brandIcon={<View style={styles.mark}><View style={styles.orbit}/><Ionicons name="paw-outline" size={23} color={colors.sky600}/><View style={styles.dot}/></View>}/>
+    <TopHeader compact title="Sliva World" subtitle="Dunia pet, satu destinasi" onNotification={onNotification}/>
     {children}
   </View>;
 }

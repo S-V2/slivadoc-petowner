@@ -13,6 +13,7 @@ test("rendered pages expose real products, local services, metadata and merchant
   globalThis.fetch = async (input) => {
     const url = new URL(String(input));
     if (mode === "outage") return new Response(null, { status: 503 });
+    if (url.pathname.endsWith("/careers")) return Response.json({data:[],consent_version:"2026-10-09"});
     if (url.pathname.endsWith(`/products/${id}`)) return Response.json(product);
     return Response.json({ data: mode === "empty" ? [] : [url.pathname.endsWith("/products") ? product : service], has_more: false, region_code: url.searchParams.get("region_code") ?? "" });
   };

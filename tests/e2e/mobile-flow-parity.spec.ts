@@ -105,12 +105,12 @@ test("guests browse native destinations and explicitly sign in from activity", a
   await expect(page.locator(".petowner-login")).toHaveCount(0);
 });
 
-test("Sliva World provides all eight native features and keeps browser history", async ({ page }) => {
+test("Sliva World provides all nine native features and keeps browser history", async ({ page }) => {
   await app(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/?view=world", { waitUntil: "domcontentloaded" });
   const world = page.getByRole("navigation", { name: "Sliva World", exact: true });
-  await expect(world.getByRole("button")).toHaveCount(8);
+  await expect(world.getByRole("button")).toHaveCount(9);
   for (const [mode, label] of [["events", "Pet Event"], ["petspot", "PetSpot"], ["pethub", "PetHub"], ["consult", "Konsultasi"], ["adoption", "Adopsi"], ["documents", "Pet Documents"], ["pawdating", "PAW Dating"]]) {
     await world.getByRole("button", { name: label, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`world_mode=${mode}`));
@@ -219,4 +219,14 @@ test("three-step free booking goes directly to its saved activity", async ({ pag
   await expect(booking).toBeHidden();
   await expect(page.locator(".activity-detail-modal")).toContainText("BOOK-MILO-081");
   expect(payload).toMatchObject({ pet_id: petOwnerPet.id, service_id: service.id, branch_id: service.branch_id, scheduled_at: startsAt });
+});
+
+test("Sliva World remembers feature across refresh and marks it selected",async({page})=>{
+ await app(page);await page.setViewportSize({width:390,height:844});await page.goto("/?view=world&world_mode=academy",{waitUntil:"domcontentloaded"});
+ await page.getByRole("button",{name:"Lainnya",exact:true}).click();
+ await page.locator(".mobile-more-sheet").getByRole("button",{name:"Pet Event",exact:true}).click();
+ await expect(page).toHaveURL(/world_mode=events/);await page.reload({waitUntil:"domcontentloaded"});
+ await expect(page).toHaveURL(/world_mode=events/);
+ await page.getByRole("button",{name:"Lainnya",exact:true}).click();
+ await expect(page.locator(".mobile-more-sheet").getByRole("button",{name:"Pet Event",exact:true})).toHaveAttribute("aria-current","page");
 });

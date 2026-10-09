@@ -1,3 +1,4 @@
+import { BrandLogo } from "../components/BrandLogo";
 import { TabRail } from "../components/TabRail";
 import { BottomSheetSafeArea } from "../components/BottomSheetSafeArea";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
@@ -383,6 +384,7 @@ export function HomeScreen({
     <>
       <Screen contentStyle={styles.screenContent}>
         <View style={styles.homeHeader}>
+          <BrandLogo size={38} />
           <Pressable accessibilityRole="search" accessibilityLabel="Cari di seluruh Slivadoc" onPress={() => setSearchOpen(true)} style={({ pressed }) => [styles.searchLauncher, pressed && styles.pressed]}>
             <Ionicons name="search" size={18} color={colors.sky600} />
             <TextInput editable={false} pointerEvents="none" placeholder="Cari dokter, layanan, produk…" placeholderTextColor={colors.muted} style={styles.searchLauncherInput} />

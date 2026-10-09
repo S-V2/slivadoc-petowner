@@ -1,0 +1,1607 @@
+.sitter-experience {
+  --sit-ink: #153b5b;
+  --sit-blue: #05689f;
+  --sit-line: #d0ebfa;
+  --sit-muted: #60869a;
+  color: var(--sit-ink);
+  max-width: 1320px;
+  margin: auto;
+  padding: 8px 0 48px;
+  scroll-margin-top: 108px;
+}
+.sitter-experience *,
+.sitter-experience *::before,
+.sitter-experience *::after {
+  box-sizing: border-box;
+}
+.sitter-experience button,
+.sitter-experience input,
+.sitter-experience textarea {
+  font: inherit;
+}
+.sitter-experience button {
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s,
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+.sitter-experience button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.sitter-experience button:not(:disabled):active {
+  transform: scale(0.98);
+}
+.sitter-experience h1,
+.sitter-experience h2,
+.sitter-experience h3 {
+  color: var(--sit-ink);
+  letter-spacing: -0.035em;
+  line-height: 1.25;
+}
+.sitter-experience svg {
+  flex-shrink: 0;
+}
+.sitter-page-head,
+.sitter-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sitter-page-head {
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.sitter-brand-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 17px;
+  background: #dbf0fb;
+  color: #2e7296;
+}
+.sitter-experience .sitter-brand h1 {
+  margin: 0;
+  font-size: 27px;
+}
+.sitter-brand p {
+  margin: 4px 0 0;
+  color: #60869a;
+  font-size: 12px;
+}
+.sitter-partner-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #587a8d;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 650;
+}
+.sitter-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: #e2f3fc;
+  border-radius: 13px;
+  margin-bottom: 24px;
+}
+.sitter-tabs button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 24px;
+  background: transparent;
+  color: #60869a;
+  font-size: 12px;
+  font-weight: 650;
+}
+.sitter-tabs button[aria-current="page"] {
+  background: #fff;
+  color: #05689f;
+  box-shadow: 0 2px 8px #193d500a;
+}
+.sitter-hero {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  align-items: center;
+  gap: 20px;
+  background: #ebf8ff;
+  border: 1px solid #d8f1ff;
+  border-radius: 28px;
+  overflow: hidden;
+  padding: 34px 48px;
+  position: relative;
+}
+.sitter-hero-copy {
+  position: relative;
+  z-index: 1;
+}
+.sitter-eyebrow {
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.18em;
+  color: #60869a;
+}
+.sitter-experience .sitter-hero h2 {
+  font-size: clamp(30px, 3.3vw, 47px);
+  line-height: 1.12;
+  letter-spacing: -0.05em;
+  margin: 17px 0 16px;
+}
+.sitter-experience .sitter-hero h2 em {
+  font-style: normal;
+  color: #05689f;
+}
+.sitter-hero p {
+  font-size: 13px;
+  line-height: 1.9;
+  color: #60869a;
+  max-width: 365px;
+  margin: 0 0 22px;
+}
+.sitter-trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sitter-trust span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 7px 11px;
+  background: #ffffffb3;
+  color: #57798b;
+  border-radius: 24px;
+  font-size: 10px;
+}
+.sitter-hero-art {
+  align-self: stretch;
+  position: relative;
+  min-height: 270px;
+  max-width: 380px;
+  width: 100%;
+  margin: auto;
+}
+.sitter-hero-art > img {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  object-fit: contain;
+}
+.sitter-art-note {
+  position: absolute;
+  bottom: -3px;
+  right: 3px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffffed;
+  border: 1px solid #fff;
+  box-shadow: 0 8px 28px #1c465c0c;
+  padding: 12px 16px;
+  border-radius: 15px;
+  transform: rotate(-3deg);
+}
+.sitter-art-note > span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  background: #e1f2fc;
+  color: #5f8599;
+  border-radius: 11px;
+}
+.sitter-art-note strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+}
+.sitter-art-note small {
+  display: block;
+  font-size: 9px;
+  margin-top: 4px;
+  color: #60869a;
+}
+.sitter-search {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr auto;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px solid var(--sit-line);
+  border-radius: 20px;
+  box-shadow: 0 6px 22px #1a3f5304;
+}
+.sitter-experience label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 650;
+  min-width: 0;
+}
+.sitter-experience .sitter-location-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  color: #60869a;
+}
+.sitter-location-field > span {
+  flex: 1;
+  min-width: 0;
+}
+.sitter-field-caption {
+  display: block;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: #60869a;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.sitter-search-option {
+  border-left: 1px solid #e2f3fc;
+  padding-left: 18px;
+}
+.sitter-experience input:not([type="checkbox"]),
+.sitter-experience textarea {
+  border: 1px solid var(--sit-line);
+  background: #f8fcfe;
+  border-radius: 12px;
+  padding: 13px;
+  width: 100%;
+  min-width: 0;
+  color: var(--sit-ink);
+  font-size: 13px;
+}
+.sitter-experience input::placeholder,
+.sitter-experience textarea::placeholder {
+  color: #60869a;
+}
+.sitter-experience .sitter-location-field input {
+  border: 0;
+  background: transparent;
+  padding: 5px 0;
+  font-size: 12px;
+}
+.sitter-search .sliva-select-trigger {
+  border: 0;
+  min-height: 30px;
+  border-radius: 8px;
+  padding: 3px 0;
+  background: transparent;
+  color: #2c6d90;
+  font-size: 12px;
+}
+.sitter-experience textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+.sitter-experience .sitter-primary,
+.sitter-experience .sitter-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 46px;
+  padding: 13px 18px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: #05689f;
+  color: #fff;
+  font-weight: 650;
+  font-size: 12px;
+}
+.sitter-experience .sitter-primary:not(:disabled):hover {
+  background: #21516a;
+  box-shadow: 0 5px 14px #05689f20;
+}
+.sitter-experience .sitter-secondary {
+  background: #e9f6fd;
+  color: #2c6c8f;
+  border-color: #cae9f9;
+}
+.sitter-experience .sitter-filter-toggle {
+  display: none;
+}
+.sitter-discovery-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  margin-top: 16px;
+}
+.sitter-pet-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: auto;
+  scrollbar-width: none;
+  padding: 2px;
+}
+.sitter-pet-chips button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d5edfa;
+  border-radius: 24px;
+  padding: 9px 16px;
+  background: white;
+  color: #5f8599;
+  font-size: 11px;
+}
+.sitter-pet-chips button[aria-pressed="true"] {
+  background: #05689f;
+  color: white;
+  border-color: #05689f;
+}
+.sitter-discovery-bar > span {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: #60869a;
+  font-size: 9px;
+  white-space: nowrap;
+}
+.sitter-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 32px 0 18px;
+}
+.sitter-experience .sitter-section-head h2 {
+  font-size: 23px;
+  margin: 0;
+}
+.sitter-section-head p {
+  color: #60869a;
+  font-size: 12px;
+  margin: 5px 0 0;
+}
+.sitter-result-count {
+  font-size: 10px;
+  color: #60869a;
+  background: #e7f5fc;
+  border-radius: 9px;
+  padding: 7px 11px;
+  white-space: nowrap;
+}
+.sitter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.sitter-card {
+  border: 1px solid #cfebfa;
+  border-radius: 23px;
+  background: #fff;
+  box-shadow: 0 4px 20px #1b435805;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition:
+    transform 0.25s,
+    box-shadow 0.25s,
+    border-color 0.25s;
+  animation: sitter-reveal 0.45s both;
+}
+.sitter-card:nth-child(2) {
+  animation-delay: 0.06s;
+}
+.sitter-card:nth-child(3) {
+  animation-delay: 0.12s;
+}
+@media (hover: hover) {
+  .sitter-card:hover {
+    transform: translateY(-4px);
+    border-color: #60869a;
+    box-shadow: 0 12px 30px #1b43580c;
+  }
+}
+.sitter-card-top {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 22px 20px;
+  background: var(--card-soft, #eff8fd);
+  position: relative;
+}
+.sitter-avatar {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  border-radius: 21px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card-tone, #d7eefb);
+  color: var(--card-ink, #327ba2);
+  font-size: 24px;
+  font-weight: 700;
+}
+.sitter-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.sitter-card-identity {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+.sitter-experience .sitter-card h3 {
+  font-size: 18px;
+  line-height: 1.3;
+  margin: 0 0 6px;
+  letter-spacing: -0.035em;
+}
+.sitter-place {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #60869a;
+  margin: 0;
+}
+.sitter-verified {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  color: #5c8094;
+  font-size: 9px;
+  margin-top: 7px;
+}
+.sitter-card-paw {
+  position: absolute;
+  right: 13px;
+  top: 15px;
+  color: var(--card-tone);
+  opacity: 0.7;
+}
+.sitter-card-body {
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  flex: 1;
+}
+.sitter-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  font-size: 9px;
+  color: #60869a;
+}
+.sitter-rating {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 10px;
+  color: #5e8295;
+}
+.sitter-rating svg {
+  fill: #60869a;
+  stroke: #60869a;
+}
+.sitter-bio {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #608599;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 43px;
+}
+.sitter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sitter-tags span {
+  font-size: 9px;
+  border-radius: 7px;
+  padding: 6px 9px;
+  background: #ecf7fd;
+  color: #60869a;
+}
+.sitter-card-body .sitter-session {
+  margin: 0;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 9px;
+  color: #60869a;
+}
+.sitter-prices {
+  margin-top: auto;
+  padding-top: 15px;
+  border-top: 1px solid #e0f2fc;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.sitter-prices > div {
+  display: grid;
+  gap: 5px;
+  flex: 1;
+}
+.sitter-prices small {
+  color: #60869a;
+  font-size: 9px;
+  font-weight: 400;
+}
+.sitter-prices strong {
+  font-size: 19px;
+  color: #235874;
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+}
+.sitter-prices strong small {
+  letter-spacing: 0;
+}
+.sitter-prices .sitter-weekly {
+  border-left: 1px solid #d4edfa;
+  padding-left: 15px;
+  flex: 0 0 auto;
+}
+.sitter-weekly b {
+  font-size: 13px;
+  font-weight: 650;
+  color: #327ba2;
+}
+.sitter-weekly > span {
+  color: #60869a;
+  font-size: 8px;
+}
+.sitter-card-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  min-height: 42px;
+  border: 1px solid #d9effb;
+  border-radius: 12px;
+  background: #e7f5fc;
+  color: #31799f;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+.sitter-card-cta:hover {
+  background: #d3ecfa;
+  border-color: #bce3f8;
+}
+.sitter-how {
+  display: grid;
+  grid-template-columns: 1.1fr repeat(3, 1fr);
+  gap: 30px;
+  padding: 32px;
+  margin-top: 32px;
+  background: #ebf7fd;
+  border-radius: 24px;
+}
+.sitter-experience .sitter-how-intro h2 {
+  font-size: 23px;
+  margin: 10px 0;
+}
+.sitter-how-step {
+  position: relative;
+}
+.sitter-how-step > span {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  background: #d5edfa;
+  color: #60869a;
+  border-radius: 14px;
+  margin-bottom: 12px;
+}
+.sitter-how-step small {
+  position: absolute;
+  right: 12px;
+  top: 5px;
+  color: #b5e0f7;
+  font-weight: 700;
+  font-size: 20px;
+}
+.sitter-experience .sitter-how-step h3 {
+  font-size: 14px;
+  margin: 0;
+}
+.sitter-how-step p {
+  font-size: 11px;
+  line-height: 1.7;
+  color: #60869a;
+  margin: 7px 0 0;
+}
+.sitter-back {
+  border: 0;
+  background: #e1f2fc;
+  border-radius: 11px;
+  padding: 12px 16px;
+  color: #557687;
+  font-size: 12px !important;
+}
+.sitter-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+  gap: 24px;
+  margin-top: 20px;
+  align-items: start;
+  animation: sitter-reveal 0.3s;
+}
+.sitter-panel {
+  padding: 28px;
+  border: 1px solid var(--sit-line);
+  border-radius: 24px;
+  background: #fff;
+  min-width: 0;
+}
+.sitter-experience .sitter-panel h2 {
+  font-size: 26px;
+}
+.sitter-experience .sitter-panel h3 {
+  font-size: 15px;
+  margin: 26px 0 12px;
+}
+.sitter-panel p {
+  color: #5f8498;
+  line-height: 1.9;
+  font-size: 13px;
+}
+.sitter-profile-cover {
+  background: #e3f3fc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #b2def6;
+  border-radius: 17px;
+  padding: 20px;
+  margin-bottom: 18px;
+}
+.sitter-profile-cover .sitter-avatar {
+  width: 80px;
+  height: 80px;
+  font-size: 29px;
+  background: #cbe9f9;
+}
+.sitter-badge {
+  display: inline-flex;
+  background: #e7f5fc;
+  color: #5e8296;
+  padding: 7px 11px;
+  border-radius: 9px;
+  font-size: 10px;
+}
+.sitter-preserve {
+  white-space: pre-line;
+}
+.sitter-book-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.sitter-experience .sitter-book-form h2 {
+  margin: 0;
+  font-size: 25px;
+}
+.sitter-book-form .sitter-form-intro {
+  margin: -8px 0 0;
+  font-size: 12px;
+}
+.sitter-experience .sitter-panel .sitter-form-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  margin: 7px 0 0;
+}
+.sitter-form-step > span {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 9px;
+  background: #e0f2fc;
+  color: #5c8094;
+  font-size: 10px;
+}
+.sitter-package {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.sitter-package button {
+  padding: 17px;
+  border: 1px solid #d0ebfa;
+  border-radius: 15px;
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  background: #f8fcfe;
+  color: #547586;
+}
+.sitter-package button[aria-pressed="true"] {
+  border-color: #60869a;
+  background: #e5f4fc;
+  box-shadow: 0 0 0 1px #60869a;
+}
+.sitter-package span {
+  font-size: 11px;
+}
+.sitter-package strong {
+  font-size: 15px;
+}
+.sitter-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.sitter-book-form fieldset {
+  border: 1px solid var(--sit-line);
+  border-radius: 13px;
+  padding: 15px;
+}
+.sitter-book-form legend {
+  font-size: 11px;
+  color: #5a7d8f;
+  padding: 0 5px;
+}
+.sitter-experience .sitter-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+  min-height: 30px;
+}
+.sitter-check input {
+  accent-color: #2f759b;
+  width: 17px;
+  height: 17px;
+}
+.sitter-quote {
+  background: #e7f5fc;
+  border: 1px solid #d2ecfa;
+  border-radius: 18px;
+  padding: 21px;
+}
+.sitter-quote p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+  font-size: 12px;
+}
+.sitter-quote .total {
+  border-top: 1px solid #c7e7f9;
+  padding-top: 15px;
+  font-size: 18px;
+  color: #286382;
+}
+.sitter-quote small {
+  display: block;
+  font-size: 11px;
+  line-height: 1.8;
+  color: #60869a;
+  margin: 16px 0;
+}
+.sitter-notice {
+  padding: 15px 18px;
+  border-radius: 13px;
+  background: #e6f4fc;
+  color: #30769b;
+  margin: 12px 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.sitter-notice.error {
+  background: #fff1eb;
+  color: #9f6653;
+}
+.sitter-empty {
+  text-align: center;
+  border: 1px dashed #c0e4f8;
+  border-radius: 24px;
+  padding: 48px 24px;
+  background: #f7fcfe;
+}
+.sitter-empty > span {
+  font-size: 44px;
+  color: #60869a;
+}
+.sitter-empty p {
+  max-width: 420px;
+  margin: 12px auto;
+  color: #60869a;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.sitter-bookings {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.6fr) 1.4fr;
+  gap: 24px;
+}
+.sitter-booking-tile {
+  width: 100%;
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  padding: 20px;
+  margin-bottom: 12px;
+  border: 1px solid var(--sit-line);
+  border-radius: 18px;
+  text-align: left;
+  background: #fff;
+  color: #2f7397;
+}
+.sitter-booking-tile[aria-current="true"] {
+  border-color: #60869a;
+  background: #f1f9fd;
+  box-shadow: 0 0 0 1px #60869a;
+}
+.sitter-booking-tile > span:not(.sitter-badge) {
+  font-size: 11px;
+  color: #60869a;
+}
+.sitter-bookings form {
+  display: grid;
+  gap: 14px;
+  margin: 24px 0;
+}
+.sitter-journal > div {
+  display: flex;
+  gap: 14px;
+  border-left: 2px solid #c7e7f9;
+  padding: 16px;
+  background: #f8fcfe;
+  border-radius: 12px;
+  margin: 10px 0;
+}
+.sitter-journal small {
+  font-size: 10px;
+  color: #60869a;
+}
+.sitter-journal p {
+  white-space: pre-wrap;
+}
+.sitter-journal img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 14px;
+}
+.sitter-panel details {
+  padding-top: 18px;
+  border-top: 1px solid var(--sit-line);
+  margin-top: 22px;
+}
+.sitter-panel summary {
+  cursor: pointer;
+  color: #5e8295;
+  font-size: 12px;
+  min-height: 30px;
+}
+.sitter-panel details label {
+  margin: 16px 0;
+}
+.sitter-panel blockquote {
+  background: #f2f9fe;
+  border-radius: 12px;
+  padding: 18px;
+  margin: 12px 0;
+  font-size: 12px;
+}
+.sitter-progress {
+  display: flex;
+  list-style: none;
+  padding: 24px 0;
+  margin: 22px 0;
+  border-block: 1px solid #d7eefb;
+}
+.sitter-progress li {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  font-size: 9px;
+  color: #60869a;
+  position: relative;
+}
+.sitter-progress li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: calc(50% + 17px);
+  right: calc(-50% + 17px);
+  top: 14px;
+  height: 1px;
+  background: #c9e8f9;
+}
+.sitter-progress li > span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  background: #e0f2fc;
+  border-radius: 50%;
+  font-size: 10px;
+}
+.sitter-progress li[data-reached="true"] {
+  color: #57798c;
+}
+.sitter-progress li[data-reached="true"] > span {
+  background: #57798c;
+  color: #fff;
+}
+.sitter-skeleton {
+  border: 1px solid #d0ebfa;
+  padding: 20px;
+  border-radius: 23px;
+  background: white;
+  min-height: 310px;
+  animation: sitter-pulse 1.2s infinite alternate;
+}
+.sitter-skeleton > div {
+  height: 78px;
+  border-radius: 14px;
+  background: #e3f3fc;
+  margin-bottom: 22px;
+}
+.sitter-skeleton > span {
+  display: block;
+  height: 14px;
+  border-radius: 5px;
+  background: #e9f6fd;
+  margin: 16px 0;
+}
+.sitter-skeleton > span:nth-child(3) {
+  width: 70%;
+}
+.sitter-experience :focus-visible {
+  outline: 3px solid #60869a;
+  outline-offset: 3px;
+}
+@keyframes sitter-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes sitter-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.55;
+  }
+}
+@media (max-width: 1150px) {
+  .sitter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sitter-hero {
+    padding: 28px 32px;
+  }
+  .sitter-search {
+    gap: 12px;
+  }
+  .sitter-search-option {
+    padding-left: 12px;
+  }
+  .sitter-discovery-bar > span {
+    display: none;
+  }
+  .sitter-search-submit span {
+    display: none;
+  }
+  .sitter-how {
+    gap: 20px;
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .sitter-how-intro {
+    grid-column: 1 / -1;
+  }
+  .sitter-experience .sitter-how-intro h2 {
+    margin-bottom: 0;
+  }
+}
+@media (max-width: 850px) {
+  .sitter-detail {
+    grid-template-columns: 1fr;
+  }
+  .sitter-hero {
+    grid-template-columns: 1.2fr 1fr;
+  }
+  .sitter-hero-art {
+    min-height: 230px;
+  }
+  .sitter-art-note {
+    padding: 9px;
+  }
+  .sitter-art-note strong {
+    font-size: 9px;
+  }
+  .sitter-trust {
+    gap: 5px;
+  }
+  .sitter-trust span {
+    font-size: 8px;
+    padding: 6px 8px;
+  }
+  .sitter-bookings {
+    grid-template-columns: 1fr;
+  }
+  .sitter-bookings > aside {
+    display: flex;
+    overflow: auto;
+    gap: 12px;
+    padding: 2px;
+  }
+  .sitter-booking-tile {
+    min-width: 245px;
+    width: 245px;
+  }
+}
+@media (max-width: 600px) {
+  .sitter-experience {
+    padding: 4px 0 32px;
+  }
+  .sitter-page-head {
+    margin-bottom: 16px;
+    gap: 8px;
+  }
+  .sitter-brand {
+    gap: 10px;
+  }
+  .sitter-brand-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+  }
+  .sitter-experience .sitter-brand h1 {
+    font-size: 23px;
+  }
+  .sitter-brand p {
+    font-size: 10px;
+  }
+  .sitter-partner-link {
+    font-size: 10px;
+    max-width: 85px;
+  }
+  .sitter-tabs {
+    width: 100%;
+    margin-bottom: 18px;
+  }
+  .sitter-tabs button {
+    flex: 1;
+    padding: 10px;
+    font-size: 11px;
+    min-height: 42px;
+  }
+  .sitter-hero {
+    padding: 21px;
+    border-radius: 22px;
+    gap: 0;
+    display: block;
+    min-height: 225px;
+  }
+  .sitter-hero-copy {
+    width: 65%;
+  }
+  .sitter-experience .sitter-hero h2 {
+    font-size: 29px;
+    margin: 12px 0;
+  }
+  .sitter-hero p {
+    font-size: 11px;
+    line-height: 1.65;
+    margin-bottom: 12px;
+  }
+  .sitter-eyebrow {
+    font-size: 8px;
+    letter-spacing: 0.1em;
+  }
+  .sitter-hero-art {
+    position: absolute;
+    width: 47%;
+    height: 80%;
+    min-height: 0;
+    right: -10px;
+    bottom: 0;
+  }
+  .sitter-art-note {
+    display: none;
+  }
+  .sitter-trust span {
+    font-size: 8px;
+  }
+  .sitter-trust span:nth-child(2) {
+    display: none;
+  }
+  .sitter-search {
+    grid-template-columns: minmax(0, 1fr) 38px 38px;
+    gap: 7px;
+    padding: 9px 10px;
+    border-radius: 15px;
+    margin-top: 18px;
+  }
+  .sitter-location-field > svg {
+    width: 17px;
+  }
+  .sitter-experience .sitter-location-field {
+    gap: 7px;
+  }
+  .sitter-location-field .sitter-field-caption {
+    display: none;
+  }
+  .sitter-experience .sitter-location-field input {
+    font-size: 11px;
+    min-height: 32px;
+  }
+  .sitter-search-option {
+    display: none !important;
+  }
+  .sitter-experience .sitter-filter-toggle {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    min-height: 42px;
+    background: #e7f5fc;
+    border: 0;
+    border-radius: 10px;
+    color: #5e8295;
+  }
+  .sitter-experience .sitter-search-submit {
+    padding: 8px;
+    min-height: 42px;
+    border-radius: 10px;
+  }
+  .sitter-search.is-expanded .sitter-search-option {
+    display: flex !important;
+    grid-column: 1 / -1;
+    border: 0;
+    padding: 6px;
+    grid-row: auto;
+  }
+  .sitter-search.is-expanded .sitter-filter-toggle {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .sitter-search.is-expanded .sitter-search-submit {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .sitter-pet-chips {
+    gap: 7px;
+  }
+  .sitter-pet-chips button {
+    min-height: 37px;
+    padding: 8px 13px;
+    font-size: 10px;
+  }
+  .sitter-discovery-bar {
+    margin-top: 12px;
+  }
+  .sitter-section-head {
+    margin: 25px 0 15px;
+    gap: 8px;
+  }
+  .sitter-experience .sitter-section-head h2 {
+    font-size: 20px;
+  }
+  .sitter-section-head p {
+    font-size: 10px;
+  }
+  .sitter-result-count {
+    font-size: 8px;
+    padding: 6px 8px;
+  }
+  .sitter-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .sitter-card-top {
+    padding: 18px;
+  }
+  .sitter-card-body {
+    padding: 16px 18px 18px;
+  }
+  .sitter-experience .sitter-card h3 {
+    font-size: 19px;
+  }
+  .sitter-card-meta {
+    font-size: 10px;
+  }
+  .sitter-prices strong {
+    font-size: 20px;
+  }
+  .sitter-card-cta {
+    min-height: 45px;
+  }
+  .sitter-panel {
+    padding: 20px;
+  }
+  .sitter-experience .sitter-panel h2 {
+    font-size: 24px;
+  }
+  .sitter-detail {
+    gap: 16px;
+  }
+  .sitter-how {
+    grid-template-columns: 1fr;
+    padding: 24px;
+    gap: 22px;
+  }
+  .sitter-how-step {
+    padding-left: 55px;
+  }
+  .sitter-how-step > span {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+  .sitter-how-step small {
+    right: 0;
+  }
+  .sitter-how-step p {
+    padding-right: 25px;
+  }
+  .sitter-experience .sitter-how-intro h2 {
+    font-size: 23px;
+  }
+}
+@media (max-width: 360px) {
+  .sitter-experience .sitter-hero h2 {
+    font-size: 25px;
+  }
+  .sitter-hero p {
+    font-size: 10px;
+  }
+  .sitter-hero {
+    padding: 18px;
+  }
+  .sitter-page-head .sitter-partner-link {
+    display: none;
+  }
+  .sitter-two {
+    grid-template-columns: 1fr;
+  }
+  .sitter-prices strong {
+    font-size: 18px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sitter-experience *,
+  .sitter-experience *::before,
+  .sitter-experience *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Keep the feature's type scale independent of the application-wide p rule. */
+.sitter-experience .sitter-brand p {
+  --type-body: 12px;
+}
+.sitter-experience .sitter-hero p {
+  --type-body: 13px;
+}
+.sitter-experience .sitter-place {
+  --type-body: 10px;
+}
+.sitter-experience .sitter-bio {
+  --type-body: 12px;
+}
+.sitter-experience .sitter-session {
+  --type-body: 10px;
+}
+.sitter-experience .sitter-section-head p {
+  --type-body: 12px;
+}
+.sitter-experience .sitter-how-step p {
+  --type-body: 11px;
+}
+.sitter-experience .sitter-panel p {
+  --type-body: 13px;
+  margin: 12px 0;
+}
+.sitter-experience .sitter-book-form .sitter-form-intro {
+  --type-body: 12px;
+  margin: -8px 0 0;
+}
+.sitter-experience .sitter-quote p {
+  --type-body: 12px;
+}
+.sitter-experience .sitter-quote .total {
+  --type-body: 18px;
+}
+@media (max-width: 600px) {
+  .sitter-experience .sitter-brand p {
+    --type-body: 10px;
+  }
+  .sitter-experience .sitter-hero p {
+    --type-body: 11px;
+  }
+  .sitter-experience .sitter-section-head p {
+    --type-body: 10px;
+  }
+}
+
+/* Catalog density follows Sliva World across the same viewport breakpoints. */
+.sitter-experience {
+  max-width: 1500px;
+}
+.sitter-hero {
+  background:
+    radial-gradient(circle at 82% 28%, #fff9 0 15%, transparent 15.2%),
+    radial-gradient(circle at 94% 98%, #bdeaff80 0 20%, transparent 20.2%),
+    linear-gradient(120deg, #ebf8ff, #dff3ff);
+  border-color: #d8f1ff;
+}
+.sitter-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.sitter-card {
+  min-width: 0;
+  border-radius: 20px;
+}
+.sitter-card-top {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 14px;
+  gap: 10px;
+  background-image: radial-gradient(
+    circle at 100% 0,
+    #c7ecff88 0 28%,
+    transparent 29%
+  );
+}
+.sitter-card-identity {
+  width: 100%;
+}
+.sitter-card .sitter-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 17px;
+  font-size: 20px;
+}
+.sitter-experience .sitter-card h3 {
+  font-size: 15px;
+  min-height: 38px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sitter-card-body {
+  padding: 13px;
+  gap: 10px;
+}
+.sitter-card-meta {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+}
+.sitter-card-body .sitter-session {
+  flex-wrap: wrap;
+  --type-body: 10px;
+}
+.sitter-card .sitter-prices {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 9px;
+  padding-top: 10px;
+}
+.sitter-card .sitter-prices strong {
+  font-size: 17px;
+  white-space: normal;
+}
+.sitter-card .sitter-prices .sitter-weekly {
+  border-left: 0;
+  padding: 8px;
+  background: #f1faff;
+  border-radius: 10px;
+  gap: 3px;
+}
+.sitter-card .sitter-card-cta {
+  min-height: 44px;
+  padding: 10px;
+  gap: 5px;
+  font-size: 11px;
+}
+.sitter-card .sitter-card-cta svg {
+  width: 13px;
+}
+.sitter-nearby {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--sit-muted);
+  font-size: 12px;
+}
+.sitter-nearby button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  border: 1px solid #d8e9f1;
+  border-radius: 13px;
+  background: #fff;
+  color: #05689f;
+  padding: 10px 13px;
+  font-size: 12px;
+}
+.sitter-nearby button[aria-pressed="true"] {
+  background: #05689f;
+  color: white;
+}
+.sitter-nearby select {
+  min-height: 44px;
+  border: 1px solid #d8e9f1;
+  border-radius: 13px;
+  padding: 8px;
+  background: #fff;
+  color: #153b5b;
+}
+.sitter-distance {
+  color: #05689f;
+  font-size: 11px;
+  font-weight: 700;
+}
+@media (min-width: 700px) and (max-width: 860px), (min-width: 1000px) {
+  .sitter-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1280px) {
+  .sitter-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1600px) {
+  .sitter-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .sitter-grid {
+    gap: 10px;
+  }
+  .sitter-card-top {
+    padding: 11px;
+  }
+  .sitter-card-body {
+    padding: 11px;
+  }
+  .sitter-experience .sitter-card h3 {
+    font-size: 14px;
+    min-height: 36px;
+  }
+  .sitter-card .sitter-bio {
+    --type-body: 11px;
+    line-height: 1.65;
+    min-height: 36px;
+  }
+  .sitter-card .sitter-place {
+    --type-body: 10px;
+    align-items: flex-start;
+  }
+  .sitter-card .sitter-tags span {
+    padding: 5px 6px;
+    font-size: 9px;
+  }
+  .sitter-card .sitter-prices strong {
+    font-size: 15px;
+  }
+  .sitter-card .sitter-card-cta {
+    font-size: 10px;
+  }
+}
+
+.sitter-search-layout {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 18px;
+  margin-top: 24px;
+  background: #fff;
+  border: 1px solid #cfeaff;
+  border-radius: 22px;
+}
+.sitter-search-layout .sitter-search {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  gap: 14px;
+}
+.sitter-search-layout .sitter-nearby {
+  flex: 0 0 auto;
+  max-width: 350px;
+  margin: 0;
+  padding-left: 18px;
+  border-left: 1px solid #e0f1fc;
+  align-items: center;
+  gap: 10px;
+}
+.sitter-search-layout .sitter-nearby label {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #587b94;
+}
+.sitter-search-layout .sitter-nearby > span {
+  width: 100%;
+  font-size: 11px;
+}
+.sitter-search-layout .sitter-nearby button {
+  white-space: nowrap;
+}
+@media (max-width: 1350px) {
+  .sitter-search-layout {
+    flex-wrap: wrap;
+  }
+  .sitter-search-layout .sitter-search {
+    flex-basis: 100%;
+  }
+  .sitter-search-layout .sitter-nearby {
+    max-width: none;
+    margin-left: auto;
+    border: 0;
+    padding: 10px 0 0;
+  }
+}
+@media (max-width: 600px) {
+  .sitter-search-layout {
+    padding: 12px;
+    gap: 10px;
+    border-radius: 18px;
+  }
+  .sitter-search-layout .sitter-nearby {
+    padding: 8px 0 0;
+    width: 100%;
+    margin: 0;
+    justify-content: space-between;
+    border-top: 1px solid #e0f1fc;
+  }
+}
+.sitter-discount {
+  color: #086ba1;
+  font-weight: 800;
+  font-size: 12px;
+}
+.sitter-prices del {
+  color: #738b9f;
+  font-size: 12px;
+}

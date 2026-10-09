@@ -1,4 +1,5 @@
 import { PetOwnerLanguageProvider } from "./components/PetOwnerI18n";
+import { SiteFooter } from "./components/SiteFooter";
 import { SlivaDialogHost } from "./components/SlivaDialog";
 import type { Metadata } from "next";
 import "./globals.css";
@@ -12,6 +13,11 @@ import "./adoption-passport.css";
 import "./sliva-select.css";
 import "./sliva-controls.css";
 import "./bottom-sheets.css";
+import "./legal.css";
+import "./career.css";
+import "./site-shell.css";
+import "./site-footer.css";
+import "./experience-polish.css";
 import { SEO, absoluteUrl } from "./lib/seo-config";
 
 export const metadata: Metadata = {
@@ -87,7 +93,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang={SEO.language}>
-      <body className="antialiased"><PetOwnerLanguageProvider>{children}<SlivaDialogHost /></PetOwnerLanguageProvider></body>
+      <body id="slivadoc-top" className="antialiased"><PetOwnerLanguageProvider>{children}<SiteFooter /><SlivaDialogHost /></PetOwnerLanguageProvider></body>
     </html>
   );
 }

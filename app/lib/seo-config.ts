@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://slivadoc.id";
+const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://slivadoc.com";
 
 export const SEO = {
   brand: "Slivadoc",

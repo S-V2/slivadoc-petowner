@@ -1,3 +1,4 @@
+import { getPublicCareers } from "./public-careers";
 import { cache } from "react";
 import { audiencePages } from "./seo-audiences";
 import { productCategories, productsInCategory } from "./seo-taxonomy";
@@ -9,9 +10,10 @@ import { getPublicPlaces } from "./public-directory";
 import { getPublicProducts } from "./public-marketplace";
 
 export const getSitemapEntries = cache(async (): Promise<MetadataRoute.Sitemap> => {
-  const [publicPlaces, publicProducts] = await Promise.all([
+  const [publicPlaces, publicProducts, careers] = await Promise.all([
     getPublicPlaces("", true),
     getPublicProducts(true),
+    getPublicCareers(),
   ]);
   const guideDates = new Map(
     guidePages.map((item) => [
@@ -20,6 +22,8 @@ export const getSitemapEntries = cache(async (): Promise<MetadataRoute.Sitemap> 
     ]),
   );
   const core: MetadataRoute.Sitemap = [
+    {url: absoluteUrl("/pet-sitter"), changeFrequency: "daily", priority: 0.85},
+    {url: absoluteUrl("/career"), changeFrequency: "weekly", priority: 0.7},
     {
       url: absoluteUrl("/"),
       lastModified: new Date("2026-08-28T00:00:00Z"),
@@ -128,6 +132,7 @@ export const getSitemapEntries = cache(async (): Promise<MetadataRoute.Sitemap> 
   ];
   return [
     ...core,
+    ...careers.data.map(p => ({ url: absoluteUrl(`/career/${p.id}`), ...(p.updated_at ? { lastModified: new Date(p.updated_at) } : {}), changeFrequency: "daily" as const, priority: 0.7 })),
     ...services,
     ...guides,
     ...expansion,

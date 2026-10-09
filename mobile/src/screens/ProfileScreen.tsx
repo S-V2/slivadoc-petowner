@@ -1,6 +1,8 @@
+import { normalizePhoneInput, profileValidation } from "../../../shared/account-validation";
+import { ChangePasswordForm } from "../components/ChangePasswordForm";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, BackHandler, Modal,  StyleSheet, Switch, View } from "react-native";
+import { ActivityIndicator, BackHandler, Modal, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -125,11 +127,11 @@ export function ProfileScreen({ onAction, onOpenNotifications, onOpenSupport, on
       </Card>
 
       <SectionTitle eyebrow="HEWAN SAYA" title="Pet dalam keluargamu"/>
-      <Card style={{ gap: 10 }}>
+      <Card style={styles.petFamilyCard}>
         {!pets.length && <Text style={styles.meta}>Belum ada profil pet. Tambahkan pet untuk mulai menggunakan layanan.</Text>}
-        {pets.map((item) => <Pressable key={item.id} accessibilityLabel={`Buka kesehatan ${item.name}`} onPress={() => onOpenPet(item.id)} style={styles.petRow}>
+        {pets.map((item) => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`Buka kesehatan ${item.name}`} onPress={() => onOpenPet(item.id)} style={styles.petRow}>
           <View style={styles.petIcon}><Ionicons name="paw-outline" size={22} color={colors.sky600}/></View>
-          <View style={{ flex: 1, minWidth: 0 }}><Text translate={false} style={styles.petName}>{item.name}</Text><Text style={styles.meta}>{item.breed || item.species_common_name || item.species}</Text>{item.access_role && item.access_role !== "owner" && <Pill tone="violet">Dibagikan</Pill>}</View>
+          <View style={{ flex: 1, minWidth: 0 }}><Text translate={false} numberOfLines={1} style={styles.petName}>{item.name}</Text><Text numberOfLines={2} style={styles.meta}>{item.breed || item.species_common_name || item.species}</Text>{item.access_role && item.access_role !== "owner" && <Pill tone="violet">Dibagikan</Pill>}</View>
           <Ionicons name="chevron-forward" size={18} color={colors.sky600}/>
         </Pressable>)}
         <SoftButton label="Tambah pet" icon="add-circle-outline" onPress={onAddPet}/>
@@ -172,14 +174,18 @@ function ProfileEditSheet({ visible = true, owner, onClose, onAction, onSaved }:
   const [fullName, setFullName] = useState(owner.full_name);
   const [phone, setPhone] = useState(owner.phone ?? "");
   const [busy, setBusy] = useState(false);
+  const errors = profileValidation(fullName, phone, owner.email);
+  const dirty = fullName.trim() !== owner.full_name.trim() || phone !== (owner.phone ?? "");
+  const canSave = dirty && !Object.values(errors).some(Boolean) && !busy;
   const save = async () => {
+    if (!canSave) return;
     const normalizedName = fullName.trim();
     const normalizedPhone = phone.trim();
-    if (normalizedName.length < 2) {
-      onAction("Nama lengkap minimal 2 karakter");
+    if (normalizedName.length < 3) {
+      onAction("Nama lengkap minimal 3 karakter");
       return;
     }
-    if (normalizedPhone && !/^0[0-9]{8,15}$/.test(normalizedPhone)) {
+    if (!/^0[0-9]{8,15}$/.test(normalizedPhone)) {
       onAction("Nomor telepon harus diawali 0 dan berisi 9 sampai 16 angka");
       return;
     }
@@ -195,7 +201,7 @@ function ProfileEditSheet({ visible = true, owner, onClose, onAction, onSaved }:
       setBusy(false);
     }
   };
-  return <BoundedBottomSheet visible={visible} onClose={onClose} maxHeight="68%"><View style={styles.profileEditSheet}><View style={styles.languageHeader}><View style={styles.languageIcon}><Ionicons name="person-outline" size={22} color={colors.sky600}/></View><View style={styles.languageHeaderCopy}><Text style={styles.languageEyebrow}>DATA AKUN</Text><Text style={styles.languageTitle}>Edit profil pet parent</Text><Text style={styles.languageNote}>Perubahan tersimpan ke akun Slivadoc di semua perangkat.</Text></View></View><FieldLabel label="Nama lengkap"/><TextInput accessibilityLabel="Nama lengkap" value={fullName} onChangeText={setFullName} autoCapitalize="words" placeholder="Nama lengkap" placeholderTextColor={colors.muted} style={styles.input}/><FieldLabel label="Email login"/><TextInput accessibilityLabel="Email login" value={owner.email} editable={false} style={[styles.input, styles.inputDisabled]}/><FieldLabel label="Nomor telepon"/><TextInput accessibilityLabel="Nomor telepon" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="08xxxxxxxxxx" placeholderTextColor={colors.muted} style={styles.input}/><Pressable accessibilityRole="button" disabled={busy} onPress={() => void save()} style={({ pressed }) => [styles.primaryAction, busy && styles.disabled, pressed && styles.pressed]}>{busy ? <ActivityIndicator size="small" color={colors.white}/> : <Ionicons name="checkmark" size={17} color={colors.white}/>}<Text style={styles.primaryActionText}>{busy ? "Menyimpan…" : "Simpan perubahan"}</Text></Pressable></View></BoundedBottomSheet>;
+  return <BoundedBottomSheet visible={visible} onClose={onClose} maxHeight="68%"><ScrollView keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }} contentContainerStyle={styles.profileEditSheet}><View style={styles.languageHeader}><View style={styles.languageIcon}><Ionicons name="person-outline" size={22} color={colors.sky600}/></View><View style={styles.languageHeaderCopy}><Text style={styles.languageEyebrow}>DATA AKUN</Text><Text style={styles.languageTitle}>Edit profil pet parent</Text><Text style={styles.languageNote}>Perubahan tersimpan ke akun Slivadoc di semua perangkat.</Text></View></View><Text style={styles.meta}>Semua kolom wajib diisi. Email login tidak dapat diubah di sini.</Text><FieldLabel label="Nama lengkap *"/><TextInput accessibilityLabel="Nama lengkap" value={fullName} onChangeText={setFullName} autoCapitalize="words" placeholder="Nama lengkap" placeholderTextColor={colors.muted} style={styles.input}/><FieldLabel label="Email login"/><TextInput accessibilityLabel="Email login" value={owner.email} editable={false} style={[styles.input, styles.inputDisabled]}/><FieldLabel label="Nomor telepon *"/><TextInput accessibilityLabel="Nomor telepon" value={phone} onChangeText={value => setPhone(normalizePhoneInput(value))} maxLength={16} keyboardType="number-pad" placeholder="08xxxxxxxxxx" placeholderTextColor={colors.muted} style={styles.input}/>{Object.values(errors).filter(Boolean).map(error => <Text key={error} accessibilityRole="alert" style={{ color: colors.red, fontSize: 12 }}>{error}</Text>)}<Pressable accessibilityRole="button" accessibilityLabel="Simpan perubahan" accessibilityState={{ disabled: !canSave }} disabled={!canSave} onPress={() => void save()} style={({ pressed }) => [styles.primaryAction, !canSave && styles.disabled, pressed && styles.pressed]}>{busy ? <ActivityIndicator size="small" color={colors.white}/> : <Ionicons name="checkmark" size={17} color={colors.white}/>}<Text style={styles.primaryActionText}>{busy ? "Menyimpan…" : "Simpan perubahan"}</Text></Pressable></ScrollView></BoundedBottomSheet>;
 }
 
 function LanguageSheet({ visible, onClose, onAction }: { visible: boolean; onClose: () => void; onAction: (message: string) => void }) {
@@ -296,6 +302,8 @@ function SecurityScreen({ owner, onBack, onOpenNotifications, onRequestLogout, o
     <AccountPageHeader eyebrow="PENGATURAN AKUN" title="Privasi & keamanan" onBack={onBack} onNotification={onOpenNotifications}/>
     <LinearGradient colors={["#EBF8FF", "#ECFBF7", "#F2EFFF"]} style={styles.securityHero}><View style={styles.securityScore}><Text style={styles.securityScoreValue}>{verifiedCount}/2</Text><Text style={styles.securityScoreLabel}>terverifikasi</Text></View><View style={styles.detailHeroCopy}><Text style={styles.detailHeroTitle}>{verifiedCount === 2 ? "Akunmu terlindungi ✨" : "Tinggal sedikit lagi"}</Text><Text style={styles.detailHeroNote}>{verifiedCount === 2 ? "Kontak login dan pemulihan akun sudah terverifikasi." : "Verifikasi kontak yang belum aktif agar pemulihan akun lebih aman."}</Text></View></LinearGradient>
 
+    <SectionTitle eyebrow="KEAMANAN AKUN" title="Ganti password"/>
+    <ChangePasswordForm onAction={onAction}/>
     <SectionTitle eyebrow="IDENTITAS LOGIN" title="Status verifikasi"/>
     <Card style={styles.verificationCard}><AccountVerificationRow icon="mail" title="Email login" value={maskSensitive ? maskEmail(owner.email) : owner.email} verified={emailVerified}/><AccountVerificationRow icon="call" title="Nomor telepon" value={owner.phone ? (maskSensitive ? maskPhone(owner.phone) : owner.phone) : "Belum diisi"} verified={phoneVerified} last/></Card>
 
@@ -389,8 +397,9 @@ function ConfirmModal({ visible, eyebrow, title, note, cancelLabel, confirmLabel
 function LogoutConfirm({ visible, onCancel, onConfirm }: { visible: boolean; onCancel: () => void; onConfirm: () => void }) { return <ConfirmModal visible={visible} eyebrow="KONFIRMASI KELUAR" title="Keluar dari akun?" note="Sesi Slivadoc di perangkat ini akan diakhiri. Data dan profil pet kamu tetap aman." cancelLabel="Tetap masuk" confirmLabel="Ya, keluar" onCancel={onCancel} onConfirm={onConfirm}/>; }
 
 const styles = StyleSheet.create({
-  petRow: { minHeight: 64, flexDirection: "row", alignItems: "center", gap: 12, padding: 10, borderRadius: 16, backgroundColor: colors.sky50 },
-  petIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: colors.white },
+  petFamilyCard: { padding: 12, gap: 10 },
+  petRow: { minHeight: 64, flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
+  petIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: colors.sky50 },
   petName: { color: colors.navy, fontSize: 15, fontWeight: "600" },
   pressed: { opacity: 0.9, transform: [{ scale: 0.985 }] }, disabled: { opacity: 0.58 }, noBorder: { borderBottomWidth: 0 },
   guestCard: { marginTop: 10, padding: 14 }, guestRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }, guestAvatar: { width: 50, height: 50, alignItems: "center", justifyContent: "center", borderRadius: 17, backgroundColor: colors.sky50 }, guestCopy: { minWidth: 0, flex: 1 },

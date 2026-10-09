@@ -1,5 +1,6 @@
 import { petOwnerIntlLocale } from "./petowner-locale.ts";
 export type AppView =
+  | "sitter"
   | "home"
   | "pets"
   | "discover"

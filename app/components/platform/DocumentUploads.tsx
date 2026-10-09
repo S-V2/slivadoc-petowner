@@ -17,6 +17,7 @@ type Props = {
   value: UploadedDocument[];
   onChange: (docs: UploadedDocument[]) => void;
   disabled?: boolean;
+  onUploadingChange?: (uploading: boolean) => void;
 };
 
 export function RequirementUploads({
@@ -24,13 +25,15 @@ export function RequirementUploads({
   value,
   onChange,
   disabled,
+  onUploadingChange,
 }: Props) {
   // One upload at a time: onChange below replaces the array from the render snapshot.
   const [uploading, setUploading] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   async function pick(requirement: string, file: File | undefined) {
-    if (!file) return;
+    if (!file || uploading.length) return;
+    onUploadingChange?.(true);
     setErrors((current) => ({ ...current, [requirement]: "" }));
     setUploading((current) => [...current, requirement]);
     try {
@@ -52,6 +55,7 @@ export function RequirementUploads({
       }));
     } finally {
       setUploading((current) => current.filter((item) => item !== requirement));
+      onUploadingChange?.(false);
     }
   }
 

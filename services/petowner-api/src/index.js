@@ -674,7 +674,7 @@ app.use((error, _request, response, _next) => {
   if (error?.code === "LIMIT_FILE_SIZE")
     return response
       .status(413)
-      .json({ error: "image_too_large", message: "Ukuran maksimal foto 8 MB" });
+      .json({ error: _request.path === "/api/uploads/documents" ? "document_too_large" : "image_too_large", message: _request.path === "/api/uploads/documents" ? "Ukuran maksimal dokumen 10 MB" : "Ukuran maksimal foto 8 MB" });
   response.status(500).json({
     error: "internal_error",
     message: "Terjadi gangguan pada Pet Owner API",

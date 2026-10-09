@@ -1,3 +1,8 @@
+import { CareerScreen } from "./src/screens/CareerScreen";
+import { LegalDocumentPanel } from "./src/components/LegalDocumentPanel";
+import { LEGAL_VERSION, type LegalConsent } from "../shared/legal";
+import { validEmail } from "../shared/account-validation";
+import { isWorldMode } from "../shared/petowner-flow";
 import { BottomSheetSafeArea } from "./src/components/BottomSheetSafeArea";
 import { LocalizedPressable as Pressable } from "./src/components/LocalizedPressable";
 import { SlivaAlertHost } from "./src/components/SlivaAlert";
@@ -41,7 +46,9 @@ import { HealthScreen } from "./src/screens/HealthScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { AddPetSheet } from "./src/components/AddPetSheet";
 import { CommunityScreen } from "./src/screens/CommunityScreen";
-import { WorldScreen, type WorldMode } from "./src/screens/WorldScreen";
+import { PetSitterScreen } from "./src/screens/PetSitterScreen";
+import { PetshipScreen } from "./src/screens/PetshipScreen";
+import { WorldScreen, type WorldMode as ScreenWorldMode } from "./src/screens/WorldScreen";
 import { ChatInboxScreen } from "./src/screens/ChatInboxScreen";
 import { type PetView, type Service } from "./src/data";
 import { colors, shadow, typography } from "./src/theme";
@@ -95,6 +102,8 @@ import { MobileNetworkLogger } from "./src/debug/MobileNetworkLogger";
 import { LanguageProvider, LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "./src/i18n";
 
 type Tab =
+  | "career"
+  | "sitter"
   | "home"
   | "marketplace"
   | "discover"
@@ -135,6 +144,8 @@ const bottomTabs: TabItem[] = [
 ];
 
 const moreTabs: TabItem[] = [
+  {id:"career",label:"Career",icon:"briefcase-outline",activeIcon:"briefcase"},
+  {id:"sitter",label:"Pet Sitter",icon:"paw-outline",activeIcon:"paw"},
   {
     id: "messages",
     label: "Chat",
@@ -167,10 +178,11 @@ const moreTabs: TabItem[] = [
   },
 ];
 
+type WorldMode = ScreenWorldMode | "petship";
 const worldIcons: Record<WorldMode, keyof typeof Ionicons.glyphMap> = {
   academy: "school-outline", events: "ticket-outline", petspot: "map-outline",
   pethub: "videocam-outline", consult: "medkit-outline", adoption: "paw-outline",
-  documents: "document-text-outline", pawdating: "heart-circle-outline",
+  documents: "document-text-outline", petship: "location-outline", pawdating: "heart-circle-outline",
 };
 const worldFeatures = sharedWorldFeatures.map((item) => ({ ...item, icon: worldIcons[item.mode] }));
 
@@ -274,6 +286,7 @@ function AnimatedTabButton({
 }
 
 const searchRouteTabs: Record<string, Tab> = {
+  sitter: "sitter",
   home: "home",
   discover: "discover",
   shop: "marketplace",
@@ -316,6 +329,12 @@ function MobileApp() {
   const layout = useResponsiveLayout();
   const { formatCurrency } = useI18n();
   const [tab, setTab] = useState<Tab>("home");
+  const [sittingBookingId, setSittingBookingId] = useState<string>();
+  const [worldMode, setWorldMode] = useState<WorldMode>("academy");
+  const selectWorldMode = useCallback((mode: WorldMode) => {
+    setWorldMode(mode);
+    void SecureStore.setItemAsync("slivadoc_world_mode", mode).catch(() => undefined);
+  }, []);
   const [moreOpen, setMoreOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -333,6 +352,7 @@ function MobileApp() {
   const [records, setRecords] = useState<MobileMedicalRecord[]>([]);
   const [recordsLoading, setRecordsLoading] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
+  const careerAfterLogin = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -364,7 +384,7 @@ function MobileApp() {
     useState<MobileMarketplaceChatThread>();
   const [worldIntent, setWorldIntent] = useState<{
     token: number;
-    mode: WorldMode;
+    mode: ScreenWorldMode;
     itemId?: string;
     veterinarianId?: string;
   }>();
@@ -728,19 +748,22 @@ function MobileApp() {
 
   useEffect(() => {
     queueMicrotask(() => {
-      void SecureStore.getItemAsync(navigationStorageKey)
-        .then((saved) => {
+      void Promise.all([SecureStore.getItemAsync(navigationStorageKey), SecureStore.getItemAsync("slivadoc_world_mode")])
+        .then(([saved, savedMode]) => {
+          if (isWorldMode(savedMode)) setWorldMode(savedMode);
           if (!saved || !validTabs.has(saved as Tab)) return;
           const restored = saved as Tab;
           tabRef.current = restored;
           setTab(restored);
         })
+        .catch(() => undefined)
         .finally(() => void reloadData(false));
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const navigateTo = useCallback(
     (next: Tab, resetHistory = false) => {
+      if (next === "career" && !hasPlatformSession()) { careerAfterLogin.current = true; setLoginOpen(true); return; }
       const current = tabRef.current;
       if (next === current) return;
       tabHistoryRef.current = resetHistory
@@ -753,6 +776,9 @@ function MobileApp() {
     },
     [screenTransition],
   );
+  useEffect(() => {
+    if (!initialLoading && tab === "career" && !hasPlatformSession()) { careerAfterLogin.current = true; setLoginOpen(true); }
+  }, [tab, initialLoading, bootstrap]);
   const goBack = useCallback(() => {
     const history = [...tabHistoryRef.current];
     const previous = history.pop();
@@ -938,19 +964,23 @@ function MobileApp() {
     navigateTo("marketplace");
   };
   const openConsultation = (veterinarianId?: string) => {
+    selectWorldMode("consult");
     setWorldIntent({ token: nextIntentToken(), mode: "consult", veterinarianId });
     navigateTo("world");
   };
   const openConsultationPlan = (itemId?: string) => {
+    selectWorldMode("consult");
     setWorldIntent({ token: nextIntentToken(), mode: "consult", itemId });
     navigateTo("world");
   };
   const openWorldItem = (mode: "academy" | "events" | "petspot", itemId: string) => {
+    selectWorldMode(mode);
     setWorldIntent({ token: nextIntentToken(), mode, itemId });
     navigateTo("world");
   };
   const openWorldFeature = (mode: WorldMode) => {
-    setWorldIntent({ token: nextIntentToken(), mode });
+    selectWorldMode(mode);
+    setWorldIntent(mode === "petship" ? undefined : { token: nextIntentToken(), mode });
     navigateTo("world");
   };
   const openOrderActivity = () => {
@@ -1121,7 +1151,7 @@ function MobileApp() {
           }}
         >
           <View style={[styles.app, { width: "100%", maxWidth: layout.contentWidth, alignSelf: "center" }]}>
-            {tab !== "home" ? (
+            {tab !== "home" && tab !== "career" ? (
               <View style={styles.backBar}>
                 <Pressable
                   accessibilityRole="button"
@@ -1245,8 +1275,14 @@ function MobileApp() {
                   onAction={notify}
                 />
               ) : null}
-              {tab === "world" ? (
+              {tab === "sitter" ? <PetSitterScreen initialBookingId={sittingBookingId} pets={pets} authenticated={Boolean(bootstrap)} onLogin={()=>setLoginOpen(true)}/> : null}
+              {tab === "career" && hasPlatformSession() ? <CareerScreen onBack={() => goBack()} /> : null}
+              {tab === "world" && worldMode === "petship" ? <PetshipScreen pet={pet} onRequirePet={requirePet} onAction={notify}/> : null}
+              {tab === "world" && worldMode !== "petship" ? (
                 <WorldScreen
+                  mode={worldMode}
+                  onModeChange={selectWorldMode}
+                  onIntentHandled={() => setWorldIntent(undefined)}
                   refreshVersion={refreshVersion}
                   onAction={notify}
                   onOpenNotifications={openNotifications}
@@ -1426,6 +1462,7 @@ function MobileApp() {
       <MoreModal
         visible={moreOpen}
         activeTab={tab}
+        worldMode={worldMode}
         authenticated={Boolean(bootstrap)}
         onClose={() => setMoreOpen(false)}
         onSelect={(next) => {
@@ -1504,6 +1541,9 @@ function MobileApp() {
           if (typeof threadId === "string" && threadId) {
             void openNotificationThread(threadId);
             return;
+          }
+          if (item.metadata?.activity_type === "sitting" && typeof item.metadata.activity_id === "string") {
+            setSittingBookingId(item.metadata.activity_id); navigateTo("sitter"); return;
           }
           const activityType = item.metadata?.activity_type;
           const activityId = item.metadata?.activity_id;
@@ -1614,13 +1654,14 @@ function MobileApp() {
       <LoginModal
         visible={loginOpen}
         busy={submitting}
-        onClose={() => setLoginOpen(false)}
+        onClose={() => { setLoginOpen(false); careerAfterLogin.current = false; if (tabRef.current === "career" && !hasPlatformSession()) navigateTo("home"); }}
         onSubmit={async (email, password) => {
           setSubmitting(true);
           try {
             await loginMobile(email, password);
             await refreshAccount();
             setLoginOpen(false);
+            if (careerAfterLogin.current) { careerAfterLogin.current = false; navigateTo("career"); }
             notify("Login berhasil");
           } catch (cause) {
             notify(cause instanceof Error ? cause.message : "Login gagal");
@@ -1769,6 +1810,7 @@ function formatNotificationTime(value: string, locale: string) {
 function MoreModal({
   visible,
   activeTab,
+  worldMode,
   authenticated,
   onClose,
   onSelect,
@@ -1776,11 +1818,13 @@ function MoreModal({
 }: {
   visible: boolean;
   activeTab: Tab;
+  worldMode: WorldMode;
   authenticated: boolean;
   onClose: () => void;
   onSelect: (tab: Tab) => void;
   onSelectWorld: (mode: WorldMode) => void;
 }) {
+  const { language } = useI18n();
   return (
     <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
       visible={visible}
@@ -1807,7 +1851,7 @@ function MoreModal({
             >
               <Text style={styles.moreSectionEyebrow}>AKUN & PERAWATAN</Text>
               <View style={styles.moreGrid}>
-              {moreTabs.filter((item) => item.id !== "world").map((item) => {
+              {moreTabs.filter((item) => item.id !== "world" && item.id !== "career").map((item) => {
                 const active = item.id === activeTab;
                 return (
                   <Pressable
@@ -1855,16 +1899,19 @@ function MoreModal({
                     key={item.mode}
                     accessibilityRole="button"
                     accessibilityLabel={`Buka ${item.label}`}
+                    accessibilityState={{ selected: activeTab === "world" && worldMode === item.mode }}
                     onPress={() => onSelectWorld(item.mode)}
-                    style={({ pressed }) => [styles.moreCard, pressed && styles.pressed]}
+                    style={({ pressed }) => [styles.moreCard, activeTab === "world" && worldMode === item.mode && styles.moreCardActive, pressed && styles.pressed]}
                   >
-                    <View style={styles.moreCardIcon}>
-                      <Ionicons name={item.icon} size={25} color={colors.sky600} />
+                    <View style={[styles.moreCardIcon, activeTab === "world" && worldMode === item.mode && styles.moreCardIconActive]}>
+                      <Ionicons name={item.icon} size={25} color={activeTab === "world" && worldMode === item.mode ? colors.white : colors.sky600} />
                     </View>
-                    <Text style={styles.moreCardLabel}>{item.label}</Text>
+                    <Text style={[styles.moreCardLabel, activeTab === "world" && worldMode === item.mode && styles.moreCardLabelActive]}>{item.label}</Text>
                   </Pressable>
                 ))}
               </View>
+              <Text style={styles.moreSectionEyebrow}>{language === "en" ? "OTHERS" : "LAINNYA"}</Text>
+              <View style={styles.moreGrid}><Pressable accessibilityRole="button" accessibilityLabel="Career" accessibilityState={{ selected: activeTab === "career" }} onPress={() => onSelect("career")} style={[styles.moreCard, activeTab === "career" && styles.moreCardActive]}><View style={[styles.moreCardIcon, activeTab === "career" && styles.moreCardIconActive]}><Ionicons name="briefcase-outline" size={25} color={activeTab === "career" ? colors.white : colors.sky600}/></View><Text style={[styles.moreCardLabel, activeTab === "career" && styles.moreCardLabelActive]}>Career</Text></Pressable></View>
             </ScrollView>
           </Pressable>
         </BottomSheetSafeArea>
@@ -2013,7 +2060,7 @@ function LoginModal({
     phone: string;
     email: string;
     password: string;
-  }) => Promise<{ development_otp?: string }>;
+  } & LegalConsent) => Promise<{ development_otp?: string }>;
   onVerify: (email: string, otp: string) => Promise<{ message: string }>;
   onResend: (
     email: string,
@@ -2036,7 +2083,7 @@ function LoginModal({
     name.trim().length >= 3 && /^0[0-9]{8,15}$/.test(phone) && terms && privacy;
   const canSubmit =
     !busy &&
-    email.includes("@") &&
+    validEmail(email) &&
     (mode === "verify"
       ? otp.length === 6
       : passwordValid && (mode === "login" || registrationValid));
@@ -2046,8 +2093,9 @@ function LoginModal({
         visible={visible}
         transparent
         animationType="slide"
-        onRequestClose={onClose}
+        onRequestClose={() => policy ? setPolicy(null) : onClose()}
       >
+        {policy ? <LegalDocumentPanel key={policy} policy={policy} onClose={() => setPolicy(null)} onAccept={() => { if (policy === "terms") setTerms(true); else setPrivacy(true); setPolicy(null); }} /> : (
         <Pressable accessible={false} style={styles.modalBackdrop} onPress={onClose}>
           <BottomSheetSafeArea style={styles.loginSheetWrap}>
             <Pressable
@@ -2185,7 +2233,10 @@ function LoginModal({
                     {mode === "register" ? (
                       <View style={styles.mobileConsents}>
                         <Pressable
-                          onPress={() => setTerms((value) => !value)}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: terms }}
+                          accessibilityLabel="Saya menyetujui Syarat dan Ketentuan"
+                          onPress={() => terms ? setTerms(false) : setPolicy("terms")}
                           style={styles.mobileConsent}
                         >
                           <Ionicons
@@ -2205,7 +2256,10 @@ function LoginModal({
                           </Text>
                         </Pressable>
                         <Pressable
-                          onPress={() => setPrivacy((value) => !value)}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: privacy }}
+                          accessibilityLabel="Saya menyetujui Kebijakan Privasi"
+                          onPress={() => privacy ? setPrivacy(false) : setPolicy("privacy")}
                           style={styles.mobileConsent}
                         >
                           <Ionicons
@@ -2262,6 +2316,9 @@ function LoginModal({
                         phone,
                         email: email.trim(),
                         password,
+                        terms_accepted: terms,
+                        privacy_accepted: privacy,
+                        legal_version: LEGAL_VERSION,
                       })
                         .then((result) => {
                           setOTP(result.development_otp ?? "");
@@ -2290,62 +2347,9 @@ function LoginModal({
             </Pressable>
           </BottomSheetSafeArea>
         </Pressable>
+        )}
       </Modal>
-      {policy ? (
-        <Modal supportedOrientations={["portrait", "portrait-upside-down", "landscape-left", "landscape-right"]}
-          visible
-          transparent
-          animationType="slide"
-          onRequestClose={() => setPolicy(null)}
-        >
-          <Pressable
-            accessible={false} style={styles.modalBackdrop}
-            onPress={() => setPolicy(null)}
-          >
-            <BottomSheetSafeArea style={styles.legalSheetWrap}>
-              <Pressable
-                accessible={false} style={styles.legalSheet}
-                onPress={(event) => event.stopPropagation()}
-              >
-                <View style={styles.sheetHandle} />
-                <SheetHeader
-                  eyebrow="LEGAL · SLIVADOC"
-                  title={
-                    policy === "terms"
-                      ? "Syarat dan Ketentuan"
-                      : "Kebijakan Privasi"
-                  }
-                  onClose={() => setPolicy(null)}
-                />
-                <ScrollView>
-                  <Text style={styles.legalBody}>
-                    {policy === "terms"
-                      ? "Slivadoc membantu pet parent mengelola profil pet, booking, transaksi, komunitas, Petship, dan layanan mitra. Data wajib benar; penggunaan yang membahayakan hewan, menipu, atau melanggar privasi dapat dimoderasi. Informasi kesehatan tidak menggantikan pemeriksaan dokter hewan. Detail biaya dan pembatalan ditampilkan sebelum konfirmasi."
-                      : "Slivadoc memproses data akun, profil pet, transaksi, dan lokasi untuk menjalankan layanan; data dibagikan ke mitra layanan hanya sesuai kebutuhan layanan yang kamu pilih."}
-                    {policy === "privacy" ? (
-                      <>
-                        {"\n\nKebijakan privasi lengkap: "}
-                        <Text
-                          accessibilityRole="link"
-                          onPress={() => void Linking.openURL("https://slivadoc.com/privasi")}
-                          style={styles.legalLink}
-                        >
-                          slivadoc.com/privasi
-                        </Text>
-                      </>
-                    ) : null}
-                  </Text>
-                </ScrollView>
-                <PrimaryButton
-                  label="Saya mengerti"
-                  icon="checkmark-circle-outline"
-                  onPress={() => setPolicy(null)}
-                />
-              </Pressable>
-            </BottomSheetSafeArea>
-          </Pressable>
-        </Modal>
-      ) : null}
+
     </>
   );
 }

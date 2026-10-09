@@ -1,23 +1,23 @@
 import { LocalizedPressable as Pressable } from "./LocalizedPressable";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
 import {  StyleSheet, View } from "react-native";
 
-import { uploadMobileImage, type MobileSubmittedDocument } from "../api";
+import { uploadMobileDocument, type MobileSubmittedDocument } from "../api";
 import { LocalizedText as Text } from "../i18n";
 import { colors } from "../theme";
 
 export type DocumentPhotos = Record<string, MobileSubmittedDocument>;
 
-// Documents in submission order; null while any requirement lacks a photo.
+// Documents in submission order; null while any requirement lacks a valid uploaded file.
 export const completeDocuments = (
   requirements: string[],
   photos: DocumentPhotos,
 ) => {
   const documents = requirements.flatMap((requirement) => {
     const photo = photos[requirement];
-    return photo ? [photo] : [];
+    return photo?.url?.startsWith("https://") && photo.requirement === requirement && photo.file_name && ["application/pdf", "image/jpeg", "image/png"].includes(photo.mime_type) ? [photo] : [];
   });
   return documents.length === requirements.length ? documents : null;
 };
@@ -28,41 +28,38 @@ export function DocumentPhotoPicker({
   onChange,
   onAction,
   disabled,
+  onUploadingChange,
 }: {
   requirements: string[];
   photos: DocumentPhotos;
   onChange: (requirement: string, document: MobileSubmittedDocument) => void;
   onAction: (message: string) => void;
   disabled?: boolean;
+  onUploadingChange?: (uploading: boolean) => void;
 }) {
   const [uploading, setUploading] = useState("");
   const pick = async (requirement: string) => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      onAction("Izin galeri dibutuhkan untuk memilih foto");
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.85,
-    });
-    const asset = result.canceled ? undefined : result.assets[0];
-    if (!asset) return;
+    if (disabled || uploading) return;
     setUploading(requirement);
+    onUploadingChange?.(true);
     try {
-      const mime_type = asset.mimeType ?? "image/jpeg";
-      const file_name = asset.fileName ?? "dokumen.jpg";
-      const upload = await uploadMobileImage(
+      const result = await DocumentPicker.getDocumentAsync({ type: ["application/pdf", "image/jpeg", "image/png"], copyToCacheDirectory: true, multiple: false });
+      const asset = result.canceled ? undefined : result.assets[0];
+      if (!asset) return;
+      if (!asset.size || asset.size > 10 * 1024 * 1024) { onAction("Pilih berkas PDF, JPG, atau PNG maksimal 10 MB"); return; }
+      const mime_type = asset.mimeType ?? (asset.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : asset.name.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg");
+      const file_name = asset.name;
+      const upload = await uploadMobileDocument(
         asset.uri,
         mime_type,
         file_name,
-        "documents",
       );
       onChange(requirement, { requirement, url: upload.url, file_name, mime_type });
     } catch (cause) {
-      onAction(cause instanceof Error ? cause.message : "Upload foto gagal");
+      onAction(cause instanceof Error ? cause.message : "Upload dokumen gagal");
     } finally {
       setUploading("");
+      onUploadingChange?.(false);
     }
   };
   return (
@@ -87,13 +84,13 @@ export function DocumentPhotoPicker({
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${done ? "Ganti" : "Pilih"} foto ${requirement}`}
+              accessibilityLabel={`${done ? "Ganti" : "Pilih"} dokumen ${requirement}`}
               disabled={disabled || Boolean(uploading)}
               onPress={() => void pick(requirement)}
               style={styles.button}
             >
               <Text style={styles.buttonText}>
-                {busy ? "Mengunggah…" : done ? "Ganti foto" : "Pilih foto"}
+                {busy ? "Mengunggah…" : done ? "Ganti berkas" : "Pilih berkas"}
               </Text>
             </Pressable>
           </View>

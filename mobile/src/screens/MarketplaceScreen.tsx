@@ -1,3 +1,4 @@
+import { BrandLogo } from "../components/BrandLogo";
 import { PetBrandMarquee } from "../components/PetBrandMarquee";
 import { TabRail } from "../components/TabRail";
 import { BottomSheetSafeArea } from "../components/BottomSheetSafeArea";
@@ -509,6 +510,22 @@ export function MarketplaceScreen({
     storeLastSeen: string;
     product?: MobileProduct;
   }>();
+  const pendingChat = useRef<typeof chat>(undefined);
+  const [chatTransition, setChatTransition] = useState(false);
+  const finishChatTransition = useCallback(() => {
+    const next = pendingChat.current;
+    if (!next) return;
+    pendingChat.current = undefined;
+    setSelected(undefined);
+    setSelectedStoreId("");
+    setStoreResponse(undefined);
+    setChat(next);
+    setChatTransition(false);
+  }, []);
+  useEffect(() => {
+    // iOS waits for onDismiss; Android does not emit that event.
+    if (chatTransition && Platform.OS !== "ios") finishChatTransition();
+  }, [chatTransition, finishChatTransition]);
   const [chatOpening, setChatOpening] = useState(false);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [addingProductId, setAddingProductId] = useState("");
@@ -915,7 +932,7 @@ export function MarketplaceScreen({
       const storeProduct =
         product ?? catalogProducts.find((item) => item.business_id === selectedStoreId);
       const businessId = product?.business_id || selectedStoreId;
-      if (!businessId || chatOpening) return;
+      if (!businessId || chatOpening || pendingChat.current) return;
       setChatOpening(true);
       try {
         const thread = await createMobileMarketplaceChat({
@@ -924,7 +941,7 @@ export function MarketplaceScreen({
         });
         const profile =
           storeResponse?.store.id === businessId ? storeResponse.store : undefined;
-        setChat({
+        pendingChat.current = {
           threadId: thread.id,
           businessId,
           product,
@@ -936,7 +953,8 @@ export function MarketplaceScreen({
             profile?.is_online ?? Boolean(storeProduct?.store_is_online),
           storeLastSeen:
             profile?.last_seen_at || storeProduct?.store_last_seen_at || "",
-        });
+        };
+        setChatTransition(true);
       } catch (cause) {
         onAction(cause instanceof Error ? cause.message : "Chat toko belum dapat dibuka");
       } finally {
@@ -1309,6 +1327,7 @@ export function MarketplaceScreen({
     <>
       <Screen contentStyle={styles.screenContent}>
         <View style={styles.header}>
+          <BrandLogo size={38} />
           <View style={styles.headerCopy}>
             <Text style={styles.kicker}>SLIVA MARKET</Text>
             <Text style={styles.headerTitle}>Belanja kebutuhan pet</Text>
@@ -1500,6 +1519,8 @@ export function MarketplaceScreen({
       </Screen>
 
       <ProductDetailSheet
+        visible={!chatTransition}
+        onDismiss={finishChatTransition}
         product={selected}
         reviews={reviews}
         reviewsLoading={reviewsLoading}
@@ -1530,7 +1551,8 @@ export function MarketplaceScreen({
 
       <StorefrontSheet
         key={selectedStoreId || "storefront"}
-        visible={Boolean(selectedStoreId)}
+        visible={Boolean(selectedStoreId) && !chatTransition}
+        onDismiss={finishChatTransition}
         response={storeResponse}
         products={catalogProducts.filter(
           (product) => product.business_id === selectedStoreId,
@@ -1695,6 +1717,7 @@ function SheetFrame({
   eyebrow,
   fill = false,
   onClose,
+  onDismiss,
   children,
 }: {
   visible: boolean;
@@ -1702,6 +1725,7 @@ function SheetFrame({
   eyebrow: string;
   fill?: boolean;
   onClose: () => void;
+  onDismiss?: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -1710,6 +1734,7 @@ function SheetFrame({
       transparent
       animationType="slide"
       onRequestClose={onClose}
+      onDismiss={onDismiss}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -1746,6 +1771,8 @@ function SheetFrame({
 
 function ProductDetailSheet({
   product,
+  visible,
+  onDismiss,
   reviews,
   reviewsLoading,
   rating,
@@ -1763,6 +1790,8 @@ function ProductDetailSheet({
   onSubmitReview,
 }: {
   product?: MobileProduct;
+  visible: boolean;
+  onDismiss: () => void;
   reviews: MobileProductReview[];
   reviewsLoading: boolean;
   rating: number;
@@ -1791,8 +1820,8 @@ function ProductDetailSheet({
     count: reviews.filter((review) => review.rating === score).length,
   }));
   return (
-    <SheetFrame
-      visible
+    <SheetFrame onDismiss={onDismiss}
+      visible={visible}
       title={product.name}
       eyebrow="DETAIL PRODUK"
       onClose={onClose}
@@ -2078,6 +2107,7 @@ function ProductDetailSheet({
 
 function StorefrontSheet({
   visible,
+  onDismiss,
   response,
   products,
   services,
@@ -2092,6 +2122,7 @@ function StorefrontSheet({
   onFavorite,
 }: {
   visible: boolean;
+  onDismiss: () => void;
   response?: MobileMarketplaceStoreResponse;
   products: MobileProduct[];
   services: Service[];
@@ -2170,6 +2201,7 @@ function StorefrontSheet({
       statusBarTranslucent
       animationType="slide"
       onRequestClose={onClose}
+      onDismiss={onDismiss}
     >
       <Pressable accessible={false} style={styles.storefrontBackdrop} onPress={onClose}>
         <Pressable

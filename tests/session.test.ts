@@ -52,8 +52,14 @@ test("legacy access_token and refresh_token are migrated to slivadoc keys", () =
     });
     assert.equal(getAccessToken(), "legacy-access-token-123");
     assert.equal(getRefreshToken(), "legacy-refresh-token-456");
-    assert.equal(storage.getItem("slivadoc.access_token"), "legacy-access-token-123");
-    assert.equal(storage.getItem("slivadoc.refresh_token"), "legacy-refresh-token-456");
+    assert.equal(
+      storage.getItem("slivadoc.access_token"),
+      "legacy-access-token-123",
+    );
+    assert.equal(
+      storage.getItem("slivadoc.refresh_token"),
+      "legacy-refresh-token-456",
+    );
   } finally {
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
@@ -126,7 +132,11 @@ test("parallel requests during 401 trigger only a single refresh call", async ()
     assert.equal(result1.data.name, "Success");
     assert.equal(result2.data.name, "Success");
     assert.equal(result3.data.name, "Success");
-    assert.equal(refreshCalls, 1, "Expected exactly 1 refresh call for parallel 401s");
+    assert.equal(
+      refreshCalls,
+      1,
+      "Expected exactly 1 refresh call for parallel 401s",
+    );
     assert.equal(getAccessToken(), "new-access-token");
     assert.equal(getRefreshToken(), "new-refresh-token");
   } finally {
@@ -231,7 +241,11 @@ test("getCurrentUser caches user identity from /api/v1/auth/me", async () => {
     const user1 = await getCurrentUser();
     const user2 = await getCurrentUser();
 
-    assert.equal(meCalls, 1, "Expected /api/v1/auth/me to be called only once due to caching");
+    assert.equal(
+      meCalls,
+      1,
+      "Expected /api/v1/auth/me to be called only once due to caching",
+    );
     assert.equal(user1?.id, "usr-999");
     assert.equal(user1?.full_name, "Budi Santoso");
     assert.equal(user2?.id, "usr-999");
@@ -246,5 +260,80 @@ test("getCurrentUser caches user identity from /api/v1/auth/me", async () => {
     });
     globalThis.fetch = originalFetch;
     clearSession();
+  }
+});
+
+test("temporary refresh failures preserve the account; revoked refresh tokens end it", async () => {
+  const originalStorage = globalThis.localStorage,
+    originalFetch = globalThis.fetch;
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: new MemoryStorage(),
+  });
+  try {
+    for (const status of [429, 500, 503]) {
+      saveTokens({
+        access_token: "expired-for-test",
+        refresh_token: "valid-for-test",
+      });
+      globalThis.fetch = async (input) =>
+        new Response(JSON.stringify({ message: "Temporary failure" }), {
+          status: String(input).endsWith("/auth/refresh") ? status : 401,
+        });
+      await assert.rejects(apiRequest(`/api/v1/petowner/retry-${status}`), {
+        status,
+      });
+      assert.equal(hasSession(), true);
+      assert.equal(getRefreshToken(), "valid-for-test");
+    }
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify({ message: "Revoked" }), { status: 401 });
+    await assert.rejects(apiRequest("/api/v1/petowner/revoked"), {
+      status: 401,
+    });
+    assert.equal(hasSession(), false);
+  } finally {
+    clearSession();
+    globalThis.fetch = originalFetch;
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: originalStorage,
+    });
+  }
+});
+
+test("a late successful account response cannot restore data after logout", async () => {
+  const originalStorage = globalThis.localStorage,
+    originalFetch = globalThis.fetch;
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: new MemoryStorage(),
+  });
+  try {
+    saveTokens({
+      access_token: "old-owner-token",
+      refresh_token: "old-owner-refresh",
+    });
+    let complete!: (response: Response) => void;
+    globalThis.fetch = () =>
+      new Promise<Response>((resolve) => {
+        complete = resolve;
+      });
+    const request = apiRequest("/api/v1/petowner/bootstrap");
+    clearSession();
+    complete(
+      new Response(JSON.stringify({ pets: [{ id: "private-pet" }] }), {
+        status: 200,
+      }),
+    );
+    await assert.rejects(request, { code: "session_changed" });
+    assert.equal(hasSession(), false);
+  } finally {
+    clearSession();
+    globalThis.fetch = originalFetch;
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: originalStorage,
+    });
   }
 });

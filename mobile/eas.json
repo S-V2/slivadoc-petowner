@@ -8,20 +8,45 @@
       "developmentClient": true,
       "distribution": "internal",
       "environment": "development",
-      "env": { "EXPO_PUBLIC_NETWORK_LOGGER_ENABLED": "1" }
+      "env": { "EXPO_PUBLIC_NETWORK_LOGGER_ENABLED": "1" },
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
       "environment": "preview",
-      "env": { "EXPO_PUBLIC_NETWORK_LOGGER_ENABLED": "1" }
+      "env": { "EXPO_PUBLIC_NETWORK_LOGGER_ENABLED": "1" },
+      "channel": "preview"
     },
     "production": {
       "autoIncrement": true,
       "environment": "production",
-      "env": { "EXPO_PUBLIC_NETWORK_LOGGER_ENABLED": "0" }
+      "env": { "EXPO_PUBLIC_NETWORK_LOGGER_ENABLED": "0" },
+      "channel": "production"
+    },
+    "production-apk": {
+      "environment": "production",
+      "channel": "production",
+      "android": { "buildType": "apk" }
     }
   },
   "submit": {
-    "production": {}
+    "internal": {
+      "android": { "track": "internal", "releaseStatus": "completed" }
+    },
+    "internal-draft": {
+      "android": { "track": "internal", "releaseStatus": "draft" }
+    },
+    "alpha": {
+      "android": { "track": "alpha", "releaseStatus": "completed" }
+    },
+    "alpha-draft": {
+      "android": { "track": "alpha", "releaseStatus": "draft" }
+    },
+    "beta": {
+      "android": { "track": "beta", "releaseStatus": "completed" }
+    },
+    "beta-draft": {
+      "android": { "track": "beta", "releaseStatus": "draft" }
+    }
   }
 }

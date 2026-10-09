@@ -1,0 +1,88 @@
+# Build the Android app on EAS and submit it to a Google Play testing track.
+#
+# Manual only (workflow_dispatch). The `release` job runs in the `mobile-release`
+# environment: it requires approval and may only deploy from `main`. EXPO_TOKEN
+# lives in that environment, not in the repo secrets.
+#
+# One `production` build profile serves every track, so a build tested on
+# internal/alpha/beta can be promoted to production in Play Console unchanged.
+# API URLs and the Play service-account key are stored on EAS, not here.
+#
+# --no-wait: this job only queues the build. The build and the Play upload
+# report their result in the EAS dashboard and by email, NOT on this run.
+#
+# Play submit profiles live in mobile/eas.json as `<track>` and `<track>-draft`.
+# `eas submit` takes no --track flag, so the inputs select the profile.
+
+name: Mobile release (Google Play)
+
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: Google Play track
+        type: choice
+        options: [internal, alpha, beta]
+        default: internal
+      release_status:
+        description: "Release status (use draft until the app's first publish)"
+        type: choice
+        options: [completed, draft]
+        default: completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-release
+  cancel-in-progress: false
+
+jobs:
+  # Same as ci.yml's `mobile` job. Separate workflows cannot gate each other
+  # (see publish.yml), so the check runs again here.
+  verify-mobile:
+    name: Verify mobile (typecheck)
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: useblacksmith/checkout@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+
+  release:
+    name: EAS build + submit (${{ inputs.track }}, ${{ inputs.release_status }})
+    needs: verify-mobile
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 15
+    environment: mobile-release
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: useblacksmith/checkout@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+      # EAS CLI resolves config plugins from node_modules when it reads app.json.
+      - run: npm ci
+      - run: >-
+          eas build --platform android --profile production
+          --auto-submit-with-profile "$SUBMIT_PROFILE"
+          --no-wait --non-interactive
+        env:
+          SUBMIT_PROFILE: ${{ inputs.track }}${{ inputs.release_status == 'draft' && '-draft' || '' }}

@@ -1,0 +1,86 @@
+# Publish an over-the-air JS update (EAS Update) to the `production` channel.
+#
+# Manual only (workflow_dispatch). Runs in the `mobile-release` environment, so it
+# needs approval and may only deploy from `main`.
+#
+# Every Play track runs the same `production` binary. An OTA therefore reaches
+# internal testers and production users at the same time, and rollout_percentage
+# is the only throttle. Raise it later with `eas update:edit`, or undo with
+# `eas update:revert-update-rollout` / `eas update:rollback`.
+#
+# runtimeVersion uses the `fingerprint` policy: an update is delivered only to
+# binaries whose native layer matches it. A change to native deps or config
+# needs a new store build (mobile-release.yml); an OTA alone won't reach users.
+#
+# --environment production is required. Without it the bundle is built with no
+# EXPO_PUBLIC_* API URLs.
+
+name: Mobile OTA update
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: Update message (shown in the EAS dashboard)
+        type: string
+        required: true
+      rollout_percentage:
+        description: Percentage of users who receive the update (1-100)
+        type: number
+        default: 100
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-update
+  cancel-in-progress: false
+
+jobs:
+  # Same as ci.yml's `mobile` job; see mobile-release.yml.
+  verify-mobile:
+    name: Verify mobile (typecheck)
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: useblacksmith/checkout@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+
+  update:
+    name: EAS update (production, ${{ inputs.rollout_percentage }}%)
+    needs: verify-mobile
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 20
+    environment: mobile-release
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: useblacksmith/checkout@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - run: >-
+          eas update --channel production --environment production
+          --platform android --message "$MESSAGE"
+          --rollout-percentage "$ROLLOUT" --non-interactive
+        env:
+          MESSAGE: ${{ inputs.message }}
+          ROLLOUT: ${{ inputs.rollout_percentage }}

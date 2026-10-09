@@ -35,6 +35,7 @@ import AddPetExperience from "./integrations/AddPetExperience";
 import CommunityExperience from "./integrations/CommunityExperience";
 import LocationModal from "./integrations/LocationModal";
 import ClinicDirectory from "./clinics/ClinicDirectory";
+import { ClinicOpenState } from "./clinics/ClinicBranchInfo";
 import SlivaCareDrawer from "./integrations/SlivaCareDrawer";
 import PlatformDiscovery from "./platform/PlatformDiscovery";
 import PawDatingExperience from "./pawdating/PawDatingExperience";
@@ -2913,49 +2914,46 @@ function HomeView({
               const image = branch.banner_url || branch.logo_url;
               const distance = formatDistanceKm(branch.distance_km);
               return (
-              <article
-                className="home-service-card"
+              <button
+                type="button"
+                className="home-service-card clinic-home-card"
                 key={branch.branch_id}
+                aria-label={`${t("Lihat profil")} ${branch.business_name}, ${branch.branch_name}`}
                 onClick={() => openClinicBranch(branch)}
               >
-                <div className={`home-service-visual ${["mint", "blue", "violet", "peach"][index % 4]}`}>
+                <span className={`home-service-visual ${["mint", "blue", "violet", "peach"][index % 4]}`}>
                   <span>{clinicTypeLabel(branch.type, language)}</span>
-                  <LocalizedCopy>{image ? (
+                  {image ? (
                     <Image
                       className="catalog-cover-image"
                       src={image}
                       alt=""
                       fill
-                      sizes="220px"
+                      sizes="240px"
                       unoptimized
                     />
                   ) : (
                     <i><Icon name="clinic" size={30} /></i>
-                  )}</LocalizedCopy>
-                </div>
-                <div>
+                  )}
+                </span>
+                <span className="clinic-home-body">
                   <b>{branch.business_name}</b>
                   <small>
-                    <Icon name="map" size={11} /> {branch.branch_name}
+                    <Icon name="map" size={12} />
+                    <span>{branch.branch_name}</span>
                   </small>
-                  <p>
-                    <span>
-                      <Icon name="bag" size={10} /> {t(`${branch.service_count} layanan · ${branch.product_count} produk`)}</span>
-                    {distance ? ` · ${distance}` : ""}
-                  </p>
-                  <footer>
-                    <strong>{branch.city}</strong>
-                    <LocalizedButton
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openClinicBranch(branch);
-                      }}
-                    ><LocalizedCopy>{"Lihat profil "}</LocalizedCopy><Icon name="arrow" size={12} />
-                    </LocalizedButton>
-                  </footer>
-                </div>
-              </article>
+                  <span className="clinic-home-meta">
+                    {distance ? <strong>{distance}</strong> : null}
+                    <span>{t(`${branch.service_count} layanan · ${branch.product_count} produk`)}</span>
+                  </span>
+                  <span className="clinic-home-foot">
+                    <ClinicOpenState branch={branch} />
+                    <span className="clinic-home-go" aria-hidden="true">
+                      <Icon name="arrow" size={14} />
+                    </span>
+                  </span>
+                </span>
+              </button>
               );
             })}</LocalizedCopy>
             <LocalizedCopy>{nearby.state === "ready" && nearby.items.length === 0 && (

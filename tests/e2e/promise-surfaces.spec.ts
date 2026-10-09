@@ -592,7 +592,7 @@ test.describe("PetSpot review link", () => {
         }),
       });
     });
-    await page.goto("/ulasan/tok-ok", { waitUntil: "domcontentloaded" });
+    await page.goto("/reviews/tok-ok", { waitUntil: "domcontentloaded" });
     await expect(
       page.getByRole("heading", { name: /Pawstay Cafe/ }),
     ).toBeVisible();
@@ -629,11 +629,11 @@ test.describe("PetSpot review link", () => {
         }),
       }),
     );
-    await page.goto("/ulasan/tok-missing", { waitUntil: "domcontentloaded" });
+    await page.goto("/reviews/tok-missing", { waitUntil: "domcontentloaded" });
     await expect(
       page.getByRole("heading", { name: "Link ulasan tidak valid" }),
     ).toBeVisible();
-    await page.goto("/ulasan/tok-used", { waitUntil: "domcontentloaded" });
+    await page.goto("/reviews/tok-used", { waitUntil: "domcontentloaded" });
     await expect(
       page.getByRole("heading", { name: "Ulasan sudah dikirim" }),
     ).toBeVisible();

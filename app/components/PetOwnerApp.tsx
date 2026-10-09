@@ -2168,7 +2168,7 @@ function PetOwnerLogin({
               {policy === "privacy" && (
                 <p>
                   <LocalizedCopy>{"Kebijakan privasi lengkap tersedia di "}</LocalizedCopy>
-                  <Link href="/privasi"><LocalizedCopy>{"slivadoc.com/privasi"}</LocalizedCopy></Link>
+                  <Link href="/privacy"><LocalizedCopy>{"slivadoc.com/privacy"}</LocalizedCopy></Link>
                   <LocalizedCopy>{"."}</LocalizedCopy>
                 </p>
               )}

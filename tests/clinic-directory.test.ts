@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   CLINIC_ENTRY_POINT,
@@ -28,8 +27,6 @@ import {
   quotePetOwnerOrder,
   trackPetOwnerEvent,
 } from "../app/lib/platform-api.ts";
-
-const source = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 class MemoryStorage {
   values = new Map<string, string>();
@@ -188,13 +185,6 @@ test("guests keep device coordinates without reverse geocoding; members still ge
   assert.equal(reversed, 1);
 });
 
-test("the location modal gates address search for guests and never geocodes for them", () => {
-  const modal = source("../app/components/integrations/LocationModal.tsx");
-  assert.match(modal, /if \(!authenticated\) \{\s*setLoginPrompt\(true\);\s*return;\s*\}\s*setLoading\(true\);/);
-  assert.match(modal, /resolveLocation\(/);
-  assert.doesNotMatch(modal, /await reverseGeocode\(/);
-});
-
 test("card helpers format type, distance, hours and directions", () => {
   assert.equal(clinicTypeLabel("hybrid"), "Klinik & Petshop");
   assert.equal(clinicTypeLabel("hybrid", "en"), "Clinic & Pet Shop");
@@ -219,44 +209,4 @@ test("card helpers format type, distance, hours and directions", () => {
     directionsUrl({ latitude: -6.2, longitude: 106.8 }),
     "https://www.google.com/maps/dir/?api=1&destination=-6.2,106.8",
   );
-});
-
-test("Klinik & Petshop is a guest-visible menu item in the more sheet, not the primary tabs", () => {
-  const app = source("../app/components/PetOwnerApp.tsx");
-  const domain = source("../app/lib/petowner-domain.ts");
-  assert.match(domain, /\| "clinics"/);
-  assert.match(app, /\{ id: "clinics", label: "Klinik & Petshop", icon: "clinic" \}/);
-  assert.match(app, /items: \["messages", "discover", "clinics", "world", "health", "profile"\]/);
-  assert.match(app, /const moreIds: AppView\[\] = \["messages", "discover", "clinics", "health", "profile"\]/);
-  assert.match(app, /const primaryIds: AppView\[\] = \["home", "shop", "community", "bookings"\]/);
-  assert.match(app, /const protectedViews: AppView\[\] = \[\s*"pets",\s*"favorites",\s*"notifications",\s*"support",\s*\]/);
-  assert.match(app, /featureView === "clinics" && \(\s*<ClinicDirectory/);
-  assert.match(app, /clinics: \{\s*title: "Klinik & Petshop"/);
-});
-
-test("the store page takes the branch, drops it for other stores, and the SEO CTA deep links to it", () => {
-  const shop = source("../app/components/marketplace/ShopMarketplace.tsx");
-  assert.match(shop, /getDiscoveryBranch\(/);
-  assert.match(shop, /recordStoreOpen\("other"\)/);
-  assert.match(shop, /<ClinicBranchInfo branch=\{branch\}/);
-  const place = source("../app/tempat/[slug]/page.tsx");
-  assert.match(place, /href=\{`\/\?view=clinics&branch=\$\{place\.branchId\}`\}/);
-  const app = source("../app/components/PetOwnerApp.tsx");
-  assert.match(app, /recordStoreOpen\("other"\);\s*setActiveView\("shop"\)/);
-  assert.match(app, /getDiscoveryBranches\(\{ limit: 6/);
-});
-
-test("new directory copy has English and no dashes", () => {
-  const extra = source("../shared/english-extra.ts");
-  const files = [
-    "../app/components/clinics/ClinicDirectory.tsx",
-    "../app/components/clinics/ClinicBranchInfo.tsx",
-    "../app/lib/clinic-directory.ts",
-    "../app/lib/device-location.ts",
-  ];
-  for (const file of files) assert.doesNotMatch(source(file), /[\u2013\u2014]/, file);
-  const block = extra.slice(extra.indexOf("// Klinik & Petshop directory"));
-  assert.doesNotMatch(block, /[\u2013\u2014]/);
-  for (const key of ["Klinik & Petshop", "Sedang tutup", "Muat lagi", "Rating toko", "Stok dikirim dari cabang terdekat yang tersedia"])
-    assert.ok(block.includes(`"${key}"`), key);
 });

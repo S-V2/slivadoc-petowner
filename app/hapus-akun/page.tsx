@@ -19,7 +19,7 @@ const steps = [
 
 const consequences = [
   "Setelah konfirmasi, akun Anda memasuki masa tenggang 14 hari. Selama masa itu Anda dapat membatalkan kapan saja, dan akun tetap dapat digunakan.",
-  "Setelah masa tenggang berakhir, data pribadi Anda — profil, alamat, profil dan foto hewan, pesan chat, laporan hewan hilang, serta konten komunitas — dihapus permanen atau dianonimkan, termasuk media yang tersimpan di penyedia penyimpanan kami.",
+  "Setelah masa tenggang berakhir, data pribadi Anda (profil, alamat, profil dan foto hewan, pesan chat, laporan hewan hilang, serta konten komunitas) dihapus permanen atau dianonimkan, termasuk media yang tersimpan di penyedia penyimpanan kami.",
   "Catatan transaksi, pembayaran, dan pemesanan dipertahankan secara teranonim selama kurang lebih 5 tahun untuk kewajiban pembukuan dan perpajakan.",
   "Salinan backup terenkripsi terhapus otomatis dalam rotasi hingga 12 bulan, sehingga salinan data Anda mungkin masih ada pada backup selama periode tersebut.",
   "Pesan chat Anda ikut dihapus dari sistem kami.",
@@ -28,58 +28,55 @@ const consequences = [
 export default function HapusAkunPage() {
   return (
     <PublicPage>
-      <section className="seo-hero">
+      <div className="legal-doc">
         <Breadcrumbs
           items={[{ label: "Beranda", href: "/" }, { label: "Hapus Akun" }]}
         />
-        <div className="seo-section-heading">
-          <span className="seo-eyebrow"><LocalizedCopy>{"HAPUS AKUN"}</LocalizedCopy></span>
+        <header className="legal-head">
           <h1><LocalizedCopy>{"Hapus akun Slivadoc Anda"}</LocalizedCopy></h1>
-          <p><LocalizedCopy>{"Anda berhak menghapus akun dan data pribadi Anda kapan saja. Halaman ini menjelaskan cara melakukannya dan apa yang terjadi setelahnya."}</LocalizedCopy></p>
-          <LanguageToggle />
-        </div>
-      </section>
+          <div className="legal-meta">
+            <LanguageToggle />
+          </div>
+          <p className="legal-lead">
+            <LocalizedCopy>{"Anda berhak menghapus akun dan data pribadi Anda kapan saja. Halaman ini menjelaskan cara melakukannya dan apa yang terjadi setelahnya."}</LocalizedCopy>
+          </p>
+        </header>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Cara menghapus akun"}</LocalizedCopy></h2>
-        </div>
-        <ul className="seo-checklist">
-          {steps.map((item) => (
-            <li key={item}><LocalizedCopy>{item}</LocalizedCopy></li>
-          ))}
-        </ul>
-      </section>
+          <ul className="legal-list">
+            {steps.map((item) => (
+              <li key={item}><LocalizedCopy>{item}</LocalizedCopy></li>
+            ))}
+          </ul>
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Apa yang terjadi setelahnya"}</LocalizedCopy></h2>
-        </div>
-        <ul className="seo-checklist">
-          {consequences.map((item) => (
-            <li key={item}><LocalizedCopy>{item}</LocalizedCopy></li>
-          ))}
-        </ul>
-      </section>
+          <ul className="legal-list">
+            {consequences.map((item) => (
+              <li key={item}><LocalizedCopy>{item}</LocalizedCopy></li>
+            ))}
+          </ul>
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Formulir permintaan"}</LocalizedCopy></h2>
           <p><LocalizedCopy>{"Untuk mengajukan penghapusan atau membatalkan permintaan penghapusan tanpa aplikasi, gunakan formulir berikut."}</LocalizedCopy></p>
-        </div>
-        <DeletionRequestForm />
-      </section>
+          <DeletionRequestForm />
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Pertanyaan lain"}</LocalizedCopy></h2>
           <p>
-            <LocalizedCopy>{"Pelajari data apa yang kami proses pada"}</LocalizedCopy>{" "}
-            <LocalizedLink href="/privasi"><LocalizedCopy>{"Kebijakan Privasi"}</LocalizedCopy></LocalizedLink>{" "}
+            <LocalizedCopy>{"Pelajari data apa yang kami proses pada"}</LocalizedCopy>
+            <LocalizedCopy>{" "}</LocalizedCopy>
+            <LocalizedLink href="/privasi"><LocalizedCopy>{"Kebijakan Privasi"}</LocalizedCopy></LocalizedLink>
+            <LocalizedCopy>{" "}</LocalizedCopy>
             <LocalizedCopy>{"atau hubungi privacy@slivadoc.com."}</LocalizedCopy>
           </p>
-        </div>
-      </section>
+        </section>
+      </div>
     </PublicPage>
   );
 }

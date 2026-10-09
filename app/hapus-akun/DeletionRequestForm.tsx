@@ -90,7 +90,7 @@ export function DeletionRequestForm() {
   };
 
   return (
-    <div className="seo-info-box">
+    <div className="legal-form">
       <div className="seo-hero-actions" role="group" aria-label="Jenis permintaan">
         <button
           type="button"

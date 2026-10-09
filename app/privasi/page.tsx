@@ -50,34 +50,41 @@ const purposes = [
   "Kepatuhan hukum: memenuhi kewajiban pembukuan, perpajakan, serta permintaan yang sah dari aparat berwenang.",
 ];
 
-const thirdParties: Array<[string, string]> = [
+const thirdParties: Array<[string, string, string]> = [
   [
     "Resend",
-    "Email transaksional seperti kode OTP. Data yang diterima: alamat email Anda.",
+    "Email transaksional (kode OTP)",
+    "Alamat email Anda",
   ],
   [
     "Cloudinary",
-    "Penyimpanan media. Data yang diterima: foto dan dokumen yang Anda unggah.",
+    "Penyimpanan media",
+    "Foto dan dokumen yang Anda unggah",
   ],
   [
     "OpenAI",
-    "Pemrosesan asisten AI SlivaCare. Data yang diterima: isi pesan chat dan profil hewan yang Anda kirimkan ke asisten.",
+    "Pemrosesan asisten AI SlivaCare",
+    "Isi pesan chat dan profil hewan yang Anda kirimkan ke asisten",
   ],
   [
     "Photon (OpenStreetMap)",
-    "Pencarian lokasi (geocoding). Data yang diterima: koordinat yang Anda masukkan.",
+    "Pencarian lokasi (geocoding)",
+    "Koordinat yang Anda masukkan",
   ],
   [
     "Yokke",
-    "Pemrosesan pembayaran QRIS. Data yang diterima: nominal dan referensi transaksi. Data kartu atau rekening tidak diteruskan kepada kami.",
+    "Pemrosesan pembayaran QRIS",
+    "Nominal dan referensi transaksi; data kartu atau rekening tidak diteruskan kepada kami",
   ],
   [
     "Lion Parcel",
-    "Pengiriman barang. Data yang diterima: nama, nomor telepon, alamat, email, dan koordinat pengirim serta penerima.",
+    "Pengiriman barang",
+    "Nama, nomor telepon, alamat, email, dan koordinat pengirim serta penerima",
   ],
   [
     "Penyedia infrastruktur cloud",
-    "Hosting aplikasi, basis data, dan penyimpanan pada pusat data regional di luar negeri.",
+    "Hosting aplikasi, basis data, dan penyimpanan",
+    "Pusat data regional di luar negeri",
   ],
 ];
 
@@ -106,155 +113,154 @@ const security = [
 export default function PrivacyPage() {
   return (
     <PublicPage>
-      <section className="seo-hero">
+      <div className="legal-doc">
         <Breadcrumbs
           items={[{ label: "Beranda", href: "/" }, { label: "Privasi & Data" }]}
         />
-        <div className="seo-section-heading">
-          <span className="seo-eyebrow"><LocalizedCopy>{"PRIVASI & DATA"}</LocalizedCopy></span>
+        <header className="legal-head">
           <h1><LocalizedCopy>{"Kebijakan Privasi Slivadoc"}</LocalizedCopy></h1>
-          <p><LocalizedCopy>{"Berlaku mulai 8 Oktober 2026. Halaman ini menjelaskan data yang kami kumpulkan, cara kami menggunakannya, pihak yang menerimanya, masa simpannya, serta hak Anda — termasuk pada aplikasi Android Slivadoc Pet Owner."}</LocalizedCopy></p>
-          <LanguageToggle />
-        </div>
-      </section>
+          <div className="legal-meta">
+            <span><LocalizedCopy>{"Berlaku mulai 8 Oktober 2026"}</LocalizedCopy></span>
+            <LanguageToggle />
+          </div>
+          <p className="legal-lead">
+            <LocalizedCopy>{"Halaman ini menjelaskan data yang kami kumpulkan, cara kami menggunakannya, pihak yang menerimanya, masa simpannya, serta hak Anda, termasuk pada aplikasi Android Slivadoc Pet Owner."}</LocalizedCopy>
+          </p>
+        </header>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Pengendali data dan kontak"}</LocalizedCopy></h2>
           <p><LocalizedCopy>{"Pengendali data pribadi Anda adalah PT Sliva Technology Indonesia. Pertanyaan, permintaan data, atau keluhan privasi dapat dikirim ke privacy@slivadoc.com atau melalui Pusat Bantuan setelah Anda masuk ke akun."}</LocalizedCopy></p>
-        </div>
-      </section>
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Data yang kami kumpulkan"}</LocalizedCopy></h2>
           <p><LocalizedCopy>{"Kami hanya mengumpulkan data yang diperlukan untuk menjalankan layanan Slivadoc."}</LocalizedCopy></p>
-        </div>
-        <div className="seo-card-grid">
-          {dataCategories.map(([title, detail]) => (
-            <article className="seo-card" key={title}>
-              <h2><LocalizedCopy>{title}</LocalizedCopy></h2>
-              <p><LocalizedCopy>{detail}</LocalizedCopy></p>
-            </article>
-          ))}
-        </div>
-      </section>
+          <div className="legal-table-wrap">
+            <table className="legal-table">
+              <thead>
+                <tr>
+                  <th><LocalizedCopy>{"Kategori"}</LocalizedCopy></th>
+                  <th><LocalizedCopy>{"Yang dikumpulkan"}</LocalizedCopy></th>
+                </tr>
+              </thead>
+              <tbody>
+                {dataCategories.map(([title, detail]) => (
+                  <tr key={title}>
+                    <td><LocalizedCopy>{title}</LocalizedCopy></td>
+                    <td><LocalizedCopy>{detail}</LocalizedCopy></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Cara kami menggunakan data"}</LocalizedCopy></h2>
-        </div>
-        <ul className="seo-checklist">
-          {purposes.map((item) => (
-            <li key={item}><LocalizedCopy>{item}</LocalizedCopy></li>
-          ))}
-        </ul>
-      </section>
+          <ul className="legal-list">
+            {purposes.map((item) => (
+              <li key={item}><LocalizedCopy>{item}</LocalizedCopy></li>
+            ))}
+          </ul>
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Pihak yang menerima data"}</LocalizedCopy></h2>
           <p><LocalizedCopy>{"Data dibagikan hanya sejauh yang diperlukan untuk menjalankan layanan berikut."}</LocalizedCopy></p>
-        </div>
-        <div className="seo-card-grid">
-          {thirdParties.map(([name, detail]) => (
-            <article className="seo-card" key={name}>
-              <h2><LocalizedCopy>{name}</LocalizedCopy></h2>
-              <p><LocalizedCopy>{detail}</LocalizedCopy></p>
-            </article>
-          ))}
-        </div>
-        <div className="seo-section-heading">
+          <div className="legal-table-wrap">
+            <table className="legal-table">
+              <thead>
+                <tr>
+                  <th><LocalizedCopy>{"Penerima"}</LocalizedCopy></th>
+                  <th><LocalizedCopy>{"Tujuan"}</LocalizedCopy></th>
+                  <th><LocalizedCopy>{"Data yang diterima"}</LocalizedCopy></th>
+                </tr>
+              </thead>
+              <tbody>
+                {thirdParties.map(([name, purpose, data]) => (
+                  <tr key={name}>
+                    <td><LocalizedCopy>{name}</LocalizedCopy></td>
+                    <td><LocalizedCopy>{purpose}</LocalizedCopy></td>
+                    <td><LocalizedCopy>{data}</LocalizedCopy></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <p><LocalizedCopy>{"Fitur penerjemahan otomatis berjalan pada infrastruktur kami sendiri dan tidak mengirim data Anda ke pihak ketiga. Kami tidak menjual data pribadi Anda."}</LocalizedCopy></p>
-        </div>
-      </section>
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Data yang bersifat publik"}</LocalizedCopy></h2>
           <p><LocalizedCopy>{"Laporan hewan hilang dan konten komunitas (postingan, komentar, grup) dapat dilihat publik tanpa masuk ke akun, termasuk nama hewan, jenis, lokasi terakhir, dan koordinat yang Anda cantumkan. Nomor kontak hanya tampil jika Anda mencantumkannya sendiri pada laporan. Jangan membagikan data pribadi sensitif di area publik."}</LocalizedCopy></p>
-        </div>
-      </section>
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Dasar hukum pemrosesan"}</LocalizedCopy></h2>
           <p><LocalizedCopy>{"Kami memproses data berdasarkan persetujuan Anda saat mendaftar, pelaksanaan layanan yang Anda minta, kewajiban hukum (termasuk pembukuan dan perpajakan), serta kepentingan sah kami dalam menjaga keamanan layanan, sesuai Undang-Undang Nomor 27 Tahun 2022 tentang Pelindungan Data Pribadi."}</LocalizedCopy></p>
-        </div>
-      </section>
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Hak Anda sebagai pemilik data"}</LocalizedCopy></h2>
           <p><LocalizedCopy>{"Anda dapat menggunakan hak berikut melalui privacy@slivadoc.com, Pusat Bantuan, atau menu pengaturan akun."}</LocalizedCopy></p>
-        </div>
-        <ul className="seo-checklist">
-          {rights.map((item) => (
-            <li key={item}><LocalizedCopy>{item}</LocalizedCopy></li>
-          ))}
-        </ul>
-      </section>
+          <ul className="legal-list">
+            {rights.map((item) => (
+              <li key={item}><LocalizedCopy>{item}</LocalizedCopy></li>
+            ))}
+          </ul>
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Masa simpan data"}</LocalizedCopy></h2>
-        </div>
-        <ul className="seo-checklist">
-          {retention.map((item) => (
-            <li key={item}><LocalizedCopy>{item}</LocalizedCopy></li>
-          ))}
-        </ul>
-      </section>
+          <ul className="legal-list">
+            {retention.map((item) => (
+              <li key={item}><LocalizedCopy>{item}</LocalizedCopy></li>
+            ))}
+          </ul>
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Penghapusan akun"}</LocalizedCopy></h2>
-          <p>
-            <LocalizedCopy>{"Anda dapat menghapus akun melalui menu pengaturan akun di aplikasi, atau melalui"}</LocalizedCopy>{" "}
-            <LocalizedLink href="/hapus-akun"><LocalizedCopy>{"halaman Hapus Akun"}</LocalizedCopy></LocalizedLink>{" "}
-            <LocalizedCopy>{"jika Anda sudah tidak menggunakan aplikasi. Setelah konfirmasi dengan kode OTP, tersedia masa tenggang 14 hari untuk membatalkan. Setelah masa tenggang berakhir, data pribadi Anda dihapus permanen atau dianonimkan; catatan transaksi dipertahankan secara teranonim sesuai kewajiban hukum; dan salinan backup terenkripsi terhapus dalam rotasi hingga 12 bulan."}</LocalizedCopy>
-          </p>
-        </div>
-      </section>
+          <p><LocalizedCopy>{"Anda dapat menghapus akun melalui menu pengaturan akun di aplikasi, atau melalui halaman Hapus Akun jika Anda sudah tidak menggunakan aplikasi. Setelah konfirmasi dengan kode OTP, tersedia masa tenggang 14 hari untuk membatalkan. Setelah masa tenggang berakhir, data pribadi Anda dihapus permanen atau dianonimkan; catatan transaksi dipertahankan secara teranonim sesuai kewajiban hukum; dan salinan backup terenkripsi terhapus dalam rotasi hingga 12 bulan."}</LocalizedCopy></p>
+          <div className="legal-actions">
+            <LocalizedLink className="seo-secondary" href="/hapus-akun"><LocalizedCopy>{"Buka halaman Hapus Akun"}</LocalizedCopy></LocalizedLink>
+          </div>
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Keamanan data"}</LocalizedCopy></h2>
-        </div>
-        <ul className="seo-checklist">
-          {security.map((item) => (
-            <li key={item}><LocalizedCopy>{item}</LocalizedCopy></li>
-          ))}
-        </ul>
-      </section>
+          <ul className="legal-list">
+            {security.map((item) => (
+              <li key={item}><LocalizedCopy>{item}</LocalizedCopy></li>
+            ))}
+          </ul>
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Anak di bawah 13 tahun"}</LocalizedCopy></h2>
           <p><LocalizedCopy>{"Layanan Slivadoc tidak ditujukan untuk anak di bawah 13 tahun dan kami tidak dengan sengaja mengumpulkan data pribadi mereka. Jika Anda mengetahui seorang anak memberikan data pribadi kepada kami, hubungi privacy@slivadoc.com agar data tersebut kami hapus."}</LocalizedCopy></p>
-        </div>
-      </section>
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Perubahan kebijakan"}</LocalizedCopy></h2>
           <p><LocalizedCopy>{"Kami dapat memperbarui kebijakan ini dari waktu ke waktu. Perubahan material akan diberitahukan melalui aplikasi atau email, dan tanggal berlaku tercantum di bagian atas halaman ini."}</LocalizedCopy></p>
-        </div>
-      </section>
+        </section>
 
-      <section className="seo-main-section">
-        <div className="seo-section-heading">
+        <section className="legal-section">
           <h2><LocalizedCopy>{"Kontak privasi"}</LocalizedCopy></h2>
-          <p><LocalizedCopy>{"Kirim permintaan akses, koreksi, atau penghapusan data ke"}</LocalizedCopy>
+          <p>
+            <LocalizedCopy>{"Kirim permintaan akses, koreksi, atau penghapusan data ke"}</LocalizedCopy>
             <LocalizedCopy>{" "}</LocalizedCopy>
             <a href="mailto:privacy@slivadoc.com"><LocalizedCopy>{"privacy@slivadoc.com"}</LocalizedCopy></a>
-            <LocalizedCopy>{" atau melalui"}</LocalizedCopy>
+            <LocalizedCopy>{" "}</LocalizedCopy>
+            <LocalizedCopy>{"atau melalui"}</LocalizedCopy>
             <LocalizedCopy>{" "}</LocalizedCopy>
             <LocalizedLink href="/bantuan"><LocalizedCopy>{"Pusat Bantuan"}</LocalizedCopy></LocalizedLink>
             <LocalizedCopy>{" setelah masuk agar identitas akun dapat diverifikasi."}</LocalizedCopy>
           </p>
-        </div>
-      </section>
+        </section>
+      </div>
     </PublicPage>
   );
 }

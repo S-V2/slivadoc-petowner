@@ -595,12 +595,15 @@ export const englishExtra: Record<string, string> = {
 
   "Belum ada dokumen tersedia": "No documents available yet",
   "Pilihan dokumen dari mitra akan muncul di sini.": "Documents from partners will appear here.",
-  // Reviewed legal copy — /privasi, /hapus-akun, and the deletion request form.
+  // Reviewed legal copy - /privasi, /hapus-akun, and the deletion request form.
   // These strings must never fall through to machine translation.
   "PRIVASI & DATA": "PRIVACY & DATA",
   "Kebijakan Privasi Slivadoc": "Slivadoc Privacy Policy",
-  "Berlaku mulai 8 Oktober 2026. Halaman ini menjelaskan data yang kami kumpulkan, cara kami menggunakannya, pihak yang menerimanya, masa simpannya, serta hak Anda — termasuk pada aplikasi Android Slivadoc Pet Owner.":
-    "Effective 8 October 2026. This page explains the data we collect, how we use it, who receives it, how long we keep it, and your rights — including in the Slivadoc Pet Owner Android app.",
+  "Berlaku mulai 8 Oktober 2026": "Effective 8 October 2026",
+  "Halaman ini menjelaskan data yang kami kumpulkan, cara kami menggunakannya, pihak yang menerimanya, masa simpannya, serta hak Anda, termasuk pada aplikasi Android Slivadoc Pet Owner.":
+    "This page explains the data we collect, how we use it, who receives it, how long we keep it, and your rights, including in the Slivadoc Pet Owner Android app.",
+  "Yang dikumpulkan": "What we collect",
+  "Data yang diterima": "Data received",
   "Pengendali data dan kontak": "Data controller and contact",
   "Pengendali data pribadi Anda adalah PT Sliva Technology Indonesia. Pertanyaan, permintaan data, atau keluhan privasi dapat dikirim ke privacy@slivadoc.com atau melalui Pusat Bantuan setelah Anda masuk ke akun.":
     "The controller of your personal data is PT Sliva Technology Indonesia. Questions, data requests, or privacy complaints can be sent to privacy@slivadoc.com or via the Help Center after you sign in.",
@@ -642,26 +645,29 @@ export const englishExtra: Record<string, string> = {
   "Data dibagikan hanya sejauh yang diperlukan untuk menjalankan layanan berikut.":
     "Data is shared only as far as needed to run the following services.",
   "Resend": "Resend",
-  "Email transaksional seperti kode OTP. Data yang diterima: alamat email Anda.":
-    "Transactional email such as OTP codes. Data received: your email address.",
+  "Email transaksional (kode OTP)": "Transactional email (OTP codes)",
+  "Alamat email Anda": "Your email address",
   "Cloudinary": "Cloudinary",
-  "Penyimpanan media. Data yang diterima: foto dan dokumen yang Anda unggah.":
-    "Media storage. Data received: photos and documents you upload.",
+  "Penyimpanan media": "Media storage",
+  "Foto dan dokumen yang Anda unggah": "Photos and documents you upload",
   "OpenAI": "OpenAI",
-  "Pemrosesan asisten AI SlivaCare. Data yang diterima: isi pesan chat dan profil hewan yang Anda kirimkan ke asisten.":
-    "SlivaCare AI assistant processing. Data received: the contents of chat messages and pet profile data you send to the assistant.",
+  "Pemrosesan asisten AI SlivaCare": "SlivaCare AI assistant processing",
+  "Isi pesan chat dan profil hewan yang Anda kirimkan ke asisten":
+    "The contents of chat messages and pet profile data you send to the assistant",
   "Photon (OpenStreetMap)": "Photon (OpenStreetMap)",
-  "Pencarian lokasi (geocoding). Data yang diterima: koordinat yang Anda masukkan.":
-    "Location search (geocoding). Data received: the coordinates you enter.",
+  "Pencarian lokasi (geocoding)": "Location search (geocoding)",
+  "Koordinat yang Anda masukkan": "The coordinates you enter",
   "Yokke": "Yokke",
-  "Pemrosesan pembayaran QRIS. Data yang diterima: nominal dan referensi transaksi. Data kartu atau rekening tidak diteruskan kepada kami.":
-    "QRIS payment processing. Data received: transaction amount and reference. Card or bank account data is not passed on to us.",
+  "Pemrosesan pembayaran QRIS": "QRIS payment processing",
+  "Nominal dan referensi transaksi; data kartu atau rekening tidak diteruskan kepada kami":
+    "Transaction amount and reference; card or bank account data is not passed on to us",
   "Lion Parcel": "Lion Parcel",
-  "Pengiriman barang. Data yang diterima: nama, nomor telepon, alamat, email, dan koordinat pengirim serta penerima.":
-    "Parcel shipping. Data received: name, phone number, address, email, and coordinates of sender and recipient.",
+  "Pengiriman barang": "Parcel shipping",
+  "Nama, nomor telepon, alamat, email, dan koordinat pengirim serta penerima":
+    "Name, phone number, address, email, and coordinates of sender and recipient",
   "Penyedia infrastruktur cloud": "Cloud infrastructure provider",
-  "Hosting aplikasi, basis data, dan penyimpanan pada pusat data regional di luar negeri.":
-    "Hosting of the application, database, and storage at regional data centers abroad.",
+  "Hosting aplikasi, basis data, dan penyimpanan": "Hosting of the application, database, and storage",
+  "Pusat data regional di luar negeri": "Regional data centers abroad",
   "Fitur penerjemahan otomatis berjalan pada infrastruktur kami sendiri dan tidak mengirim data Anda ke pihak ketiga. Kami tidak menjual data pribadi Anda.":
     "The automatic translation feature runs on our own infrastructure and does not send your data to third parties. We do not sell your personal data.",
   "Data yang bersifat publik": "Public data",
@@ -691,11 +697,9 @@ export const englishExtra: Record<string, string> = {
   "Backup: salinan backup terenkripsi dihapus otomatis dalam rotasi hingga 12 bulan, sehingga data yang telah Anda hapus dapat bertahan pada salinan tersebut hingga rotasi selesai.":
     "Backups: encrypted backup copies are deleted automatically on a rotation of up to 12 months, so data you have deleted may persist on those copies until the rotation completes.",
   "Penghapusan akun": "Account deletion",
-  "Anda dapat menghapus akun melalui menu pengaturan akun di aplikasi, atau melalui":
-    "You can delete your account via account settings in the app, or through",
-  "halaman Hapus Akun": "the Delete Account page",
-  "jika Anda sudah tidak menggunakan aplikasi. Setelah konfirmasi dengan kode OTP, tersedia masa tenggang 14 hari untuk membatalkan. Setelah masa tenggang berakhir, data pribadi Anda dihapus permanen atau dianonimkan; catatan transaksi dipertahankan secara teranonim sesuai kewajiban hukum; dan salinan backup terenkripsi terhapus dalam rotasi hingga 12 bulan.":
-    "if you no longer use the app. After OTP confirmation there is a 14-day grace period during which you can cancel. Once the grace period ends, your personal data is permanently deleted or anonymized; transaction records are kept in anonymized form as required by law; and encrypted backup copies are deleted on a rotation of up to 12 months.",
+  "Anda dapat menghapus akun melalui menu pengaturan akun di aplikasi, atau melalui halaman Hapus Akun jika Anda sudah tidak menggunakan aplikasi. Setelah konfirmasi dengan kode OTP, tersedia masa tenggang 14 hari untuk membatalkan. Setelah masa tenggang berakhir, data pribadi Anda dihapus permanen atau dianonimkan; catatan transaksi dipertahankan secara teranonim sesuai kewajiban hukum; dan salinan backup terenkripsi terhapus dalam rotasi hingga 12 bulan.":
+    "You can delete your account via account settings in the app, or through the Delete Account page if you no longer use the app. After OTP confirmation there is a 14-day grace period during which you can cancel. Once the grace period ends, your personal data is permanently deleted or anonymized; transaction records are kept in anonymized form as required by law; and encrypted backup copies are deleted on a rotation of up to 12 months.",
+  "Buka halaman Hapus Akun": "Open the Delete Account page",
   "Keamanan data": "Data security",
   "Kata sandi disimpan dalam bentuk ter-hash (Argon2id) dan akses data dibatasi berdasarkan peran.":
     "Passwords are stored as a hash (Argon2id) and data access is restricted by role.",
@@ -728,8 +732,8 @@ export const englishExtra: Record<string, string> = {
   "Apa yang terjadi setelahnya": "What happens afterwards",
   "Setelah konfirmasi, akun Anda memasuki masa tenggang 14 hari. Selama masa itu Anda dapat membatalkan kapan saja, dan akun tetap dapat digunakan.":
     "After confirmation your account enters a 14-day grace period. During that time you can cancel at any time, and the account remains usable.",
-  "Setelah masa tenggang berakhir, data pribadi Anda — profil, alamat, profil dan foto hewan, pesan chat, laporan hewan hilang, serta konten komunitas — dihapus permanen atau dianonimkan, termasuk media yang tersimpan di penyedia penyimpanan kami.":
-    "Once the grace period ends, your personal data — profile, addresses, pet profiles and photos, chat messages, lost pet reports, and community content — is permanently deleted or anonymized, including media stored with our storage provider.",
+  "Setelah masa tenggang berakhir, data pribadi Anda (profil, alamat, profil dan foto hewan, pesan chat, laporan hewan hilang, serta konten komunitas) dihapus permanen atau dianonimkan, termasuk media yang tersimpan di penyedia penyimpanan kami.":
+    "Once the grace period ends, your personal data (profile, addresses, pet profiles and photos, chat messages, lost pet reports, and community content) is permanently deleted or anonymized, including media stored with our storage provider.",
   "Catatan transaksi, pembayaran, dan pemesanan dipertahankan secara teranonim selama kurang lebih 5 tahun untuk kewajiban pembukuan dan perpajakan.":
     "Transaction, payment, and booking records are kept in anonymized form for approximately 5 years for bookkeeping and tax obligations.",
   "Salinan backup terenkripsi terhapus otomatis dalam rotasi hingga 12 bulan, sehingga salinan data Anda mungkin masih ada pada backup selama periode tersebut.":

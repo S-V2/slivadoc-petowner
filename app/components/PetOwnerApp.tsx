@@ -6344,7 +6344,7 @@ function ProfileView({
       <LocalizedCopy>{deleteOpen && (
         <AccountDeletionModal close={() => setDeleteOpen(false)} notify={notify} />
       )}</LocalizedCopy>
-      <section className="panel"><ChangePasswordForm /></section>
+      <section className="profile-password-panel"><ChangePasswordForm /></section>
       <LocalizedCopy>{addressModalOpen && (
         <ShippingAddressModal
           account={account}

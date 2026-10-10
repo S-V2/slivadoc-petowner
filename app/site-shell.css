@@ -24,8 +24,15 @@
   margin: 0;
 }
 .seo-header {
+  position: fixed;
+  inset: 0 0 auto;
+  height: var(--public-header-height);
   padding-inline: var(--site-gutter);
   gap: 24px;
+}
+.seo-site {
+  --public-header-height: 66px;
+  padding-top: var(--public-header-height);
 }
 .seo-main-section {
   width: 100%;
@@ -134,14 +141,23 @@
 /* App shell polish: keep the owner header pinned for the full document, including
    the footer, and keep recommendation cards on one clean baseline. */
 .main-shell {
-  --app-sidebar-width: 250px;
-  padding-top: 72px;
+  --app-sidebar-width: 276px;
+  --app-header-height: 66px;
+  --app-header-offset: 12px;
+  margin-left: var(--app-sidebar-width);
+  padding-top: calc(var(--app-header-height) + var(--app-header-offset));
 }
 
 .main-shell > .topbar {
   position: fixed;
-  inset: 0 0 auto var(--app-sidebar-width);
+  inset: var(--app-header-offset) 0 auto var(--app-sidebar-width);
+  height: var(--app-header-height);
+  margin: 0 16px;
   z-index: 60;
+}
+
+.main-shell > .topbar .mobile-brand {
+  display: none !important;
 }
 
 .home-service-row {
@@ -154,6 +170,7 @@
 .home-service-card.clinic-home-skeleton {
   align-self: stretch;
   transform: none;
+  box-shadow: none;
 }
 
 .home-service-card.clinic-home-card:nth-child(3n + 2) {
@@ -164,18 +181,77 @@
   background: #fff;
 }
 
+.home-doctor-row .home-doctor-card {
+  box-shadow: none;
+}
+
+.home-petspots {
+  margin: 0;
+}
+
+.profile-password-panel {
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+
+.profile-password-panel .account-password-form {
+  margin: 0;
+}
+
 @media (min-width: 861px) and (max-width: 1180px) {
   .main-shell {
-    --app-sidebar-width: 218px;
+    --app-sidebar-width: 258px;
+  }
+  .topbar :is(.point-pill, .pet-switcher, .global-search kbd) {
+    display: none;
+  }
+  .profile-native.profile-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .profile-settings-col {
+    position: static;
   }
 }
 
 @media (max-width: 860px) {
   .main-shell {
     --app-sidebar-width: 0px;
-    padding-top: 66px;
+    --app-header-offset: 0px;
+  }
+  .main-shell > .topbar {
+    margin: 0;
+  }
+  .main-shell > .topbar .mobile-brand {
+    display: flex !important;
+  }
+  .mobile-nav button {
+    border-radius: 14px;
+  }
+  .profile-password-panel {
+    order: 6;
+  }
+  .profile-shipping-address {
+    order: 7;
+  }
+  .profile-native-support {
+    order: 8;
+  }
+  .profile-native-logout {
+    order: 9;
   }
 }
+@media (min-width: 601px) and (max-width: 860px) {
+  .clinic-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .clinic-search {
+    flex: 1 1 200px;
+  }
+  .clinic-radius {
+    flex: 0 1 160px;
+  }
+}
+
 .not-found-art {
   position: relative;
   display: flex;
@@ -374,6 +450,9 @@
   .seo-site,
   .career-page {
     --site-gutter: 16px;
+  }
+  .seo-site {
+    --public-header-height: 62px;
   }
   .career-page {
     --career-header-height: 74px;

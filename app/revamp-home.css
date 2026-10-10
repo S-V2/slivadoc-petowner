@@ -1154,7 +1154,7 @@
   font-weight: 600;
 }
 
-@media (min-width: 981px) {
+@media (min-width: 1181px) {
   .home-layout.home-workspace {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 360px;
@@ -1188,7 +1188,7 @@
   }
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1180px) {
   .home-layout.home-workspace {
     display: grid;
     gap: 14px;
@@ -1205,8 +1205,9 @@
   .home-health-section { order: 4; }
   .home-care-section { order: 5; }
   .home-services-section { order: 6; }
-  .home-doctors-section { order: 7; }
-  .home-campaign { order: 8; }
+  .home-petspots { order: 7; }
+  .home-doctors-section { order: 8; }
+  .home-campaign { order: 9; }
   .home-rail-dock { display: none; }
 }
 

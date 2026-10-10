@@ -28,10 +28,11 @@ test("home keeps quick actions without duplicating the member card from profile"
   assert.match(homeCss, /\.home-quick-mini-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
 });
 
-test("responsive home keeps nearby partners before recommended doctors", () => {
+test("responsive home keeps partner, PetSpot and doctor recommendations in order", () => {
   assert.match(homeCss, /\.home-services-section\s*\{\s*order:\s*6/);
-  assert.match(homeCss, /\.home-doctors-section\s*\{\s*order:\s*7/);
-  assert.match(homeCss, /\.home-campaign\s*\{\s*order:\s*8/);
+  assert.match(homeCss, /\.home-petspots\s*\{\s*order:\s*7/);
+  assert.match(homeCss, /\.home-doctors-section\s*\{\s*order:\s*8/);
+  assert.match(homeCss, /\.home-campaign\s*\{\s*order:\s*9/);
 });
 
 test("web forms share readable native-sized labels and inputs", () => {

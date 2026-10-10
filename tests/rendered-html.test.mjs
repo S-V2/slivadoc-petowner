@@ -2,7 +2,18 @@ import assert from "node:assert/strict";
 import test, { before, after } from "node:test";
 
 const originalFetch = globalThis.fetch;
-before(() => { globalThis.fetch = async (input, init) => String(input).includes("/api/v1/") ? Response.json({ data: [], count: 0, has_more: false }) : originalFetch(input, init); });
+before(() => {
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/api/v1/public/careers")) {
+      return Response.json({ data: [], consent_version: "2026-10-09" });
+    }
+    if (url.includes("/api/v1/")) {
+      return Response.json({ data: [], count: 0, has_more: false });
+    }
+    return originalFetch(input, init);
+  };
+});
 after(() => { globalThis.fetch = originalFetch; });
 
 async function render(pathname = "/") {

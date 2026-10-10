@@ -7230,6 +7230,7 @@ function ActivityDetail({
   onPaid: () => Promise<void>;
   onRepeat: (item: PetOwnerActivityCenterItem) => void;
 }) {
+  const dialog = useDialogFocus<HTMLElement>(true, close);
   const [payment, setPayment] = useState<PaymentIntent | null>(null);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState("");
@@ -7439,7 +7440,12 @@ function ActivityDetail({
   return (
     <div className="modal-overlay" onMouseDown={close}>
       <section
-        className="modal activity-detail-modal"
+        className="modal activity-detail-modal activity-transaction-dialog"
+        ref={dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="activity-detail-title"
+        tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <LocalizedButton className="modal-close" onClick={close} aria-label="Tutup">
@@ -7451,94 +7457,126 @@ function ActivityDetail({
           </span>
           <div>
             <small><LocalizedCopy>{meta.label.toUpperCase()}</LocalizedCopy></small>
-            <h2><LocalizedCopy>{item.title}</LocalizedCopy></h2>
+            <h2 id="activity-detail-title"><LocalizedCopy>{item.title}</LocalizedCopy></h2>
             <em><LocalizedCopy>{activityStatusLabel(item)}</LocalizedCopy></em>
           </div>
         </header>
-        <div className="activity-detail-copy">
-          <span className="activity-detail-label"><LocalizedCopy>{"RINGKASAN AKTIVITAS"}</LocalizedCopy></span>
-          <p><LocalizedCopy>{[item.code, item.subtitle].filter(Boolean).join(" · ")}</LocalizedCopy></p>
-        </div>
-        <LocalizedCopy>{item.type === "event" &&
-          item.payment_status === "paid" &&
-          (item.status === "confirmed" || item.status === "checked_in") &&
-          item.qr_token && (
-            <div className="activity-ticket">
-              <QRCodeSVG
-                value={item.qr_token}
-                size={200}
-                marginSize={2}
-                title="QR tiket event"
-              />
-              <b><LocalizedCopy>{item.qr_token.slice(0, 13).toUpperCase()}</LocalizedCopy></b>
-              <small><LocalizedCopy>{"Tunjukkan QR ini ke petugas saat check-in."}</LocalizedCopy></small>
+        <div className="activity-detail-body">
+          <div className="activity-detail-copy">
+            <span className="activity-detail-label"><LocalizedCopy>{"RINGKASAN AKTIVITAS"}</LocalizedCopy></span>
+            <p><LocalizedCopy>{[item.code, item.subtitle].filter(Boolean).join(" · ")}</LocalizedCopy></p>
+          </div>
+          <LocalizedCopy>{item.type === "event" &&
+            item.payment_status === "paid" &&
+            (item.status === "confirmed" || item.status === "checked_in") &&
+            item.qr_token && (
+              <div className="activity-ticket">
+                <QRCodeSVG
+                  value={item.qr_token}
+                  size={200}
+                  marginSize={2}
+                  title="QR tiket event"
+                />
+                <b><LocalizedCopy>{item.qr_token.slice(0, 13).toUpperCase()}</LocalizedCopy></b>
+                <small><LocalizedCopy>{"Tunjukkan QR ini ke petugas saat check-in."}</LocalizedCopy></small>
+              </div>
+            )}</LocalizedCopy>
+          <LocalizedCopy>{rows.length > 0 && (
+            <dl>
+              <LocalizedCopy>{rows.map(([label, value]) => (
+                <div key={label}>
+                  <dt><LocalizedCopy>{label}</LocalizedCopy></dt>
+                  <dd><LocalizedCopy>{value}</LocalizedCopy></dd>
+                </div>
+              ))}</LocalizedCopy>
+            </dl>
+          )}</LocalizedCopy>
+          <LocalizedCopy>{item.amount > 0 && (
+            <div className="activity-detail-copy">
+              <span className="activity-detail-label"><LocalizedCopy>{"Status pembayaran"}</LocalizedCopy></span>
+              <p>
+                <b>
+                  <LocalizedCopy>{item.payable
+                    ? "Menunggu pembayaran"
+                    : activityStatusText(item.payment_status)}</LocalizedCopy>
+                </b><LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"· "}</LocalizedCopy><LocalizedCopy>{formatRupiah(item.amount)}</LocalizedCopy>
+              </p>
+              <LocalizedCopy>{item.payable && !payment && (
+                <LocalizedButton
+                  className="primary-button full"
+                  type="button"
+                  disabled={paying}
+                  onClick={() => void pay()}
+                ><LocalizedCopy>{"Bayar sekarang"}</LocalizedCopy></LocalizedButton>
+              )}</LocalizedCopy>
+              <LocalizedCopy>{payError && <p className="form-message"><LocalizedCopy>{payError}</LocalizedCopy></p>}</LocalizedCopy>
+              <LocalizedCopy>{payment && (
+                <QrisPaymentPanel payment={payment} onPaid={() => void onPaid()} />
+              )}</LocalizedCopy>
             </div>
           )}</LocalizedCopy>
-        <LocalizedCopy>{rows.length > 0 && (
-          <dl>
-            <LocalizedCopy>{rows.map(([label, value]) => (
-              <div key={label}>
-                <dt><LocalizedCopy>{label}</LocalizedCopy></dt>
-                <dd><LocalizedCopy>{value}</LocalizedCopy></dd>
+          <LocalizedCopy>{item.type === "booking" &&
+            item.source !== "clinic" &&
+            item.cancellable_until &&
+            (item.status === "requested" || item.status === "confirmed") && (
+              <div className="activity-detail-copy">
+                <span className="activity-detail-label"><LocalizedCopy>{"Pembatalan"}</LocalizedCopy></span>
+                <LocalizedCopy>{canCancel ? (
+                  <>
+                    <p><LocalizedCopy>{"Bisa dibatalkan hingga"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedCopy>{item.cancellation_cutoff_hours ?? 24}</LocalizedCopy><LocalizedCopy>{" jam sebelum jadwal."}</LocalizedCopy></p>
+                    <LocalizedButton
+                      className="secondary-button full"
+                      type="button"
+                      disabled={cancelBusy}
+                      onClick={() => setCancelOpen(true)}
+                    ><LocalizedCopy>{"Batalkan booking"}</LocalizedCopy></LocalizedButton>
+                  </>
+                ) : (
+                  <p><LocalizedCopy>{"Batas pembatalan sudah lewat. Hubungi klinik untuk perubahan."}</LocalizedCopy></p>
+                )}</LocalizedCopy>
+                <LocalizedCopy>{cancelOpen && (
+                  <div className="form-message" role="alertdialog">
+                    <p>
+                      <LocalizedCopy>{item.cancellation_policy ||
+                        "Booking yang dibatalkan tidak dapat dipulihkan."}</LocalizedCopy>
+                    </p>
+                    <LocalizedButton
+                      className="primary-button"
+                      type="button"
+                      disabled={cancelBusy}
+                      onClick={() => void cancelBooking()}
+                    >
+                      <LocalizedCopy>{cancelBusy ? "Membatalkan…" : "Ya, batalkan"}</LocalizedCopy>
+                    </LocalizedButton><LocalizedCopy>{" "}</LocalizedCopy>
+                    <LocalizedButton
+                      className="secondary-button"
+                      type="button"
+                      disabled={cancelBusy}
+                      onClick={() => setCancelOpen(false)}
+                    ><LocalizedCopy>{"Tidak jadi"}</LocalizedCopy></LocalizedButton>
+                  </div>
+                )}</LocalizedCopy>
               </div>
-            ))}</LocalizedCopy>
-          </dl>
-        )}</LocalizedCopy>
-        <LocalizedCopy>{item.amount > 0 && (
-          <div className="activity-detail-copy">
-            <span className="activity-detail-label"><LocalizedCopy>{"Status pembayaran"}</LocalizedCopy></span>
-            <p>
-              <b>
-                <LocalizedCopy>{item.payable
-                  ? "Menunggu pembayaran"
-                  : activityStatusText(item.payment_status)}</LocalizedCopy>
-              </b><LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"· "}</LocalizedCopy><LocalizedCopy>{formatRupiah(item.amount)}</LocalizedCopy>
-            </p>
-            <LocalizedCopy>{item.payable && !payment && (
-              <LocalizedButton
-                className="primary-button full"
-                type="button"
-                disabled={paying}
-                onClick={() => void pay()}
-              ><LocalizedCopy>{"Bayar sekarang"}</LocalizedCopy></LocalizedButton>
             )}</LocalizedCopy>
-            <LocalizedCopy>{payError && <p className="form-message"><LocalizedCopy>{payError}</LocalizedCopy></p>}</LocalizedCopy>
-            <LocalizedCopy>{payment && (
-              <QrisPaymentPanel payment={payment} onPaid={() => void onPaid()} />
-            )}</LocalizedCopy>
-          </div>
-        )}</LocalizedCopy>
-        <LocalizedCopy>{item.type === "booking" &&
-          item.source !== "clinic" &&
-          item.cancellable_until &&
-          (item.status === "requested" || item.status === "confirmed") && (
+          <LocalizedCopy>{item.type === "order" && item.cancellable && (
             <div className="activity-detail-copy">
               <span className="activity-detail-label"><LocalizedCopy>{"Pembatalan"}</LocalizedCopy></span>
-              <LocalizedCopy>{canCancel ? (
-                <>
-                  <p><LocalizedCopy>{"Bisa dibatalkan hingga"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
-                    <LocalizedCopy>{item.cancellation_cutoff_hours ?? 24}</LocalizedCopy><LocalizedCopy>{" jam sebelum jadwal."}</LocalizedCopy></p>
-                  <LocalizedButton
-                    className="secondary-button full"
-                    type="button"
-                    disabled={cancelBusy}
-                    onClick={() => setCancelOpen(true)}
-                  ><LocalizedCopy>{"Batalkan booking"}</LocalizedCopy></LocalizedButton>
-                </>
-              ) : (
-                <p><LocalizedCopy>{"Batas pembatalan sudah lewat. Hubungi klinik untuk perubahan."}</LocalizedCopy></p>
-              )}</LocalizedCopy>
+              <p><LocalizedCopy>{"Pesanan dapat dibatalkan sebelum penjual memprosesnya."}</LocalizedCopy></p>
+              <LocalizedButton
+                className="secondary-button full"
+                type="button"
+                disabled={cancelBusy}
+                onClick={() => setCancelOpen(true)}
+              ><LocalizedCopy>{"Batalkan pesanan"}</LocalizedCopy></LocalizedButton>
               <LocalizedCopy>{cancelOpen && (
                 <div className="form-message" role="alertdialog">
-                  <p>
-                    <LocalizedCopy>{item.cancellation_policy ||
-                      "Booking yang dibatalkan tidak dapat dipulihkan."}</LocalizedCopy>
-                  </p>
+                  <p><LocalizedCopy>{"Batalkan pesanan ini? Pesanan yang dibatalkan tidak dapat dipulihkan."}</LocalizedCopy></p>
                   <LocalizedButton
                     className="primary-button"
                     type="button"
                     disabled={cancelBusy}
-                    onClick={() => void cancelBooking()}
+                    onClick={() => void cancelOrder()}
                   >
                     <LocalizedCopy>{cancelBusy ? "Membatalkan…" : "Ya, batalkan"}</LocalizedCopy>
                   </LocalizedButton><LocalizedCopy>{" "}</LocalizedCopy>
@@ -7552,120 +7590,90 @@ function ActivityDetail({
               )}</LocalizedCopy>
             </div>
           )}</LocalizedCopy>
-        <LocalizedCopy>{item.type === "order" && item.cancellable && (
-          <div className="activity-detail-copy">
-            <span className="activity-detail-label"><LocalizedCopy>{"Pembatalan"}</LocalizedCopy></span>
-            <p><LocalizedCopy>{"Pesanan dapat dibatalkan sebelum penjual memprosesnya."}</LocalizedCopy></p>
-            <LocalizedButton
-              className="secondary-button full"
-              type="button"
-              disabled={cancelBusy}
-              onClick={() => setCancelOpen(true)}
-            ><LocalizedCopy>{"Batalkan pesanan"}</LocalizedCopy></LocalizedButton>
-            <LocalizedCopy>{cancelOpen && (
-              <div className="form-message" role="alertdialog">
-                <p><LocalizedCopy>{"Batalkan pesanan ini? Pesanan yang dibatalkan tidak dapat dipulihkan."}</LocalizedCopy></p>
-                <LocalizedButton
-                  className="primary-button"
-                  type="button"
-                  disabled={cancelBusy}
-                  onClick={() => void cancelOrder()}
-                >
-                  <LocalizedCopy>{cancelBusy ? "Membatalkan…" : "Ya, batalkan"}</LocalizedCopy>
-                </LocalizedButton><LocalizedCopy>{" "}</LocalizedCopy>
-                <LocalizedButton
-                  className="secondary-button"
-                  type="button"
-                  disabled={cancelBusy}
-                  onClick={() => setCancelOpen(false)}
-                ><LocalizedCopy>{"Tidak jadi"}</LocalizedCopy></LocalizedButton>
-              </div>
-            )}</LocalizedCopy>
-          </div>
-        )}</LocalizedCopy>
-        <LocalizedCopy>{returnRows.length > 0 && (
-          <div className="activity-detail-copy">
-            <span className="activity-detail-label"><LocalizedCopy>{"Retur"}</LocalizedCopy></span>
-            <LocalizedCopy>{returnRows.map((entry) => (
-              <div key={entry.id}>
-                <p>
-                  <b><LocalizedCopy>{entry.business_name}</LocalizedCopy></b>
-                  <LocalizedCopy>{entry.return_until && !entry.return_requested
-                    ? ` · retur hingga ${formatActivityDate(entry.return_until)}`
-                    : ""}</LocalizedCopy>
-                </p>
-                <LocalizedCopy>{entry.return_requested ? (
+          <LocalizedCopy>{returnRows.length > 0 && (
+            <div className="activity-detail-copy">
+              <span className="activity-detail-label"><LocalizedCopy>{"Retur"}</LocalizedCopy></span>
+              <LocalizedCopy>{returnRows.map((entry) => (
+                <div key={entry.id}>
                   <p>
-                    <b><LocalizedCopy>{"Retur diajukan"}</LocalizedCopy></b>
+                    <b><LocalizedCopy>{entry.business_name}</LocalizedCopy></b>
+                    <LocalizedCopy>{entry.return_until && !entry.return_requested
+                      ? ` · retur hingga ${formatActivityDate(entry.return_until)}`
+                      : ""}</LocalizedCopy>
                   </p>
-                ) : returnFor === entry.id ? (
-                  <div className="form-message">
-                    <label>
-                      <span><LocalizedCopy>{"Alasan retur"}</LocalizedCopy></span>
-                      <LocalizedTextarea
-                        value={returnReason}
-                        maxLength={1000}
-                        rows={3}
+                  <LocalizedCopy>{entry.return_requested ? (
+                    <p>
+                      <b><LocalizedCopy>{"Retur diajukan"}</LocalizedCopy></b>
+                    </p>
+                  ) : returnFor === entry.id ? (
+                    <div className="form-message">
+                      <label>
+                        <span><LocalizedCopy>{"Alasan retur"}</LocalizedCopy></span>
+                        <LocalizedTextarea
+                          value={returnReason}
+                          maxLength={1000}
+                          rows={3}
+                          disabled={returnBusy}
+                          onChange={(event) => setReturnReason(event.target.value)}
+                          placeholder="Jelaskan kendala pada barang yang diterima (minimal 10 karakter)"
+                        />
+                      </label>
+                      <LocalizedCopy>{returnError && <p role="alert"><LocalizedCopy>{returnError}</LocalizedCopy></p>}</LocalizedCopy>
+                      <LocalizedButton
+                        className="primary-button"
+                        type="button"
                         disabled={returnBusy}
-                        onChange={(event) => setReturnReason(event.target.value)}
-                        placeholder="Jelaskan kendala pada barang yang diterima (minimal 10 karakter)"
-                      />
-                    </label>
-                    <LocalizedCopy>{returnError && <p role="alert"><LocalizedCopy>{returnError}</LocalizedCopy></p>}</LocalizedCopy>
+                        onClick={() => void submitReturn(entry.id)}
+                      >
+                        <LocalizedCopy>{returnBusy ? "Mengirim…" : "Kirim permintaan retur"}</LocalizedCopy>
+                      </LocalizedButton><LocalizedCopy>{" "}</LocalizedCopy>
+                      <LocalizedButton
+                        className="secondary-button"
+                        type="button"
+                        disabled={returnBusy}
+                        onClick={() => setReturnFor("")}
+                      ><LocalizedCopy>{"Batal"}</LocalizedCopy></LocalizedButton>
+                    </div>
+                  ) : (
                     <LocalizedButton
-                      className="primary-button"
+                      className="secondary-button full"
                       type="button"
-                      disabled={returnBusy}
-                      onClick={() => void submitReturn(entry.id)}
-                    >
-                      <LocalizedCopy>{returnBusy ? "Mengirim…" : "Kirim permintaan retur"}</LocalizedCopy>
-                    </LocalizedButton><LocalizedCopy>{" "}</LocalizedCopy>
-                    <LocalizedButton
-                      className="secondary-button"
-                      type="button"
-                      disabled={returnBusy}
-                      onClick={() => setReturnFor("")}
-                    ><LocalizedCopy>{"Batal"}</LocalizedCopy></LocalizedButton>
-                  </div>
-                ) : (
-                  <LocalizedButton
-                    className="secondary-button full"
-                    type="button"
-                    onClick={() => {
-                      setReturnFor(entry.id);
-                      setReturnError("");
-                    }}
-                  ><LocalizedCopy>{"Ajukan retur"}</LocalizedCopy></LocalizedButton>
-                )}</LocalizedCopy>
-              </div>
-            ))}</LocalizedCopy>
-          </div>
-        )}</LocalizedCopy>
-        <LocalizedCopy>{item.type === "document" && item.status === "need_revision" && (
-          <div className="activity-detail-copy">
-            <span className="activity-detail-label"><LocalizedCopy>{"Lengkapi dokumen"}</LocalizedCopy></span>
-            <RequirementUploads
-              requirements={item.missing_requirements ?? []}
-              value={revisionDocs}
-              onChange={setRevisionDocs}
-              disabled={revisionBusy}
-            />
-            <LocalizedButton
-              className="primary-button full"
-              type="button"
-              disabled={
-                revisionBusy ||
-                !(item.missing_requirements ?? []).every((requirement) =>
-                  revisionDocs.some((doc) => doc.requirement === requirement),
-                )
-              }
-              onClick={() => void resubmitDocuments()}
-            >
-              <LocalizedCopy>{revisionBusy ? "Mengirim…" : "Kirim dokumen"}</LocalizedCopy>
-            </LocalizedButton>
-          </div>
-        )}</LocalizedCopy>
-        <LocalizedCopy>{actionMessage && <p className="form-message"><LocalizedCopy>{actionMessage}</LocalizedCopy></p>}</LocalizedCopy>
+                      onClick={() => {
+                        setReturnFor(entry.id);
+                        setReturnError("");
+                      }}
+                    ><LocalizedCopy>{"Ajukan retur"}</LocalizedCopy></LocalizedButton>
+                  )}</LocalizedCopy>
+                </div>
+              ))}</LocalizedCopy>
+            </div>
+          )}</LocalizedCopy>
+          <LocalizedCopy>{item.type === "document" && item.status === "need_revision" && (
+            <div className="activity-detail-copy">
+              <span className="activity-detail-label"><LocalizedCopy>{"Lengkapi dokumen"}</LocalizedCopy></span>
+              <RequirementUploads
+                requirements={item.missing_requirements ?? []}
+                value={revisionDocs}
+                onChange={setRevisionDocs}
+                disabled={revisionBusy}
+              />
+              <LocalizedButton
+                className="primary-button full"
+                type="button"
+                disabled={
+                  revisionBusy ||
+                  !(item.missing_requirements ?? []).every((requirement) =>
+                    revisionDocs.some((doc) => doc.requirement === requirement),
+                  )
+                }
+                onClick={() => void resubmitDocuments()}
+              >
+                <LocalizedCopy>{revisionBusy ? "Mengirim…" : "Kirim dokumen"}</LocalizedCopy>
+              </LocalizedButton>
+            </div>
+          )}</LocalizedCopy>
+          <LocalizedCopy>{actionMessage && <p className="form-message"><LocalizedCopy>{actionMessage}</LocalizedCopy></p>}</LocalizedCopy>
+        </div>
         <footer>
           <LocalizedCopy>{item.latitude != null && item.longitude != null && (
             <a

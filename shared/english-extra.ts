@@ -3,6 +3,8 @@ import { englishSpecies } from "./english-species.ts";
 export const englishExtra: Record<string, string> = {
   ...englishSpecies,
   ...englishPolish,
+  "Kembali ke PetSpot": "Back to PetSpot",
+  "Tulis komentar": "Write a comment",
   "Saya menyetujui Syarat dan Ketentuan": "I agree to the Terms and Conditions",
   "Saya menyetujui Kebijakan Privasi": "I agree to the Privacy Policy",
   "Tempat tujuan": "Destination",

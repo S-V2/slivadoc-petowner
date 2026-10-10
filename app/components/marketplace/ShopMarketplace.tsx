@@ -295,6 +295,7 @@ function ProductCard({
         <LocalizedButton
           type="button"
           className="market-card-seller"
+          aria-label={`${product.businessName} ${storePresenceLabel(Boolean(product.storeIsOnline), product.storeLastSeenAt)}`}
           onClick={(event) => {
             event.stopPropagation();
             onStore();

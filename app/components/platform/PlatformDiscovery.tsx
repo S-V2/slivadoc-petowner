@@ -9,6 +9,7 @@ import { SlivaSelect } from "../SlivaSelect";
 import { useDialogFocus } from "../useDialogFocus";
 import NextImage from "next/image";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -50,6 +51,7 @@ import {
   getPetHubStories,
   getPetHubStreams,
   getPetSpots,
+  getPetSpot,
   getPetshipPlaces,
   getPublicLostPets,
   reactPetHubPost,
@@ -355,17 +357,30 @@ export default function PlatformDiscovery({
   );
   const handledItem = useRef("");
   useEffect(() => {
-    if (!initialItemId || loading) return;
+    if (mode !== "petspot" || loading) return;
+    let active = true;
+    const item = spots.find((spot) => spot.id === initialItemId);
+    if (!initialItemId || item) {
+      queueMicrotask(() => { if (active) setSelectedSpot(item ?? null); });
+    } else {
+      void getPetSpot(initialItemId).then((spot) => {
+        if (active) setSelectedSpot(spot);
+      }).catch(() => {
+        if (active) notify("Tempat ini belum tersedia. Pilih tempat lain dari katalog.");
+      });
+    }
+    return () => { active = false; };
+  }, [initialItemId, loading, mode, notify, spots]);
+  useEffect(() => {
+    if (!initialItemId || loading || mode === "petspot") return;
     const key = `${mode}:${initialItemId}`;
     if (handledItem.current === key) return;
     const program = mode === "academy" ? programs.find((item) => item.id === initialItemId) : undefined;
     const event = mode === "events" ? events.find((item) => item.id === initialItemId) : undefined;
-    const spot = mode === "petspot" ? spots.find((item) => item.id === initialItemId) : undefined;
     handledItem.current = key;
     queueMicrotask(() => {
       if (program) setSelectedProgram(program);
       else if (event) setSelectedEvent(event);
-      else if (spot) setSelectedSpot(spot);
       else notify("Item ini belum tersedia. Pilih item lain dari katalog.");
     });
   }, [initialItemId, loading, mode, programs, events, spots, notify]);
@@ -518,6 +533,22 @@ export default function PlatformDiscovery({
       ),
     [spots, filter, spotSearch, maxDistance],
   );
+  const openSpot = useCallback((item: PetSpot) => {
+    setSelectedSpot(item);
+    const url = new URL(window.location.href);
+    url.searchParams.set("world_item", item.id);
+    window.history.pushState({ view: url.searchParams.get("view"), spot: item.id }, "", `${url.pathname}${url.search}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
+  function closeSpot() {
+    setSelectedSpot(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("world_item");
+    window.history.pushState({ view: url.searchParams.get("view") }, "", `${url.pathname}${url.search}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
   const geoMarkers = useMemo<GeoMarker[]>(
     () => [
       ...categorySpots.map((item) => ({
@@ -526,9 +557,8 @@ export default function PlatformDiscovery({
         longitude: item.longitude,
         label: item.name,
         onClick: () => {
-          setSelectedSpot(item);
+          openSpot(item);
           setMapFocus({ latitude: item.latitude, longitude: item.longitude });
-          document.querySelector(`[data-spot-card="${item.id}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
         },
       })),
       ...(nearMe ? [{ id: "near-me", ...nearMe, label: "Posisimu", color: "#1d4ed8" }] : []),
@@ -551,7 +581,7 @@ export default function PlatformDiscovery({
           }))
         : []),
     ],
-    [categorySpots, nearMe, showPetship, petshipPlaces, showLostPets, lostPets],
+    [categorySpots, nearMe, showPetship, petshipPlaces, showLostPets, lostPets, openSpot],
   );
   const geoCircles = useMemo<GeoCircle[]>(
     () => [
@@ -715,6 +745,9 @@ export default function PlatformDiscovery({
       pendingSaves.current.delete(post.id);
     }
   }
+
+  if (mode === "petspot" && selectedSpot)
+    return <SpotPage key={selectedSpot.id} item={selectedSpot} close={closeSpot} notify={notify} ownerName={ownerName} />;
 
   if (mode === "academy")
     return (
@@ -1050,15 +1083,14 @@ export default function PlatformDiscovery({
                         : petSpotCategory(item.category)
                   }
                   className="petspot-card-gallery"
-                  onOpen={() => { setSelectedSpot(item); setMapFocus({ latitude: item.latitude, longitude: item.longitude }); }}
+                  onOpen={() => openSpot(item)}
                 />
                 <LocalizedButton
                   type="button"
                   className="petspot-card-content"
                   aria-label={`Lihat detail ${item.name}`}
                   onClick={() => {
-                    setSelectedSpot(item);
-                    setMapFocus({ latitude: item.latitude, longitude: item.longitude });
+                    openSpot(item);
                   }}
                 >
                   <small className="petspot-card-category">
@@ -1104,14 +1136,6 @@ export default function PlatformDiscovery({
           <GeoMap className="spot-map" markers={geoMarkers} circles={geoCircles} activeId={activeSpot ? `spot-${activeSpot}` : null} focus={mapFocus} />
         </div>
         </div>
-        {selectedSpot && (
-          <SpotModal
-            item={selectedSpot}
-            close={() => setSelectedSpot(null)}
-            notify={notify}
-            ownerName={ownerName}
-          />
-        )}
       </div>
     );
 
@@ -2286,7 +2310,7 @@ function speciesIcon(species: string) {
 function speciesLabel(species: string) {
   return eventSpecies[species as keyof typeof eventSpecies]?.[1] ?? species;
 }
-function SpotModal({
+function SpotPage({
   item,
   close,
   notify,
@@ -2298,10 +2322,10 @@ function SpotModal({
   ownerName: string;
 }) {
   return (
-    <Modal
-      close={close}
-      className="world-modal spot-modal petspot-experience-modal"
-    >
+    <section className="petspot-detail-page" aria-label={item.name}>
+      <LocalizedButton type="button" className="secondary-button petspot-back" onClick={close}>
+        <Icon name="arrow" className="back-arrow" size={17} /><LocalizedCopy>{"Kembali ke PetSpot"}</LocalizedCopy>
+      </LocalizedButton>
       <PetSpotDetail
         item={item}
         ownerName={ownerName}
@@ -2320,7 +2344,7 @@ function SpotModal({
           />
         )}
       />
-    </Modal>
+    </section>
   );
 }
 function StreamModal({

@@ -59,7 +59,7 @@ test("venue list photos stay on the first image while readable amenities rotate 
   await expect(image).toHaveAttribute("src", first);
   await expect(card).not.toContainText("pet_menu");
   await card.getByRole("button", { name: `Lihat detail ${venue.name}`, exact: true }).click();
-  const detail = page.locator(".petspot-experience-modal");
+  const detail = page.locator(".petspot-detail-page");
   await expect(detail.locator(".world-image-controls")).toBeVisible();
   await expect(detail).not.toContainText("pet_menu");
 });

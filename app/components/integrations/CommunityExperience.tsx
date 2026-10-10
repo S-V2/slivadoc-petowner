@@ -28,6 +28,7 @@ import {
 } from "../../lib/platform-api";
 import { uploadImage } from "../../lib/petowner-api";
 import { Icon } from "../Icon";
+import { useDialogFocus } from "../useDialogFocus";
 
 type Props = { notify: (message: string) => void; onOpenLocation: () => void };
 const tabs = ["Untuk Kamu", "Mengikuti", "Grup Saya", "Adopsi", "Lost & Found"];
@@ -479,24 +480,27 @@ function CommentsSheet({
   notify: (message: string) => void;
   updated: () => void;
 }) {
+  const dialog = useDialogFocus<HTMLElement>(true, close);
   const [items, setItems] = useState<CommunityComment[]>([]);
   const [text, setText] = useState("");
   const [replyingTo, setReplyingTo] = useState<CommunityComment | null>(null);
   const [busy, setBusy] = useState(true);
   useEffect(() => {
+    let active = true;
     void getCommunityComments(post.id)
-      .then((response) => setItems(response.data))
+      .then((response) => { if (active) setItems(response.data); })
       .catch((error) =>
-        notify(
+        active && notify(
           error instanceof Error
             ? error.message
             : "Komentar belum dapat dimuat",
         ),
       )
-      .finally(() => setBusy(false));
+      .finally(() => { if (active) setBusy(false); });
+    return () => { active = false; };
   }, [notify, post.id]);
   async function send() {
-    if (!text.trim()) return;
+    if (busy || !text.trim()) return;
     setBusy(true);
     try {
       const result = await createCommunityComment(post.id, text.trim(), replyingTo?.id);
@@ -525,18 +529,23 @@ function CommentsSheet({
   return (
     <div className="modal-overlay comment-sheet-backdrop" onMouseDown={close}>
       <section
-        className="modal comments-modal comments-sheet"
+        className="modal comments-modal comments-sheet community-comments-dialog"
+        ref={dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="community-comments-title"
+        tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <LocalizedButton className="modal-close" onClick={close}>
+        <LocalizedButton className="modal-close" onClick={close} aria-label="Tutup komentar">
           <Icon name="close" />
         </LocalizedButton>
-        <header>
+        <header className="comments-head community-comments-head">
           <span className="section-eyebrow"><LocalizedCopy>{"DISKUSI KOMUNITAS"}</LocalizedCopy></span>
-          <h2><LocalizedCopy>{items.length}</LocalizedCopy><LocalizedCopy>{" komentar"}</LocalizedCopy></h2>
+          <h2 id="community-comments-title"><LocalizedCopy>{items.length}</LocalizedCopy><LocalizedCopy>{" komentar"}</LocalizedCopy></h2>
           <p><LocalizedCopy>{post.body}</LocalizedCopy></p>
         </header>
-        <div className="comments-list">
+        <div className="comments-list community-comments-list" aria-busy={busy}>
           <LocalizedCopy>{busy && !items.length ? (
             <p><LocalizedCopy>{"Memuat komentar…"}</LocalizedCopy></p>
           ) : items.length ? (
@@ -545,7 +554,7 @@ function CommentsSheet({
                 ? items.find((candidate) => candidate.id === item.parent_id)
                 : undefined;
               return (
-              <div key={item.id} className={item.parent_id ? "comment-reply" : "comment-root"}>
+              <div key={item.id} className={`community-comment ${item.parent_id ? "comment-reply" : "comment-root"}`}>
                 <span><LocalizedCopy>{item.author_name.slice(0, 1)}</LocalizedCopy></span>
                 <p>
                   <LocalizedCopy>{parent && <mark><Icon name="arrow" size={11} /><LocalizedCopy>{" Membalas "}</LocalizedCopy><LocalizedCopy preserve>{parent.author_name}</LocalizedCopy></mark>}</LocalizedCopy>
@@ -560,17 +569,25 @@ function CommentsSheet({
           )}</LocalizedCopy>
         </div>
         <LocalizedCopy>{replyingTo && <div className="comment-replying"><span><Icon name="arrow" size={12} /><LocalizedCopy>{" Membalas "}</LocalizedCopy><b><LocalizedCopy preserve>{replyingTo.author_name}</LocalizedCopy></b></span><LocalizedButton type="button" onClick={() => setReplyingTo(null)} aria-label="Batal membalas"><Icon name="close" size={14} /></LocalizedButton></div>}</LocalizedCopy>
-        <footer className="comment-input">
-          <LocalizedInput
+        <form className="comment-input community-comment-composer" onSubmit={(event) => { event.preventDefault(); void send(); }}>
+          <LocalizedTextarea
+            aria-label="Tulis komentar"
+            rows={2}
+            maxLength={2000}
             value={text}
             onChange={(event) => setText(event.target.value)}
             placeholder={replyingTo ? `Balas ${replyingTo.author_name}…` : "Tulis komentar yang suportif…"}
-            onKeyDown={(event) => event.key === "Enter" && void send()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                void send();
+              }
+            }}
           />
-          <LocalizedButton disabled={busy || !text.trim()} onClick={() => void send()}>
-            <Icon name="arrow" />
+          <LocalizedButton type="submit" disabled={busy || !text.trim()} aria-label="Kirim komentar">
+            <Icon name="arrow" size={17} /><LocalizedCopy>{busy ? "Mengirim…" : "Kirim"}</LocalizedCopy>
           </LocalizedButton>
-        </footer>
+        </form>
       </section>
     </div>
   );

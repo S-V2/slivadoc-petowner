@@ -1,6 +1,6 @@
 import { CareerScreen } from "./src/screens/CareerScreen";
 import { LegalDocumentPanel } from "./src/components/LegalDocumentPanel";
-import { LEGAL_VERSION, type LegalConsent } from "../shared/legal";
+import { type LegalConsent } from "../shared/legal";
 import { validEmail } from "../shared/account-validation";
 import { isWorldMode } from "../shared/petowner-flow";
 import { BottomSheetSafeArea } from "./src/components/BottomSheetSafeArea";
@@ -79,6 +79,7 @@ import {
   restorePlatformSession,
   readAllMobileNotifications,
   readMobileNotification,
+  getCurrentLegal,
   registerMobileOwner,
   resendMobileRegistrationOTP,
   toggleMobileFavorite,
@@ -2124,11 +2125,38 @@ function LoginModal({
   const [terms, setTerms] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   const [policy, setPolicy] = useState<"terms" | "privacy" | null>(null);
+  const [legal, setLegal] = useState<{
+    version: string;
+    effective_at: string;
+  } | null>(null);
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    void getCurrentLegal()
+      .then((value) => {
+        if (!cancelled)
+          setLegal({
+            version: value.version,
+            effective_at: value.effective_at || value.version,
+          });
+      })
+      .catch(() => {
+        if (!cancelled) setLegal(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
+
   const passwordValid = /(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}/.test(
     password,
   );
   const registrationValid =
-    name.trim().length >= 3 && /^0[0-9]{8,15}$/.test(phone) && terms && privacy;
+    name.trim().length >= 3 &&
+    /^0[0-9]{8,15}$/.test(phone) &&
+    terms &&
+    privacy &&
+    legal != null;
   const canSubmit =
     !busy &&
     validEmail(email) &&
@@ -2326,6 +2354,30 @@ function LoginModal({
                             .
                           </Text>
                         </Pressable>
+                        {legal ? (
+                          <Text style={styles.loginHint}>
+                            Berlaku sejak {legal.effective_at}
+                          </Text>
+                        ) : (
+                          <Pressable
+                            onPress={() => {
+                              void getCurrentLegal()
+                                .then((value) =>
+                                  setLegal({
+                                    version: value.version,
+                                    effective_at:
+                                      value.effective_at || value.version,
+                                  }),
+                                )
+                                .catch(() => setLegal(null));
+                            }}
+                          >
+                            <Text style={styles.loginHint}>
+                              Syarat belum dapat dimuat. Coba lagi
+                            </Text>
+                          </Pressable>
+                        )}
+
                       </View>
                     ) : null}
                   </>
@@ -2358,6 +2410,7 @@ function LoginModal({
                           setPassword("");
                         })
                         .catch(() => undefined);
+                    else if (!legal) return;
                     else
                       void onRegister({
                         full_name: name.trim(),
@@ -2366,7 +2419,7 @@ function LoginModal({
                         password,
                         terms_accepted: terms,
                         privacy_accepted: privacy,
-                        legal_version: LEGAL_VERSION,
+                        legal_version: legal.version,
                       })
                         .then((result) => {
                           setOTP(result.development_otp ?? "");

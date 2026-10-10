@@ -878,6 +878,22 @@ export async function loginMobile(email: string, password: string) {
   mobileCache.clear();
   return payload as { access_token: string; refresh_token: string };
 }
+export async function getCurrentLegal() {
+  const baseURL = requireServiceURL(
+    PLATFORM_API_URL,
+    "EXPO_PUBLIC_PLATFORM_API_URL",
+  );
+  const response = await fetch(`${baseURL}/api/v1/public/legal/current`);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || typeof payload.version !== "string" || !payload.version)
+    throw new Error("Syarat belum dapat dimuat.");
+  return payload as {
+    version: string;
+    terms_url: string;
+    privacy_url: string;
+    effective_at: string;
+  };
+}
 export async function registerMobileOwner(input: LegalConsent & {
   full_name: string;
   phone: string;

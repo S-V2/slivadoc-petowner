@@ -2,7 +2,6 @@
 import { careerReturnPath } from "../../shared/career-auth";
 import { invoiceCategories, type InvoiceCategory } from "../../shared/invoice-categories";
 import { LegalConsentDialog } from "./LegalConsentDialog";
-import { LEGAL_VERSION } from "../../shared/legal";
 import { normalizePhoneInput, profileValidation } from "../../shared/account-validation";
 import { HomePetSpotRecommendations } from "./HomePetSpotRecommendations";
 import { ChangePasswordForm } from "./ChangePasswordForm";
@@ -1835,6 +1834,11 @@ function PetOwnerLogin({
   const [phone, setPhone] = useState("");
   const [terms, setTerms] = useState(false);
   const [privacy, setPrivacy] = useState(false);
+  const [legal, setLegal] = useState<{
+    version: string;
+    effective_at: string;
+  } | null>(null);
+
   const [formValid, setFormValid] = useState(false);
   const [registrationEmail, setRegistrationEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -1843,11 +1847,33 @@ function PetOwnerLogin({
     password,
   );
   const registrationConsent =
-    mode !== "register" || (terms && privacy && /^0[0-9]{8,15}$/.test(phone));
-  useEffect(() => { queueMicrotask(() => setFormValid(registrationFormRef.current?.checkValidity() ?? false)); }, [terms, privacy, mode]);
+    mode !== "register" ||
+    (terms && privacy && legal != null && /^0[0-9]{8,15}$/.test(phone));
+  useEffect(() => { queueMicrotask(() => setFormValid(registrationFormRef.current?.checkValidity() ?? false)); }, [terms, privacy, mode, legal]);
+  async function loadLegal() {
+    try {
+      const response = await fetch(
+        `${PLATFORM_API_URL}/api/v1/public/legal/current`,
+      );
+      const data = await response.json();
+      if (!response.ok || typeof data.version !== "string" || !data.version) {
+        throw new Error();
+      }
+      setLegal({
+        version: data.version,
+        effective_at:
+          typeof data.effective_at === "string"
+            ? data.effective_at
+            : data.version,
+      });
+    } catch {
+      setLegal(null);
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !registrationConsent || !event.currentTarget.checkValidity()) return;
+    if (busy || !registrationConsent || (mode === "register" && !legal) || !event.currentTarget.checkValidity()) return;
     setBusy(true);
     setMessage("");
     const values = Object.fromEntries(new FormData(event.currentTarget));
@@ -1879,7 +1905,7 @@ function PetOwnerLogin({
       const response = await fetch(`${PLATFORM_API_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mode === "register" ? { ...values, terms_accepted: terms, privacy_accepted: privacy, legal_version: LEGAL_VERSION } : values),
+        body: JSON.stringify(mode === "register" && legal ? { ...values, terms_accepted: terms, privacy_accepted: privacy, legal_version: legal.version } : values),
       });
       const data = await response.json();
       if (!response.ok)
@@ -2104,6 +2130,22 @@ function PetOwnerLogin({
                       <b><LocalizedCopy>{"Kebijakan Privasi"}</LocalizedCopy></b>
                     </LocalizedButton><LocalizedCopy>{"."}</LocalizedCopy></span>
                 </label>
+                {legal ? (
+                  <small>
+                    <LocalizedCopy>{"Berlaku sejak"}</LocalizedCopy>
+                    <LocalizedCopy>{" "}</LocalizedCopy>
+                    {legal.effective_at}
+                  </small>
+                ) : (
+                  <small>
+                    <LocalizedCopy>{"Syarat belum dapat dimuat."}</LocalizedCopy>
+                    <LocalizedCopy>{" "}</LocalizedCopy>
+                    <LocalizedButton type="button" onClick={() => void loadLegal()}>
+                      <LocalizedCopy>{"Coba lagi"}</LocalizedCopy>
+                    </LocalizedButton>
+                  </small>
+                )}
+
               </div>
             )}</LocalizedCopy>
             <LocalizedCopy>{message && <div className="form-message"><LocalizedCopy>{message}</LocalizedCopy></div>}</LocalizedCopy>
@@ -2140,13 +2182,15 @@ function PetOwnerLogin({
           <LocalizedButton
             className="text-button login-switch"
             onClick={() => {
-              setMode(mode === "login" ? "register" : "login");
+              const next = mode === "login" ? "register" : "login";
+              setMode(next);
               setMessage("");
               setPassword("");
               setPhone("");
               setTerms(false);
               setPrivacy(false);
               setFormValid(false);
+              if (next === "register") void loadLegal();
             }}
           >
             <LocalizedCopy>{mode === "login"

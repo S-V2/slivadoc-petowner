@@ -2,6 +2,7 @@
 import { careerReturnPath } from "../../shared/career-auth";
 import { invoiceCategories, type InvoiceCategory } from "../../shared/invoice-categories";
 import { LegalConsentDialog } from "./LegalConsentDialog";
+import { LEGAL_EFFECTIVE_DATE, LEGAL_VERSION } from "../../shared/legal";
 import { normalizePhoneInput, profileValidation } from "../../shared/account-validation";
 import { HomePetSpotRecommendations } from "./HomePetSpotRecommendations";
 import { ChangePasswordForm } from "./ChangePasswordForm";
@@ -1834,10 +1835,10 @@ function PetOwnerLogin({
   const [phone, setPhone] = useState("");
   const [terms, setTerms] = useState(false);
   const [privacy, setPrivacy] = useState(false);
-  const [legal, setLegal] = useState<{
-    version: string;
-    effective_at: string;
-  } | null>(null);
+  const [legal, setLegal] = useState({
+    version: LEGAL_VERSION,
+    effective_at: LEGAL_EFFECTIVE_DATE,
+  });
 
   const [formValid, setFormValid] = useState(false);
   const [registrationEmail, setRegistrationEmail] = useState("");
@@ -1848,7 +1849,7 @@ function PetOwnerLogin({
   );
   const registrationConsent =
     mode !== "register" ||
-    (terms && privacy && legal != null && /^0[0-9]{8,15}$/.test(phone));
+    (terms && privacy && /^0[0-9]{8,15}$/.test(phone));
   useEffect(() => { queueMicrotask(() => setFormValid(registrationFormRef.current?.checkValidity() ?? false)); }, [terms, privacy, mode, legal]);
   async function loadLegal() {
     try {
@@ -1857,7 +1858,7 @@ function PetOwnerLogin({
       );
       const data = await response.json();
       if (!response.ok || typeof data.version !== "string" || !data.version) {
-        throw new Error();
+        return;
       }
       setLegal({
         version: data.version,
@@ -1867,7 +1868,7 @@ function PetOwnerLogin({
             : data.version,
       });
     } catch {
-      setLegal(null);
+      // ponytail: GET 404 until API deploys; bundled LEGAL_VERSION matches register pin
     }
   }
 
@@ -2130,21 +2131,11 @@ function PetOwnerLogin({
                       <b><LocalizedCopy>{"Kebijakan Privasi"}</LocalizedCopy></b>
                     </LocalizedButton><LocalizedCopy>{"."}</LocalizedCopy></span>
                 </label>
-                {legal ? (
-                  <small>
-                    <LocalizedCopy>{"Berlaku sejak"}</LocalizedCopy>
-                    <LocalizedCopy>{" "}</LocalizedCopy>
-                    {legal.effective_at}
-                  </small>
-                ) : (
-                  <small>
-                    <LocalizedCopy>{"Syarat belum dapat dimuat."}</LocalizedCopy>
-                    <LocalizedCopy>{" "}</LocalizedCopy>
-                    <LocalizedButton type="button" onClick={() => void loadLegal()}>
-                      <LocalizedCopy>{"Coba lagi"}</LocalizedCopy>
-                    </LocalizedButton>
-                  </small>
-                )}
+                <small>
+                  <LocalizedCopy>{"Berlaku sejak"}</LocalizedCopy>
+                  <LocalizedCopy>{" "}</LocalizedCopy>
+                  {legal.effective_at}
+                </small>
 
               </div>
             )}</LocalizedCopy>

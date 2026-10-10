@@ -1,6 +1,6 @@
 import { CareerScreen } from "./src/screens/CareerScreen";
 import { LegalDocumentPanel } from "./src/components/LegalDocumentPanel";
-import { type LegalConsent } from "../shared/legal";
+import { LEGAL_EFFECTIVE_DATE, LEGAL_VERSION, type LegalConsent } from "../shared/legal";
 import { validEmail } from "../shared/account-validation";
 import { isWorldMode } from "../shared/petowner-flow";
 import { BottomSheetSafeArea } from "./src/components/BottomSheetSafeArea";
@@ -2125,10 +2125,10 @@ function LoginModal({
   const [terms, setTerms] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   const [policy, setPolicy] = useState<"terms" | "privacy" | null>(null);
-  const [legal, setLegal] = useState<{
-    version: string;
-    effective_at: string;
-  } | null>(null);
+  const [legal, setLegal] = useState({
+    version: LEGAL_VERSION,
+    effective_at: LEGAL_EFFECTIVE_DATE,
+  });
   useEffect(() => {
     if (!visible) return;
     let cancelled = false;
@@ -2141,7 +2141,7 @@ function LoginModal({
           });
       })
       .catch(() => {
-        if (!cancelled) setLegal(null);
+        // ponytail: GET 404 until API deploys; bundled LEGAL_VERSION matches register pin
       });
     return () => {
       cancelled = true;
@@ -2155,8 +2155,7 @@ function LoginModal({
     name.trim().length >= 3 &&
     /^0[0-9]{8,15}$/.test(phone) &&
     terms &&
-    privacy &&
-    legal != null;
+    privacy;
   const canSubmit =
     !busy &&
     validEmail(email) &&
@@ -2354,29 +2353,9 @@ function LoginModal({
                             .
                           </Text>
                         </Pressable>
-                        {legal ? (
-                          <Text style={styles.loginHint}>
-                            Berlaku sejak {legal.effective_at}
-                          </Text>
-                        ) : (
-                          <Pressable
-                            onPress={() => {
-                              void getCurrentLegal()
-                                .then((value) =>
-                                  setLegal({
-                                    version: value.version,
-                                    effective_at:
-                                      value.effective_at || value.version,
-                                  }),
-                                )
-                                .catch(() => setLegal(null));
-                            }}
-                          >
-                            <Text style={styles.loginHint}>
-                              Syarat belum dapat dimuat. Coba lagi
-                            </Text>
-                          </Pressable>
-                        )}
+                        <Text style={styles.loginHint}>
+                          Berlaku sejak {legal.effective_at}
+                        </Text>
 
                       </View>
                     ) : null}

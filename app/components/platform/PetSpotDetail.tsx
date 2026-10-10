@@ -31,6 +31,9 @@ import {
   petSpotQuote,
 } from "../../lib/petspot-booking";
 import { Icon } from "../Icon";
+import { PlaceDetailHero } from "../places/PlaceDetailHero";
+import { PlaceDetailTabs } from "../places/PlaceDetailTabs";
+import { PlaceVisitCard } from "../places/PlaceVisitCard";
 import { PaymentMethodPicker, QrisPaymentPanel } from "../payments/QrisPayment";
 
 const money = new Intl.NumberFormat(petOwnerIntlLocale(), {
@@ -126,39 +129,28 @@ export function PetSpotDetail({
       : "";
   return (
     <div className="petspot-detail-scroll">
-      <LocalizedCopy>{gallery(spot)}</LocalizedCopy>
-      <div className="petspot-detail-body">
-        <div className="petspot-detail-heading" ref={heading}>
-          <span className="world-kicker">
-            <LocalizedCopy>{petSpotCategory(spot.category)}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{spot.city}</LocalizedCopy>
-          </span>
-          <h2><LocalizedCopy>{spot.name}</LocalizedCopy></h2>
-          <div className="petspot-detail-meta">
-            <span><LocalizedCopy>{"★"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
-              <LocalizedCopy>{spot.review_count
-                ? Number(spot.rating).toFixed(1)
-                : "Belum dinilai"}<LocalizedCopy></LocalizedCopy>{" "}</LocalizedCopy><LocalizedCopy>{"· "}</LocalizedCopy><LocalizedCopy>{spot.review_count || 0}</LocalizedCopy><LocalizedCopy>{" ulasan"}</LocalizedCopy></span>
-            <LocalizedCopy>{spot.verified ? (
-              <span className="petspot-verified"><LocalizedCopy>{"✓ Partner terverifikasi"}</LocalizedCopy></span>
-            ) : null}</LocalizedCopy>
-          </div>
-          <p><LocalizedCopy>{spot.address}</LocalizedCopy></p>
-        </div>
-        <nav className="petspot-detail-tabs" aria-label="Detail tempat">
-          <LocalizedCopy>{tabs
-            .filter((tab) => tab.id !== "booking" || spot.reservable)
-            .map((tab) => (
-              <LocalizedButton
-                type="button"
-                key={tab.id}
-                aria-pressed={section === tab.id}
-                className={section === tab.id ? "active" : ""}
-                onClick={() => select(tab.id)}
-              >
-                <LocalizedCopy>{tab.label}</LocalizedCopy>
-              </LocalizedButton>
-            ))}</LocalizedCopy>
-        </nav>
+      <div className="petspot-detail-heading">
+        <PlaceDetailHero
+          media={gallery(spot)}
+          eyebrow={<>PETSPOT · <LocalizedCopy>{petSpotCategory(spot.category)}</LocalizedCopy></>}
+          title={spot.name}
+          location={[spot.address, spot.city].filter(Boolean).join(" · ")}
+          status={spot.verified ? <span className="place-partner-badge"><Icon name="shield" size={15} /><LocalizedCopy>{"Partner terverifikasi"}</LocalizedCopy></span> : <span className="place-partner-badge"><Icon name="paw" size={15} /><LocalizedCopy>{"Tempat ramah pet"}</LocalizedCopy></span>}
+          stats={[
+            { icon: "star", value: spot.review_count ? Number(spot.rating).toFixed(1) : "—", label: spot.review_count ? `${spot.review_count} ulasan` : "Belum dinilai" },
+            { icon: "paw", value: facilities.length, label: "Fasilitas pet" },
+            ...(spot.reservable ? [{ icon: "calendar" as const, value: spot.resources?.length ?? "—", label: "Pilihan reservasi" }] : []),
+          ]}
+          actions={<>
+            {spot.reservable ? <LocalizedButton className="primary-button" type="button" onClick={() => select("booking")}><Icon name="calendar" size={17} /><LocalizedCopy>{"Reservasi tempat"}</LocalizedCopy></LocalizedButton> : maps ? <a className="primary-button" href={maps} target="_blank" rel="noreferrer"><Icon name="map" size={17} /><LocalizedCopy>{"Petunjuk arah"}</LocalizedCopy></a> : null}
+            <LocalizedButton type="button" className="secondary-button" disabled={favoriteBusy} onClick={() => void save()}><Icon name="heart" size={17} /><LocalizedCopy>{favoriteBusy ? "Menyimpan…" : "Simpan tempat"}</LocalizedCopy></LocalizedButton>
+          </>}
+        />
+      </div>
+      <div className="petspot-detail-body place-detail-workspace">
+        <div className="place-detail-content" ref={heading}>
+        <PlaceDetailTabs items={tabs.filter(tab => tab.id !== "booking" || spot.reservable)} value={section} onChange={setSection} label="Detail tempat" panelId="petspot-detail-panel" className="petspot-detail-tabs" />
+        <div className="place-detail-panel petspot-detail-panel" id="petspot-detail-panel" role="tabpanel" tabIndex={0} aria-labelledby={`petspot-detail-panel-tab-${section}`}>
         <LocalizedCopy>{!detail && !detailError ? (
           <div role="status" className="petspot-loading"><LocalizedCopy>{"Memuat informasi tempat, fasilitas, dan ulasan…"}</LocalizedCopy></div>
         ) : null}</LocalizedCopy>
@@ -189,40 +181,6 @@ export function PetSpotDetail({
                 ))}</LocalizedCopy>
               </div>
             </section>
-            <section className="petspot-detail-section">
-              <h3><LocalizedCopy>{"Lokasi & akses"}</LocalizedCopy></h3>
-              <p>
-                <LocalizedCopy>{spot.address}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{spot.city}</LocalizedCopy>
-              </p>
-              <div className="petspot-contact-actions">
-                <LocalizedCopy>{maps ? (
-                  <a href={maps} target="_blank" rel="noreferrer">
-                    <Icon name="map" size={17} /><LocalizedCopy>{" Petunjuk arah"}</LocalizedCopy></a>
-                ) : null}</LocalizedCopy>
-                <LocalizedCopy>{spot.phone ? (
-                  <a href={`tel:${spot.phone.replace(/[^+0-9]/g, "")}`}>
-                    <Icon name="chat" size={17} /><LocalizedCopy>{" Hubungi tempat"}</LocalizedCopy></a>
-                ) : null}</LocalizedCopy>
-                <LocalizedCopy>{/^https:\/\//.test(spot.website_url ?? "") ? (
-                  <a href={spot.website_url} target="_blank" rel="noreferrer"><LocalizedCopy>{"Website tempat ↗"}</LocalizedCopy></a>
-                ) : null}</LocalizedCopy>
-              </div>
-            </section>
-            <section className="petspot-detail-section">
-              <h3><LocalizedCopy>{"Jam operasional"}</LocalizedCopy></h3>
-              <LocalizedCopy>{Object.entries(spot.opening_hours ?? {}).length ? (
-                <div className="petspot-hours-grid">
-                  <LocalizedCopy>{Object.entries(spot.opening_hours).map(([day, hours]) => (
-                    <div className="petspot-fact-row" key={day}>
-                      <span><LocalizedCopy>{day === "daily" ? "Setiap hari" : day}</LocalizedCopy></span>
-                      <b><LocalizedCopy>{hours}</LocalizedCopy></b>
-                    </div>
-                  ))}</LocalizedCopy>
-                </div>
-              ) : (
-                <p><LocalizedCopy>{"Konfirmasi jam buka langsung kepada pengelola sebelum berkunjung."}</LocalizedCopy></p>
-              )}</LocalizedCopy>
-            </section>
             {spot.resources?.length ? (
               <section className="petspot-detail-section">
                 <h3><LocalizedCopy>{"Pilihan tempat untukmu"}</LocalizedCopy></h3>
@@ -239,7 +197,7 @@ export function PetSpotDetail({
                           unoptimized
                         />
                       ) : (
-                        <span className="petspot-resource-symbol"><LocalizedCopy>{"⌖"}</LocalizedCopy></span>
+                        <span className="petspot-resource-symbol"><Icon name="map" size={24} /></span>
                       )}</LocalizedCopy>
                       <span>
                         <b><LocalizedCopy>{resource.name}</LocalizedCopy></b>
@@ -381,28 +339,11 @@ export function PetSpotDetail({
             />
           </div>
         ) : null}</LocalizedCopy>
-        <LocalizedCopy>{section !== "booking" ? (
-          <footer className="petspot-detail-footer">
-            <LocalizedButton
-              type="button"
-              className="secondary-button"
-              disabled={favoriteBusy}
-              onClick={() => void save()}
-            >
-              <Icon name="heart" size={18} /><LocalizedCopy>{" "}</LocalizedCopy>
-              <LocalizedCopy>{favoriteBusy ? "Menyimpan…" : "Simpan tempat"}</LocalizedCopy>
-            </LocalizedButton>
-            <LocalizedCopy>{spot.reservable ? (
-              <LocalizedButton
-                type="button"
-                className="primary-button"
-                onClick={() => select("booking")}
-              ><LocalizedCopy>{"Pilih jadwal & tempat →"}</LocalizedCopy></LocalizedButton>
-            ) : (
-              <span><LocalizedCopy>{"Reservasi aplikasi belum diaktifkan pengelola."}</LocalizedCopy></span>
-            )}</LocalizedCopy>
-          </footer>
-        ) : null}</LocalizedCopy>
+        </div>
+        </div>
+        <aside className="place-detail-aside">
+          <PlaceVisitCard title={spot.name} address={[spot.address, spot.city].filter(Boolean).join(" · ")} hours={spot.opening_hours ?? {}} directions={maps} phone={spot.phone} website={spot.website_url} note="Konfirmasi aturan pet dan ketersediaan tempat sebelum berkunjung." />
+        </aside>
       </div>
     </div>
   );

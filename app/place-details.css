@@ -1,0 +1,247 @@
+/* Shared place detail layout: PetSpot, clinics and shops. */
+.page-content:has(.market-store-page) > .page-heading { display: none; }
+.market-store-page,
+.petspot-detail-page { gap: 24px; }
+.market-store-page { padding-bottom: 0; }
+.petspot-detail-page .petspot-detail-scroll {
+  display: grid;
+  gap: 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+.place-detail-hero.market-store-hero,
+.place-detail-hero {
+  display: grid;
+  grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+  overflow: hidden;
+  border: 1px solid #cceaff;
+  border-radius: var(--radius-hero, 32px);
+  background: linear-gradient(120deg, #e0f4ff, #f3fbff 80%);
+  box-shadow: none;
+}
+.place-detail-media { position: relative; min-width: 0; min-height: 320px; }
+.place-detail-media > .world-cover-photo { display: block; position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; }
+.place-detail-media .world-cover-photo img { object-fit: cover; }
+.place-detail-media .world-photo-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: #078bc8;
+  background: radial-gradient(circle at 20% 20%, #ffffffba 0 20%, transparent 20.2%), radial-gradient(circle at 90% 90%, #83d9ff50 0 30%, transparent 30.2%), #dff4ff;
+}
+.place-detail-media .world-photo-fallback svg { width: 72px; height: 72px; }
+.place-detail-media-caption {
+  position: absolute;
+  inset: auto 20px 20px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: calc(100% - 40px);
+  padding: 11px 14px;
+  border: 1px solid #ffffffb0;
+  border-radius: 14px;
+  background: #ffffffec;
+  backdrop-filter: blur(12px);
+  color: #126a96;
+  font-size: 13px;
+  font-weight: 700;
+}
+.place-detail-media-caption svg { flex: none; }
+.place-detail-media .petspot-detail-gallery {
+  width: 100%; height: 100%; min-height: 320px; border-radius: 0;
+}
+.place-detail-media .petspot-detail-gallery > i { display: none; }
+.place-detail-identity { display: flex; flex-direction: column; align-items: start; gap: 16px; min-width: 0; padding: clamp(22px, 2.2vw, 36px); }
+.place-detail-topline { display: flex; align-items: center; gap: 14px; }
+.place-detail-eyebrow { color: #087bb2; font-size: 11px; font-weight: 800; letter-spacing: .1em; line-height: 1.6; }
+.place-detail-topline .market-store-avatar.is-large { width: 48px; height: 48px; border-radius: 16px; font-size: 22px; box-shadow: 0 4px 12px #087bb20c; }
+.place-detail-identity > h1,
+.place-detail-identity > h2 { margin: 0; color: #173f5d; font-size: clamp(26px, 2.3vw, 38px); line-height: 1.2; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.place-detail-identity > .place-detail-location { display: flex; align-items: start; gap: 8px; margin: -6px 0 0; color: #57788e; font-size: 14px; line-height: 1.6; white-space: normal; }
+.place-detail-location svg { flex: none; margin-top: 3px; color: #0887c0; }
+.place-detail-status { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.place-partner-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid #bfe7ff; border-radius: 10px; background: #fff9; color: #087aad; font-size: 12px; font-weight: 700; }
+.market-store-presence { display: inline-flex; align-items: center; gap: 6px; color: #617e90; font-size: 12px; }
+.market-store-presence i { width: 7px; height: 7px; border-radius: 50%; background: #93aaba; flex: none; }
+.market-store-presence.is-online i { background: #138573; }
+.place-detail-identity > .place-detail-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; margin: 0; color: #57788e; font-size: 14px; line-height: 1.7; }
+.place-detail-stats { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; width: 100%; margin: 2px 0; padding: 0; list-style: none; }
+.place-detail-stats li { display: flex; align-items: center; gap: 10px; flex: 1 1 110px; min-width: 0; padding: 12px; border: 1px solid #cfeafa; border-radius: 16px; background: #ffffffbd; }
+.place-detail-stats li > span { display: grid; place-items: center; flex: none; color: #0790c9; }
+.place-detail-stats li > div { display: grid; gap: 3px; min-width: 0; }
+.place-detail-stats b { color: #173f5d; font-size: 18px; line-height: 1.1; }
+.place-detail-stats small { color: #57788e; font-size: 11px; line-height: 1.4; }
+.place-detail-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; width: 100%; margin-top: auto; padding-top: 4px; }
+.place-detail-actions :is(.primary-button, .secondary-button),
+.place-visit-actions :is(.primary-button, .secondary-button) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 12px 18px; border-radius: 14px; font-size: 14px; line-height: 1.4; text-decoration: none; white-space: normal; }
+.place-detail-actions .primary-button,
+.place-visit-actions .primary-button { background: linear-gradient(120deg, #0878b0, #0aa7dd); border-color: transparent; color: #fff; }
+.place-detail-actions .secondary-button,
+.place-visit-actions .secondary-button { background: #fff; border: 1px solid #c6e5f8; color: #087bb2; }
+.place-detail-actions svg,
+.place-visit-actions svg { flex: none; }
+.place-detail-actions .clinic-open-state { margin: 0; font-size: 12px; }
+.place-detail-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+.petspot-detail-page .petspot-detail-body { padding: 0; }
+.place-detail-content { min-width: 0; scroll-margin-top: calc(var(--app-header-height, 66px) + var(--app-header-offset, 12px) + 26px); container-type: inline-size; container-name: place-content; }
+.place-detail-tabs.market-store-navigation,
+.place-detail-tabs.petspot-detail-tabs {
+  position: sticky;
+  top: calc(var(--app-header-height, 66px) + var(--app-header-offset, 12px) + 12px);
+  z-index: 10;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 18px;
+  padding: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  border: 1px solid #cce8fa;
+  border-radius: 18px;
+  background: #ffffffed;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 5px 18px #087bb207;
+}
+.place-detail-tabs:is(.market-store-navigation, .petspot-detail-tabs) button { flex: 1 0 auto; min-height: 44px; min-width: 78px; padding: 10px 16px; border: 1px solid transparent; border-radius: 12px; color: #58758b; background: transparent; font-size: 14px; font-weight: 700; line-height: 1.4; white-space: nowrap; }
+.place-detail-tabs:is(.market-store-navigation, .petspot-detail-tabs) button.active { color: #087bb2; background: #e6f5ff; border-color: #c9eaff; }
+.place-detail-tabs:is(.market-store-navigation, .petspot-detail-tabs) button:hover { color: #087bb2; background: #f1faff; }
+.place-detail-tabs button:focus-visible,
+.place-detail-workspace a:focus-visible { outline: 3px solid #39baff; outline-offset: 2px; }
+.place-detail-panel { min-width: 0; padding: clamp(18px, 2vw, 28px); border: 1px solid #cfeafa; border-radius: var(--radius-card, 26px); background: #fff; }
+.place-detail-aside { min-width: 0; }
+.place-visit-card,
+.place-visit-card.clinic-branch-info { display: grid; gap: 20px; margin: 0; padding: 24px; border: 1px solid #cce8fa; border-radius: var(--radius-card, 26px); background: linear-gradient(145deg, #fff, #f3fbff); box-shadow: none; }
+.place-visit-card > header { display: grid; align-items: start; gap: 10px; }
+.place-visit-card h2 { margin: 0; color: #173f5d; font-size: 20px; line-height: 1.4; overflow-wrap: anywhere; }
+.place-visit-card .clinic-open-state { margin: 0; width: fit-content; }
+.place-visit-address { display: flex; align-items: start; gap: 12px; color: #57788e; font-size: 14px; line-height: 1.65; }
+.place-visit-address > span:first-child { display: grid; place-items: center; flex: none; width: 38px; height: 38px; color: #0783b9; border-radius: 12px; background: #e1f3ff; }
+.place-visit-address p { margin: 0; overflow-wrap: anywhere; }
+.place-visit-hours h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; color: #173f5d; font-size: 14px; }
+.place-visit-hours h3 svg { color: #0887c0; }
+.place-visit-hours dl { display: grid; gap: 0; margin: 0; }
+.place-visit-hours dl > div { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px solid #d8edf9; font-size: 13px; line-height: 1.5; }
+.place-visit-hours dl > div:last-child { border-bottom: 0; }
+.place-visit-hours dt { color: #57788e; }
+.place-visit-hours dd { margin: 0; color: #173f5d; font-weight: 700; text-align: right; }
+.place-visit-hours > p { margin: 0; color: #57788e; font-size: 13px; line-height: 1.7; }
+.place-visit-actions { display: grid; gap: 10px; }
+.place-visit-note { display: flex; align-items: start; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 12px; background: #e5f5ff; color: #58788e; font-size: 12px; line-height: 1.6; }
+.place-visit-note svg { flex: none; margin-top: 2px; color: #078bc8; }
+.market-store-summary > p { margin: 0; color: #57788e; font-size: 14px; line-height: 1.7; }
+.place-detail-panel :is(.market-store-products, .market-store-services, .market-store-review-list, .market-store-about) { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.place-detail-panel :is(.market-store-products, .market-store-services, .market-store-review-list) { gap: 20px; }
+.place-detail-panel :is(.market-store-products, .market-store-services, .market-store-review-list) > header { align-items: start; }
+.place-detail-panel :is(.market-store-products, .market-store-services, .market-store-review-list) > header span { font-size: 11px; }
+.place-detail-panel :is(.market-store-products, .market-store-services, .market-store-review-list) > header h2 { font-size: clamp(20px, 1.8vw, 26px); line-height: 1.35; }
+.place-detail-panel :is(.market-store-products, .market-store-services) > header p { flex: none; margin: 0; padding: 7px 10px; border-radius: 10px; color: #087bb2; background: #eaf7ff; font-size: 12px; }
+.place-detail-panel :is(.market-store-sort, .market-store-category-filter) { flex-wrap: wrap; overflow: visible; gap: 8px; padding: 0; }
+.place-detail-panel :is(.market-store-sort, .market-store-category-filter) button { min-height: 40px; padding: 8px 12px; border: 1px solid #d7eaf6; border-radius: 12px; font-size: 12px; }
+.place-detail-panel :is(.market-store-sort, .market-store-category-filter) button.active { border-color: #6ac9f8; background: #e6f5ff; color: #087bb2; }
+.main-shell .market-store-page .market-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.place-detail-panel .market-store-service-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.place-detail-panel .market-store-service-card { grid-template-columns: 76px minmax(0, 1fr) auto; gap: 14px; padding: 14px; border-radius: 18px; }
+.place-detail-panel .market-store-service-media { width: 76px; height: 76px; background: #e9f7ff; }
+.place-detail-panel .market-store-service-copy { gap: 6px; }
+.place-detail-panel .market-store-service-copy b { font-size: 15px; overflow-wrap: anywhere; }
+.place-detail-panel .market-store-service-copy small { font-size: 11px; }
+.place-detail-panel .market-store-service-copy em { font-size: 13px; }
+.place-detail-panel .market-store-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.place-detail-panel .market-store-info-grid button { min-height: 148px; padding: 18px; background: #f7fcff; }
+.place-detail-panel .market-store-info-grid b { font-size: 15px; }
+.place-detail-panel .market-store-info-grid small { font-size: 12px; }
+.place-detail-panel .market-store-review-list article { padding: 18px; border-color: #d3eaf9; border-radius: 18px; }
+.place-detail-panel .market-store-review-list article > div { min-width: 0; }
+.place-detail-panel .market-store-review-list article p { font-size: 14px; overflow-wrap: anywhere; }
+.place-detail-panel .market-store-review-list article small { font-size: 12px; }
+.place-detail-panel .market-store-about { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.place-detail-panel .market-store-about h2 { font-size: 22px; }
+.place-detail-panel .market-store-about p,
+.place-detail-panel .market-store-about dl { font-size: 14px; }
+.place-detail-panel .market-store-about > div > span { color: #078bc8; background: #e5f5ff; }
+.petspot-detail-panel .petspot-detail-section { padding: 24px 0; }
+.petspot-detail-panel .petspot-detail-section:first-child { padding-top: 0; }
+.petspot-detail-panel .petspot-detail-section:last-child { padding-bottom: 0; border-bottom: 0; }
+.petspot-detail-panel .petspot-detail-section h3 { font-size: 21px; line-height: 1.4; }
+.petspot-detail-panel .petspot-detail-section > p { margin: 0 0 16px; }
+.petspot-detail-panel .petspot-highlights { margin-top: 18px; gap: 8px; }
+.petspot-detail-panel .petspot-highlights span { padding: 8px 10px; border-radius: 10px; color: #087bb2; background: #eaf7ff; }
+.petspot-detail-panel :is(.petspot-resource-preview, .petspot-facility-grid, .petspot-activities-grid) { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.petspot-detail-panel :is(.petspot-resource-preview > div, .petspot-facility-grid article, .petspot-activities-grid article) { padding: 16px; border: 1px solid #d3eaf9; border-radius: 16px; background: #f6fcff; }
+.petspot-detail-panel .petspot-resource-symbol { flex: none; display: grid; place-items: center; width: 64px; height: 64px; padding: 0; border-radius: 12px; }
+.petspot-detail-panel .petspot-resource-preview img { width: 64px; height: 64px; border-radius: 12px; }
+.petspot-detail-panel .petspot-review-summary { padding: 18px; border-radius: 16px; background: #eaf7ff; margin-bottom: 18px; }
+.petspot-detail-panel .petspot-review-card { margin-bottom: 12px; padding: 18px; border: 1px solid #d3eaf9; border-radius: 16px; }
+.petspot-detail-panel .petspot-review-card:last-child { margin-bottom: 0; }
+.petspot-detail-panel .petspot-review-card header { flex-wrap: wrap; gap: 8px; }
+.petspot-detail-panel .petspot-review-card > p { margin-bottom: 0; }
+@container place-content (min-width: 640px) {
+  .main-shell .market-store-page .market-product-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .place-detail-panel :is(.market-store-service-grid, .petspot-resource-preview, .petspot-facility-grid, .petspot-activities-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .place-detail-panel .market-store-info-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@container place-content (min-width: 1340px) {
+  .main-shell .market-store-page .market-product-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+}
+@media (min-width: 1440px) {
+  .place-detail-workspace { grid-template-columns: minmax(0, 1fr) 300px; }
+  .place-detail-aside { position: sticky; top: calc(var(--app-header-height, 66px) + var(--app-header-offset, 12px) + 12px); }
+}
+@media (min-width: 601px) and (max-width: 1439px) {
+  .place-visit-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 28px; }
+  .place-visit-card > header { grid-column: 1; }
+  .place-visit-address { grid-column: 1; }
+  .place-visit-hours { grid-column: 2; grid-row: 1 / span 2; }
+  .place-visit-actions { grid-column: 1; display: flex; flex-wrap: wrap; }
+  .place-visit-actions a { flex: 1 1 140px; }
+  .place-visit-note { grid-column: 1 / -1; }
+}
+@media (max-width: 1100px) {
+  .market-store-hero .place-detail-stats { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .place-detail-identity { padding: 22px; gap: 14px; }
+  .place-detail-identity > h1,
+  .place-detail-identity > h2 { font-size: 27px; }
+  .place-detail-stats li { flex-basis: 100px; padding: 10px; }
+}
+@media (max-width: 600px) {
+  .market-store-page, .petspot-detail-page,
+  .petspot-detail-page .petspot-detail-scroll, .place-detail-workspace { gap: 18px; }
+  .place-detail-hero.market-store-hero,
+  .place-detail-hero { grid-template-columns: minmax(0, 1fr); border-radius: var(--radius-card, 26px); }
+  .place-detail-media { min-height: 0; height: 220px; }
+  .place-detail-media .petspot-detail-gallery { min-height: 0; height: 220px; }
+  .place-detail-identity { padding: 20px; }
+  .place-detail-topline .market-store-avatar.is-large { width: 40px; height: 40px; border-radius: 13px; }
+  .place-detail-identity > h1,
+  .place-detail-identity > h2 { font-size: 26px; }
+  .place-detail-identity > .place-detail-location,
+  .place-detail-identity > .place-detail-description { font-size: 13px; }
+  .place-detail-stats { gap: 8px; }
+  .place-detail-stats li { gap: 8px; padding: 10px; }
+  .petspot-detail-heading .place-detail-stats li { flex-direction: column; align-items: start; }
+  .place-detail-stats b { font-size: 17px; }
+  .place-detail-actions :is(.primary-button, .secondary-button) { flex: 1 1 140px; }
+  .place-detail-actions .clinic-open-state { flex-basis: 100%; }
+  .place-detail-tabs.market-store-navigation,
+  .place-detail-tabs.petspot-detail-tabs { border-radius: 16px; margin-bottom: 14px; }
+  .place-detail-tabs:is(.market-store-navigation, .petspot-detail-tabs) button { flex: 1 0 auto; min-width: 75px; padding: 10px 12px; font-size: 13px; white-space: nowrap; }
+  .place-detail-panel { padding: 18px; border-radius: 22px; }
+  .place-visit-card, .place-visit-card.clinic-branch-info { padding: 20px; gap: 18px; border-radius: 22px; }
+  .main-shell .market-store-page .market-product-grid { gap: 10px; }
+  .place-detail-panel :is(.market-store-products, .market-store-services) > header { flex-wrap: wrap; }
+  .place-detail-panel .market-store-service-card { grid-template-columns: 60px minmax(0, 1fr) auto; padding: 12px; gap: 10px; }
+  .place-detail-panel .market-store-service-media { width: 60px; height: 60px; border-radius: 12px; }
+  .place-detail-panel .market-store-service-copy b { font-size: 14px; }
+  .place-detail-panel .market-store-info-grid { gap: 10px; }
+  .place-detail-panel .market-store-info-grid button { padding: 12px; }
+  .place-detail-panel .market-store-about > div { grid-template-columns: minmax(0, 1fr); }
+  .petspot-detail-panel .petspot-detail-section h3 { font-size: 20px; }
+  .petspot-detail-panel .petspot-detail-section ul { grid-template-columns: minmax(0, 1fr); }
+}

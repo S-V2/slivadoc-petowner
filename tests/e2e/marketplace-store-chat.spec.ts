@@ -144,7 +144,7 @@ test("store profile exposes sections, sorting, and a text-only chat drawer", asy
   await expect(page.getByText("Toko responsif dan produknya aman sampai tujuan.")).toBeVisible();
   await page.getByRole("tab", { name: "Tentang toko" }).click();
   await expect(
-    page.getByText("Toko pilihan untuk kebutuhan sehat dan seru pet setiap hari."),
+    page.locator(".market-store-about").getByText("Toko pilihan untuk kebutuhan sehat dan seru pet setiap hari."),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Chat toko" }).click();

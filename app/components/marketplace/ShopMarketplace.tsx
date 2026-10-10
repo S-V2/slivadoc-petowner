@@ -34,7 +34,10 @@ import {
 import { formatRupiah, type Product, type Service } from "../../lib/petowner-domain";
 import { recordStoreOpen } from "../../lib/entry-point";
 import type { LocationResult } from "../../lib/petowner-api";
-import ClinicBranchInfo from "../clinics/ClinicBranchInfo";
+import ClinicBranchInfo, { ClinicOpenState } from "../clinics/ClinicBranchInfo";
+import { PlaceDetailHero } from "../places/PlaceDetailHero";
+import { PlaceDetailTabs } from "../places/PlaceDetailTabs";
+import { WorldPhoto } from "../WorldPhoto";
 
 type SortMode =
   | "recommended"
@@ -1238,133 +1241,147 @@ function MarketplaceStorefront({
         <Icon name="chevron" size={13} />
         <strong><LocalizedCopy>{store.name}</LocalizedCopy></strong>
       </nav>
-      <section className="market-store-hero">
-        <div className="market-store-banner" style={store.banner_url ? { backgroundImage: `url(${store.banner_url})` } : undefined} />
-        <div className="market-store-identity">
-          <StoreAvatar
-            name={store.name}
-            logoUrl={store.logo_url}
-            online={store.is_online}
-            large
+      <PlaceDetailHero
+        className="market-store-hero"
+        eyebrow={branch?.type === "petclinic" ? "PETCLINIC" : branch?.type === "hybrid" ? "PETCLINIC & PETSHOP" : "PETSHOP"}
+        title={store.name}
+        location={branch ? `${branch.branch_name} · ${branch.city}` : store.city || "Indonesia"}
+        description={store.about}
+        identity={<StoreAvatar name={store.name} logoUrl={store.logo_url} online={store.is_online} large />}
+        media={<><WorldPhoto src={branch?.banner_url || store.banner_url} alt={store.name} icon={branch?.type === "petshop" || !services.length ? "bag" : "clinic"} sizes="(max-width: 600px) 100vw, 45vw" /><div className="place-detail-media-caption"><Icon name="map" size={17} /><LocalizedCopy preserve>{branch?.branch_name || store.city || "Slivadoc"}</LocalizedCopy></div></>}
+        status={<><span className="place-partner-badge"><Icon name="shield" size={15} /><LocalizedCopy>{"Partner Slivadoc"}</LocalizedCopy></span><span className={`market-store-presence ${store.is_online ? "is-online" : ""}`}><i aria-hidden="true" /><LocalizedCopy>{storePresenceLabel(store.is_online, store.last_seen_at)}</LocalizedCopy></span></>}
+        stats={[
+          { icon: "bag", value: store.product_count, label: "Produk" },
+          { icon: "clinic", value: services.length, label: "Layanan" },
+          { icon: "star", value: store.review_count ? store.rating.toFixed(1) : "—", label: `${store.review_count} ulasan` },
+          { icon: "cart", value: compactNumber(store.sold_count), label: "Terjual" },
+        ]}
+        actions={<><LocalizedButton className="primary-button" type="button" onClick={onChat}><Icon name="chat" size={17} /><LocalizedCopy>{"Chat toko"}</LocalizedCopy></LocalizedButton>{branch ? <ClinicOpenState branch={branch} /> : null}</>}
+      />
+      <div className="place-detail-workspace market-store-workspace">
+        <div className="place-detail-content market-store-content">
+          <PlaceDetailTabs
+            className="market-store-navigation"
+            label="Bagian toko"
+            panelId="market-store-panel"
+            value={section}
+            onChange={setSection}
+            items={[
+              { id: "products", label: "Produk" },
+              { id: "services", label: "Layanan" },
+              { id: "categories", label: "Kategori" },
+              { id: "reviews", label: `Ulasan (${store.review_count})` },
+              { id: "about", label: "Tentang toko" },
+            ]}
           />
-          <div>
-            <span className="market-store-verified"><Icon name="shield" size={12} /><LocalizedCopy>{" Partner terverifikasi"}</LocalizedCopy></span>
-            <h1><LocalizedCopy>{store.name}</LocalizedCopy></h1>
-            <p><Icon name="map" size={13} /> <LocalizedCopy>{store.city || "Indonesia"}</LocalizedCopy></p>
-            <p className={store.is_online ? "is-online" : ""}><LocalizedCopy>{storePresenceLabel(store.is_online, store.last_seen_at)}</LocalizedCopy></p>
-          </div>
-          <LocalizedButton type="button" onClick={onChat}><Icon name="chat" size={17} /><LocalizedCopy>{" Chat toko"}</LocalizedCopy></LocalizedButton>
-        </div>
-        <div className="market-store-stats">
-          <span><b><LocalizedCopy>{store.product_count}</LocalizedCopy></b><small><LocalizedCopy>{"Produk"}</LocalizedCopy></small></span>
-          <span><b><LocalizedCopy>{services.length}</LocalizedCopy></b><small><LocalizedCopy>{"Layanan"}</LocalizedCopy></small></span>
-          <span><b><LocalizedCopy>{store.rating ? store.rating.toFixed(1) : "Baru"}</LocalizedCopy></b><small><LocalizedCopy>{"Rating"}</LocalizedCopy></small></span>
-          <span><b><LocalizedCopy>{compactNumber(store.sold_count)}</LocalizedCopy></b><small><LocalizedCopy>{"Terjual"}</LocalizedCopy></small></span>
-        </div>
-      </section>
-      {branch && <ClinicBranchInfo branch={branch} />}
+          <div className="place-detail-panel" id="market-store-panel" role="tabpanel" tabIndex={0} aria-labelledby={`market-store-panel-tab-${section}`}>
+            <LocalizedCopy>{section === "products" && (
+              <section className="market-store-products">
+                <header>
+                  <div><span><LocalizedCopy>{"ETALASE TOKO"}</LocalizedCopy></span><h2><LocalizedCopy>{"Temukan kebutuhan pet-mu"}</LocalizedCopy></h2></div>
+                  <p><LocalizedCopy>{visible.length}</LocalizedCopy><LocalizedCopy>{" produk"}</LocalizedCopy></p>
+                </header>
+                <div className="market-store-sort" role="tablist" aria-label="Urutan produk toko">
+                  <LocalizedCopy>{([
+                    ["popular", "Populer"],
+                    ["newest", "Terbaru"],
+                    ["bestseller", "Terlaris"],
+                    ["price", "Harga termurah"],
+                    ["price_desc", "Harga termahal"],
+                  ] as Array<[SortMode, string]>).map(([id, label]) => (
+                    <LocalizedButton key={id} type="button" role="tab" aria-selected={sort === id} className={sort === id ? "active" : ""} onClick={() => setSort(id)}><LocalizedCopy>{label}</LocalizedCopy></LocalizedButton>
+                  ))}</LocalizedCopy>
+                </div>
+                <div className="market-store-category-filter">
+                  <LocalizedCopy>{["Semua", ...categories.map((item) => item.name)].map((name) => (
+                    <LocalizedButton key={name} type="button" className={category === name ? "active" : ""} onClick={() => setCategory(name)}><LocalizedCopy>{name}</LocalizedCopy></LocalizedButton>
+                  ))}</LocalizedCopy>
+                </div>
+                <div className="market-product-grid">
+                  <LocalizedCopy>{visible.map((product) => (
+                    <ProductCard key={product.id} product={product} favorite={favorites.includes(product.id)} onOpen={() => onOpenProduct(product)} onStore={() => undefined} onFavorite={() => onFavorite(product)} />
+                  ))}</LocalizedCopy>
+                </div>
+                {!visible.length ? <div className="market-review-empty"><span><Icon name="bag" size={24} /></span><div><b><LocalizedCopy>{"Belum ada produk pada pilihan ini"}</LocalizedCopy></b><p><LocalizedCopy>{"Pilih kategori lain atau lihat layanan partner yang tersedia."}</LocalizedCopy></p></div></div> : null}
+              </section>
+            )}</LocalizedCopy>
 
-      <div className="market-store-navigation" role="tablist" aria-label="Bagian toko">
-        <LocalizedCopy>{([
-          ["products", "Produk"],
-          ["services", "Layanan"],
-          ["categories", "Kategori"],
-          ["reviews", `Ulasan (${store.review_count})`],
-          ["about", "Tentang toko"],
-        ] as Array<[StoreSection, string]>).map(([id, label]) => (
-          <LocalizedButton key={id} type="button" role="tab" aria-selected={section === id} className={section === id ? "active" : ""} onClick={() => setSection(id)}><LocalizedCopy>{label}</LocalizedCopy></LocalizedButton>
-        ))}</LocalizedCopy>
+            <LocalizedCopy catalogue>{section === "services" && (
+              <section className="market-store-services">
+                <header>
+                  <div><span><LocalizedCopy>{"LAYANAN PARTNER"}</LocalizedCopy></span><h2><LocalizedCopy>{"Pilih layanan dari "}</LocalizedCopy><LocalizedCopy>{store.name}</LocalizedCopy></h2></div>
+                  <p><LocalizedCopy>{services.length}</LocalizedCopy><LocalizedCopy>{" layanan"}</LocalizedCopy></p>
+                </header>
+                <LocalizedCopy catalogue>{services.length ? (
+                  <div className="market-store-service-grid">
+                    <LocalizedCopy catalogue>{services.map((service) => (
+                      <LocalizedButton key={service.id} type="button" className="market-store-service-card" onClick={() => onOpenService(service)}>
+                        <span className="market-store-service-media">
+                          <LocalizedCopy catalogue>{service.imageUrl ? <Image src={service.imageUrl} alt={`Foto ${service.name}`} fill sizes="120px" unoptimized /> : <Icon name="paw" size={28} />}</LocalizedCopy>
+                        </span>
+                        <span className="market-store-service-copy">
+                          <small><LocalizedCopy>{service.type}</LocalizedCopy></small>
+                          <b><LocalizedCopy catalogue>{service.name}</LocalizedCopy></b>
+                          <em><LocalizedCopy>{service.durationMinutes ? `${service.durationMinutes} menit · ` : ""}<LocalizedCopy></LocalizedCopy>{service.priceValue === undefined ? service.price : formatRupiah(service.priceValue)}</LocalizedCopy></em>
+                        </span>
+                        <Icon name="chevron" size={16} />
+                      </LocalizedButton>
+                    ))}</LocalizedCopy>
+                  </div>
+                ) : <div className="market-review-empty"><span><Icon name="paw" size={24} /></span><div><b><LocalizedCopy>{"Belum ada layanan aktif"}</LocalizedCopy></b><p><LocalizedCopy>{"Partner ini belum menerbitkan layanan untuk dibooking."}</LocalizedCopy></p></div></div>}</LocalizedCopy>
+              </section>
+            )}</LocalizedCopy>
+
+            <LocalizedCopy>{section === "categories" && (
+              <>
+              <section className="market-store-info-grid">
+                <LocalizedCopy>{categories.map((item) => (
+                  <LocalizedButton key={item.name} type="button" onClick={() => { setCategory(item.name); setSection("products"); }}>
+                    <span><Icon name={categoryIcons[item.name] || "bag"} size={24} /></span>
+                    <b><LocalizedCopy>{item.name}</LocalizedCopy></b><small><LocalizedCopy>{item.product_count}</LocalizedCopy><LocalizedCopy>{" produk"}</LocalizedCopy></small>
+                  </LocalizedButton>
+                ))}</LocalizedCopy>
+              </section>
+              {!categories.length ? <div className="market-review-empty"><span><Icon name="bag" size={24} /></span><div><b><LocalizedCopy>{"Kategori produk belum tersedia"}</LocalizedCopy></b><p><LocalizedCopy>{"Kategori akan tampil setelah partner menerbitkan produk."}</LocalizedCopy></p></div></div> : null}
+              </>
+            )}</LocalizedCopy>
+
+            <LocalizedCopy>{section === "reviews" && (
+              <section className="market-store-review-list">
+                <header><div><span><LocalizedCopy>{"REPUTASI TOKO"}</LocalizedCopy></span><h2><LocalizedCopy>{"Ulasan dari pet parent"}</LocalizedCopy></h2></div><b><LocalizedCopy>{store.review_count ? store.rating.toFixed(1) : "–"}</LocalizedCopy><LocalizedCopy>{" / 5"}</LocalizedCopy></b></header>
+                <LocalizedCopy>{response?.reviews.length ? response.reviews.map((review) => (
+                  <article key={review.id}>
+                    <span><LocalizedCopy>{review.reviewer_name.slice(0, 1).toUpperCase()}</LocalizedCopy></span>
+                    <div><b><LocalizedCopy preserve>{review.reviewer_name}</LocalizedCopy></b><MarketplaceStars value={review.rating} /><p><LocalizedCopy>{review.comment}</LocalizedCopy></p><small><LocalizedCopy>{review.product_name}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{new Date(review.updated_at).toLocaleDateString(petOwnerIntlLocale())}</LocalizedCopy></small></div>
+                  </article>
+                )) : <div className="market-review-empty"><span><Icon name="chat" size={24} /></span><div><b><LocalizedCopy>{"Belum ada ulasan toko"}</LocalizedCopy></b><p><LocalizedCopy>{"Ulasan produk yang terverifikasi akan tampil di sini."}</LocalizedCopy></p></div></div>}</LocalizedCopy>
+              </section>
+            )}</LocalizedCopy>
+
+            <LocalizedCopy>{section === "about" && (
+              <section className="market-store-about">
+                <div><span><Icon name="bag" size={26} /></span><div><small><LocalizedCopy>{"TENTANG TOKO"}</LocalizedCopy></small><h2><LocalizedCopy>{store.name}</LocalizedCopy></h2><p><LocalizedCopy>{store.about}</LocalizedCopy></p></div></div>
+                <dl>
+                  <div><dt><LocalizedCopy>{"Bergabung"}</LocalizedCopy></dt><dd><LocalizedCopy>{store.joined_at ? new Date(store.joined_at).toLocaleDateString(petOwnerIntlLocale(), { month: "long", year: "numeric" }) : "Partner Slivadoc"}</LocalizedCopy></dd></div>
+                  <div><dt><LocalizedCopy>{"Lokasi"}</LocalizedCopy></dt><dd><LocalizedCopy>{store.city || "Indonesia"}</LocalizedCopy></dd></div>
+                  <div><dt><LocalizedCopy>{"Status"}</LocalizedCopy></dt><dd><LocalizedCopy>{store.is_online ? "Online" : "Offline"}</LocalizedCopy></dd></div>
+                </dl>
+              </section>
+            )}</LocalizedCopy>
+          </div>
+        </div>
+        <aside className="place-detail-aside">
+          {branch ? <ClinicBranchInfo branch={branch} /> : (
+            <section className="place-visit-card market-store-summary">
+              <span className="place-detail-eyebrow"><LocalizedCopy>{"KENALI PARTNER"}</LocalizedCopy></span>
+              <h2><LocalizedCopy preserve>{store.name}</LocalizedCopy></h2>
+              <p><LocalizedCopy>{"Hubungi partner untuk informasi layanan dan ketersediaan terbaru."}</LocalizedCopy></p>
+              <div className="place-visit-address"><Icon name="map" size={18} /><LocalizedCopy preserve>{store.city || "Indonesia"}</LocalizedCopy></div>
+              <LocalizedButton className="secondary-button full" type="button" onClick={onChat}><Icon name="chat" size={17} /><LocalizedCopy>{"Tanya partner"}</LocalizedCopy></LocalizedButton>
+            </section>
+          )}
+        </aside>
       </div>
-
-      <LocalizedCopy>{section === "products" && (
-        <section className="market-store-products">
-          <header>
-            <div><span><LocalizedCopy>{"ETALASE TOKO"}</LocalizedCopy></span><h2><LocalizedCopy>{"Temukan kebutuhan pet-mu"}</LocalizedCopy></h2></div>
-            <p><LocalizedCopy>{visible.length}</LocalizedCopy><LocalizedCopy>{" produk"}</LocalizedCopy></p>
-          </header>
-          <div className="market-store-sort" role="tablist" aria-label="Urutan produk toko">
-            <LocalizedCopy>{([
-              ["popular", "Populer"],
-              ["newest", "Terbaru"],
-              ["bestseller", "Terlaris"],
-              ["price", "Harga termurah"],
-              ["price_desc", "Harga termahal"],
-            ] as Array<[SortMode, string]>).map(([id, label]) => (
-              <LocalizedButton key={id} type="button" role="tab" aria-selected={sort === id} className={sort === id ? "active" : ""} onClick={() => setSort(id)}><LocalizedCopy>{label}</LocalizedCopy></LocalizedButton>
-            ))}</LocalizedCopy>
-          </div>
-          <div className="market-store-category-filter">
-            <LocalizedCopy>{["Semua", ...categories.map((item) => item.name)].map((name) => (
-              <LocalizedButton key={name} type="button" className={category === name ? "active" : ""} onClick={() => setCategory(name)}><LocalizedCopy>{name}</LocalizedCopy></LocalizedButton>
-            ))}</LocalizedCopy>
-          </div>
-          <div className="market-product-grid">
-            <LocalizedCopy>{visible.map((product) => (
-              <ProductCard key={product.id} product={product} favorite={favorites.includes(product.id)} onOpen={() => onOpenProduct(product)} onStore={() => undefined} onFavorite={() => onFavorite(product)} />
-            ))}</LocalizedCopy>
-          </div>
-        </section>
-      )}</LocalizedCopy>
-
-      <LocalizedCopy catalogue>{section === "services" && (
-        <section className="market-store-services">
-          <header>
-            <div><span><LocalizedCopy>{"LAYANAN PARTNER"}</LocalizedCopy></span><h2><LocalizedCopy>{"Pilih layanan dari "}</LocalizedCopy><LocalizedCopy>{store.name}</LocalizedCopy></h2></div>
-            <p><LocalizedCopy>{services.length}</LocalizedCopy><LocalizedCopy>{" layanan"}</LocalizedCopy></p>
-          </header>
-          <LocalizedCopy catalogue>{services.length ? (
-            <div className="market-store-service-grid">
-              <LocalizedCopy catalogue>{services.map((service) => (
-                <LocalizedButton key={service.id} type="button" className="market-store-service-card" onClick={() => onOpenService(service)}>
-                  <span className="market-store-service-media">
-                    <LocalizedCopy catalogue>{service.imageUrl ? <Image src={service.imageUrl} alt={`Foto ${service.name}`} fill sizes="120px" unoptimized /> : <Icon name="paw" size={28} />}</LocalizedCopy>
-                  </span>
-                  <span className="market-store-service-copy">
-                    <small><LocalizedCopy>{service.type}</LocalizedCopy></small>
-                    <b><LocalizedCopy catalogue>{service.name}</LocalizedCopy></b>
-                    <em><LocalizedCopy>{service.durationMinutes ? `${service.durationMinutes} menit · ` : ""}<LocalizedCopy></LocalizedCopy>{service.priceValue === undefined ? service.price : formatRupiah(service.priceValue)}</LocalizedCopy></em>
-                  </span>
-                  <Icon name="chevron" size={16} />
-                </LocalizedButton>
-              ))}</LocalizedCopy>
-            </div>
-          ) : <div className="market-review-empty"><span><Icon name="paw" size={24} /></span><div><b><LocalizedCopy>{"Belum ada layanan aktif"}</LocalizedCopy></b><p><LocalizedCopy>{"Partner ini belum menerbitkan layanan untuk dibooking."}</LocalizedCopy></p></div></div>}</LocalizedCopy>
-        </section>
-      )}</LocalizedCopy>
-
-      <LocalizedCopy>{section === "categories" && (
-        <section className="market-store-info-grid">
-          <LocalizedCopy>{categories.map((item) => (
-            <LocalizedButton key={item.name} type="button" onClick={() => { setCategory(item.name); setSection("products"); }}>
-              <span><Icon name={categoryIcons[item.name] || "bag"} size={24} /></span>
-              <b><LocalizedCopy>{item.name}</LocalizedCopy></b><small><LocalizedCopy>{item.product_count}</LocalizedCopy><LocalizedCopy>{" produk"}</LocalizedCopy></small>
-            </LocalizedButton>
-          ))}</LocalizedCopy>
-        </section>
-      )}</LocalizedCopy>
-
-      <LocalizedCopy>{section === "reviews" && (
-        <section className="market-store-review-list">
-          <header><div><span><LocalizedCopy>{"REPUTASI TOKO"}</LocalizedCopy></span><h2><LocalizedCopy>{"Ulasan dari pet parent"}</LocalizedCopy></h2></div><b><LocalizedCopy>{store.rating ? store.rating.toFixed(1) : "–"}</LocalizedCopy><LocalizedCopy>{" / 5"}</LocalizedCopy></b></header>
-          <LocalizedCopy>{response?.reviews.length ? response.reviews.map((review) => (
-            <article key={review.id}>
-              <span><LocalizedCopy>{review.reviewer_name.slice(0, 1).toUpperCase()}</LocalizedCopy></span>
-              <div><b><LocalizedCopy preserve>{review.reviewer_name}</LocalizedCopy></b><MarketplaceStars value={review.rating} /><p><LocalizedCopy>{review.comment}</LocalizedCopy></p><small><LocalizedCopy>{review.product_name}</LocalizedCopy><LocalizedCopy>{" · "}</LocalizedCopy><LocalizedCopy>{new Date(review.updated_at).toLocaleDateString(petOwnerIntlLocale())}</LocalizedCopy></small></div>
-            </article>
-          )) : <div className="market-review-empty"><span><Icon name="chat" size={24} /></span><div><b><LocalizedCopy>{"Belum ada ulasan toko"}</LocalizedCopy></b><p><LocalizedCopy>{"Ulasan produk yang terverifikasi akan tampil di sini."}</LocalizedCopy></p></div></div>}</LocalizedCopy>
-        </section>
-      )}</LocalizedCopy>
-
-      <LocalizedCopy>{section === "about" && (
-        <section className="market-store-about">
-          <div><span><LocalizedCopy>{"🏪"}</LocalizedCopy></span><div><small><LocalizedCopy>{"TENTANG TOKO"}</LocalizedCopy></small><h2><LocalizedCopy>{store.name}</LocalizedCopy></h2><p><LocalizedCopy>{store.about}</LocalizedCopy></p></div></div>
-          <dl>
-            <div><dt><LocalizedCopy>{"Bergabung"}</LocalizedCopy></dt><dd><LocalizedCopy>{store.joined_at ? new Date(store.joined_at).toLocaleDateString(petOwnerIntlLocale(), { month: "long", year: "numeric" }) : "Partner Slivadoc"}</LocalizedCopy></dd></div>
-            <div><dt><LocalizedCopy>{"Lokasi"}</LocalizedCopy></dt><dd><LocalizedCopy>{store.city || "Indonesia"}</LocalizedCopy></dd></div>
-            <div><dt><LocalizedCopy>{"Status"}</LocalizedCopy></dt><dd><LocalizedCopy>{store.is_online ? "Online" : "Offline"}</LocalizedCopy></dd></div>
-          </dl>
-        </section>
-      )}</LocalizedCopy>
     </div>
   );
 }

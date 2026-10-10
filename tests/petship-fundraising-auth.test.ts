@@ -23,8 +23,11 @@ test("web and mobile registration require both legal consents and a leading-zero
   assert.match(app, /pattern="0\[0-9\]\{8,15\}"/);
   assert.match(app, /Syarat dan Ketentuan/);
   assert.match(app, /Kebijakan Privasi/);
+  assert.match(app, /legal_version/);
+  assert.match(app, /public\/legal\/current/);
   assert.match(mobile, /\^0\[0-9\]\{8,15\}\$/);
   assert.match(mobile, /terms\s*&&\s*privacy/);
+  assert.match(mobile, /legal_version/);
 });
 
 test("web and mobile complete registration through OTP verification and resend", () => {

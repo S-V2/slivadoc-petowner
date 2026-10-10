@@ -53,6 +53,9 @@ export const englishCopy: Record<string, string> = {
   "Saya menyetujui": "I agree to the",
   "Syarat dan Ketentuan": "Terms and Conditions",
   "Kebijakan Privasi": "Privacy Policy",
+  "Berlaku sejak": "In effect since",
+  "Syarat belum dapat dimuat.": "Terms could not be loaded.",
+
   "Daftar & kirim OTP": "Register & send OTP",
   "Verifikasi email kamu": "Verify your email",
   "Masukkan 6 digit OTP yang dikirim ke": "Enter the 6-digit OTP sent to",

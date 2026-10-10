@@ -6,6 +6,7 @@ test("registration requires both full documents, submits consent, and completes 
   const path=new URL(route.request().url()).pathname;
   const json=(body:unknown,status=200)=>route.fulfill({status,json:body});
   if(path==="/api/v1/auth/petowner/register") {submitted=route.request().postDataJSON();return json({user_id:"53000000-0000-4000-8000-000000000001",message:"OTP dikirim",development_otp:"123456"},201);}
+  if(path==="/api/v1/public/legal/current") return json({version:"2026-10-09",terms_url:"https://slivadoc.com/terms",privacy_url:"https://slivadoc.com/privacy",effective_at:"2026-10-09"});
   if(path==="/api/v1/auth/register/verify-otp") return json({message:"Email terverifikasi"});
   if(path==="/api/v1/auth/me") return json({message:"Unauthorized"},401);
   return json({data:[],count:0});

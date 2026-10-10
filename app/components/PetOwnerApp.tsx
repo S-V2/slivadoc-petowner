@@ -1870,9 +1870,6 @@ function PetOwnerLogin({
       setLegal(null);
     }
   }
-  useEffect(() => {
-    void loadLegal();
-  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2185,13 +2182,15 @@ function PetOwnerLogin({
           <LocalizedButton
             className="text-button login-switch"
             onClick={() => {
-              setMode(mode === "login" ? "register" : "login");
+              const next = mode === "login" ? "register" : "login";
+              setMode(next);
               setMessage("");
               setPassword("");
               setPhone("");
               setTerms(false);
               setPrivacy(false);
               setFormValid(false);
+              if (next === "register") void loadLegal();
             }}
           >
             <LocalizedCopy>{mode === "login"

@@ -38,7 +38,7 @@ export function PlaceVisitCard({
       <div className="place-visit-actions">
         {directions ? <a className="primary-button" href={directions} target="_blank" rel="noreferrer"><Icon name="map" size={17} /><LocalizedCopy>{"Petunjuk arah"}</LocalizedCopy></a> : null}
         {phone ? <a className="secondary-button" href={`tel:${phone.replace(/[^+0-9]/g, "")}`}><Icon name="phone" size={17} /><LocalizedCopy>{"Hubungi tempat"}</LocalizedCopy></a> : null}
-        {/^https:\/\//.test(website ?? "") ? <a className="secondary-button" href={website} target="_blank" rel="noreferrer"><Icon name="arrow" size={17} /><LocalizedCopy>{"Website tempat"}</LocalizedCopy></a> : null}
+        {/^https?:\/\//.test(website ?? "") ? <a className="secondary-button" href={website} target="_blank" rel="noreferrer"><Icon name="arrow" size={17} /><LocalizedCopy>{"Website tempat"}</LocalizedCopy></a> : null}
       </div>
       {note ? <p className="place-visit-note"><Icon name="paw" size={16} /><LocalizedCopy>{note}</LocalizedCopy></p> : null}
     </section>

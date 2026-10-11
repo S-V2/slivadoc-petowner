@@ -560,8 +560,15 @@ export type DiscoveryService = {
 export type DiscoveryBranchType = "petclinic" | "petshop" | "hybrid";
 
 export type DiscoveryBranch = {
+  place_id?: string;
+  source?: "manual" | "registered";
+  verified?: boolean;
+  phone?: string;
+  website?: string;
+  description?: string;
+  types?: string;
   branch_id: string;
-  business_id: string;
+  business_id: string | null;
   business_name: string;
   branch_name: string;
   type: DiscoveryBranchType;
@@ -2356,6 +2363,7 @@ export const getDiscoveryBranches = (params?: DiscoveryBranchParams) => {
   const query = discoveryBranchQuery(params);
   return request<PlatformPage<DiscoveryBranch>>(
     `/api/v1/public/discovery/branches${query ? `?${query}` : ""}`,
+    { cache: "no-store" },
   );
 };
 
@@ -2366,6 +2374,7 @@ export const getDiscoveryBranch = (
   const query = coords ? discoveryBranchQuery(coords) : "";
   return request<DiscoveryBranch>(
     `/api/v1/public/discovery/branches/${encodeURIComponent(branchId)}${query ? `?${query}` : ""}`,
+    { cache: "no-store" },
   );
 };
 

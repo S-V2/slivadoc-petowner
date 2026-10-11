@@ -537,12 +537,13 @@ export function HomeScreen({
                 </LinearGradient>
                 <View style={styles.serviceCardBody}>
                   <Text translate={false} numberOfLines={1} style={styles.serviceName}>{branch.business_name}</Text>
+                  <Text style={styles.servicePrice}>{branch.verified ? "✓ Verified" : branch.source === "manual" ? "Informasi tempat" : "Mitra Slivadoc"}</Text>
                   <View style={styles.serviceLocation}><Ionicons name="location-outline" size={11} color={colors.muted} /><Text translate={false} numberOfLines={1} style={styles.serviceLocationText}>{place}</Text></View>
                   <View style={styles.serviceMeta}>
                     <View style={styles.ratingPill}><Ionicons name="star" size={10} color={colors.yellow} /><Text translate={false} style={styles.ratingText}>{branch.rating !== null ? branch.rating.toFixed(1) : "-"}</Text></View>
                     {branch.distance_km !== null ? <><Text style={styles.serviceMetaDot}>•</Text><Text translate={false} numberOfLines={1} style={styles.serviceMetaText}>{formatDistanceKm(branch.distance_km, locale)}</Text></> : null}
                   </View>
-                  <View style={styles.serviceFooter}><Text translate={false} numberOfLines={1} style={styles.servicePrice}>{branchCountsLabel(branch.service_count, branch.product_count, language)}</Text><View style={styles.bookPill}><Text style={styles.bookPillText}>Profil</Text><Ionicons name="arrow-forward" size={12} color={colors.white} /></View></View>
+                  <View style={styles.serviceFooter}><Text translate={false} numberOfLines={1} style={styles.servicePrice}>{branch.source === "manual" ? (language === "en" ? "View address & contact" : "Lihat alamat & kontak") : branchCountsLabel(branch.service_count, branch.product_count, language)}</Text><View style={styles.bookPill}><Text style={styles.bookPillText}>Profil</Text><Ionicons name="arrow-forward" size={12} color={colors.white} /></View></View>
                 </View>
               </Pressable>
             ))}

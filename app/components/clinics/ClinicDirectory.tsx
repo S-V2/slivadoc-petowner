@@ -88,7 +88,10 @@ function ClinicCard({
         </span>
         <span className="clinic-card-body">
           <h3>{branch.business_name}</h3>
-          <small className="clinic-card-branch">{branch.branch_name}</small>
+          <span className="clinic-directory-verification" data-verified={branch.verified === true}>
+            {branch.verified ? "✓ Verified" : branch.source === "manual" ? "Informasi tempat" : "Mitra Slivadoc"}
+          </span>
+          {branch.branch_name !== branch.business_name && <small className="clinic-card-branch">{branch.branch_name}</small>}
           <span className="clinic-card-place">
             <Icon name="map" size={14} />
             <span>
@@ -100,10 +103,10 @@ function ClinicCard({
           <ClinicOpenState branch={branch} />
           <span className="clinic-card-rating">
             <span className="clinic-card-rating-label">
-              <LocalizedCopy>{"Rating toko"}</LocalizedCopy>
-              <small title={t("Rata-rata dari semua cabang")}>
+              <LocalizedCopy>{branch.source === "manual" ? "Rating referensi" : "Rating toko"}</LocalizedCopy>
+              {branch.source !== "manual" && <small title={t("Rata-rata dari semua cabang")}>
                 <LocalizedCopy>{"Rata-rata semua cabang"}</LocalizedCopy>
-              </small>
+              </small>}
             </span>
             {branch.rating !== null && branch.review_count > 0 ? (
               <b>
@@ -118,7 +121,7 @@ function ClinicCard({
             )}
           </span>
           <span className="clinic-card-counts">
-            {t(`${branch.service_count} layanan · ${branch.product_count} produk`)}
+            {branch.source === "manual" ? t("Lihat alamat & kontak") : t(`${branch.service_count} layanan · ${branch.product_count} produk`)}
           </span>
         </span>
       </button>

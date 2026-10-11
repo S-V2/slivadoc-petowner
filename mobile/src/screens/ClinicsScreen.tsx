@@ -86,6 +86,7 @@ function BranchCard({ branch, onPress }: { branch: MobileDiscoveryBranch; onPres
       <View style={styles.cardBody}>
         <Pill tone={branch.type === "petclinic" ? "blue" : branch.type === "petshop" ? "mint" : "violet"}>{branchTypeLabel(branch.type)}</Pill>
         <Text translate={false} numberOfLines={1} style={styles.name}>{branch.business_name}</Text>
+        <Text style={styles.status}>{branch.verified ? "✓ Verified" : branch.source === "manual" ? "Informasi tempat" : "Mitra Slivadoc"}</Text>
         {branch.branch_name && branch.branch_name !== branch.business_name ? (
           <Text translate={false} numberOfLines={1} style={styles.branch}>{branch.branch_name}</Text>
         ) : null}
@@ -101,11 +102,11 @@ function BranchCard({ branch, onPress }: { branch: MobileDiscoveryBranch; onPres
           <Text style={styles.dot}>·</Text>
           <Ionicons name="star" size={11} color={colors.yellow} />
           <Text translate={false} numberOfLines={1} style={styles.rating}>
-            {language === "en" ? "Store rating" : "Rating toko"}{" "}
+            {branch.source === "manual" ? (language === "en" ? "Reference rating" : "Rating referensi") : (language === "en" ? "Store rating" : "Rating toko")}{" "}
             {branch.rating !== null ? `${formatNumber(Math.round(branch.rating * 10) / 10)} (${branch.review_count})` : "-"}
           </Text>
         </View>
-        <Text translate={false} style={styles.counts}>{branchCountsLabel(branch.service_count, branch.product_count, language)}</Text>
+        <Text translate={false} style={styles.counts}>{branch.source === "manual" ? (language === "en" ? "View address & contact" : "Lihat alamat & kontak") : branchCountsLabel(branch.service_count, branch.product_count, language)}</Text>
       </View>
     </Pressable>
   );

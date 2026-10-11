@@ -11652,3 +11652,7 @@ textarea {
 .legal-contents li { margin-top: 8px; }
 .legal-end { font-weight: 700; padding: 12px 0; }
 @media (max-width: 480px) { .legal-public-body { padding-inline: 16px; } }
+
+/* Registered accounts and manually curated directory places. */
+.clinic-directory-verification { display:inline-flex;align-self:flex-start;font-size:11px;font-weight:700;padding:5px 9px;border-radius:20px;background:#fff1d6;color:#80611c; }
+.clinic-directory-verification[data-verified="true"] { background:#e1f6e9;color:#176143; }

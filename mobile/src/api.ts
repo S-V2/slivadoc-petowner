@@ -1011,8 +1011,14 @@ export const getMobileServices = (options?: {
 
 export type MobileBranchType = "petclinic" | "petshop" | "hybrid";
 export type MobileDiscoveryBranch = {
+  source?: "manual" | "registered";
+  verified?: boolean;
+  place_id?: string;
+  phone?: string;
+  website?: string;
+  description?: string;
   branch_id: string;
-  business_id: string;
+  business_id: string | null;
   business_name: string;
   branch_name: string;
   type: MobileBranchType;

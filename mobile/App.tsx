@@ -1,3 +1,4 @@
+import { ManualClinicSheet } from "./src/components/ManualClinicSheet";
 import { CareerScreen } from "./src/screens/CareerScreen";
 import { LegalDocumentPanel } from "./src/components/LegalDocumentPanel";
 import { LEGAL_EFFECTIVE_DATE, LEGAL_VERSION, type LegalConsent } from "../shared/legal";
@@ -386,6 +387,7 @@ function MobileApp() {
     id?: string;
   }>();
   const activityRequestRef = useRef(0);
+  const [manualPlaceID, setManualPlaceID] = useState<string>();
   const [marketplaceIntent, setMarketplaceIntent] = useState<{
     token: number;
     productId?: string;
@@ -939,6 +941,11 @@ function MobileApp() {
     branch: MobileDiscoveryBranch,
     entryPoint?: "klinik_petshop",
   ) => {
+    if (branch.source === "manual" || !branch.business_id) {
+      setMobileEntryPoint(undefined);
+      setManualPlaceID(branch.branch_id);
+      return;
+    }
     if (entryPoint)
       trackPetOwnerEvent({
         event: "clinic_card_click",
@@ -1175,6 +1182,7 @@ function MobileApp() {
   }
   return (
     <>
+      <ManualClinicSheet key={manualPlaceID || "closed"} placeID={manualPlaceID} onClose={() => setManualPlaceID(undefined)} />
       <StatusBar style="dark" />
       <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
         <AppSurfaceProvider

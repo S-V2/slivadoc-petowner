@@ -1061,6 +1061,10 @@ export default function PetOwnerApp() {
     branch: DiscoveryBranch,
     { fromMenu = false, replace = false } = {},
   ) => {
+    if (branch.source === "manual" || !branch.business_id) {
+      window.location.assign(`/clinics/${encodeURIComponent(branch.branch_id)}`);
+      return;
+    }
     recordStoreOpen(fromMenu ? CLINIC_ENTRY_POINT : "other");
     if (fromMenu)
       void trackPetOwnerEvent({
@@ -2954,13 +2958,14 @@ function HomeView({
                 </span>
                 <span className="clinic-home-body">
                   <b>{branch.business_name}</b>
+                  <span className="clinic-directory-verification" data-verified={branch.verified === true}>{branch.verified ? "✓ Verified" : branch.source === "manual" ? "Informasi tempat" : "Mitra Slivadoc"}</span>
                   <small>
                     <Icon name="map" size={12} />
                     <span>{branch.branch_name}</span>
                   </small>
                   <span className="clinic-home-meta">
                     {distance ? <strong>{distance}</strong> : null}
-                    <span>{t(`${branch.service_count} layanan · ${branch.product_count} produk`)}</span>
+                    <span>{branch.source === "manual" ? t("Lihat alamat & kontak") : t(`${branch.service_count} layanan · ${branch.product_count} produk`)}</span>
                   </span>
                   <span className="clinic-home-foot">
                     <ClinicOpenState branch={branch} />

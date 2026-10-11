@@ -217,12 +217,37 @@
   .main-shell {
     --app-sidebar-width: 0px;
     --app-header-offset: 0px;
+    --app-header-height: 108px;
   }
   .main-shell > .topbar {
     margin: 0;
+    flex-wrap: wrap;
+    align-content: center;
+    gap: 6px 8px;
   }
   .main-shell > .topbar .mobile-brand {
     display: flex !important;
+  }
+  .main-shell > .topbar .location-picker {
+    display: flex !important;
+    order: 3;
+    flex: 1 0 100%;
+    min-height: 32px;
+    gap: 8px;
+  }
+  .main-shell > .topbar .location-picker > span:first-child {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+  }
+  .main-shell > .topbar .location-picker > span:nth-child(2) {
+    flex: 1;
+    min-width: 0;
+  }
+  .main-shell > .topbar .location-picker b {
+    max-width: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .mobile-nav button {
     border-radius: 14px;

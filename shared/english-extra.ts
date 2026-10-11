@@ -55,6 +55,7 @@ export const englishExtra: Record<string, string> = {
   "Akun & perawatan": "Account & care",
   "Yuk, bikin hari pet-mu makin sehat dan happy.": "Let's make your pet's day healthier and happier.",
   "Terdekat": "Nearby",
+  "· Urutan terdekat": "· Nearest first",
   "1 catatan": "1 record",
   "Tambah profil hewan": "Add pet profile",
   "Anggota keluarga baru": "New family member",
@@ -851,4 +852,7 @@ export const englishExtra: Record<string, string> = {
   "Ketuk penanda untuk melihat tempatnya.": "Tap a marker to see the place.",
   "Titik di peta": "Map point",
   "Lokasi perangkat": "Device location",
+  "Pembacaan lokasi terlalu lama. Pastikan layanan lokasi perangkat aktif, lalu coba lagi.": "Location detection timed out. Check that your device's location services are enabled, then try again.",
+  "Browser belum menerima koordinat perangkat. Pastikan layanan lokasi perangkat aktif, lalu coba lagi.": "The browser has not received your device coordinates. Check that your device's location services are enabled, then try again.",
+  "Dengan izin lokasi, posisi diperbarui otomatis setiap 15 menit.": "With location permission, your position refreshes automatically every 15 minutes.",
 };

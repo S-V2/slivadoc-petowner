@@ -2,7 +2,7 @@
 
 import { hasPlacePin, isInformationPlace } from "../../../shared/place-directory";
 
-import Image from "next/image";
+import { PlacePhoto } from "../places/PlacePhoto";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../Icon";
 import { ClinicOpenState } from "./ClinicBranchInfo";
@@ -16,7 +16,6 @@ import {
   getDiscoveryBranches,
   type DiscoveryBranch,
 } from "../../lib/platform-api";
-import { DEVICE_LOCATION_LABEL, PIN_LOCATION_LABEL } from "../../lib/device-location";
 import {
   CLINIC_RADIUS_OPTIONS,
   branchPlace,
@@ -36,7 +35,6 @@ export type OpenClinicBranch = (
 
 type Props = {
   location: LocationResult | null;
-  onOpenLocation: () => void;
   onOpenBranch: OpenClinicBranch;
 };
 
@@ -79,11 +77,7 @@ function ClinicCard({
         onClick={onOpen}
       >
         <span className="clinic-card-media">
-          {image ? (
-            <Image src={image} alt="" fill sizes="(max-width: 860px) 100vw, 320px" unoptimized />
-          ) : (
-            <Icon name="clinic" size={34} />
-          )}
+          <PlacePhoto src={image || undefined} alt={branch.business_name} sizes="(max-width: 860px) 100vw, 320px" />
           <span className="clinic-type-badge" data-type={branch.type}>
             {clinicTypeLabel(branch.type, language)}
           </span>
@@ -93,13 +87,13 @@ function ClinicCard({
           <span className="clinic-directory-verification" data-verified={branch.verified === true}>
             {branch.verified ? "✓ Verified" : isInformationPlace(branch) ? "Informasi tempat" : "Mitra Slivadoc"}
           </span>
-          {branch.branch_name !== branch.business_name && <small className="clinic-card-branch">{branch.branch_name}</small>}
+          <small className="clinic-card-branch">{branch.branch_name !== branch.business_name ? branch.branch_name : ""}</small>
           <span className="clinic-card-place">
             <Icon name="map" size={14} />
             <span>
               {distance ? <b>{distance}</b> : null}
               {distance ? " · " : null}
-              {[branch.address, branchPlace(branch)].filter(Boolean).join(", ")}
+              {[branch.address, branchPlace(branch)].filter(Boolean).join(", ") || t("Alamat belum tersedia")}
             </span>
           </span>
           <ClinicOpenState branch={branch} />
@@ -146,7 +140,7 @@ function ClinicSkeleton() {
   );
 }
 
-export default function ClinicDirectory({ location, onOpenLocation, onOpenBranch }: Props) {
+export default function ClinicDirectory({ location, onOpenBranch }: Props) {
   const { t, language } = usePetOwnerI18n();
   const [filters, setFilters] = useState<ClinicFilters>(defaultClinicFilters);
   const [searchText, setSearchText] = useState("");
@@ -288,26 +282,6 @@ export default function ClinicDirectory({ location, onOpenLocation, onOpenBranch
   return (
     <section className="clinic-directory" aria-busy={loading}>
       <header className="clinic-toolbar">
-        <div className="clinic-location">
-          <Icon name="map" size={16} />
-          <span>
-            <small>
-              <LocalizedCopy>{"LOKASIMU"}</LocalizedCopy>
-            </small>
-            <b>
-              {location ? (
-                [DEVICE_LOCATION_LABEL, PIN_LOCATION_LABEL].includes(location.label)
-                  ? t(location.label)
-                  : location.label.split(",").slice(0, 2).join(", ")
-              ) : (
-                <LocalizedCopy>{"Belum dipilih"}</LocalizedCopy>
-              )}
-            </b>
-          </span>
-          <LocalizedButton type="button" className="secondary-button small" onClick={onOpenLocation}>
-            <LocalizedCopy>{location ? "Ganti lokasi" : "Pilih lokasi"}</LocalizedCopy>
-          </LocalizedButton>
-        </div>
         <div className="clinic-tabs" role="tablist" aria-label="Tampilan hasil">
           {(["list", "map"] as const).map((id) => (
             <LocalizedButton
@@ -324,24 +298,6 @@ export default function ClinicDirectory({ location, onOpenLocation, onOpenBranch
         </div>
       </header>
 
-      {!coords && (
-        <div className="clinic-banner" role="note">
-          <Icon name="map" size={20} />
-          <p>
-            <b>
-              <LocalizedCopy>{"Pilih lokasi untuk melihat yang terdekat"}</LocalizedCopy>
-            </b>
-            <small>
-              <LocalizedCopy>
-                {"Tanpa lokasi, daftar diurutkan berdasarkan kota dan nama."}
-              </LocalizedCopy>
-            </small>
-          </p>
-          <LocalizedButton type="button" className="primary-button small" onClick={onOpenLocation}>
-            <LocalizedCopy>{"Pilih lokasi"}</LocalizedCopy>
-          </LocalizedButton>
-        </div>
-      )}
 
       <div className="clinic-filters">
         <div className="clinic-chips" role="group" aria-label="Jenis tempat">

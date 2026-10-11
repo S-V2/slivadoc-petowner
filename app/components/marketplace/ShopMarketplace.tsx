@@ -1224,7 +1224,7 @@ export function MarketplaceStorefront({
         location={branch ? [branch.branch_name !== store.name ? branch.branch_name : "", branch.city].filter(Boolean).join(" · ") : store.city || "Indonesia"}
         description={store.about}
         identity={<StoreAvatar name={store.name} logoUrl={store.logo_url} online={store.is_online} showPresence={!informationOnly} large />}
-        media={<><WorldPhoto src={branch?.banner_url || store.banner_url} alt={store.name} icon={branch?.type === "petshop" || !services.length ? "bag" : "clinic"} sizes="(max-width: 600px) 100vw, 45vw" /><div className="place-detail-media-caption"><Icon name="map" size={17} /><LocalizedCopy preserve>{branch?.branch_name || store.city || "Slivadoc"}</LocalizedCopy></div></>}
+        media={<><WorldPhoto fallbackSrc="/brand/place-default.svg" src={branch?.banner_url || store.banner_url} alt={store.name} icon={branch?.type === "petshop" || !services.length ? "bag" : "clinic"} sizes="(max-width: 600px) 100vw, 45vw" /><div className="place-detail-media-caption"><Icon name="map" size={17} /><LocalizedCopy preserve>{branch?.branch_name || store.city || "Slivadoc"}</LocalizedCopy></div></>}
         status={<><span className="place-partner-badge"><Icon name={informationOnly && !branch?.verified ? "map" : "shield"} size={15} /><LocalizedCopy>{informationOnly ? branch?.verified ? "Verified" : "Informasi tempat" : "Partner Slivadoc"}</LocalizedCopy></span>{!informationOnly ? <span className={`market-store-presence ${store.is_online ? "is-online" : ""}`}><i aria-hidden="true" /><LocalizedCopy>{storePresenceLabel(store.is_online, store.last_seen_at)}</LocalizedCopy></span> : null}</>}
         stats={[
           { icon: "bag", value: store.product_count, label: "Produk" },

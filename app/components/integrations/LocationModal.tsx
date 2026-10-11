@@ -6,12 +6,13 @@ import { Icon } from "../Icon";
 import GeoMap, { type GeoPoint } from "../platform/GeoMap";
 import { reverseGeocode, searchLocation, type LocationResult } from "../../lib/petowner-api";
 import { DEVICE_LOCATION_LABEL, PIN_LOCATION_LABEL, resolveLocation } from "../../lib/device-location";
+import type { LocationSource } from "../../lib/location-session";
 
 type Props = {
   current: LocationResult | null;
   authenticated: boolean;
   onLogin: () => void;
-  onSelect: (location: LocationResult) => void;
+  onSelect: (location: LocationResult, source?: LocationSource) => void;
   onClose: () => void;
 };
 
@@ -34,11 +35,12 @@ export default function LocationModal({ current, authenticated, onLogin, onSelec
     setError("");
     navigator.geolocation.getCurrentPosition(async (position) => {
       try {
-        const location = await resolveLocation(
-          { latitude: position.coords.latitude, longitude: position.coords.longitude },
-          { authenticated, reverse: reverseGeocode, guestLabel: DEVICE_LOCATION_LABEL },
-        );
-        onSelect(location);
+        const point = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        let location: LocationResult = { ...point, label: DEVICE_LOCATION_LABEL };
+        try {
+          location = await resolveLocation(point, { authenticated, reverse: reverseGeocode, guestLabel: DEVICE_LOCATION_LABEL });
+        } catch { /* GPS coordinates can still find nearby places when address lookup is unavailable. */ }
+        onSelect(location, "device");
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Lokasi tidak dapat diterjemahkan.");
       } finally {
@@ -46,8 +48,10 @@ export default function LocationModal({ current, authenticated, onLogin, onSelec
       }
     }, (cause) => {
       setLoading(false);
-      setError(cause.code === 1 ? "Izin lokasi ditolak. Izinkan lokasi pada pengaturan browser atau cari alamat manual." : "Lokasi perangkat belum dapat ditemukan.");
-    }, { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 });
+      setError(cause.code === 1 ? "Izin lokasi ditolak. Izinkan lokasi pada pengaturan browser atau cari alamat manual."
+        : cause.code === 3 ? "Pembacaan lokasi terlalu lama. Pastikan layanan lokasi perangkat aktif, lalu coba lagi."
+        : "Browser belum menerima koordinat perangkat. Pastikan layanan lokasi perangkat aktif, lalu coba lagi.");
+    }, { enableHighAccuracy: false, timeout: 20_000, maximumAge: 60_000 });
   };
 
   const runSearch = async () => {
@@ -90,7 +94,7 @@ export default function LocationModal({ current, authenticated, onLogin, onSelec
           <LocalizedButton className="modal-close" type="button" onClick={onClose}><Icon name="close" /></LocalizedButton>
         </header>
         <LocalizedButton className="detect-location" type="button" onClick={useDeviceLocation} disabled={loading}>
-          <span><Icon name="map" size={20} /></span><p><b><LocalizedCopy>{loading ? "Mendeteksi lokasi..." : "Gunakan lokasi perangkat"}</LocalizedCopy></b><small><LocalizedCopy>{"Browser akan meminta izin lokasi satu kali"}</LocalizedCopy></small></p><Icon name="chevron" size={17} />
+          <span><Icon name="map" size={20} /></span><p><b><LocalizedCopy>{loading ? "Mendeteksi lokasi..." : "Gunakan lokasi perangkat"}</LocalizedCopy></b><small><LocalizedCopy>{"Dengan izin lokasi, posisi diperbarui otomatis setiap 15 menit."}</LocalizedCopy></small></p><Icon name="chevron" size={17} />
         </LocalizedButton>
         <div className="location-search">
           <Icon name="search" size={18} />

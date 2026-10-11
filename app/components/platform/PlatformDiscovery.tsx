@@ -76,6 +76,9 @@ import {
   type ActivityType,
 } from "../../lib/platform-api";
 import { QrisPaymentPanel, PaymentMethodPicker } from "../payments/QrisPayment";
+import type { LocationResult } from "../../lib/petowner-api";
+import { DEVICE_LOCATION_LABEL } from "../../lib/device-location";
+import type { LocationSource } from "../../lib/location-session";
 import GeoMap, { type GeoCircle, type GeoMarker, type GeoPoint } from "./GeoMap";
 import "../../event-checkout.css";
 import "../../petspot-experience.css";
@@ -83,6 +86,8 @@ import "../../petspot-experience.css";
 export type DiscoveryMode = "academy" | "events" | "petspot" | "pethub";
 type Props = {
   mode: DiscoveryMode;
+  location?: LocationResult | null;
+  onLocationChange?: (location: LocationResult, source?: LocationSource) => void;
   initialItemId?: string;
   petName: string;
   pets?: Array<{
@@ -318,6 +323,8 @@ function WorldImageGallery({
 
 export default function PlatformDiscovery({
   mode,
+  location,
+  onLocationChange,
   initialItemId,
   petName,
   pets = [],
@@ -392,9 +399,13 @@ export default function PlatformDiscovery({
   const [filter, setFilter] = useState("all");
   const [renderedAt] = useState(() => Date.now());
   const [spotSearch, setSpotSearch] = useState("");
+  const [spotQuery, setSpotQuery] = useState("");
   const [maxDistance, setMaxDistance] = useState(25);
   const [hubTab, setHubTab] = useState("Untuk Kamu");
-  const [nearMe, setNearMe] = useState<GeoPoint | null>(null);
+  const [devicePoint, setDevicePoint] = useState<GeoPoint | null>(null);
+  const nearMe = location ?? devicePoint;
+  const nearLatitude = nearMe?.latitude;
+  const nearLongitude = nearMe?.longitude;
   const [petshipPlaces, setPetshipPlaces] = useState<PetshipPlace[]>([]);
   const [lostPets, setLostPets] = useState<PublicLostPet[]>([]);
   const [showPetship, setShowPetship] = useState(false);
@@ -419,6 +430,10 @@ export default function PlatformDiscovery({
   const pendingSaves = useRef(new Set<string>());
   const speciesRailRef = useRef<HTMLDivElement>(null);
   const trainerRailRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSpotQuery(spotSearch.trim()), 350);
+    return () => window.clearTimeout(timer);
+  }, [spotSearch]);
   useEffect(() => {
     let active = true;
     void Promise.resolve().then(() => {
@@ -455,10 +470,6 @@ export default function PlatformDiscovery({
       return () => { active = false; };
     }
     if (mode === "petspot") {
-      void getPetSpots()
-        .then((value) => { if (active) setSpots(value.data); })
-        .catch(failed("PetSpot"))
-        .finally(() => { if (active) setLoading(false); });
       return () => { active = false; };
     }
     void Promise.all([getPetHubStreams(), getPetHubStories()])
@@ -471,6 +482,25 @@ export default function PlatformDiscovery({
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [mode, notify, trainerSpecies, loadAttempt]);
+
+  useEffect(() => {
+    if (mode !== "petspot") return;
+    let active = true;
+    queueMicrotask(() => { if (active) { setLoading(true); setLoadError(false); } });
+    const hasLocation = nearLatitude !== undefined && nearLongitude !== undefined;
+    void getPetSpots({
+      ...(hasLocation ? { latitude: nearLatitude, longitude: nearLongitude, max_distance_km: maxDistance } : {}),
+      search: spotQuery || undefined,
+      category: filter === "all" ? undefined : filter,
+    }).then((value) => { if (active) setSpots(value.data); })
+      .catch((error) => {
+        if (!active) return;
+        setLoadError(true);
+        notify(error instanceof Error ? error.message : "PetSpot belum dapat dimuat");
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [mode, notify, loadAttempt, nearLatitude, nearLongitude, maxDistance, filter, spotQuery]);
 
   async function openTrainer(trainer: AcademyTrainer) {
     setSelectedTrainer(trainer);
@@ -486,11 +516,15 @@ export default function PlatformDiscovery({
   }
   useEffect(() => {
     if (mode !== "petspot") return;
-    const failed = (label: string) => (error: unknown) =>
-      notify(error instanceof Error ? error.message : `${label} belum dapat dimuat`);
-    void getPetshipPlaces().then((value) => setPetshipPlaces(value.data)).catch(failed("Lokasi Petship"));
-    void getPublicLostPets().then((value) => setLostPets(value.data)).catch(failed("Laporan hewan hilang"));
-  }, [mode, notify]);
+    let active = true;
+    const failed = (label: string) => (error: unknown) => {
+      if (active) notify(error instanceof Error ? error.message : `${label} belum dapat dimuat`);
+    };
+    void getPetshipPlaces({ latitude: nearLatitude, longitude: nearLongitude })
+      .then((value) => { if (active) setPetshipPlaces(value.data); }).catch(failed("Lokasi Petship"));
+    void getPublicLostPets().then((value) => { if (active) setLostPets(value.data); }).catch(failed("Laporan hewan hilang"));
+    return () => { active = false; };
+  }, [mode, notify, nearLatitude, nearLongitude]);
   useEffect(() => {
     if (selectedProgram)
       void trackAcademyProgramClick(selectedProgram.id).catch(() => undefined);
@@ -527,11 +561,11 @@ export default function PlatformDiscovery({
       spots.filter(
         (item) =>
           (filter === "all" || item.category === filter) &&
-          item.name.toLowerCase().includes(spotSearch.toLowerCase()) &&
+          `${item.name} ${item.address} ${item.description}`.toLocaleLowerCase().includes(spotSearch.trim().toLocaleLowerCase()) &&
           (!Number.isFinite(item.distance_km) ||
             Number(item.distance_km) <= maxDistance),
-      ),
-    [spots, filter, spotSearch, maxDistance],
+      ).sort((a, b) => nearMe ? (a.distance_km ?? Infinity) - (b.distance_km ?? Infinity) : 0),
+    [spots, filter, spotSearch, maxDistance, nearMe],
   );
   const openSpot = useCallback((item: PetSpot) => {
     setSelectedSpot(item);
@@ -620,28 +654,14 @@ export default function PlatformDiscovery({
   async function locate() {
     if (!navigator.geolocation) return notify("GPS tidak tersedia");
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const response = await getPetSpots({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            search: spotSearch,
-            category: filter === "all" ? undefined : filter,
-            max_distance_km: maxDistance,
-          });
-          setNearMe({ latitude: position.coords.latitude, longitude: position.coords.longitude });
-          setSpots(response.data);
-          notify("PetSpot diurutkan berdasarkan koordinat perangkat");
-        } catch (error) {
-          notify(
-            error instanceof Error
-              ? error.message
-              : "PetSpot belum dapat dimuat",
-          );
-        }
+      (position) => {
+        const point = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        if (onLocationChange) onLocationChange({ ...point, label: DEVICE_LOCATION_LABEL }, "device");
+        else setDevicePoint(point);
+        notify("PetSpot diurutkan berdasarkan koordinat perangkat");
       },
       () => notify("Izinkan lokasi untuk menghitung jarak PetSpot"),
-      { enableHighAccuracy: true, timeout: 12000 },
+      { enableHighAccuracy: false, timeout: 20_000, maximumAge: 60_000 },
     );
   }
   async function like(post: PetHubPost, ensureLiked = false) {
@@ -1019,6 +1039,7 @@ export default function PlatformDiscovery({
           <label className="petspot-radius">
             <span><LocalizedCopy>{"Radius pencarian"}</LocalizedCopy></span>
             <SlivaSelect aria-label="Radius pencarian"
+              disabled={!nearMe}
               value={maxDistance}
               onChange={(event) => setMaxDistance(Number(event.target.value))}
             >
@@ -1055,7 +1076,7 @@ export default function PlatformDiscovery({
               </LocalizedButton>
             ))}</LocalizedCopy>
           </div>
-          <span><LocalizedCopy>{categorySpots.length}</LocalizedCopy><LocalizedCopy>{" tempat ditemukan"}</LocalizedCopy></span>
+          <span><LocalizedCopy>{categorySpots.length}</LocalizedCopy><LocalizedCopy>{" tempat ditemukan"}</LocalizedCopy>{nearMe && <LocalizedCopy>{" · Urutan terdekat"}</LocalizedCopy>}</span>
         </div>
         <div className="petspot-view-tabs" role="group" aria-label="Tampilan PetSpot">
           <LocalizedButton type="button" aria-pressed={mobilePane === "daftar"} className={mobilePane === "daftar" ? "active" : ""} onClick={() => setMobilePane("daftar")}><LocalizedCopy>{"Daftar"}</LocalizedCopy></LocalizedButton>

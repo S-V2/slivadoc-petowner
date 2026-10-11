@@ -31,6 +31,7 @@ import {
 } from "../LocalizedCopy";
 import { SlivaSelect } from "../SlivaSelect";
 import { SlivaDatePicker } from "../SlivaDatePicker";
+import type { LocationResult } from "../../lib/petowner-api";
 import {
   sitterClient,
   createPaymentIntent,
@@ -97,11 +98,15 @@ export default function PetSitterExperience({
   authenticated,
   onLogin,
   initialBookingId,
+  location,
+  onOpenLocation,
 }: {
   pets: Array<{ id: string; name: string; accessRole?: string }>;
   authenticated: boolean;
   initialBookingId?: string;
   onLogin: () => void;
+  location?: LocationResult | null;
+  onOpenLocation?: () => void;
 }) {
   const startRef = useRef<HTMLElement>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -177,6 +182,16 @@ export default function PetSitterExperience({
   const key = useRef("");
   const generation = useRef(0);
   const searchGeneration = useRef(0);
+  const searchValues = useRef<SitterFilters>({});
+  const latitude = location?.latitude;
+  const longitude = location?.longitude;
+  const withLocation = useCallback((values: SitterFilters): SitterFilters => ({
+    ...values,
+    latitude: values.city ? undefined : latitude ?? values.latitude,
+    longitude: values.city ? undefined : longitude ?? values.longitude,
+    max_distance_km: values.city ? undefined : latitude !== undefined ? radius : values.max_distance_km,
+  }), [latitude, longitude, radius]);
+  const hasLocation = !filters.city && (latitude !== undefined || filters.latitude !== undefined);
   const change = (values: Partial<typeof input>) => {
     generation.current++;
     setInput((v) => ({ ...v, ...values }));
@@ -185,11 +200,12 @@ export default function PetSitterExperience({
   };
   const search = useCallback(
     async (values = filters) => {
+      searchValues.current = values;
       const request = ++searchGeneration.current;
       setLoading(true);
       setError("");
       try {
-        const result = await sitterClient.list(values);
+        const result = await sitterClient.list(withLocation(values));
         if (request === searchGeneration.current) setSitters(result.data);
       } catch (e) {
         if (request === searchGeneration.current)
@@ -198,13 +214,14 @@ export default function PetSitterExperience({
         if (request === searchGeneration.current) setLoading(false);
       }
     },
-    [filters],
+    [filters, withLocation],
   );
   useEffect(() => {
     let active = true;
     const request = ++searchGeneration.current;
+    queueMicrotask(() => { if (active) { setLoading(true); setError(""); } });
     sitterClient
-      .list()
+      .list(withLocation(searchValues.current))
       .then((r) => {
         if (active && request === searchGeneration.current) setSitters(r.data);
       })
@@ -217,8 +234,15 @@ export default function PetSitterExperience({
     return () => {
       active = false;
     };
-  }, []);
+  }, [withLocation]);
   const locate = async () => {
+    if (location) {
+      const next = { ...filters, city: "" };
+      setFilters(next);
+      await search(next);
+      return;
+    }
+    if (onOpenLocation) { onOpenLocation(); return; }
     if (!navigator.geolocation) {
       setError("Lokasi tidak tersedia di browser ini. Gunakan pencarian kota.");
       return;
@@ -500,7 +524,7 @@ export default function PetSitterExperience({
               <div className="sitter-nearby">
                 <Button
                   type="button"
-                  aria-pressed={filters.latitude != null}
+                  aria-pressed={hasLocation}
                   disabled={locating || loading}
                   onClick={() => void locate()}
                 >
@@ -544,7 +568,7 @@ export default function PetSitterExperience({
                     Reset filter
                   </Button>
                 )}
-                {filters.latitude != null && (
+                {hasLocation && (
                   <span>Diurutkan dari terdekat · sesuai jangkauan sitter</span>
                 )}
               </div>

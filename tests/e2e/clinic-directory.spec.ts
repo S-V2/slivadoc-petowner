@@ -86,8 +86,9 @@ test("guests browse Klinik & Petshop, load more, and open a branch store with at
 
   await page.goto("/?view=clinics", { waitUntil: "domcontentloaded" });
 
-  // No location chosen: banner, no radius, sorted by the API's city order.
-  await expect(page.getByText("Pilih lokasi untuk melihat yang terdekat")).toBeVisible();
+  // The header owns the location picker; radius stays disabled until a location is chosen.
+  await expect(page.locator(".clinic-location, .clinic-banner")).toHaveCount(0);
+  await expect(page.locator(".location-picker")).toBeVisible();
   await expect(page.locator(".clinic-card:not(.clinic-card--skeleton)")).toHaveCount(20);
   await expect(page.locator(".clinic-radius .sliva-select-trigger")).toBeDisabled();
   expect(branchRequests[0].searchParams.has("latitude")).toBe(false);

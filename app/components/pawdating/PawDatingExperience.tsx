@@ -69,15 +69,17 @@ const titleCase = (value: string) =>
 export default function PawDatingExperience({
   pet,
   notify,
+  location,
 }: {
   pet: Pet;
   notify: Notify;
+  location?: UserLocation | null;
 }) {
   const { requirePet: requireLogin } = usePetOwnerFlow();
   const [tab, setTab] = useState<Tab>("discover");
   const [profiles, setProfiles] = useState<PawDatingProfile[]>([]);
   const [dismissedProfileIds, setDismissedProfileIds] = useState<string[]>([]);
-  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const userLocation = location ?? null;
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [species, setSpecies] = useState("");
@@ -107,8 +109,10 @@ export default function PawDatingExperience({
   );
   const [submitting, setSubmitting] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const profileRequest = useRef(0);
 
   const loadProfiles = useCallback(async () => {
+    const request = ++profileRequest.current;
     setLoading(true);
     const params = new URLSearchParams();
     if (species) params.set("species", species);
@@ -123,8 +127,9 @@ export default function PawDatingExperience({
     }
     try {
       const result = await getPawDatingProfiles(params.toString());
-      setProfiles(result.data);
+      if (request === profileRequest.current) setProfiles(result.data);
     } catch (error) {
+      if (request !== profileRequest.current) return;
       setProfiles([]);
       notify(
         error instanceof Error
@@ -132,7 +137,7 @@ export default function PawDatingExperience({
           : "Profil PAW Dating belum dapat dimuat",
       );
     } finally {
-      setLoading(false);
+      if (request === profileRequest.current) setLoading(false);
     }
   }, [city, distance, health, level, notify, sex, species, userLocation]);
 
@@ -163,20 +168,11 @@ export default function PawDatingExperience({
   }, [notify, sourceProfileId]);
 
   useEffect(() => {
-    queueMicrotask(() => void loadProfiles());
+    let active = true;
+    const sequence = profileRequest;
+    queueMicrotask(() => { if (active) void loadProfiles(); });
+    return () => { active = false; sequence.current++; };
   }, [loadProfiles]);
-  useEffect(() => {
-    if (!("geolocation" in navigator)) return;
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) =>
-        setUserLocation({
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-        }),
-      () => undefined,
-      { enableHighAccuracy: false, maximumAge: 300_000, timeout: 8_000 },
-    );
-  }, []);
   useEffect(() => {
     getPawDatingStandards()
       .then(setStandards)

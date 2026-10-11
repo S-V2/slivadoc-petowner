@@ -43,6 +43,8 @@ import { usePetOwnerI18n } from "./PetOwnerI18n";
 import AddPetExperience from "./integrations/AddPetExperience";
 import CommunityExperience from "./integrations/CommunityExperience";
 import LocationModal from "./integrations/LocationModal";
+import { useCurrentLocation } from "./use-current-location";
+import { PlacePhoto } from "./places/PlacePhoto";
 import ClinicDirectory from "./clinics/ClinicDirectory";
 import { ClinicOpenState } from "./clinics/ClinicBranchInfo";
 import SlivaCareDrawer from "./integrations/SlivaCareDrawer";
@@ -513,9 +515,7 @@ export default function PetOwnerApp() {
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [addPetOpen, setAddPetOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState<LocationResult | null>(
-    null,
-  );
+  const [currentLocation, setCurrentLocation] = useCurrentLocation(authenticated);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
@@ -636,11 +636,9 @@ export default function PetOwnerApp() {
       careerReturn.current = careerReturnPath(loginQuery.get("returnTo"));
       queueMicrotask(() => setLoginOpen(true));
     }
-    const savedLocation = window.localStorage.getItem("slivadoc.location");
     const savedCart = window.localStorage.getItem("slivadoc.cart");
     try {
       queueMicrotask(() => {
-        if (savedLocation) setCurrentLocation(JSON.parse(savedLocation));
         if (savedCart) setCart(JSON.parse(savedCart));
         const requested = new URLSearchParams(window.location.search).get(
           "view",
@@ -663,7 +661,7 @@ export default function PetOwnerApp() {
           setCheckoutSuccess(true);
       });
     } catch {
-      window.localStorage.removeItem("slivadoc.location");
+      // A cart or view error must not clear the location selected in the header.
     }
   }, []);
 
@@ -870,6 +868,7 @@ export default function PetOwnerApp() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
+    let active = true;
     void Promise.all([
       getDiscoveryServices(
         currentLocation
@@ -882,6 +881,7 @@ export default function PetOwnerApp() {
       getDiscoveryProducts(),
     ])
       .then(([serviceResponse, productResponse]) => {
+        if (!active) return;
         setRemoteServices(
           serviceResponse.data.map((item, index) => {
             const distance = finiteNumber(item.distance_km);
@@ -952,9 +952,11 @@ export default function PetOwnerApp() {
         setRemoteProducts(productResponse.data);
       })
       .catch(() => {
+        if (!active) return;
         setRemoteServices([]);
         setRemoteProducts([]);
       });
+    return () => { active = false; };
   }, [currentLocation]);
 
   useEffect(() => {
@@ -1453,7 +1455,6 @@ export default function PetOwnerApp() {
           <LocalizedCopy>{featureView === "clinics" && (
             <ClinicDirectory
               location={currentLocation}
-              onOpenLocation={() => setLocationOpen(true)}
               onOpenBranch={openClinicBranch}
             />
           )}</LocalizedCopy>
@@ -1503,7 +1504,7 @@ export default function PetOwnerApp() {
               location={currentLocation}
             />
           )}</LocalizedCopy>
-          {featureView === "sitter" && <PetSitterExperience initialBookingId={sittingBookingId} pets={petProfiles} authenticated={authenticated} onLogin={()=>setLoginOpen(true)}/>}
+          {featureView === "sitter" && <PetSitterExperience initialBookingId={sittingBookingId} pets={petProfiles} authenticated={authenticated} onLogin={()=>setLoginOpen(true)} location={currentLocation} onOpenLocation={() => setLocationOpen(true)}/>}
           <LocalizedCopy>{featureView === "community" && (
             <CommunityExperience
               notify={notify}
@@ -1516,6 +1517,8 @@ export default function PetOwnerApp() {
             <PlatformDiscovery
               key={`${featureView}:${navigationVersion}`}
               mode={featureView as "academy" | "events" | "petspot" | "pethub"}
+              location={currentLocation}
+              onLocationChange={setCurrentLocation}
               navigation={featureView === "petspot" ? <WorldNavigation active="petspot" onSelect={openWorld} embedded /> : undefined}
               petName={selectedPet.name}
               pets={petProfiles.map((pet) => ({
@@ -1548,7 +1551,7 @@ export default function PetOwnerApp() {
             />
           )}</LocalizedCopy>
           <LocalizedCopy>{featureView === "pawdating" && (
-            <PawDatingExperience pet={selectedPet} notify={notify} />
+            <PawDatingExperience pet={selectedPet} notify={notify} location={currentLocation} />
           )}</LocalizedCopy>
           <LocalizedCopy>{featureView === "petship" && (
             <PetshipView
@@ -1736,12 +1739,8 @@ export default function PetOwnerApp() {
             setLoginOpen(true);
           }}
           onClose={() => setLocationOpen(false)}
-          onSelect={(location) => {
-            setCurrentLocation(location);
-            window.localStorage.setItem(
-              "slivadoc.location",
-              JSON.stringify(location),
-            );
+          onSelect={(location, source) => {
+            setCurrentLocation(location, source);
             setLocationOpen(false);
             notify("Lokasi layanan berhasil diperbarui");
           }}
@@ -2945,18 +2944,7 @@ function HomeView({
               >
                 <span className={`home-service-visual ${["mint", "blue", "violet", "peach"][index % 4]}`}>
                   <span>{clinicTypeLabel(branch.type, language)}</span>
-                  {image ? (
-                    <Image
-                      className="catalog-cover-image"
-                      src={image}
-                      alt=""
-                      fill
-                      sizes="240px"
-                      unoptimized
-                    />
-                  ) : (
-                    <i><Icon name="clinic" size={30} /></i>
-                  )}
+                  <PlacePhoto className="catalog-cover-image" src={image || undefined} alt={branch.business_name} sizes="240px" />
                 </span>
                 <span className="clinic-home-body">
                   <b>{branch.business_name}</b>

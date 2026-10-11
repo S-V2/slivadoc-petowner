@@ -18,6 +18,7 @@ import "./career.css";
 import "./site-shell.css";
 import "./site-footer.css";
 import "./place-details.css";
+import "./input-focus.css";
 import { SEO, absoluteUrl } from "./lib/seo-config";
 
 export const metadata: Metadata = {

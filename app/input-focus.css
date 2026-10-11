@@ -1,0 +1,11 @@
+/* Text fields keep their own frame; page-level focus styles must not add a second ring. */
+:is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="button"]):not([type="submit"]):not([type="reset"]), textarea, [contenteditable="true"]):focus {
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+.global-search:focus-within,
+.market-search:focus-within,
+.password-input-wrap:focus-within {
+  box-shadow: none !important;
+}

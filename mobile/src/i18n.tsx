@@ -218,6 +218,7 @@ export function LocalizedTextInput({
   return (
     <NativeTextInput
       {...props}
+      underlineColorAndroid={props.underlineColorAndroid ?? "transparent"}
       accessibilityLabel={accessibilityLabel ? t(accessibilityLabel) : undefined}
       placeholder={placeholder ? t(placeholder) : undefined}
       placeholderTextColor={placeholderTextColor ?? colors.muted}

@@ -27,7 +27,6 @@ import {
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import * as Location from "expo-location";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -85,6 +84,7 @@ import {
 } from "../i18n";
 import { colors, shadow } from "../theme";
 import {
+  EmptyState,
   PetRequiredNotice,
   PrimaryButton,
   Screen,
@@ -116,6 +116,8 @@ import { TabRail } from "../components/TabRail";
 import { WorldExplorer } from "../components/WorldExplorer";
 import { SlivaOptionPicker } from "../components/SlivaOptionPicker";
 import { worldLabel } from "../../../shared/world-presentation";
+import { useCurrentLocation } from "../LocationProvider";
+import { nearestFirst } from "../location";
 
 export type WorldMode =
   | "pawdating"
@@ -615,10 +617,7 @@ export function WorldScreen({
     }, 1_000);
     return () => clearInterval(timer);
   }, [selected, selectedImages.length, sheetWidth]);
-  const [userLocation, setUserLocation] = useState<{
-    latitude: number;
-    longitude: number;
-  }>();
+  const { location: userLocation, ready: locationReady, openPicker } = useCurrentLocation();
   const [pawDatingCreateOpen, setPawDatingCreateOpen] = useState(false);
   const [pawDatingLoadError, setPawDatingLoadError] = useState("");
   const [pawDatingInterests, setPawDatingInterests] = useState<
@@ -655,7 +654,10 @@ export function WorldScreen({
   const [academyReviewRating, setAcademyReviewRating] = useState(5);
   const [academyReviewComment, setAcademyReviewComment] = useState("");
   const [academyReviewBusy, setAcademyReviewBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [spotLoading, setSpotLoading] = useState(true);
+  const [datingLoading, setDatingLoading] = useState(true);
+  const loading = mode === "petspot" ? spotLoading : mode === "pawdating" ? datingLoading : catalogLoading;
   const [busy, setBusy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("");
   const requiresPayment =
@@ -670,20 +672,31 @@ export function WorldScreen({
   const [spotCategoryFilter, setSpotCategoryFilter] = useState("all");
   const [spotSearch, setSpotSearch] = useState("");
   const [spotRadius, setSpotRadius] = useState("25");
-  const [spotLocating, setSpotLocating] = useState(false);
-  const locateSpots = async () => {
-    if (spotLocating) return;
-    setSpotLocating(true);
-    try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (!permission.granted) { onAction("Izinkan lokasi untuk mencari tempat di sekitarmu."); return; }
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const result = await getMobilePetSpots({ latitude: position.coords.latitude, longitude: position.coords.longitude, max_distance_km: Number(spotRadius) });
-      setItems(current => ({ ...current, petspot: result.data }));
-      onAction("PetSpot diurutkan berdasarkan koordinat perangkat");
-    } catch { onAction("Lokasi belum dapat digunakan. Coba lagi."); }
-    finally { setSpotLocating(false); }
-  };
+  const [spotQuery, setSpotQuery] = useState("");
+  const [spotError, setSpotError] = useState("");
+  const [spotAttempt, setSpotAttempt] = useState(0);
+  useEffect(() => {
+    const timer = setTimeout(() => setSpotQuery(spotSearch.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [spotSearch]);
+  useEffect(() => {
+    if (mode !== "petspot" || !locationReady) return;
+    let active = true;
+    queueMicrotask(() => { if (active) { setSpotLoading(true); setSpotError(""); } });
+    void getMobilePetSpots({
+      ...(userLocation ? { latitude: userLocation.latitude, longitude: userLocation.longitude, max_distance_km: Number(spotRadius) } : {}),
+      category: spotCategoryFilter === "all" ? undefined : spotCategoryFilter,
+      search: spotQuery || undefined,
+    }).then(result => {
+      if (active) setItems(current => ({ ...current, petspot: userLocation ? nearestFirst(result.data) : result.data }));
+    }).catch(cause => {
+      if (active) {
+        setItems(current => ({ ...current, petspot: [] }));
+        setSpotError(cause instanceof Error ? cause.message : "Tempat belum dapat dimuat.");
+      }
+    }).finally(() => { if (active) setSpotLoading(false); });
+    return () => { active = false; };
+  }, [locationReady, mode, refreshVersion, spotAttempt, spotCategoryFilter, spotQuery, spotRadius, userLocation]);
   const [petSpotForm, setPetSpotForm] = useState<PetSpotReservationForm>(
     emptyPetSpotReservationForm,
   );
@@ -755,8 +768,7 @@ export function WorldScreen({
           ? items.petspot.filter(
               (item) =>
                 (spotCategoryFilter === "all" || item.category === spotCategoryFilter) &&
-                `${item.name} ${item.city ?? ""} ${item.address ?? ""} ${worldLabel(item.category ?? "")}`.toLocaleLowerCase().includes(spotSearch.trim().toLocaleLowerCase()) &&
-                (typeof item.distance_km !== "number" || item.distance_km <= Number(spotRadius)),
+                (!userLocation || (typeof item.distance_km === "number" && Number.isFinite(item.distance_km) && item.distance_km <= Number(spotRadius))),
             )
           : mode === "events" ? items.events.filter(item => matchesWorldEvent(item, eventQuery, eventCategory)) : items[mode],
     [
@@ -765,7 +777,7 @@ export function WorldScreen({
       focusedVeterinarianId,
       items,
       mode,
-      spotCategoryFilter, spotSearch, spotRadius, eventQuery, eventCategory,
+      spotCategoryFilter, spotRadius, userLocation, eventQuery, eventCategory,
     ],
   );
   const chooseConsultProvider = (provider: ConsultProviderFilter) => {
@@ -807,96 +819,40 @@ export function WorldScreen({
     [onAction],
   );
   useEffect(() => {
-    let current = true;
-    queueMicrotask(async () => {
-      setLoading(true);
-      let location = userLocation;
-      try {
-        const permission = await Location.getForegroundPermissionsAsync();
-        const granted =
-          permission.status === "granted"
-            ? permission
-            : await Location.requestForegroundPermissionsAsync();
-        if (granted.status === "granted") {
-          const position = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          location = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          };
-          if (current) setUserLocation(location);
-        }
-      } catch {
-        // City is used as the distance fallback when location is unavailable.
-      }
-      void Promise.allSettled([
-        getMobilePawDatingProfiles(location),
-        getMobileAcademy(),
-        getMobileEvents(),
-        getMobilePetSpots(),
-        getMobileConsultationPlans(),
-        getMobileTrainerConsultationPlans(),
-        getMobileAdoptions(),
-        getMobileDocumentProducts(),
-      ])
-        .then(
-          ([
-            pawdating,
-            academy,
-            events,
-            spots,
-            consult,
-            trainerConsult,
-            adoption,
-            documents,
-          ]) => {
-            if (!current) return;
-            const pawDatingFailure =
-              pawdating.status === "rejected" ? pawdating.reason : undefined;
-            const pawDatingError = pawDatingFailure
-              ? pawDatingFailure instanceof Error
-                ? pawDatingFailure.message
-                : "Profil PAW Dating belum dapat dimuat"
-              : "";
-            setPawDatingLoadError(pawDatingError);
-            if (pawDatingError) {
-              console.warn(
-                "[PAW Dating] Discovery profile gagal dimuat",
-                pawDatingFailure,
-              );
-            }
-            setItems({
-              pawdating:
-                pawdating.status === "fulfilled" ? pawdating.value.data : [],
-              academy: academy.status === "fulfilled" ? academy.value.data : [],
-              events: events.status === "fulfilled" ? events.value.data : [],
-              petspot: spots.status === "fulfilled" ? spots.value.data : [],
-              pethub: [],
-              consult: [
-                ...(consult.status === "fulfilled" ? consult.value.data : []),
-                ...(trainerConsult.status === "fulfilled"
-                  ? trainerConsult.value.data
-                  : []),
-              ],
-              adoption:
-                adoption.status === "fulfilled" ? adoption.value.data : [],
-              documents:
-                documents.status === "fulfilled" ? documents.value.data : [],
-            });
-          },
-        )
-        .finally(() => {
-          if (current) setLoading(false);
-        });
-    });
-    return () => {
-      current = false;
-    };
-    // Location is intentionally read from the current render without becoming a
-    // dependency, so granting permission does not immediately duplicate all calls.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let active = true;
+    queueMicrotask(() => { if (active) setCatalogLoading(true); });
+    void Promise.allSettled([
+      getMobileAcademy(), getMobileEvents(), getMobileConsultationPlans(),
+      getMobileTrainerConsultationPlans(), getMobileAdoptions(), getMobileDocumentProducts(),
+    ]).then(([academy, events, consult, trainerConsult, adoption, documents]) => {
+      if (!active) return;
+      setItems(current => ({ ...current,
+        academy: academy.status === "fulfilled" ? academy.value.data : [],
+        events: events.status === "fulfilled" ? events.value.data : [],
+        consult: [
+          ...(consult.status === "fulfilled" ? consult.value.data : []),
+          ...(trainerConsult.status === "fulfilled" ? trainerConsult.value.data : []),
+        ],
+        adoption: adoption.status === "fulfilled" ? adoption.value.data : [],
+        documents: documents.status === "fulfilled" ? documents.value.data : [],
+      }));
+    }).finally(() => { if (active) setCatalogLoading(false); });
+    return () => { active = false; };
   }, [refreshVersion]);
+  useEffect(() => {
+    if (!locationReady) return;
+    let active = true;
+    queueMicrotask(() => { if (active) { setDatingLoading(true); setPawDatingLoadError(""); } });
+    void getMobilePawDatingProfiles(userLocation).then(result => {
+      if (active) setItems(current => ({ ...current, pawdating: result.data }));
+    }).catch(cause => {
+      if (active) {
+        setItems(current => ({ ...current, pawdating: [] }));
+        setPawDatingLoadError(cause instanceof Error ? cause.message : "Profil PAW Dating belum dapat dimuat");
+      }
+    }).finally(() => { if (active) setDatingLoading(false); });
+    return () => { active = false; };
+  }, [locationReady, refreshVersion, userLocation]);
   const loadPawDatingPrivate = useCallback(async () => {
     if (!owner) {
       setPawDatingInterests([]);
@@ -1685,9 +1641,10 @@ export function WorldScreen({
           <Text style={styles.worldSearchHint}>Tempat tujuan</Text>
           <View style={styles.worldSearchField}><Ionicons name="search-outline" size={19} color={colors.muted}/><TextInput accessibilityLabel="Cari tempat ramah pet" placeholder="Cari cafe, kosan, apartemen, mall…" value={spotSearch} onChangeText={setSpotSearch} style={styles.worldSearchInput}/></View>
           <View style={styles.worldSearchActions}>
-            <View style={styles.worldRadius}><Text style={styles.worldRadiusLabel}>Radius pencarian</Text><SlivaOptionPicker label="Radius pencarian" value={spotRadius} options={[3, 5, 10, 25, 100].map(value => ({ value: String(value), label: `${value} km` }))} onChange={setSpotRadius}/></View>
-            <Pressable accessibilityLabel="Cari dari posisi saya" disabled={spotLocating || loading} onPress={() => void locateSpots()} style={[styles.worldLocate, (spotLocating || loading) && { opacity: 0.5 }]}><Ionicons name="location-outline" size={17} color={colors.white}/><Text style={styles.worldLocateText}>{spotLocating ? "Mencari lokasi…" : "Cari dari posisi saya"}</Text></Pressable>
+            <View style={styles.worldRadius}><Text style={styles.worldRadiusLabel}>Radius pencarian</Text><SlivaOptionPicker disabled={!userLocation} label="Radius pencarian" value={spotRadius} options={[3, 5, 10, 25, 100].map(value => ({ value: String(value), label: `${value} km` }))} onChange={setSpotRadius}/></View>
+            <Pressable accessibilityLabel="Cari dari posisi saya" onPress={openPicker} style={styles.worldLocate}><Ionicons name="location-outline" size={17} color={colors.white}/><Text style={styles.worldLocateText}>Cari dari posisi saya</Text></Pressable>
           </View>
+          {userLocation ? <Text style={styles.worldSearchHint}>Urutan terdekat</Text> : <Text style={styles.worldSearchHint}>Pilih lokasi untuk melihat yang terdekat dan memakai filter radius.</Text>}
         </View>}
         </WorldExplorer>
         {!hasPet && owner ? <PetRequiredNotice onAddPet={onRequirePet} /> : null}
@@ -1801,6 +1758,8 @@ export function WorldScreen({
           <Text style={styles.cardNote}>Memuat informasi terbaru…</Text>
         ) : busy ? (
           <Text style={styles.cardNote}>Memproses permintaan…</Text>
+        ) : mode === "petspot" && spotError ? (
+          <EmptyState icon="alert-circle-outline" title="Daftar belum dapat dimuat" note={spotError} action="Coba lagi" onAction={() => setSpotAttempt(value => value + 1)} />
         ) : visibleItems.length === 0 ? (
           <Text style={styles.cardNote}>
             {mode === "consult"

@@ -33,3 +33,12 @@ test("nearby venue search sends coordinates and radius through the native API cl
     expect(Object.fromEntries(url.searchParams)).toEqual({ latitude: "-6.2", longitude: "106.8", max_distance_km: "5" });
   } finally { fetch.mockRestore(); }
 });
+test("native venue filters reach the server before its result limit, without undefined query values", async () => {
+  const fetch = jest.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({ data: [], count: 0 }), { status: 200 }));
+  try {
+    await getMobilePetSpots({ latitude: -6.2, longitude: 106.8, max_distance_km: 10, category: "park", search: "Bandung", });
+    expect(Object.fromEntries(new URL(String(fetch.mock.calls[0]![0])).searchParams)).toEqual({ latitude: "-6.2", longitude: "106.8", max_distance_km: "10", category: "park", search: "Bandung" });
+    await getMobilePetSpots({ search: "Jakarta", category: undefined });
+    expect(Object.fromEntries(new URL(String(fetch.mock.calls[1]![0])).searchParams)).toEqual({ search: "Jakarta" });
+  } finally { fetch.mockRestore(); }
+});

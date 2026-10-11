@@ -72,7 +72,7 @@ test("guests can still choose device coordinates without native maps or a geocod
   const select = jest.fn();
   await render(<LocationModal visible authenticated={false} onRequireLogin={jest.fn()} onSelect={select} onClose={jest.fn()} />, { wrapper: Providers });
   await fireEvent.press(screen.getByRole("button", { name: /Gunakan lokasi perangkat/ }));
-  await waitFor(() => expect(select).toHaveBeenCalledWith({ latitude: -6.2, longitude: 106.8, label: DEVICE_LOCATION_LABEL }));
+  await waitFor(() => expect(select).toHaveBeenCalledWith({ latitude: -6.2, longitude: 106.8, label: DEVICE_LOCATION_LABEL }, "device"));
   expect(reverseMobileGeocode).not.toHaveBeenCalled();
 });
 

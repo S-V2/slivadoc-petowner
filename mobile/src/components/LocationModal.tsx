@@ -5,7 +5,8 @@ import * as ExpoLocation from "expo-location";
 import type { CameraRef, StyleSpecification } from "@maplibre/maplibre-react-native";
 
 import { reverseMobileGeocode, searchMobileLocation, type MobileLocationResult } from "../api";
-import { DEVICE_LOCATION_LABEL, PIN_LOCATION_LABEL, type StoredLocation } from "../location";
+import { DEVICE_LOCATION_LABEL, PIN_LOCATION_LABEL, type LocationSource, type StoredLocation } from "../location";
+import { readDeviceLocation } from "../device-location";
 import { loadNativeMapLibre } from "../native-maplibre";
 import { colors, radius, spacing, typography } from "../theme";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../i18n";
@@ -44,7 +45,7 @@ type Props = {
   current?: StoredLocation;
   authenticated: boolean;
   onRequireLogin: () => void;
-  onSelect: (location: StoredLocation) => void;
+  onSelect: (location: StoredLocation, source?: LocationSource) => void;
   onClose: () => void;
 };
 
@@ -60,6 +61,8 @@ export function LocationModal({ visible, current, authenticated, onRequireLogin,
   const [mapFailed, setMapFailed] = useState(!nativeMap || !MAP_STYLE_URL || !MAP_PMTILES_URL);
   const camera = useRef<CameraRef>(null);
   const pinSeq = useRef(0);
+  const deviceSeq = useRef(0);
+  useEffect(() => () => { pinSeq.current += 1; deviceSeq.current += 1; }, []);
 
   useEffect(() => {
     if (!visible || mapFailed || style) return;
@@ -79,15 +82,18 @@ export function LocationModal({ visible, current, authenticated, onRequireLogin,
   };
 
   const pickDeviceLocation = async () => {
+    const seq = ++deviceSeq.current;
     setBusy("device");
     setError("");
     try {
       const permission = await ExpoLocation.requestForegroundPermissionsAsync();
+      if (seq !== deviceSeq.current) return;
       if (permission.status !== "granted") {
         setError("Izin lokasi ditolak. Izinkan lokasi di pengaturan perangkat atau cari alamat manual.");
         return;
       }
-      const { coords } = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.Balanced });
+      const coords = await readDeviceLocation();
+      if (seq !== deviceSeq.current) return;
       // Address lookup is login-only; guests keep the raw coordinates.
       let label = DEVICE_LOCATION_LABEL;
       if (authenticated) {
@@ -96,11 +102,11 @@ export function LocationModal({ visible, current, authenticated, onRequireLogin,
           () => DEVICE_LOCATION_LABEL,
         );
       }
-      onSelect({ latitude: coords.latitude, longitude: coords.longitude, label });
+      if (seq === deviceSeq.current) onSelect({ latitude: coords.latitude, longitude: coords.longitude, label }, "device");
     } catch {
-      setError("Lokasi perangkat belum dapat ditemukan.");
+      if (seq === deviceSeq.current) setError("Lokasi perangkat belum dapat ditemukan.");
     } finally {
-      setBusy("");
+      if (seq === deviceSeq.current) setBusy("");
     }
   };
 
@@ -118,12 +124,16 @@ export function LocationModal({ visible, current, authenticated, onRequireLogin,
   };
 
   const choose = (result: MobileLocationResult) => {
+    deviceSeq.current += 1;
+    setBusy("");
     pinSeq.current += 1;
     setPicked({ latitude: result.latitude, longitude: result.longitude, label: result.label });
     void moveTo(result.latitude, result.longitude);
   };
 
   const dropPin = async (latitude: number, longitude: number) => {
+    deviceSeq.current += 1;
+    setBusy("");
     const seq = ++pinSeq.current;
     setError("");
     if (!authenticated) {
@@ -148,6 +158,7 @@ export function LocationModal({ visible, current, authenticated, onRequireLogin,
         <Text style={styles.eyebrow}>LOKASI LAYANAN</Text>
         <Text style={styles.title}>Pilih lokasi spesifik</Text>
         <Text style={styles.note}>Dipakai untuk mengurutkan klinik dan petshop terdekat.</Text>
+        <Text style={styles.note}>Dengan izin lokasi, posisi diperbarui otomatis setiap 15 menit.</Text>
 
         <PrimaryButton
           icon="locate"

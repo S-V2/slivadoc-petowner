@@ -4,10 +4,9 @@ import { AccessibilityInfo, AppState, ActivityIndicator, Animated, Image, StyleS
 import { Ionicons } from "@expo/vector-icons";
 
 import { getDiscoveryBranches, type MobileDiscoveryBranch } from "../api";
-import { LocationModal } from "../components/LocationModal";
 import { LocalizedPressable as Pressable } from "../components/LocalizedPressable";
 import { TabRail } from "../components/TabRail";
-import { EmptyState, Pill, PrimaryButton, Screen, TopHeader } from "../components/ui";
+import { EmptyState, Pill, Screen, TopHeader } from "../components/ui";
 import {
   RADIUS_OPTIONS_KM,
   branchCountsLabel,
@@ -17,7 +16,8 @@ import {
   type ClinicTypeFilter,
 } from "../clinics";
 import { useI18n, LocalizedText as Text, LocalizedTextInput as TextInput } from "../i18n";
-import { DEVICE_LOCATION_LABEL, PIN_LOCATION_LABEL, loadStoredLocation, saveStoredLocation, type StoredLocation } from "../location";
+import { nearestFirst } from "../location";
+import { useCurrentLocation } from "../LocationProvider";
 import { colors, shadow } from "../theme";
 
 const PAGE_SIZE = 20;
@@ -28,8 +28,6 @@ const TYPE_FILTERS: Array<[ClinicTypeFilter, string]> = [
 ];
 
 type Props = {
-  authenticated: boolean;
-  onRequireLogin: () => void;
   onOpenBranch: (branch: MobileDiscoveryBranch) => void;
   onOpenNotifications: () => void;
 };
@@ -113,10 +111,8 @@ function BranchCard({ branch, onPress }: { branch: MobileDiscoveryBranch; onPres
   );
 }
 
-export function ClinicsScreen({ authenticated, onRequireLogin, onOpenBranch, onOpenNotifications }: Props) {
-  const [location, setLocation] = useState<StoredLocation>();
-  const [locationReady, setLocationReady] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
+export function ClinicsScreen({ onOpenBranch, onOpenNotifications }: Props) {
+  const { location, ready: locationReady } = useCurrentLocation();
   const [type, setType] = useState<ClinicTypeFilter>("all");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -129,18 +125,6 @@ export function ClinicsScreen({ authenticated, onRequireLogin, onOpenBranch, onO
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const request = useRef(0);
-
-  useEffect(() => {
-    let active = true;
-    void loadStoredLocation().then((stored) => {
-      if (!active) return;
-      setLocation(stored);
-      setLocationReady(true);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearch(searchInput), 350);
@@ -160,7 +144,7 @@ export function ClinicsScreen({ authenticated, onRequireLogin, onOpenBranch, onO
     getDiscoveryBranches(branchListOptions(JSON.parse(filterKey), { limit: PAGE_SIZE, offset: 0 }))
       .then((page) => {
         if (id !== request.current) return;
-        setItems(page.data);
+        setItems(location ? nearestFirst(page.data) : page.data);
         setHasMore(page.has_more);
       })
       .catch((cause) => {
@@ -172,7 +156,8 @@ export function ClinicsScreen({ authenticated, onRequireLogin, onOpenBranch, onO
       .finally(() => {
         if (id === request.current) setLoading(false);
       });
-  }, [filterKey, locationReady, attempt]);
+    return () => { request.current += 1; };
+  }, [filterKey, location, locationReady, attempt]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -182,7 +167,10 @@ export function ClinicsScreen({ authenticated, onRequireLogin, onOpenBranch, onO
       const page = await getDiscoveryBranches(branchListOptions(filters, { limit: PAGE_SIZE, offset: items.length }));
       // A filter change meanwhile owns the list; drop this stale page.
       if (id !== request.current) return;
-      setItems((current) => [...current, ...page.data.filter((next) => !current.some((item) => item.branch_id === next.branch_id))]);
+      setItems((current) => {
+        const merged = [...current, ...page.data.filter((next) => !current.some((item) => item.branch_id === next.branch_id))];
+        return location ? nearestFirst(merged) : merged;
+      });
       setHasMore(page.has_more);
     } catch (cause) {
       if (id === request.current) setError(cause instanceof Error ? cause.message : "Daftar belum dapat dimuat.");
@@ -209,22 +197,6 @@ export function ClinicsScreen({ authenticated, onRequireLogin, onOpenBranch, onO
   return (
     <Screen>
       <TopHeader title="Klinik & Petshop" subtitle="Temukan tempat dan layanan di sekitarmu" onNotification={onOpenNotifications} />
-
-      {location ? (
-        <View style={styles.locationBar}>
-          <Ionicons name="navigate" size={16} color={colors.sky600} />
-          <Text translate={location.label === DEVICE_LOCATION_LABEL || location.label === PIN_LOCATION_LABEL} numberOfLines={1} style={styles.locationLabel}>{location.label}</Text>
-          <Pressable accessibilityLabel="Ubah lokasi" onPress={() => setPickerOpen(true)} hitSlop={8}>
-            <Text style={styles.locationChange}>Ubah</Text>
-          </Pressable>
-        </View>
-      ) : locationReady ? (
-        <View style={styles.banner}>
-          <Ionicons name="location-outline" size={20} color={colors.violet} />
-          <Text style={styles.bannerText}>Pilih lokasi untuk melihat yang terdekat dan memakai filter radius.</Text>
-          <PrimaryButton compact label="Pilih lokasi" onPress={() => setPickerOpen(true)} />
-        </View>
-      ) : null}
 
       <View style={styles.searchBox}>
         <Ionicons name="search" size={18} color={colors.muted} />
@@ -265,6 +237,7 @@ export function ClinicsScreen({ authenticated, onRequireLogin, onOpenBranch, onO
         ))}
       </TabRail>
 
+      {location && <Text style={styles.footnote}>Urutan terdekat</Text>}
       <Text style={styles.footnote}>Rating toko dihitung dari semua cabang toko tersebut.</Text>
 
       {loading ? (
@@ -293,31 +266,11 @@ export function ClinicsScreen({ authenticated, onRequireLogin, onOpenBranch, onO
         </View>
       )}
 
-      <LocationModal
-        visible={pickerOpen}
-        current={location}
-        authenticated={authenticated}
-        onRequireLogin={() => {
-          setPickerOpen(false);
-          onRequireLogin();
-        }}
-        onSelect={(selected) => {
-          setLocation(selected);
-          setPickerOpen(false);
-          void saveStoredLocation(selected);
-        }}
-        onClose={() => setPickerOpen(false)}
-      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  locationBar: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, paddingHorizontal: 12, borderRadius: 14, backgroundColor: colors.sky50 },
-  locationLabel: { flex: 1, color: colors.navy, fontSize: 13, fontWeight: "600" },
-  locationChange: { color: colors.sky600, fontSize: 12, fontWeight: "700" },
-  banner: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 10, padding: 12, borderRadius: 14, backgroundColor: colors.violet50 },
-  bannerText: { flex: 1, minWidth: 180, color: colors.violet, fontSize: 12, lineHeight: 17, fontWeight: "600" },
   searchBox: { height: 46, flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14, paddingHorizontal: 13, borderRadius: 16, borderWidth: 1, borderColor: colors.sky100, backgroundColor: colors.white, ...shadow },
   searchInput: { flex: 1, height: "100%", color: colors.text, fontSize: 13 },
   chips: { gap: 6, paddingVertical: 10, paddingRight: 14 },

@@ -17,7 +17,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as ExpoLocation from "expo-location";
 import {
   getMobileGlobalSearch,
   getDiscoveryBranches,
@@ -31,7 +30,8 @@ import {
 import type { PetView, Service } from "../data";
 import { getActivityTypePresentation } from "../activity";
 import { branchCountsLabel, branchTypeLabel, formatDistanceKm } from "../clinics";
-import { loadStoredLocation } from "../location";
+import { nearestFirst } from "../location";
+import { useCurrentLocation } from "../LocationProvider";
 import { colors, radius, shadow, spacing, typography } from "../theme";
 import { ChatUnreadBadge, Pill, Screen, useAppSurface } from "../components/ui";
 import { LocalizedText as Text, LocalizedTextInput as TextInput, useI18n } from "../i18n";
@@ -302,6 +302,7 @@ export function HomeScreen({
   activities,
 }: Props) {
   const { formatDate, language, locale } = useI18n();
+  const { location, ready: locationReady } = useCurrentLocation();
   const { unreadNotifications, openChatInbox } = useAppSurface();
   const [searchOpen, setSearchOpen] = useState(false);
   const [petPickerOpen, setPetPickerOpen] = useState(false);
@@ -328,32 +329,17 @@ export function HomeScreen({
   const [branchesLoading, setBranchesLoading] = useState(true);
   const [branchesError, setBranchesError] = useState(false);
   const [branchesAttempt, setBranchesAttempt] = useState(0);
-  const [branchesLocated, setBranchesLocated] = useState(false);
+  const branchesLocated = Boolean(location);
   useEffect(() => {
+    if (!locationReady) return;
     let active = true;
     queueMicrotask(() => { if (active) { setBranchesLoading(true); setBranchesError(false); } });
-    void (async () => {
-      // Chosen location first, then device GPS only when permission is already granted (no prompt on Home).
-      let coordinates: { latitude: number; longitude: number } | undefined = await loadStoredLocation();
-      if (!coordinates) {
-        try {
-          const permission = await ExpoLocation.getForegroundPermissionsAsync();
-          if (permission.status === "granted") {
-            const position = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.Balanced });
-            coordinates = { latitude: position.coords.latitude, longitude: position.coords.longitude };
-          }
-        } catch {
-          coordinates = undefined;
-        }
-      }
-      if (active) setBranchesLocated(Boolean(coordinates));
-      const page = await getDiscoveryBranches({ ...coordinates, limit: 6 });
-      if (active) setBranches(page.data);
-    })()
+    void getDiscoveryBranches({ ...(location ? { latitude: location.latitude, longitude: location.longitude } : {}), limit: 6 })
+      .then(page => { if (active) setBranches(location ? nearestFirst(page.data) : page.data); })
       .catch(() => { if (active) { setBranches([]); setBranchesError(true); } })
       .finally(() => { if (active) setBranchesLoading(false); });
     return () => { active = false; };
-  }, [branchesAttempt]);
+  }, [branchesAttempt, location, locationReady]);
   const nearestPartners = branches.map((branch) => ({
     branch,
     tone: (branch.type === "petshop" ? "mint" : branch.type === "hybrid" ? "violet" : "blue") as Service["tone"],

@@ -26,7 +26,9 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
-import * as ExpoLocation from "expo-location";
+import { LocationProvider, useCurrentLocation } from "./src/LocationProvider";
+import { LocationModal } from "./src/components/LocationModal";
+import { LocationBar } from "./src/components/LocationBar";
 import {
   SafeAreaProvider,
   SafeAreaView,
@@ -331,7 +333,7 @@ export default function App() {
     <SafeAreaProvider>
       <LanguageProvider>
         <MobileNetworkLogger>
-          <MobileApp />
+          <LocationProvider><MobileApp /></LocationProvider>
           <SlivaAlertHost />
         </MobileNetworkLogger>
       </LanguageProvider>
@@ -340,6 +342,7 @@ export default function App() {
 }
 
 function MobileApp() {
+  const { location, ready: locationReady, pickerOpen, closePicker, selectLocation } = useCurrentLocation();
   const insets = useSafeAreaInsets();
   const layout = useResponsiveLayout();
   const { formatCurrency } = useI18n();
@@ -689,25 +692,21 @@ function MobileApp() {
   }, [signedIn, unreadNotificationCount, messagesOpen, inboxChatOpen, refreshVersion]);
   const needsActionCount =
     activityCenter?.data.filter((item) => item.needs_action).length ?? 0;
+  const servicesRequest = useRef(0);
   const loadServices = useCallback(async () => {
-    let coordinates: { latitude: number; longitude: number } | undefined;
-    try {
-      const permission = await ExpoLocation.getForegroundPermissionsAsync();
-      if (permission.status === "granted") {
-        const position = await ExpoLocation.getCurrentPositionAsync({
-          accuracy: ExpoLocation.Accuracy.Balanced,
-        });
-        coordinates = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        };
-      }
-    } catch {
-      coordinates = undefined;
-    }
-    const result = await getMobileServices(coordinates);
-    setServices(result.data.map(mapService));
-  }, [mapService]);
+    const request = ++servicesRequest.current;
+    const result = await getMobileServices(location);
+    if (request === servicesRequest.current) setServices(result.data.map(mapService));
+  }, [location, mapService]);
+  useEffect(() => {
+    if (!locationReady) return;
+    let active = true;
+    const request = ++servicesRequest.current;
+    void getMobileServices(location).then(result => {
+      if (active && request === servicesRequest.current) setServices(result.data.map(mapService));
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [location, locationReady, mapService]);
   useEffect(() => {
     let mounted = true;
     void restorePlatformSession().then((restored) => {
@@ -1185,6 +1184,10 @@ function MobileApp() {
     <>
       <ManualClinicSheet key={manualPlaceID || "closed"} placeID={manualPlaceID} onClose={() => setManualPlaceID(undefined)} />
       <StatusBar style="dark" />
+      {pickerOpen && <LocationModal visible current={location} authenticated={signedIn}
+        onRequireLogin={() => { closePicker(); requireLogin(); }}
+        onSelect={(point, source) => { selectLocation(point, source); closePicker(); notify("Lokasi layanan berhasil diperbarui"); }}
+        onClose={closePicker} />}
       <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
         <AppSurfaceProvider
           bottomInset={navigationBottom}
@@ -1197,6 +1200,7 @@ function MobileApp() {
           }}
         >
           <View style={[styles.app, { width: "100%", maxWidth: layout.contentWidth, alignSelf: "center" }]}>
+            <LocationBar />
             {tab !== "home" && tab !== "career" ? (
               <View style={styles.backBar}>
                 <Pressable
@@ -1312,10 +1316,6 @@ function MobileApp() {
               ) : null}
               {tab === "clinics" ? (
                 <ClinicsScreen
-                  authenticated={Boolean(bootstrap)}
-                  onRequireLogin={() => {
-                    requireLogin();
-                  }}
                   onOpenBranch={(branch) => openBranchStore(branch, "klinik_petshop")}
                   onOpenNotifications={openNotifications}
                 />

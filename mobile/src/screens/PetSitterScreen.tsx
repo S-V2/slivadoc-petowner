@@ -1,5 +1,8 @@
 import { sitterPackageRate, sitterDiscountPercent } from "../../../shared/pet-sitter";
 import { useEffect, useRef, useState } from "react";
+import { useCurrentLocation } from "../LocationProvider";
+import { DEVICE_LOCATION_LABEL } from "../location";
+import { readDeviceLocation } from "../device-location";
 import {
   useWindowDimensions,
   ActivityIndicator,
@@ -157,10 +160,12 @@ export function PetSitterScreen({
   const { width } = useWindowDimensions();
   const columns = sitterGridColumns(width);
   const cardWidth = (Math.min(width, 1500) - 36 - 10 * (columns - 1)) / columns;
-  const [location, setLocation] = useState<{
+  const { location: sharedLocation, ready: locationReady, selectLocation } = useCurrentLocation();
+  const [localLocation, setLocation] = useState<{
     latitude: number;
     longitude: number;
   }>();
+  const location = sharedLocation ?? localLocation;
   const [radius, setRadius] = useState(25);
   const [locating, setLocating] = useState(false);
   const { bottomInset } = useAppSurface();
@@ -233,6 +238,7 @@ export function PetSitterScreen({
   const key = useRef("");
   const generation = useRef(0);
   const searchGeneration = useRef(0);
+  const appliedFilters = useRef({ city: "", species: "", mode: "", radius: 25 });
   const change = (q: Partial<typeof input>) => {
     generation.current++;
     setInput((v) => ({ ...v, ...q }));
@@ -251,10 +257,14 @@ export function PetSitterScreen({
     }
   };
   useEffect(() => {
+    if (!locationReady) return;
     let active = true;
     const request = ++searchGeneration.current;
+    const filters = appliedFilters.current;
+    queueMicrotask(() => { if (active) setLoading(true); });
     api
-      .list()
+      .list({ city: filters.city, species: filters.species, mode: filters.mode,
+        ...(sharedLocation ? { latitude: sharedLocation.latitude, longitude: sharedLocation.longitude, max_distance_km: filters.radius } : {}) })
       .then((r) => {
         if (active && request === searchGeneration.current) setList(r.data);
       })
@@ -267,7 +277,7 @@ export function PetSitterScreen({
     return () => {
       active = false;
     };
-  }, []);
+  }, [locationReady, sharedLocation]);
   const showBookings = () => {
     if (!authenticated) {
       onLogin();
@@ -305,6 +315,7 @@ export function PetSitterScreen({
     service = mode,
   ) => {
     Keyboard.dismiss();
+    appliedFilters.current = { city: area, species: petType, mode: service, radius: distance };
     const request = ++searchGeneration.current;
     setLoading(true);
     setError("");
@@ -313,7 +324,7 @@ export function PetSitterScreen({
         city: area,
         species: petType,
         mode: service,
-        ...(position ? { ...position, max_distance_km: distance } : {}),
+        ...(position ? { latitude: position.latitude, longitude: position.longitude, max_distance_km: distance } : {}),
       });
       if (request === searchGeneration.current) setList(result.data);
     } catch (error) {
@@ -334,15 +345,10 @@ export function PetSitterScreen({
         setError("Izinkan akses lokasi atau cari berdasarkan kota.");
         return;
       }
-      const result = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const point = {
-        latitude: result.coords.latitude,
-        longitude: result.coords.longitude,
-      };
+      const point = await readDeviceLocation();
       setLocation(point);
       setCity("");
+      selectLocation({ ...point, label: DEVICE_LOCATION_LABEL }, "device");
       await findSitters(species, point, radius, "");
     } catch {
       setError(
@@ -550,7 +556,7 @@ export function PetSitterScreen({
                   setSpecies("");
                   setMode("");
                   setLocation(undefined);
-                  void findSitters("", null, radius, "", "");
+                  void findSitters("", sharedLocation ?? null, radius, "", "");
                 }}
               >
                 <Text style={s.chipText}>Reset filter</Text>

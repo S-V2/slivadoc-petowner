@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -15,6 +15,8 @@ import {
   type MobilePetshipPresence,
 } from "../api";
 import type { PetView } from "../data";
+import { useCurrentLocation } from "../LocationProvider";
+import { nearestFirst } from "../location";
 
 export function PetshipScreen({
   pet,
@@ -25,6 +27,8 @@ export function PetshipScreen({
   onRequirePet: () => boolean;
   onAction: (message: string) => void;
 }) {
+  const { location, ready: locationReady } = useCurrentLocation();
+  const request = useRef(0);
   const [places, setPlaces] = useState<MobilePetshipPlace[]>([]);
   const [selected, setSelected] = useState<MobilePetshipPlace>();
   const [presences, setPresences] = useState<MobilePetshipPresence[]>([]);
@@ -34,24 +38,28 @@ export function PetshipScreen({
   const [checkedIn, setCheckedIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const load = useCallback(async () => {
+    if (!locationReady) return;
+    const version = ++request.current;
     setLoading(true);
     setError("");
     try {
-      const result = await mobilePetship.places();
-      setPlaces(result.data);
-      setSelected((previous) => previous ?? result.data[0]);
+      const result = await mobilePetship.places(location);
+      if (version !== request.current) return;
+      const places = location ? nearestFirst(result.data) : result.data;
+      setPlaces(places);
+      setSelected((previous) => places.find(item => item.id === previous?.id) ?? places[0]);
     } catch (cause) {
-      setError(
+      if (version === request.current) setError(
         cause instanceof Error ? cause.message : "Tempat belum dapat dimuat.",
       );
     } finally {
-      setLoading(false);
+      if (version === request.current) setLoading(false);
     }
-  }, []);
+  }, [location, locationReady]);
   useEffect(() => {
     let active = true;
     queueMicrotask(() => { if (active) void load(); });
-    return () => { active = false; };
+    return () => { active = false; request.current += 1; };
   }, [load]);
   useEffect(() => {
     let active = true;
@@ -131,6 +139,7 @@ export function PetshipScreen({
         </Text>
       </View>
       <Text style={s.heading}>Tempat untuk bertemu</Text>
+      {location && <Text style={s.note}>Urutan terdekat</Text>}
       <Input
         style={s.input}
         accessibilityLabel="Cari lokasi Petship"
@@ -161,7 +170,7 @@ export function PetshipScreen({
             <Ionicons name="location-outline" size={24} color="#098abe" />
             <View style={{ flex: 1, gap: 5 }}>
               <Text style={s.placeName}>{place.name}</Text>
-              <Text style={s.body}>{place.city}</Text>
+              <Text style={s.body}>{place.city}{typeof place.distance_km === "number" ? ` · ${place.distance_km.toFixed(1)} km` : ""}</Text>
             </View>
             <Text style={s.note}>{place.active_petowners} aktif</Text>
           </Pressable>

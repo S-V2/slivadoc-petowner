@@ -1857,9 +1857,18 @@ export const saveMobileAcademyProgramReview = (
   );
 export const getMobileEvents = () =>
   getUniqueWorldItems("/api/v1/public/events");
-export const getMobilePetSpots = (options?: { latitude: number; longitude: number; max_distance_km: number }) => {
+export type MobilePetSpotFilters = {
+  latitude?: number;
+  longitude?: number;
+  max_distance_km?: number;
+  category?: string;
+  search?: string;
+};
+export const getMobilePetSpots = (options?: MobilePetSpotFilters) => {
   const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(options ?? {})) query.set(key, String(value));
+  for (const [key, value] of Object.entries(options ?? {})) {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  }
   const params = query.toString();
   return getUniqueWorldItems(`/api/v1/public/petspots${params ? `?${params}` : ""}`);
 };
@@ -2509,7 +2518,10 @@ export async function uploadMobileDocument(uri: string, mimeType: string, fileNa
 export type MobilePetshipPlace = { id: string; name: string; city: string; active_petowners: number; distance_km?: number | null };
 export type MobilePetshipPresence = { id: string; pet_name: string; owner_first_name: string; message: string };
 export const mobilePetship = {
-  places: () => platformRequest<{ data: MobilePetshipPlace[] }>("/api/v1/public/petship/places", { cache: "no-store" }),
+  places: (location?: { latitude: number; longitude: number }) => {
+    const query = location ? `?latitude=${location.latitude}&longitude=${location.longitude}` : "";
+    return platformRequest<{ data: MobilePetshipPlace[] }>(`/api/v1/public/petship/places${query}`, { cache: "no-store" });
+  },
   presences: (id: string) => platformRequest<{ data: MobilePetshipPresence[] }>(`/api/v1/public/petship/places/${encodeURIComponent(id)}/presences`, { cache: "no-store" }),
   checkIn: (petId: string, placeId: string) => platformRequest<{ message: string }>("/api/v1/petowner/petship/presence", { method: "PUT", body: JSON.stringify({ pet_id: petId, place_id: placeId, visibility: "nearby", message: "Siap berkenalan dengan teman baru." }) }),
   checkOut: () => platformRequest<{ message: string }>("/api/v1/petowner/petship/presence", { method: "DELETE" }),

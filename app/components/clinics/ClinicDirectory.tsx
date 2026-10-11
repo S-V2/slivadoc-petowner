@@ -1,5 +1,7 @@
 "use client";
 
+import { hasPlacePin, isInformationPlace } from "../../../shared/place-directory";
+
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../Icon";
@@ -89,7 +91,7 @@ function ClinicCard({
         <span className="clinic-card-body">
           <h3>{branch.business_name}</h3>
           <span className="clinic-directory-verification" data-verified={branch.verified === true}>
-            {branch.verified ? "✓ Verified" : branch.source === "manual" ? "Informasi tempat" : "Mitra Slivadoc"}
+            {branch.verified ? "✓ Verified" : isInformationPlace(branch) ? "Informasi tempat" : "Mitra Slivadoc"}
           </span>
           {branch.branch_name !== branch.business_name && <small className="clinic-card-branch">{branch.branch_name}</small>}
           <span className="clinic-card-place">
@@ -121,7 +123,7 @@ function ClinicCard({
             )}
           </span>
           <span className="clinic-card-counts">
-            {branch.source === "manual" ? t("Lihat alamat & kontak") : t(`${branch.service_count} layanan · ${branch.product_count} produk`)}
+            {isInformationPlace(branch) ? t("Lihat alamat & kontak") : t(`${branch.service_count} layanan · ${branch.product_count} produk`)}
           </span>
         </span>
       </button>
@@ -194,6 +196,15 @@ export default function ClinicDirectory({ location, onOpenLocation, onOpenBranch
     };
   }, [filters, coords, queryKey]);
 
+  // Refresh publication changes when the user returns from another dashboard/tab.
+  useEffect(() => {
+    const refresh = () => setAttempt((value) => value + 1);
+    const visible = () => { if (document.visibilityState === "visible") refresh(); };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", visible);
+    return () => { window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", visible); };
+  }, []);
+
   // ?view=clinics&branch=<id>: resolve the branch, then hand over to the store page.
   useEffect(() => {
     if (deepLinked.current) return;
@@ -238,7 +249,7 @@ export default function ClinicDirectory({ location, onOpenLocation, onOpenBranch
   const selected = items.find((item) => item.branch_id === selectedId) ?? null;
   const markers = useMemo<GeoMarker[]>(
     () => [
-      ...items.map((item) => ({
+      ...items.filter(hasPlacePin).map((item) => ({
         id: item.branch_id,
         latitude: item.latitude,
         longitude: item.longitude,

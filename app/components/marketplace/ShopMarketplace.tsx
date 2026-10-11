@@ -38,6 +38,8 @@ import ClinicBranchInfo, { ClinicOpenState } from "../clinics/ClinicBranchInfo";
 import { PlaceDetailHero } from "../places/PlaceDetailHero";
 import { PlaceDetailTabs } from "../places/PlaceDetailTabs";
 import { WorldPhoto } from "../WorldPhoto";
+import { directoryStoreProfile, isInformationPlace } from "../../../shared/place-directory";
+import { directionsUrl } from "../../lib/clinic-directory";
 
 type SortMode =
   | "recommended"
@@ -132,11 +134,13 @@ function StoreAvatar({
   logoUrl,
   online = false,
   large = false,
+  showPresence = true,
 }: {
   name: string;
   logoUrl?: string;
   online?: boolean;
   large?: boolean;
+  showPresence?: boolean;
 }) {
   return (
     <span className={`market-store-avatar ${large ? "is-large" : ""}`}>
@@ -145,7 +149,7 @@ function StoreAvatar({
       ) : (
         <b><LocalizedCopy>{name.trim().slice(0, 1).toUpperCase() || "S"}</LocalizedCopy></b>
       )}</LocalizedCopy>
-      <i className={online ? "is-online" : ""} aria-hidden="true" />
+      {showPresence ? <i className={online ? "is-online" : ""} aria-hidden="true" /> : null}
     </span>
   );
 }
@@ -172,6 +176,7 @@ function ProductPicture({
 }) {
   const images = Array.from(new Set([...(product.imageUrls ?? []), product.imageUrl].filter((value): value is string => Boolean(value))));
   const [activeImage, setActiveImage] = useState(0);
+  const [failedImageUrl, setFailedImageUrl] = useState<string>();
   const [viewerOpen, setViewerOpen] = useState(false);
   useEffect(() => {
     if (!detail || images.length < 2) return;
@@ -182,21 +187,23 @@ function ProductPicture({
     return () => window.clearInterval(timer);
   }, [detail, images.length, product.id]);
   const imageUrl = images[activeImage] ?? product.imageUrl;
+  const PictureSurface = detail ? LocalizedButton : "div";
   return (
     <>
     <div className={detail ? "market-product-gallery" : "market-card-picture"}>
-      <LocalizedCopy catalogue>{imageUrl ? (
+      <LocalizedCopy catalogue>{imageUrl && failedImageUrl !== imageUrl ? (
         <>
-          <LocalizedButton type="button" className={detail ? "market-detail-picture" : "market-card-image-button"} onClick={() => detail && setViewerOpen(true)} aria-label={detail ? `Perbesar foto ${product.name}` : undefined}>
+          <PictureSurface type={detail ? "button" : undefined} className={detail ? "market-detail-picture" : "market-card-image-button"} onClick={detail ? () => setViewerOpen(true) : undefined} aria-label={detail ? `Perbesar foto ${product.name}` : undefined}>
             <Image
               src={imageUrl}
               alt={`Foto ${product.name}`}
               fill
               sizes={detail ? "(max-width: 860px) 100vw, 45vw" : "(max-width: 580px) 50vw, 22vw"}
               unoptimized
+              onError={() => setFailedImageUrl(imageUrl)}
             />
             <LocalizedCopy>{detail && images.length > 1 && <span className="market-gallery-count"><Icon name="camera" size={13} /> <LocalizedCopy>{activeImage + 1}</LocalizedCopy><LocalizedCopy>{"/"}</LocalizedCopy><LocalizedCopy>{images.length}</LocalizedCopy></span>}</LocalizedCopy>
-          </LocalizedButton>
+          </PictureSurface>
           {detail && images.length > 1 && <div className="market-gallery-thumbs" aria-label="Pilih foto produk">
             <LocalizedCopy>{images.map((url, index) => <LocalizedButton type="button" className={index === activeImage ? "active" : ""} key={url} onClick={() => setActiveImage(index)} aria-label={`Foto ${index + 1}`}><Image src={url} alt="" fill sizes="64px" unoptimized /></LocalizedButton>)}</LocalizedCopy>
           </div>}
@@ -204,6 +211,7 @@ function ProductPicture({
       ) : (
         <div
           className="market-product-fallback"
+          role="img"
           aria-label={`Ilustrasi ${product.name}`}
         >
           <i />
@@ -238,13 +246,6 @@ function ProductCard({
     product.originalPrice && product.originalPrice > product.price
       ? Math.round((1 - product.price / product.originalPrice) * 100)
       : 0;
-  const badge = !product.available
-    ? "Stok habis"
-    : product.soldCount >= 25
-      ? "Terlaris"
-      : product.reviewCount === 0
-        ? "Produk baru"
-        : "Pilihan pet parent";
 
   return (
     <article
@@ -263,14 +264,16 @@ function ProductCard({
     >
       <div className="market-card-media">
         <ProductPicture product={product} />
-        <span
-          className={`market-card-badge ${!product.available ? "is-empty" : ""}`}
-        >
-          <LocalizedCopy>{badge}</LocalizedCopy>
-        </span>
-        <LocalizedCopy>{discountPercent > 0 ? (
-          <DiscountBadge percent={discountPercent} />
-        ) : null}</LocalizedCopy>
+        {!product.available && (
+          <span className="market-card-badge is-empty">
+            <LocalizedCopy>{"Stok habis"}</LocalizedCopy>
+          </span>
+        )}
+        {discountPercent > 0 && (
+          <span className="market-card-discount" aria-label={`Hemat ${discountPercent}%`}>
+            −{discountPercent}%
+          </span>
+        )}
         <LocalizedButton
           className={`market-favorite ${favorite ? "is-favorite" : ""}`}
           type="button"
@@ -289,71 +292,39 @@ function ProductCard({
       </div>
 
       <div className="market-card-content">
-        <span className="market-card-category"><LocalizedCopy>{product.category}</LocalizedCopy></span>
         <h3><LocalizedCopy catalogue>{product.name}</LocalizedCopy></h3>
-        <p className="market-card-description">
-          <LocalizedCopy catalogue>{product.description ||
-            "Kebutuhan pet pilihan dari partner Slivadoc."}</LocalizedCopy>
-        </p>
+        <div className="market-card-price-wrap">
+          <strong className="market-card-price"><LocalizedCopy>{formatRupiah(product.price)}</LocalizedCopy></strong>
+          {discountPercent > 0 && (
+            <s><LocalizedCopy>{formatRupiah(product.originalPrice!)}</LocalizedCopy></s>
+          )}
+        </div>
+        <div className="market-card-social-proof">
+          <span aria-label={product.reviewCount ? `Rating ${product.rating.toFixed(1)} dari 5, ${product.reviewCount} ulasan` : undefined}>
+            {product.reviewCount > 0 && <Icon name="star" size={12} />}
+            <LocalizedCopy>{product.reviewCount ? product.rating.toFixed(1) : "Belum dinilai"}</LocalizedCopy>
+          </span>
+          <span><LocalizedCopy>{compactNumber(product.soldCount)}</LocalizedCopy><LocalizedCopy>{" terjual"}</LocalizedCopy></span>
+        </div>
+        {product.city && (
+          <div className="market-card-location" title={product.city}>
+            <Icon name="map" size={12} />
+            <span><LocalizedCopy preserve>{product.city}</LocalizedCopy></span>
+          </div>
+        )}
         <LocalizedButton
           type="button"
           className="market-card-seller"
-          aria-label={`${product.businessName} ${storePresenceLabel(Boolean(product.storeIsOnline), product.storeLastSeenAt)}`}
+          aria-label={`Kunjungi toko ${product.businessName}`}
+          title={product.businessName}
           onClick={(event) => {
             event.stopPropagation();
             onStore();
           }}
         >
-          <StoreAvatar
-            name={product.businessName}
-            logoUrl={product.storeLogoUrl}
-            online={product.storeIsOnline}
-          />
-          <span>
-            <b><LocalizedCopy>{product.businessName}</LocalizedCopy></b>
-            <small><LocalizedCopy>{storePresenceLabel(Boolean(product.storeIsOnline), product.storeLastSeenAt)}</LocalizedCopy></small>
-          </span>
+          <Icon name="bag" size={12} />
+          <span><LocalizedCopy preserve>{product.businessName}</LocalizedCopy></span>
         </LocalizedButton>
-        <div className="market-card-price-wrap">
-          <LocalizedCopy>{discountPercent > 0 ? (
-            <span><s><LocalizedCopy>{formatRupiah(product.originalPrice!)}</LocalizedCopy></s><em><LocalizedCopy>{"Hemat "}</LocalizedCopy><LocalizedCopy>{discountPercent}</LocalizedCopy><LocalizedCopy>{"%"}</LocalizedCopy></em></span>
-          ) : null}</LocalizedCopy>
-          <strong className="market-card-price"><LocalizedCopy>{formatRupiah(product.price)}</LocalizedCopy></strong>
-        </div>
-        <div className="market-card-social-proof">
-          <span>
-            <Icon name="star" size={12} />
-            <LocalizedCopy>{product.reviewCount ? product.rating.toFixed(1) : "Baru"}</LocalizedCopy>
-            <LocalizedCopy>{product.reviewCount
-              ? ` (${compactNumber(product.reviewCount)})`
-              : ""}</LocalizedCopy>
-          </span>
-          <i />
-          <span><LocalizedCopy>{compactNumber(product.soldCount)}</LocalizedCopy><LocalizedCopy>{" terjual"}</LocalizedCopy></span>
-        </div>
-        <div className="market-card-fulfillment">
-          <span>
-            <Icon name="map" size={12} /> <LocalizedCopy>{product.city}</LocalizedCopy>
-          </span>
-          <span>
-            <LocalizedCopy>{product.available
-              ? `Stok ${compactNumber(product.stock)}`
-              : "Tidak tersedia"}</LocalizedCopy>
-          </span>
-        </div>
-        <div className="market-card-reward">
-          <Icon name="sparkle" size={12} /><LocalizedCopy>{"Dapatkan "}</LocalizedCopy><LocalizedCopy>{earnedPoints(product.price).toLocaleString(petOwnerIntlLocale())}</LocalizedCopy><LocalizedCopy>{" Sliva Point"}</LocalizedCopy></div>
-        <footer>
-          <LocalizedButton
-            type="button"
-            className="market-detail-link"
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpen();
-            }}
-          ><LocalizedCopy>{"Detail "}</LocalizedCopy><Icon name="arrow" size={14} />
-          </LocalizedButton>
-        </footer>
       </div>
     </article>
   );
@@ -1158,7 +1129,7 @@ export function MarketplaceChatPanel({
   );
 }
 
-function MarketplaceStorefront({
+export function MarketplaceStorefront({
   response,
   products,
   services,
@@ -1172,6 +1143,8 @@ function MarketplaceStorefront({
   onChat,
   onFavorite,
   branch,
+  backLabel = "Marketplace",
+  onRetry,
 }: {
   response?: MarketplaceStoreResponse;
   products: Product[];
@@ -1186,13 +1159,16 @@ function MarketplaceStorefront({
   onChat: () => void;
   onFavorite: (product: Product) => void;
   branch?: DiscoveryBranch;
+  backLabel?: string;
+  onRetry?: () => void;
 }) {
   const [section, setSection] = useState<StoreSection>(initialSection);
   const [sort, setSort] = useState<SortMode>("popular");
   const [category, setCategory] = useState("Semua");
   const fallback = products[0];
   const fallbackService = services[0];
-  const store = response?.store ?? {
+  const informationOnly = Boolean(branch && isInformationPlace(branch));
+  const store = response?.store ?? (informationOnly && branch ? directoryStoreProfile(branch) : {
     id: fallback?.businessId ?? fallbackService?.businessId ?? "",
     name: fallback?.businessName ?? fallbackService?.businessName ?? "Toko Slivadoc",
     logo_url: fallback?.storeLogoUrl ?? "",
@@ -1207,7 +1183,7 @@ function MarketplaceStorefront({
     rating: products.reduce((total, item) => total + item.rating, 0) / Math.max(1, products.length),
     review_count: products.reduce((total, item) => total + item.reviewCount, 0),
     sold_count: products.reduce((total, item) => total + item.soldCount, 0),
-  };
+  });
   const categories = response?.categories ?? Array.from(new Set(products.map((item) => item.category))).map((name) => ({
     name,
     product_count: products.filter((product) => product.category === name).length,
@@ -1231,13 +1207,13 @@ function MarketplaceStorefront({
     return <div className="market-store-loading"><i /><span><LocalizedCopy>{"Menyiapkan etalase toko…"}</LocalizedCopy></span></div>;
   }
   if (error && !fallback && !fallbackService) {
-    return <div className="market-empty-state"><span><LocalizedCopy>{"!"}</LocalizedCopy></span><h3><LocalizedCopy>{"Etalase belum dapat dibuka"}</LocalizedCopy></h3><p><LocalizedCopy>{error}</LocalizedCopy></p><LocalizedButton type="button" onClick={onBack}><LocalizedCopy>{"Kembali"}</LocalizedCopy></LocalizedButton></div>;
+    return <div className="market-empty-state" role="alert"><span><LocalizedCopy>{"!"}</LocalizedCopy></span><h3><LocalizedCopy>{"Tempat belum dapat dibuka"}</LocalizedCopy></h3><p><LocalizedCopy>{error}</LocalizedCopy></p>{onRetry ? <LocalizedButton type="button" onClick={onRetry}><LocalizedCopy>{"Coba lagi"}</LocalizedCopy></LocalizedButton> : null}<LocalizedButton type="button" onClick={onBack}><LocalizedCopy>{"Kembali"}</LocalizedCopy></LocalizedButton></div>;
   }
 
   return (
     <div className="market-store-page">
       <nav className="market-breadcrumb" aria-label="Breadcrumb">
-        <LocalizedButton type="button" onClick={onBack}><Icon name="arrow" size={15} /><LocalizedCopy>{" Marketplace"}</LocalizedCopy></LocalizedButton>
+        <LocalizedButton type="button" onClick={onBack}><Icon name="arrow" size={15} /><LocalizedCopy>{backLabel}</LocalizedCopy></LocalizedButton>
         <Icon name="chevron" size={13} />
         <strong><LocalizedCopy>{store.name}</LocalizedCopy></strong>
       </nav>
@@ -1245,18 +1221,18 @@ function MarketplaceStorefront({
         className="market-store-hero"
         eyebrow={branch?.type === "petclinic" ? "PETCLINIC" : branch?.type === "hybrid" ? "PETCLINIC & PETSHOP" : "PETSHOP"}
         title={store.name}
-        location={branch ? `${branch.branch_name} · ${branch.city}` : store.city || "Indonesia"}
+        location={branch ? [branch.branch_name !== store.name ? branch.branch_name : "", branch.city].filter(Boolean).join(" · ") : store.city || "Indonesia"}
         description={store.about}
-        identity={<StoreAvatar name={store.name} logoUrl={store.logo_url} online={store.is_online} large />}
+        identity={<StoreAvatar name={store.name} logoUrl={store.logo_url} online={store.is_online} showPresence={!informationOnly} large />}
         media={<><WorldPhoto src={branch?.banner_url || store.banner_url} alt={store.name} icon={branch?.type === "petshop" || !services.length ? "bag" : "clinic"} sizes="(max-width: 600px) 100vw, 45vw" /><div className="place-detail-media-caption"><Icon name="map" size={17} /><LocalizedCopy preserve>{branch?.branch_name || store.city || "Slivadoc"}</LocalizedCopy></div></>}
-        status={<><span className="place-partner-badge"><Icon name="shield" size={15} /><LocalizedCopy>{"Partner Slivadoc"}</LocalizedCopy></span><span className={`market-store-presence ${store.is_online ? "is-online" : ""}`}><i aria-hidden="true" /><LocalizedCopy>{storePresenceLabel(store.is_online, store.last_seen_at)}</LocalizedCopy></span></>}
+        status={<><span className="place-partner-badge"><Icon name={informationOnly && !branch?.verified ? "map" : "shield"} size={15} /><LocalizedCopy>{informationOnly ? branch?.verified ? "Verified" : "Informasi tempat" : "Partner Slivadoc"}</LocalizedCopy></span>{!informationOnly ? <span className={`market-store-presence ${store.is_online ? "is-online" : ""}`}><i aria-hidden="true" /><LocalizedCopy>{storePresenceLabel(store.is_online, store.last_seen_at)}</LocalizedCopy></span> : null}</>}
         stats={[
           { icon: "bag", value: store.product_count, label: "Produk" },
           { icon: "clinic", value: services.length, label: "Layanan" },
           { icon: "star", value: store.review_count ? store.rating.toFixed(1) : "—", label: `${store.review_count} ulasan` },
           { icon: "cart", value: compactNumber(store.sold_count), label: "Terjual" },
         ]}
-        actions={<><LocalizedButton className="primary-button" type="button" onClick={onChat}><Icon name="chat" size={17} /><LocalizedCopy>{"Chat toko"}</LocalizedCopy></LocalizedButton>{branch ? <ClinicOpenState branch={branch} /> : null}</>}
+        actions={<>{informationOnly && branch ? <a className="primary-button" href={directionsUrl(branch)} target="_blank" rel="noreferrer"><Icon name="map" size={17} /><LocalizedCopy>{"Petunjuk arah"}</LocalizedCopy></a> : <LocalizedButton className="primary-button" type="button" onClick={onChat}><Icon name="chat" size={17} /><LocalizedCopy>{"Chat toko"}</LocalizedCopy></LocalizedButton>}{branch ? <ClinicOpenState branch={branch} /> : null}</>}
       />
       <div className="place-detail-workspace market-store-workspace">
         <div className="place-detail-content market-store-content">
@@ -1281,7 +1257,7 @@ function MarketplaceStorefront({
                   <div><span><LocalizedCopy>{"ETALASE TOKO"}</LocalizedCopy></span><h2><LocalizedCopy>{"Temukan kebutuhan pet-mu"}</LocalizedCopy></h2></div>
                   <p><LocalizedCopy>{visible.length}</LocalizedCopy><LocalizedCopy>{" produk"}</LocalizedCopy></p>
                 </header>
-                <div className="market-store-sort" role="tablist" aria-label="Urutan produk toko">
+                {products.length ? <div className="market-store-sort" role="tablist" aria-label="Urutan produk toko">
                   <LocalizedCopy>{([
                     ["popular", "Populer"],
                     ["newest", "Terbaru"],
@@ -1291,18 +1267,18 @@ function MarketplaceStorefront({
                   ] as Array<[SortMode, string]>).map(([id, label]) => (
                     <LocalizedButton key={id} type="button" role="tab" aria-selected={sort === id} className={sort === id ? "active" : ""} onClick={() => setSort(id)}><LocalizedCopy>{label}</LocalizedCopy></LocalizedButton>
                   ))}</LocalizedCopy>
-                </div>
-                <div className="market-store-category-filter">
+                </div> : null}
+                {categories.length ? <div className="market-store-category-filter">
                   <LocalizedCopy>{["Semua", ...categories.map((item) => item.name)].map((name) => (
                     <LocalizedButton key={name} type="button" className={category === name ? "active" : ""} onClick={() => setCategory(name)}><LocalizedCopy>{name}</LocalizedCopy></LocalizedButton>
                   ))}</LocalizedCopy>
-                </div>
+                </div> : null}
                 <div className="market-product-grid">
                   <LocalizedCopy>{visible.map((product) => (
                     <ProductCard key={product.id} product={product} favorite={favorites.includes(product.id)} onOpen={() => onOpenProduct(product)} onStore={() => undefined} onFavorite={() => onFavorite(product)} />
                   ))}</LocalizedCopy>
                 </div>
-                {!visible.length ? <div className="market-review-empty"><span><Icon name="bag" size={24} /></span><div><b><LocalizedCopy>{"Belum ada produk pada pilihan ini"}</LocalizedCopy></b><p><LocalizedCopy>{"Pilih kategori lain atau lihat layanan partner yang tersedia."}</LocalizedCopy></p></div></div> : null}
+                {!visible.length ? <div className="market-review-empty"><span><Icon name="bag" size={24} /></span><div><b><LocalizedCopy>{products.length ? "Belum ada produk pada pilihan ini" : "Belum ada produk"}</LocalizedCopy></b><p><LocalizedCopy>{products.length ? "Pilih kategori lain atau lihat layanan partner yang tersedia." : "Produk dari tempat ini belum tersedia di Slivadoc. Kamu tetap bisa melihat informasi dan merencanakan kunjungan."}</LocalizedCopy></p></div></div> : null}
               </section>
             )}</LocalizedCopy>
 
@@ -1362,10 +1338,12 @@ function MarketplaceStorefront({
               <section className="market-store-about">
                 <div><span><Icon name="bag" size={26} /></span><div><small><LocalizedCopy>{"TENTANG TOKO"}</LocalizedCopy></small><h2><LocalizedCopy>{store.name}</LocalizedCopy></h2><p><LocalizedCopy>{store.about}</LocalizedCopy></p></div></div>
                 <dl>
-                  <div><dt><LocalizedCopy>{"Bergabung"}</LocalizedCopy></dt><dd><LocalizedCopy>{store.joined_at ? new Date(store.joined_at).toLocaleDateString(petOwnerIntlLocale(), { month: "long", year: "numeric" }) : "Partner Slivadoc"}</LocalizedCopy></dd></div>
+                  {!informationOnly ? <div><dt><LocalizedCopy>{"Bergabung"}</LocalizedCopy></dt><dd><LocalizedCopy>{store.joined_at ? new Date(store.joined_at).toLocaleDateString(petOwnerIntlLocale(), { month: "long", year: "numeric" }) : "Partner Slivadoc"}</LocalizedCopy></dd></div> : null}
                   <div><dt><LocalizedCopy>{"Lokasi"}</LocalizedCopy></dt><dd><LocalizedCopy>{store.city || "Indonesia"}</LocalizedCopy></dd></div>
-                  <div><dt><LocalizedCopy>{"Status"}</LocalizedCopy></dt><dd><LocalizedCopy>{store.is_online ? "Online" : "Offline"}</LocalizedCopy></dd></div>
+                  <div><dt><LocalizedCopy>{"Status"}</LocalizedCopy></dt><dd><LocalizedCopy>{informationOnly ? branch?.verified ? "Verified" : "Informasi tempat" : store.is_online ? "Online" : "Offline"}</LocalizedCopy></dd></div>
                 </dl>
+                {informationOnly ? <p><LocalizedCopy>{branch?.source === "manual" ? "Informasi tempat ini ditambahkan oleh Slivadoc. Pengelola belum memiliki akun di Slivadoc. Hubungi tempat langsung untuk memastikan layanan dan jam buka." : "Hubungi tempat langsung untuk informasi layanan dan jam buka."}</LocalizedCopy></p> : null}
+                {informationOnly && branch?.rating != null && branch.review_count > 0 ? <p><LocalizedCopy>{`${branch.rating.toFixed(1)} / 5 · ${branch.review_count} ulasan referensi dari data listing`}</LocalizedCopy></p> : null}
               </section>
             )}</LocalizedCopy>
           </div>

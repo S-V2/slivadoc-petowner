@@ -210,3 +210,22 @@ test("card helpers format type, distance, hours and directions", () => {
     "https://www.google.com/maps/dir/?api=1&destination=-6.2,106.8",
   );
 });
+
+test("published information places keep transaction eligibility separate from map directions", async () => {
+  const { isInformationPlace, hasPlacePin } = await import("../shared/place-directory.ts");
+  assert.equal(isInformationPlace({ source: "registered", business_id: "business", verified: false, can_transact: false }), true);
+  assert.equal(isInformationPlace({ source: "registered", business_id: "business", verified: true, can_transact: false }), true);
+  assert.equal(isInformationPlace({ source: "registered", business_id: "business", verified: true, can_transact: true }), false);
+  assert.equal(isInformationPlace({ source: "manual", business_id: null }), true);
+  assert.equal(hasPlacePin({ latitude: null, longitude: null }), false);
+  assert.equal(hasPlacePin({ latitude: -6.2, longitude: null }), false);
+  assert.equal(directionsUrl({ latitude: null, longitude: null }), undefined);
+  assert.equal(directionsUrl({ latitude: -6.2, longitude: null }), undefined);
+  const destination = "Andara Vet, Jl. Margasatwa 51, Cilandak, Jakarta Selatan";
+  for (const pin of [{ latitude: null, longitude: null }, { latitude: -6.2, longitude: null }, { latitude: 999, longitude: 106.8 }]) {
+    const url = directionsUrl({ ...pin, business_name: "Andara Vet", address: "Jl. Margasatwa 51", district: "Cilandak", city: "Jakarta Selatan" });
+    assert.equal(new URL(url!).searchParams.get("destination"), destination);
+    assert.equal(new URL(url!).searchParams.get("api"), "1");
+  }
+  assert.equal(new URL(directionsUrl({ latitude: null, longitude: null, business_name: "A & B Petshop" })!).searchParams.get("destination"), "A & B Petshop");
+});

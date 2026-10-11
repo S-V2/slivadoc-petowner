@@ -1,3 +1,9 @@
-.manual-clinic-detail { max-width:900px;margin:0 auto;padding:30px 24px 70px;display:grid;gap:22px;color:#173d38; }
-.manual-clinic-back { color:#206b5f;font-weight:650;font-size:14px; }.manual-clinic-hero { overflow:hidden;background:#eef7f3;border:1px solid #d9e9e1;border-radius:20px; }.manual-clinic-photo { position:relative;height:300px; }.manual-clinic-photo img { object-fit:cover; }.manual-clinic-title { padding:24px; }.manual-clinic-title h1 { margin:10px 0 16px;font-size:32px;line-height:1.2; }.manual-clinic-title>span:first-child { color:#5b796e;font-size:13px;font-weight:650; }.manual-clinic-notice { padding:18px;background:#fff6e6;color:#77603b;border-radius:12px;font-size:14px;line-height:1.7; }.manual-clinic-description { white-space:pre-wrap;line-height:1.8; }.manual-clinic-rating { font-weight:650; }.manual-clinic-id { color:#73867c;font-size:11px;overflow-wrap:anywhere; }
-@media(max-width:600px) { .manual-clinic-detail{padding:20px 16px 50px;}.manual-clinic-photo{height:220px;}.manual-clinic-title h1{font-size:26px;} }
+.directory-place-detail {
+  width: min(100%, 1280px);
+  margin-inline: auto;
+  padding: 32px clamp(16px, 3vw, 40px) 64px;
+}
+
+@media (max-width: 600px) {
+  .directory-place-detail { padding: 20px 16px 40px; }
+}

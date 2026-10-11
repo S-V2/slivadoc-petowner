@@ -1,10 +1,10 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
-import { activityCenter, activityItem, marketplaceProduct, petOwner, petOwnerBootstrap } from './mock-data';
+import { activityCenter, activityItem, marketplaceProduct, petOwner, petOwnerBootstrap, paymentMethods } from './mock-data';
 import { collectionSamples } from './world-collection-data';
 
 const spot = collectionSamples.petspots;
-const post = { id: 'community-layout-post', author_name: 'Bella & Bima', user_id: petOwner.id, body: 'Bella lulus pemeriksaan kesehatan tahunan. Semua catatan masuk ke timeline medisnya.', category: 'story', created_at: new Date().toISOString(), like_count: 2, comment_count: 20, liked: false, image_url: '' };
+const post = { pet_id: '', pet_name: '', group_id: '', group_name: '', location: '', id: 'community-layout-post', author_name: 'Bella & Bima', user_id: petOwner.id, body: 'Bella lulus pemeriksaan kesehatan tahunan. Semua catatan masuk ke timeline medisnya.', category: 'story', created_at: new Date().toISOString(), like_count: 2, comment_count: 20, liked: false, image_url: '' };
 const event = activityItem({ id: '7c000000-0000-4000-8000-000000000001', type: 'event', title: 'Cat Parent Mini Class', subtitle: 'M Bloc Space · Jakarta Selatan', pet_name: 'Milo', amount: 50000, payment_reference_type: 'event_registration', qr_token: '19e148d8-39be-4c3d-9e8f-0a1b2c3d4e5f', venue: 'M Bloc Space', address: 'Jl. Panglima Polim, Jakarta Selatan', latitude: -6.2, longitude: 106.8, scheduled_at: new Date(Date.now() + 3600000).toISOString(), ends_at: new Date(Date.now() + 7200000).toISOString(), ticket_quantity: 1 });
 
 async function setup(page: Page) {
@@ -17,24 +17,28 @@ async function setup(page: Page) {
   await page.route('https://example.test/**', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="440"><rect width="640" height="440" fill="#dff3ff"/></svg>' }));
   await page.route('**/api/v1/**', async route => {
     const path = new URL(route.request().url()).pathname;
-    const json = (body: unknown) => route.fulfill({ json: body });
+    const json = (body: unknown, status = 200) => route.fulfill({ json: body, status });
     if (path === '/api/v1/auth/me') return json({ ...petOwner, role: 'pet_owner' });
     if (path === '/api/v1/petowner/bootstrap') return json(petOwnerBootstrap({ withPet: true }));
     if (path === '/api/v1/petowner/shipping-addresses') return json({ addresses: [] });
     if (path === '/api/v1/petowner/activities') return json(activityCenter([event]));
-    if (path.endsWith('/medical-records')) return json({ data: [{ id: 'layout-medical-record', record_type: 'laboratory', title: 'Panel darah tahunan Milo', complaint: '', diagnosis: 'CBC dan kimia darah dalam rentang normal', treatment: '', clinical_notes: '', doctor_name: 'drh. Maya', occurred_at: '2026-09-15T04:56:31Z', attachments: [], prescriptions: [] }], count: 1 });
+    if (path.endsWith('/medical-records')) return json({ data: [{ id: 'layout-medical-record', record_type: 'laboratory', title: 'Panel darah tahunan Milo', complaint: '', diagnosis: 'CBC dan kimia darah dalam rentang normal', treatment: '', clinical_notes: '', doctor_name: 'drh. Maya', occurred_at: '2026-09-15T04:56:31Z', attachments: [], prescriptions: [], weight_kg: null, temperature_c: null, next_control_at: null }], count: 1 });
     if (path === '/api/v1/public/discovery/products') return json({ data: Array.from({ length: 16 }, (_, i) => marketplaceProduct({ id: `52000000-0000-4000-8000-${String(i+1).padStart(12, '0')}`, name: 'Makanan sehat anabul untuk perawatan harian', image_url: 'https://example.test/product.svg' })), count: 16 });
     if (path === '/api/v1/public/community/posts') return json({ data: [post], count: 1 });
     if (path.endsWith(`/community/posts/${post.id}/comments`)) {
       if (route.request().method() === 'POST') {
         submitted.push(route.request().postDataJSON());
-        return json({ id: 'new-comment', created_at: new Date().toISOString(), message: 'Komentar terkirim' });
+        return json({ id: 'new-comment', created_at: new Date().toISOString(), message: 'Komentar terkirim' }, 201);
       }
-      return json({ data: Array.from({ length: 20 }, (_, i) => ({ id: `comment-${i}`, user_id: petOwner.id, author_name: 'Andi Pet Parent', body: 'Congrats ya! Semoga Bella sehat selalu. '.repeat(3), created_at: new Date().toISOString() })), count: 20 });
+      return json({ data: Array.from({ length: 20 }, (_, i) => ({ parent_id: '', id: `comment-${i}`, user_id: petOwner.id, author_name: 'Andi Pet Parent', body: 'Congrats ya! Semoga Bella sehat selalu. '.repeat(3), created_at: new Date().toISOString() })), count: 20 });
     }
     if (path.startsWith('/api/v1/public/petspots/')) return json(spot);
     const sample = collectionSamples[path.replace('/api/v1/public/', '') as keyof typeof collectionSamples];
     if (sample) return json({ data: [sample], count: 1 });
+    if (path === '/api/v1/public/discovery/branches') return json({ data: [], count: 0, has_more: false });
+    if (path === '/api/v1/notifications') return json({ data: [], count: 0, unread_count: 0 });
+    if (path === '/api/v1/public/petship/places') return json({ data: [], count: 0, privacy: 'Jumlah check-in aktif dengan visibilitas nearby' });
+    if (path === '/api/v1/payment-methods') return json(paymentMethods());
     return json({ data: [], count: 0 });
   });
   return submitted;
@@ -66,7 +70,7 @@ for (const width of [390, 768, 1440]) {
     await page.goto('/?view=shop');
     await expect(page.locator('.market-product-card')).toHaveCount(16);
     const cols = await page.locator('.market-product-grid').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
-    expect(cols).toBe(width <= 600 ? 2 : width >= 1440 ? 8 : 4);
+    expect(cols).toBe(width <= 600 ? 2 : width >= 1440 ? 5 : 3);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   });
 

@@ -1,5 +1,6 @@
+import { isInformationPlace } from "../../../shared/place-directory";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, ActivityIndicator, Animated, Image, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, AppState, ActivityIndicator, Animated, Image, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { getDiscoveryBranches, type MobileDiscoveryBranch } from "../api";
@@ -86,7 +87,7 @@ function BranchCard({ branch, onPress }: { branch: MobileDiscoveryBranch; onPres
       <View style={styles.cardBody}>
         <Pill tone={branch.type === "petclinic" ? "blue" : branch.type === "petshop" ? "mint" : "violet"}>{branchTypeLabel(branch.type)}</Pill>
         <Text translate={false} numberOfLines={1} style={styles.name}>{branch.business_name}</Text>
-        <Text style={styles.status}>{branch.verified ? "✓ Verified" : branch.source === "manual" ? "Informasi tempat" : "Mitra Slivadoc"}</Text>
+        <Text style={styles.status}>{branch.verified ? "✓ Verified" : isInformationPlace(branch) ? "Informasi tempat" : "Mitra Slivadoc"}</Text>
         {branch.branch_name && branch.branch_name !== branch.business_name ? (
           <Text translate={false} numberOfLines={1} style={styles.branch}>{branch.branch_name}</Text>
         ) : null}
@@ -106,7 +107,7 @@ function BranchCard({ branch, onPress }: { branch: MobileDiscoveryBranch; onPres
             {branch.rating !== null ? `${formatNumber(Math.round(branch.rating * 10) / 10)} (${branch.review_count})` : "-"}
           </Text>
         </View>
-        <Text translate={false} style={styles.counts}>{branch.source === "manual" ? (language === "en" ? "View address & contact" : "Lihat alamat & kontak") : branchCountsLabel(branch.service_count, branch.product_count, language)}</Text>
+        <Text translate={false} style={styles.counts}>{isInformationPlace(branch) ? (language === "en" ? "View address & contact" : "Lihat alamat & kontak") : branchCountsLabel(branch.service_count, branch.product_count, language)}</Text>
       </View>
     </Pressable>
   );
@@ -191,6 +192,11 @@ export function ClinicsScreen({ authenticated, onRequireLogin, onOpenBranch, onO
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey, hasMore, items.length, loadingMore]);
 
+  useEffect(() => {
+    const listener = AppState.addEventListener("change", (state) => { if (state === "active") setAttempt((value) => value + 1); });
+    return () => listener.remove();
+  }, []);
+
   const resetFilters = () => {
     setType("all");
     setSearchInput("");
@@ -202,7 +208,7 @@ export function ClinicsScreen({ authenticated, onRequireLogin, onOpenBranch, onO
 
   return (
     <Screen>
-      <TopHeader title="Klinik & Petshop" subtitle="Mitra terverifikasi di sekitarmu" onNotification={onOpenNotifications} />
+      <TopHeader title="Klinik & Petshop" subtitle="Temukan tempat dan layanan di sekitarmu" onNotification={onOpenNotifications} />
 
       {location ? (
         <View style={styles.locationBar}>

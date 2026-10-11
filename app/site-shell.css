@@ -1031,120 +1031,169 @@
   }
 }
 
-/* Four columns in the compact catalog; eight on wide desktop screens. */
+/* Keep the page full width; adapt product columns to the available space. */
+.main-shell .page-content:has(.market-home, .market-store-page, .market-product-detail) {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
+.main-shell .market-home {
+  max-width: none;
+  margin-inline: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
 .main-shell .market-product-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr));
   gap: 12px;
+}
+.main-shell .market-catalog-heading {
+  flex-wrap: wrap;
+}
+.main-shell .market-product-card {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(25, 84, 109, 0.05);
+}
+.main-shell .market-product-card:focus-visible {
+  outline: 3px solid var(--sky-500);
+  outline-offset: 3px;
+}
+.main-shell .market-card-media {
+  aspect-ratio: 1;
 }
 .main-shell .market-card-content {
   min-width: 0;
+  gap: 0;
+  padding: 12px;
 }
-.market-card-content h3,
-.market-card-seller span b {
+.main-shell .market-card-content h3 {
+  height: 40px;
+  min-height: 40px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
   overflow-wrap: anywhere;
 }
-@media (min-width: 1440px) {
-  .main-shell .market-product-grid {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
-  }
+.main-shell .market-card-price-wrap {
+  min-height: 47px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-top: 8px;
 }
-@media (max-width: 600px), (min-width: 861px) and (max-width: 1180px), (min-width: 1440px) and (max-width: 1800px) {
-  .main-shell .market-product-grid {
-    gap: 8px;
-  }
-  .main-shell .market-card-content {
-    gap: 7px;
-    padding: 9px;
-  }
-  .main-shell .market-card-content h3 {
-    min-height: 32px;
-    font-size: 12px !important;
-    line-height: 1.35;
-    margin: 0;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .main-shell .market-card-category,
-  .main-shell .market-card-description,
-  .main-shell .market-card-seller .market-store-avatar,
-  .main-shell .market-card-seller small,
-  .main-shell .market-card-badge,
-  .main-shell .market-card-reward,
-  .main-shell .market-card-fulfillment,
-  .main-shell .market-card-social-proof i,
-  .main-shell .market-card-social-proof > span:last-child {
-    display: none;
-  }
-  .main-shell .market-card-seller {
-    gap: 0;
-    padding: 0;
-    min-width: 0;
-  }
-  .main-shell .market-card-seller b {
-    font-size: 10px !important;
-    line-height: 1.4;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .main-shell .market-card-price {
-    font-size: 13px !important;
-    overflow-wrap: anywhere;
-  }
-  .main-shell .market-card-social-proof {
-    font-size: 10px;
-    flex-wrap: wrap;
-    gap: 3px;
-  }
-  .main-shell .market-card-content footer {
-    margin-top: auto;
-    display: flex;
-  }
-  .main-shell .market-detail-link {
-    width: 100%;
-    min-width: 0;
-    min-height: 44px;
-    font-size: 12px !important;
-    gap: 4px;
-    padding: 6px;
-  }
-  .main-shell .market-favorite {
-    top: 2px;
-    right: 2px;
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    min-height: 36px;
-    border-radius: 12px;
-  }
+.main-shell .market-card-price {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 24px;
+  overflow-wrap: anywhere;
+}
+.main-shell .market-card-price-wrap s {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+.main-shell .market-card-social-proof {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 16px;
+}
+.main-shell .market-card-social-proof > span {
+  white-space: nowrap;
+}
+.main-shell .market-card-location {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+.main-shell .market-card-location > span,
+.main-shell .market-card-seller > span {
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.main-shell .market-card-location svg,
+.main-shell .market-card-seller svg {
+  flex-shrink: 0;
+}
+.main-shell .market-card-seller {
+  min-height: 28px;
+  gap: 4px;
+  margin-top: 2px;
+  padding: 4px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16px;
+}
+.main-shell .market-card-seller span {
+  color: inherit;
+}
+.main-shell .market-card-seller:hover {
+  color: var(--sky-600);
+  text-decoration: underline;
+}
+.main-shell .market-card-seller:focus-visible,
+.main-shell .market-favorite:focus-visible {
+  outline: 2px solid var(--sky-500);
+  outline-offset: 2px;
+}
+.main-shell .market-card-discount {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  color: #a83820;
+  background: #fff0e8;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 16px;
+}
+.main-shell .market-card-badge.is-empty {
+  font-size: 10px;
+}
+.main-shell .market-favorite {
+  top: 8px;
+  left: 8px;
+  right: auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(16, 65, 87, 0.08);
 }
 @media (max-width: 600px) {
   .main-shell .market-product-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    gap: 10px;
   }
   .main-shell .market-card-content {
-    padding: 12px;
-  }
-  .main-shell .market-card-content h3 {
-    min-height: 38px;
-    font-size: 14px !important;
+    padding: 10px;
   }
   .main-shell .market-card-price {
-    font-size: 16px !important;
+    font-size: 16px;
   }
-  .main-shell .market-card-seller b {
-    font-size: 11px !important;
-  }
-  .main-shell .market-card-fulfillment {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+  .main-shell .market-card-seller {
+    min-height: 36px;
   }
   .main-shell .market-favorite {
+    top: 4px;
+    left: 4px;
     width: 44px;
     height: 44px;
   }

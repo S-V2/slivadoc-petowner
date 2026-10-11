@@ -1,3 +1,4 @@
+import { isInformationPlace } from "../shared/place-directory";
 import { ManualClinicSheet } from "./src/components/ManualClinicSheet";
 import { CareerScreen } from "./src/screens/CareerScreen";
 import { LegalDocumentPanel } from "./src/components/LegalDocumentPanel";
@@ -941,7 +942,7 @@ function MobileApp() {
     branch: MobileDiscoveryBranch,
     entryPoint?: "klinik_petshop",
   ) => {
-    if (branch.source === "manual" || !branch.business_id) {
+    if (isInformationPlace(branch) || !branch.business_id) {
       setMobileEntryPoint(undefined);
       setManualPlaceID(branch.branch_id);
       return;

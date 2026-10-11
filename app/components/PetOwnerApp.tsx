@@ -1,4 +1,6 @@
 "use client";
+
+import { isInformationPlace } from "../../shared/place-directory";
 import { careerReturnPath } from "../../shared/career-auth";
 import { invoiceCategories, type InvoiceCategory } from "../../shared/invoice-categories";
 import { LegalConsentDialog } from "./LegalConsentDialog";
@@ -1061,7 +1063,7 @@ export default function PetOwnerApp() {
     branch: DiscoveryBranch,
     { fromMenu = false, replace = false } = {},
   ) => {
-    if (branch.source === "manual" || !branch.business_id) {
+    if (isInformationPlace(branch) || !branch.business_id) {
       window.location.assign(`/clinics/${encodeURIComponent(branch.branch_id)}`);
       return;
     }
@@ -2958,14 +2960,14 @@ function HomeView({
                 </span>
                 <span className="clinic-home-body">
                   <b>{branch.business_name}</b>
-                  <span className="clinic-directory-verification" data-verified={branch.verified === true}>{branch.verified ? "✓ Verified" : branch.source === "manual" ? "Informasi tempat" : "Mitra Slivadoc"}</span>
+                  <span className="clinic-directory-verification" data-verified={branch.verified === true}>{branch.verified ? "✓ Verified" : isInformationPlace(branch) ? "Informasi tempat" : "Mitra Slivadoc"}</span>
                   <small>
                     <Icon name="map" size={12} />
                     <span>{branch.branch_name}</span>
                   </small>
                   <span className="clinic-home-meta">
                     {distance ? <strong>{distance}</strong> : null}
-                    <span>{branch.source === "manual" ? t("Lihat alamat & kontak") : t(`${branch.service_count} layanan · ${branch.product_count} produk`)}</span>
+                    <span>{isInformationPlace(branch) ? t("Lihat alamat & kontak") : t(`${branch.service_count} layanan · ${branch.product_count} produk`)}</span>
                   </span>
                   <span className="clinic-home-foot">
                     <ClinicOpenState branch={branch} />

@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ExpoLocation from "expo-location";
-import { Camera, Map as MapLibreMap, type CameraRef, type StyleSpecification } from "@maplibre/maplibre-react-native";
+import type { CameraRef, StyleSpecification } from "@maplibre/maplibre-react-native";
 
 import { reverseMobileGeocode, searchMobileLocation, type MobileLocationResult } from "../api";
 import { DEVICE_LOCATION_LABEL, PIN_LOCATION_LABEL, type StoredLocation } from "../location";
+import { loadNativeMapLibre } from "../native-maplibre";
 import { colors, radius, spacing, typography } from "../theme";
 import { LocalizedText as Text, LocalizedTextInput as TextInput } from "../i18n";
 import { LocalizedPressable as Pressable } from "./LocalizedPressable";
@@ -48,6 +49,7 @@ type Props = {
 };
 
 export function LocationModal({ visible, current, authenticated, onRequireLogin, onSelect, onClose }: Props) {
+  const [nativeMap] = useState(loadNativeMapLibre);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Array<MobileLocationResult & { id: string }>>([]);
   const [busy, setBusy] = useState<"" | "device" | "search">("");
@@ -55,7 +57,7 @@ export function LocationModal({ visible, current, authenticated, onRequireLogin,
   const [error, setError] = useState("");
   const [picked, setPicked] = useState<StoredLocation | undefined>(current);
   const [style, setStyle] = useState<StyleSpecification>();
-  const [mapFailed, setMapFailed] = useState(!MAP_STYLE_URL || !MAP_PMTILES_URL);
+  const [mapFailed, setMapFailed] = useState(!nativeMap || !MAP_STYLE_URL || !MAP_PMTILES_URL);
   const camera = useRef<CameraRef>(null);
   const pinSeq = useRef(0);
 
@@ -192,7 +194,7 @@ export function LocationModal({ visible, current, authenticated, onRequireLogin,
           </Pressable>
         )}
 
-        {mapFailed ? (
+        {mapFailed || !nativeMap ? (
           <View style={styles.mapFallback}>
             <Ionicons name="map-outline" size={22} color={colors.muted} />
             <Text style={styles.mapFallbackText}>{authenticated ? "Peta belum tersedia. Gunakan lokasi perangkat atau cari alamat." : "Peta belum tersedia. Gunakan lokasi perangkat."}</Text>
@@ -201,7 +203,7 @@ export function LocationModal({ visible, current, authenticated, onRequireLogin,
           <>
             <View style={styles.mapBox}>
               {style ? (
-                <MapLibreMap
+                <nativeMap.Map
                   style={StyleSheet.absoluteFill}
                   mapStyle={style}
                   compass={false}
@@ -210,11 +212,11 @@ export function LocationModal({ visible, current, authenticated, onRequireLogin,
                     if (userInteraction) void dropPin(center[1], center[0]);
                   }}
                 >
-                  <Camera
+                  <nativeMap.Camera
                     ref={camera}
                     initialViewState={start ? { center: [start.longitude, start.latitude], zoom: 15 } : { center: INDONESIA, zoom: 3.5 }}
                   />
-                </MapLibreMap>
+                </nativeMap.Map>
               ) : (
                 <View style={styles.mapLoading}><ActivityIndicator color={colors.sky600} /></View>
               )}

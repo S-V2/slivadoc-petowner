@@ -145,7 +145,6 @@
 .place-detail-panel :is(.market-store-sort, .market-store-category-filter) { flex-wrap: wrap; overflow: visible; gap: 8px; padding: 0; }
 .place-detail-panel :is(.market-store-sort, .market-store-category-filter) button { min-height: 40px; padding: 8px 12px; border: 1px solid #d7eaf6; border-radius: 12px; font-size: 12px; }
 .place-detail-panel :is(.market-store-sort, .market-store-category-filter) button.active { border-color: #6ac9f8; background: #e6f5ff; color: #087bb2; }
-.main-shell .market-store-page .market-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .place-detail-panel .market-store-service-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .place-detail-panel .market-store-service-card { grid-template-columns: 76px minmax(0, 1fr) auto; gap: 14px; padding: 14px; border-radius: 18px; }
 .place-detail-panel .market-store-service-media { width: 76px; height: 76px; background: #e9f7ff; }
@@ -183,12 +182,8 @@
 .petspot-detail-panel .petspot-review-card header { flex-wrap: wrap; gap: 8px; }
 .petspot-detail-panel .petspot-review-card > p { margin-bottom: 0; }
 @container place-content (min-width: 640px) {
-  .main-shell .market-store-page .market-product-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .place-detail-panel :is(.market-store-service-grid, .petspot-resource-preview, .petspot-facility-grid, .petspot-activities-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .place-detail-panel .market-store-info-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
-@container place-content (min-width: 1340px) {
-  .main-shell .market-store-page .market-product-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
 }
 @media (min-width: 1440px) {
   .place-detail-workspace { grid-template-columns: minmax(0, 1fr) 300px; }

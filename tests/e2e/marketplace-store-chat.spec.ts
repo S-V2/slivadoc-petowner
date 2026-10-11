@@ -120,10 +120,10 @@ test("store profile exposes sections, sorting, and a text-only chat drawer", asy
   await page.goto("/?view=shop", { waitUntil: "domcontentloaded" });
 
   await expect(
-    page.getByRole("button", { name: /Sliva Pet Shop Online sekarang/ }).first(),
+    page.getByRole("button", { name: "Kunjungi toko Sliva Pet Shop" }).first(),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: /Sliva Pet Shop Online sekarang/ })
+    .getByRole("button", { name: "Kunjungi toko Sliva Pet Shop" })
     .first()
     .click();
   await expect(page).toHaveURL(new RegExp(`store=${businessID}`));

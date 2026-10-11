@@ -80,8 +80,8 @@ test("marketplace card navigates to responsive product detail and publishes a re
   const card = page.getByRole("link", { name: `Lihat detail ${product.name}` });
   await expect(card).toContainText("Sliva Pet Shop");
   await expect(card).toContainText("Jakarta Selatan");
-  await expect(card).toContainText("Stok 18");
-  await expect(card).toContainText("Sliva Point");
+  await expect(card.getByText("84 terjual")).toBeVisible();
+  await expect(card.locator(".market-card-social-proof")).toContainText("4.8");
   await card.click();
 
   await expect(page).toHaveURL(new RegExp(`product=${product.id}`));

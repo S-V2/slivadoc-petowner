@@ -103,6 +103,14 @@ HP dan komputer harus berada di Wi-Fi yang sama. Jalankan backend pada host `0.0
 
 Untuk menguji login di Expo Go, scan QR dari `npm start`, buka menu **Lainnya → Masuk ke akun**, lalu gunakan akun Pet Owner yang tersedia pada backend yang sedang dijalankan. Tarik layar dari atas untuk memuat ulang data tanpa berpindah tab. Tombol Back Android menutup popup terlebih dahulu, kembali ke halaman sebelumnya bila ada, dan mengikuti perilaku sistem saat sudah berada di Beranda.
 
+Expo Go tidak menyertakan modul native MapLibre. Aplikasi tetap dapat dibuka;
+pemilihan lokasi memakai GPS perangkat atau pencarian alamat setelah login.
+Untuk mengaktifkan peta interaktif, isi `EXPO_PUBLIC_MAP_STYLE_URL` dan
+`EXPO_PUBLIC_MAP_PMTILES_URL`, lalu buat dan pasang build native dari folder
+`mobile` dengan `npx expo run:ios` atau `npx expo run:android`. Plugin MapLibre
+sudah terdaftar di `app.json`; reload JavaScript saja tidak menambahkan modul
+native ke Expo Go. Lihat [panduan Expo MapLibre](https://maplibre.org/maplibre-react-native/docs/setup/expo/).
+
 ### Network logger Android/iOS
 
 Network inspector aktif otomatis saat menjalankan Expo dalam development dan

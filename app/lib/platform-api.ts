@@ -563,6 +563,7 @@ export type DiscoveryBranch = {
   place_id?: string;
   source?: "manual" | "registered";
   verified?: boolean;
+  can_transact?: boolean;
   phone?: string;
   website?: string;
   description?: string;
@@ -577,8 +578,8 @@ export type DiscoveryBranch = {
   address: string;
   district: string;
   city: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   distance_km: number | null;
   opening_hours: Record<string, unknown>;
   timezone: string;

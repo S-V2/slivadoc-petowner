@@ -1013,6 +1013,7 @@ export type MobileBranchType = "petclinic" | "petshop" | "hybrid";
 export type MobileDiscoveryBranch = {
   source?: "manual" | "registered";
   verified?: boolean;
+  can_transact?: boolean;
   place_id?: string;
   phone?: string;
   website?: string;
@@ -1027,8 +1028,8 @@ export type MobileDiscoveryBranch = {
   address: string;
   district: string;
   city: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   distance_km: number | null;
   opening_hours: Record<string, unknown>;
   timezone: string;
@@ -1055,6 +1056,7 @@ export const getDiscoveryBranches = (options?: {
   });
   return platformRequest<{ data: MobileDiscoveryBranch[]; count: number; has_more: boolean }>(
     `/api/v1/public/discovery/branches${query.size ? `?${query}` : ""}`,
+    { cache: "no-store" },
   );
 };
 export const getDiscoveryBranch = (
@@ -1065,6 +1067,7 @@ export const getDiscoveryBranch = (
     `/api/v1/public/discovery/branches/${encodeURIComponent(branchId)}${
       coordinates ? `?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}` : ""
     }`,
+    { cache: "no-store" },
   );
 
 // Fire-and-forget analytics; guests are allowed and failures never surface.

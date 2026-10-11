@@ -71,7 +71,8 @@ import {
   LocalizedTextInput as TextInput,
   useI18n,
 } from "../i18n";
-import { branchTypeLabel, directionsUrl, openingHoursRows } from "../clinics";
+import { branchTypeLabel, directionsUrl, openingHoursRows, isInformationPlace } from "../clinics";
+import { directoryStoreProfile } from "../../../shared/place-directory";
 import { loadStoredLocation } from "../location";
 import {
   buildMarketplaceShippingPayload,
@@ -238,11 +239,13 @@ function StoreAvatar({
   logo,
   online,
   large = false,
+  showPresence = true,
 }: {
   name: string;
   logo?: string;
   online?: boolean;
   large?: boolean;
+  showPresence?: boolean;
 }) {
   return (
     <View style={[styles.storeAvatar, large && styles.storeAvatarLarge]}>
@@ -258,7 +261,7 @@ function StoreAvatar({
           {name.trim().slice(0, 1).toUpperCase() || "S"}
         </Text>
       )}
-      <View style={[styles.storePresenceDot, online && styles.storePresenceDotOnline]} />
+      {showPresence ? <View style={[styles.storePresenceDot, online && styles.storePresenceDotOnline]} /> : null}
     </View>
   );
 }
@@ -2127,7 +2130,7 @@ function ProductDetailSheet({
   );
 }
 
-function StorefrontSheet({
+export function StorefrontSheet({
   visible,
   onDismiss,
   response,
@@ -2143,6 +2146,8 @@ function StorefrontSheet({
   onOpenService,
   onChat,
   onFavorite,
+  backLabel = "Kembali ke marketplace",
+  onRetry,
 }: {
   visible: boolean;
   onDismiss: () => void;
@@ -2159,15 +2164,25 @@ function StorefrontSheet({
   onOpenService: (service: Service) => void;
   onChat: () => void;
   onFavorite: (product: MobileProduct) => void;
+  backLabel?: string;
+  onRetry?: () => void;
 }) {
   const { formatDate } = useI18n();
   const { height: windowHeight } = useWindowDimensions();
-  const [section, setSection] = useState<StoreSection>(initialSection);
+  const [navigation, setNavigation] = useState({ initialSection, section: initialSection });
+  const section = navigation.initialSection === initialSection ? navigation.section : initialSection;
+  const setSection = (next: StoreSection) => setNavigation({ initialSection, section: next });
   const [sort, setSort] = useState<SortMode>("popular");
   const [category, setCategory] = useState("Semua");
   const fallback = products[0];
   const fallbackService = services[0];
-  const store = response?.store ?? {
+  const informationOnly = Boolean(branch && isInformationPlace(branch));
+  const [linkError, setLinkError] = useState(false);
+  async function openPlaceLink(url: string) {
+    setLinkError(false);
+    try { await Linking.openURL(url); } catch { setLinkError(true); }
+  }
+  const store = response?.store ?? (informationOnly && branch ? directoryStoreProfile(branch) : {
     id: fallback?.business_id ?? fallbackService?.businessId ?? "",
     name: fallback?.business_name ?? fallbackService?.businessName ?? "Toko Slivadoc",
     logo_url: fallback?.store_logo_url ?? "",
@@ -2187,7 +2202,7 @@ function StorefrontSheet({
       0,
     ),
     sold_count: products.reduce((total, item) => total + item.sold_count, 0),
-  };
+  });
   const categories =
     response?.categories ??
     Array.from(new Set(products.map((item) => item.category))).map((name) => ({
@@ -2245,7 +2260,7 @@ function StorefrontSheet({
         <View style={styles.storefrontHeader}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Kembali ke marketplace"
+            accessibilityLabel={backLabel}
             onPress={onClose}
             style={styles.storefrontBack}
           >
@@ -2254,21 +2269,29 @@ function StorefrontSheet({
           <View style={styles.storefrontHeaderCopy}>
             <Text style={styles.storefrontHeaderEyebrow}>SLIVA MARKET</Text>
             <Text numberOfLines={1} style={styles.storefrontHeaderTitle}>
-              {store.name}
+              {loading || error ? "Informasi tempat" : store.name}
             </Text>
           </View>
-          <Pressable onPress={onChat} style={styles.storefrontHeaderChat}>
+          {!informationOnly && !loading && !error ? <Pressable accessibilityRole="button" accessibilityLabel="Chat toko" onPress={onChat} style={styles.storefrontHeaderChat}>
             <Ionicons
               name="chatbubble-ellipses-outline"
               size={19}
               color={colors.sky600}
             />
-          </Pressable>
+          </Pressable> : null}
         </View>
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.storefrontContent}
         >
+          {loading && !fallback && !fallbackService ? (
+            <View style={styles.storefrontState}>
+              <ActivityIndicator color={colors.sky600} />
+              <Text style={styles.loadingText}>Menyiapkan etalase toko…</Text>
+            </View>
+          ) : error && !fallback && !fallbackService ? (
+            <EmptyState icon="alert-circle-outline" title="Tempat belum dapat dibuka" note={error} action={onRetry ? "Coba lagi" : "Kembali"} onAction={onRetry || onClose} />
+          ) : <>
           <LinearGradient
             colors={[colors.sky600, "#6ECDF0", "#BDEFE3"]}
             style={styles.storefrontHero}
@@ -2279,27 +2302,27 @@ function StorefrontSheet({
               logo={store.logo_url}
               online={store.is_online}
               large
+              showPresence={!informationOnly}
             />
             <View style={styles.storefrontIdentity}>
               <View style={styles.storefrontVerified}>
-                <Ionicons name="shield-checkmark" size={12} color="#087B68" />
+                <Ionicons name={informationOnly && !branch?.verified ? "location-outline" : "shield-checkmark"} size={12} color="#087B68" />
                 <Text style={styles.storefrontVerifiedText}>
-                  PARTNER TERVERIFIKASI
+                  {informationOnly ? branch?.verified ? "Verified" : "Informasi tempat" : "PARTNER TERVERIFIKASI"}
                 </Text>
               </View>
               <Text style={styles.storefrontName}>{store.name}</Text>
               <Text style={styles.storefrontMeta}>
-                {store.city || "Indonesia"} ·{" "}
-                {storePresenceLabel(store.is_online, store.last_seen_at, formatDate)}
+                {store.city || "Indonesia"}{!informationOnly ? ` · ${storePresenceLabel(store.is_online, store.last_seen_at, formatDate)}` : ""}
               </Text>
             </View>
-            <Pressable onPress={onChat} style={styles.storefrontChatButton}>
+            <Pressable accessibilityRole="button" accessibilityLabel={informationOnly ? "Petunjuk arah" : "Chat toko"} onPress={informationOnly && branch ? () => void openPlaceLink(directionsUrl(branch)) : onChat} style={styles.storefrontChatButton}>
               <Ionicons
-                name="chatbubble-ellipses-outline"
+                name={informationOnly ? "navigate-outline" : "chatbubble-ellipses-outline"}
                 size={16}
                 color={colors.white}
               />
-              <Text style={styles.storefrontChatButtonText}>Chat toko</Text>
+              <Text style={styles.storefrontChatButtonText}>{informationOnly ? "Petunjuk arah" : "Chat toko"}</Text>
             </Pressable>
           </LinearGradient>
 
@@ -2341,15 +2364,18 @@ function StorefrontSheet({
                   ))}
                 </>
               ) : null}
-              <Pressable
+              <Pressable accessibilityRole="button"
                 accessibilityLabel="Petunjuk arah"
-                onPress={() => void Linking.openURL(directionsUrl(branch.latitude, branch.longitude)).catch(() => undefined)}
+                onPress={() => void openPlaceLink(directionsUrl(branch))}
                 style={styles.storefrontBranchDirections}
               >
                 <Ionicons name="navigate-outline" size={15} color={colors.white} />
                 <Text style={styles.storefrontBranchDirectionsText}>Petunjuk arah</Text>
               </Pressable>
-              <Text style={styles.storefrontBranchNote}>Stok dikirim dari cabang terdekat yang tersedia</Text>
+              {branch.phone ? <Pressable accessibilityRole="button" onPress={() => void openPlaceLink(`tel:${branch.phone!.replace(/[^+0-9]/g, "")}`)} style={styles.storefrontBranchContact}><Text style={styles.storefrontBranchContactText}>Hubungi tempat</Text></Pressable> : null}
+              {/^https?:\/\//.test(branch.website ?? "") ? <Pressable accessibilityRole="button" onPress={() => void openPlaceLink(branch.website!)} style={styles.storefrontBranchContact}><Text style={styles.storefrontBranchContactText}>Website tempat</Text></Pressable> : null}
+              {linkError ? <Text accessibilityRole="alert" style={styles.storefrontBranchNote}>Tautan belum dapat dibuka.</Text> : null}
+              <Text style={styles.storefrontBranchNote}>{informationOnly ? "Hubungi tempat langsung untuk informasi layanan dan jam buka." : "Stok dikirim dari cabang terdekat yang tersedia"}</Text>
             </View>
           ) : null}
 
@@ -2385,24 +2411,9 @@ function StorefrontSheet({
             ))}
           </View>
 
-          {loading && !fallback && !fallbackService ? (
-            <View style={styles.storefrontState}>
-              <ActivityIndicator color={colors.sky600} />
-              <Text style={styles.loadingText}>Menyiapkan etalase toko…</Text>
-            </View>
-          ) : error && !fallback && !fallbackService ? (
-            <EmptyState
-              icon="alert-circle-outline"
-              title="Etalase belum dapat dibuka"
-              note={error}
-              action="Kembali"
-              onAction={onClose}
-            />
-          ) : null}
-
           {section === "products" ? (
             <>
-              <TabRail
+              {products.length ? <TabRail
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.storefrontSortRow}
@@ -2436,8 +2447,8 @@ function StorefrontSheet({
                     </Text>
                   </Pressable>
                 ))}
-              </TabRail>
-              <TabRail
+              </TabRail> : null}
+              {categories.length ? <TabRail
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.categoryRow}
@@ -2463,7 +2474,7 @@ function StorefrontSheet({
                     </Pressable>
                   ),
                 )}
-              </TabRail>
+              </TabRail> : null}
               <View style={styles.productGrid}>
                 {visibleProducts.map((product) => (
                   <ProductCard
@@ -2476,6 +2487,7 @@ function StorefrontSheet({
                   />
                 ))}
               </View>
+              {!visibleProducts.length && !loading && !error ? <EmptyState icon="bag-outline" title="Belum ada produk" note="Produk dari tempat ini belum tersedia di Slivadoc. Kamu tetap bisa merencanakan kunjungan." action="Tentang tempat" onAction={() => setSection("about")} /> : null}
             </>
           ) : null}
 
@@ -2532,6 +2544,7 @@ function StorefrontSheet({
                   </Text>
                 </Pressable>
               ))}
+              {!categories.length ? <EmptyState icon="grid-outline" title="Kategori produk belum tersedia" note="Kategori akan tampil setelah produk diterbitkan." action="Tentang tempat" onAction={() => setSection("about")} /> : null}
             </View>
           ) : null}
 
@@ -2583,11 +2596,14 @@ function StorefrontSheet({
               <View style={styles.storefrontAboutFact}>
                 <Text style={styles.storefrontAboutLabel}>Status</Text>
                 <Text style={styles.storefrontAboutValue}>
-                  {store.is_online ? "Online sekarang" : "Sedang offline"}
+                  {informationOnly ? branch?.verified ? "Verified" : "Informasi tempat" : store.is_online ? "Online sekarang" : "Sedang offline"}
                 </Text>
               </View>
+              {informationOnly ? <Text style={styles.storefrontAboutCopy}>{branch?.source === "manual" ? "Informasi tempat ini ditambahkan oleh Slivadoc. Pengelola belum memiliki akun di Slivadoc. Hubungi tempat langsung untuk memastikan layanan dan jam buka." : "Hubungi tempat langsung untuk informasi layanan dan jam buka."}</Text> : null}
+              {informationOnly && branch?.rating != null && branch.review_count > 0 ? <Text style={styles.storefrontAboutCopy}>{`${branch.rating.toFixed(1)} / 5 · ${branch.review_count} ulasan referensi dari data listing`}</Text> : null}
             </View>
           ) : null}
+          </>}
         </ScrollView>
           </SafeAreaView>
         </Pressable>
@@ -4349,6 +4365,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sky600,
   },
   storefrontBranchDirectionsText: { color: colors.white, fontSize: 12, fontWeight: "700" },
+  storefrontBranchContact: { padding: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 12, alignItems: "center" },
+  storefrontBranchContactText: { color: colors.sky600, fontSize: 12, fontWeight: "700" },
   storefrontBranchNote: { color: colors.muted, fontSize: 11, lineHeight: 15 },
   storefrontTabs: {
     width: "100%",

@@ -1,3 +1,5 @@
+import { placeDirectionsUrl } from "../../shared/place-directory.ts";
+export { hasPlacePin, isInformationPlace } from "../../shared/place-directory.ts";
 import type { DiscoveryBranch, DiscoveryBranchParams } from "./platform-api.ts";
 
 export const CLINIC_PAGE_SIZE = 20;
@@ -62,8 +64,7 @@ export function formatDistanceKm(km: number | null) {
 export const branchPlace = (branch: Pick<DiscoveryBranch, "district" | "city">) =>
   [branch.district, branch.city].filter(Boolean).join(", ");
 
-export const directionsUrl = (branch: Pick<DiscoveryBranch, "latitude" | "longitude">) =>
-  `https://www.google.com/maps/dir/?api=1&destination=${branch.latitude},${branch.longitude}`;
+export const directionsUrl = placeDirectionsUrl;
 
 // Weekday keys come as "mon" or "monday"; like the backend's parseOpeningWindows,
 // the short key wins when a row has both. Other keys ("daily", free text) follow as stored.

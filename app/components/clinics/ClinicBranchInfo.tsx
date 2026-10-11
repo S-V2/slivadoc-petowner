@@ -3,7 +3,7 @@
 import { LocalizedCopy } from "../LocalizedCopy";
 import { PlaceVisitCard } from "../places/PlaceVisitCard";
 import type { DiscoveryBranch } from "../../lib/platform-api";
-import { branchPlace, directionsUrl, formatDistanceKm } from "../../lib/clinic-directory";
+import { branchPlace, directionsUrl, formatDistanceKm, isInformationPlace } from "../../lib/clinic-directory";
 
 export function ClinicOpenState({ branch }: { branch: Pick<DiscoveryBranch, "is_open_now"> }) {
   const state = branch.is_open_now === null ? "unset" : branch.is_open_now ? "open" : "closed";
@@ -23,8 +23,10 @@ export default function ClinicBranchInfo({ branch }: { branch: DiscoveryBranch }
     title={branch.branch_name}
     address={[distance, branch.address, branchPlace(branch)].filter(Boolean).join(" · ")}
     hours={branch.opening_hours}
+    phone={branch.phone}
+    website={branch.website}
     directions={directionsUrl(branch)}
     status={<ClinicOpenState branch={branch} />}
-    note="Stok dikirim dari cabang terdekat yang tersedia"
+    note={isInformationPlace(branch) ? "Hubungi tempat langsung untuk informasi layanan dan jam buka." : "Stok dikirim dari cabang terdekat yang tersedia"}
   />;
 }

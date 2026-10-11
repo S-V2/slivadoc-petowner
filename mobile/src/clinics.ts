@@ -1,3 +1,6 @@
+export { hasPlacePin, isInformationPlace } from "../../shared/place-directory.ts";
+import { placeDirectionsUrl } from "../../shared/place-directory.ts";
+import type { MobileDiscoveryBranch } from "./api.ts";
 import type { MobileBranchType } from "./api.ts";
 import type { StoredLocation } from "./location.ts";
 
@@ -29,8 +32,10 @@ export function branchTypeLabel(type: MobileBranchType) {
   return "Klinik & Petshop";
 }
 
-export function directionsUrl(latitude: number, longitude: number) {
-  return `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+export function directionsUrl(place: MobileDiscoveryBranch): string;
+export function directionsUrl(latitude: number, longitude: number): string;
+export function directionsUrl(place: MobileDiscoveryBranch | number, longitude?: number) {
+  return placeDirectionsUrl(typeof place === "number" ? { latitude: place, longitude: longitude ?? null } : place) ?? "";
 }
 
 export function formatDistanceKm(km: number, locale: string) {

@@ -70,8 +70,9 @@ async function signedInCatalog(page: Page) {
       has_more: false,
     });
     if (path === "/api/v1/public/discovery/products") return json({ data: [marketplaceProduct({ id: "52000000-0000-4000-8000-000000000001", name: "Makanan anabul untuk perawatan harian" })], count: 1 });
+    if (path === "/api/v1/public/pet-sitters") return json({ data: [] });
     const sample = collectionSamples[path.replace("/api/v1/public/", "") as keyof typeof collectionSamples];
-    if (sample) return json(path.endsWith("/pet-sitters") ? { data: [sample] } : { data: [sample], count: 1 });
+    if (sample) return json({ data: [sample], count: 1 });
     if (path.endsWith("/pawdating/standards")) return json({ principles: [], levels: [], minimum_age_months: {}, report_validity_days: 180, blocked_conditions: [] });
     if (path.endsWith("/pawdating/profiles")) return json({ data: [], count: 0, filters: { species: "", breed: "", sex: "", city: "", min_level: 2, min_health_score: 80 } });
     if (path.endsWith("/petship/places")) return json({ data: [], count: 0, privacy: "Lokasi tempat, tanpa koordinat pengguna." });

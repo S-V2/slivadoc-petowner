@@ -71,7 +71,7 @@ export const footerNavigation: { title: FooterText; links: FooterLink[] }[] = [
         href: "/guides",
         label: { id: "Panduan pet parent", en: "Pet parent guides" },
       },
-      { href: "/?view=community", label: { id: "Komunitas", en: "Community" } },
+      { href: "/?view=fundraising", label: { id: "Donate", en: "Donate" } },
     ],
   },
   {

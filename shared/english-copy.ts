@@ -2,6 +2,8 @@
 export const englishCopy: Record<string, string> = {
   "Beranda": "Home",
   "Belanja": "Shop",
+  "Donate": "Donate",
+  "Bantu biaya perawatan hewan melalui Slivadoc Animal Fund.": "Help fund animal care through Slivadoc Animal Fund.",
   "Komunitas": "Community",
   "Aktivitas": "Activity",
   "Layanan": "Services",

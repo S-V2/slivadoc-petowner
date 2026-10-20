@@ -196,24 +196,24 @@ test("home service shortcuts open a filtered catalogue before booking", async ({
   await expect(page).toHaveURL(/service=[0-9a-f-]+/);
 });
 
-test("community search and live status occupy separate rows on mobile", async ({
+test("saved Community tabs and browser history open Donate on mobile", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 812 });
-  await openApp(page, "/?view=community");
-
-  const boxes = await page.locator(".community-tools-live").evaluate((container) => {
-    const search = container.querySelector("label")!.getBoundingClientRect();
-    const status = container.querySelector(":scope > span")!.getBoundingClientRect();
-    return {
-      search: { left: search.left, right: search.right, bottom: search.bottom },
-      status: { left: status.left, right: status.right, top: status.top },
-    };
+  await page.addInitScript(() => localStorage.setItem("slivadoc.active_view", "community"));
+  await openApp(page);
+  await expect(page.locator(".fundraising-page")).toBeVisible();
+  await page.evaluate(() => {
+    history.pushState({}, "", "/?view=community");
+    dispatchEvent(new PopStateEvent("popstate"));
   });
-
-  expect(boxes.search.right).toBeLessThanOrEqual(375);
-  expect(boxes.status.right).toBeLessThanOrEqual(375);
-  expect(boxes.status.top).toBeGreaterThanOrEqual(boxes.search.bottom);
+  await expect(page).toHaveURL(/view=fundraising/);
+  await expect(page.locator(".fundraising-page")).toBeVisible();
+  await page.evaluate(() => {
+    dispatchEvent(new CustomEvent("slivadoc:navigate", { detail: "community" }));
+  });
+  await expect(page.locator(".community-layout")).toHaveCount(0);
+  await expect(page.locator(".fundraising-page")).toBeVisible();
 });
 
 test("PetHub tab rail keeps every tab reachable", async ({ page }) => {

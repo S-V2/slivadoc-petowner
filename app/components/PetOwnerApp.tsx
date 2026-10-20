@@ -43,7 +43,6 @@ import {
 } from "./marketplace/ShopMarketplace";
 import { usePetOwnerI18n } from "./PetOwnerI18n";
 import AddPetExperience from "./integrations/AddPetExperience";
-import CommunityExperience from "./integrations/CommunityExperience";
 import LocationModal from "./integrations/LocationModal";
 import { useCurrentLocation } from "./use-current-location";
 import { PlacePhoto } from "./places/PlacePhoto";
@@ -242,7 +241,6 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
   { id: "health", label: "Kesehatan", icon: "heart" },
   { id: "shop", label: "Belanja", icon: "bag" },
   { id: "favorites", label: "Favorit Saya", icon: "heart" },
-  { id: "community", label: "Komunitas", icon: "users" },
   { id: "world", label: "Sliva World", icon: "sparkle" },
   { id: "academy", label: "Pet Academy", icon: "sparkle" },
   { id: "events", label: "Pet Event", icon: "calendar" },
@@ -254,16 +252,16 @@ const navItems: { id: AppView; label: string; icon: IconName }[] = [
   { id: "documents", label: "Pet Documents", icon: "download" },
   { id: "pawdating", label: "PAW Dating", icon: "heart" },
   { id: "petship", label: "Petship", icon: "map" },
-  { id: "fundraising", label: "Animal Fund", icon: "heart" },
+  { id: "fundraising", label: "Donate", icon: "heart" },
   { id: "messages", label: "Chat", icon: "chat" },
   { id: "support", label: "Pusat Bantuan", icon: "chat" },
   { id: "profile", label: "Akun", icon: "user" },
 ];
 
 const navGroups: { label: string; items: AppView[] }[] = [
-  { label: "Navigasi utama", items: ["home", "shop", "community", "bookings"] },
+  { label: "Navigasi utama", items: ["home", "shop", "fundraising", "bookings"] },
   { label: "Akun & perawatan", items: ["messages", "discover", "clinics", "sitter", "world", "health", "profile"] },
-  { label: "Kebutuhan pet", items: ["pets", "favorites", "fundraising"] },
+  { label: "Kebutuhan pet", items: ["pets", "favorites"] },
 ];
 
 // Pages arrive newest first; entries of `later` already in `first` are dropped.
@@ -353,8 +351,8 @@ const titles: Record<AppView, { title: string; subtitle: string }> = {
     subtitle: "Temukan teman anabul yang sedang berada di tempat yang sama.",
   },
   fundraising: {
-    title: "Animal Fund",
-    subtitle: "Bantu biaya perawatan hewan melalui campaign terverifikasi.",
+    title: "Donate",
+    subtitle: "Bantu biaya perawatan hewan melalui Slivadoc Animal Fund.",
   },
   favorites: {
     title: "Favorit Saya",
@@ -379,7 +377,7 @@ const titles: Record<AppView, { title: string; subtitle: string }> = {
   },
 };
 
-const featureSearchItems: GlobalSearchResult[] = [...featureSearchShortcuts, ...navItems.map((item) => ({
+const featureSearchItems: GlobalSearchResult[] = [...featureSearchShortcuts.filter((item) => item.route !== "community"), ...navItems.map((item) => ({
   category: "feature",
   id: item.id,
   title: item.label,
@@ -441,6 +439,18 @@ function apiPetToView(pet: PetOwnerBootstrap["pets"][number]): Pet {
 }
 
 const checkoutSuccessStorageKey = "slivadoc.checkout-success";
+
+// Keep saved tabs, old links and notification routes usable while Community is hidden.
+function availableView(view: AppView): AppView {
+  return view === "community" ? "fundraising" : view;
+}
+
+function replaceCommunityURL() {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("view") !== "community") return;
+  url.searchParams.set("view", "fundraising");
+  window.history.replaceState(window.history.state, "", url);
+}
 
 export default function PetOwnerApp() {
   const { language } = usePetOwnerI18n();
@@ -648,13 +658,16 @@ export default function PetOwnerApp() {
         const savedView = window.localStorage.getItem(
           "slivadoc.active_view",
         ) as AppView | null;
-        const view =
+        const view = availableView(
           requested && titles[requested]
             ? requested
             : savedView && titles[savedView]
               ? savedView
-              : "home";
+              : "home",
+        );
         setActiveView(view);
+        window.localStorage.setItem("slivadoc.active_view", view);
+        replaceCommunityURL();
         const mode = new URLSearchParams(window.location.search).get("world_mode") ?? window.localStorage.getItem("slivadoc.world_mode");
         setWorldMode(isWorldMode(mode) ? mode : "academy");
         const savedPet = window.localStorage.getItem("slivadoc.active_pet");
@@ -678,8 +691,9 @@ export default function PetOwnerApp() {
   }, []);
   useEffect(() => {
     const listener = (event: Event) => {
-      const view = (event as CustomEvent<AppView>).detail;
-      if (!view) return;
+      const requested = (event as CustomEvent<AppView>).detail;
+      if (!requested) return;
+      const view = availableView(requested);
       if (protectedViews.includes(view) && !authenticated) setLoginOpen(true);
       else setActiveView(view);
     };
@@ -689,7 +703,8 @@ export default function PetOwnerApp() {
   useEffect(() => {
     const restoreViewFromURL = () => {
       const requested = new URLSearchParams(window.location.search).get("view") as AppView | null;
-      const next = requested && titles[requested] ? requested : "home";
+      const next = availableView(requested && titles[requested] ? requested : "home");
+      replaceCommunityURL();
       if (protectedViews.includes(next) && !authenticated) {
         setLoginOpen(true);
         return;
@@ -1003,7 +1018,8 @@ export default function PetOwnerApp() {
     return () => window.removeEventListener("slivadoc:pet-required", listener);
   }, [authenticated]);
 
-  const navigate = (view: AppView) => {
+  const navigate = (requested: AppView) => {
+    const view = availableView(requested);
     if (protectedViews.includes(view) && !authenticated) {
       setLoginOpen(true);
       return;
@@ -1508,12 +1524,6 @@ export default function PetOwnerApp() {
             />
           )}</LocalizedCopy>
           {featureView === "sitter" && <PetSitterExperience initialBookingId={sittingBookingId} pets={petProfiles} authenticated={authenticated} onLogin={()=>setLoginOpen(true)} location={currentLocation} onOpenLocation={() => setLocationOpen(true)}/>}
-          <LocalizedCopy>{featureView === "community" && (
-            <CommunityExperience
-              notify={notify}
-              onOpenLocation={() => setLocationOpen(true)}
-            />
-          )}</LocalizedCopy>
           <LocalizedCopy>{(["academy", "events", "petspot", "pethub"] as AppView[]).includes(
             featureView,
           ) && (
@@ -2539,7 +2549,9 @@ function Topbar({
       setBusy(true);
       void globalSearch(query.trim(), category === "feature" ? "" : category)
         .then((response) => {
-          const combined = [...featureResults, ...response.data];
+          const combined = [...featureResults, ...response.data].filter(
+            (item) => !(item.category === "feature" && (item.route === "community" || item.id === "community")),
+          );
           setResults(
             combined.filter(
               (item, index) =>
@@ -8098,7 +8110,7 @@ function MobileNav({
   const { t, language } = usePetOwnerI18n();
   const [more, setMore] = useState(false);
   const moreDialog = useDialogFocus<HTMLElement>(more, () => setMore(false));
-  const primaryIds: AppView[] = ["home", "shop", "community", "bookings"];
+  const primaryIds: AppView[] = ["home", "shop", "fundraising", "bookings"];
   const worldIds: AppView[] = worldFeatures.map((item) => item.mode);
   const moreIds: AppView[] = ["messages", "discover", "clinics", "health", "profile"];
   const items = primaryIds

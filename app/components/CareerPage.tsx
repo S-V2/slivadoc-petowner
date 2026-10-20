@@ -1,6 +1,13 @@
 "use client";
 import { SlivaSelect } from "./SlivaSelect";
-import { getAccessToken, refreshSession } from "../lib/session";
+import {
+  ApiError,
+  apiRequest,
+  getAccessToken,
+  hasSession,
+  refreshSession,
+} from "../lib/session";
+import { careerLoginURL } from "../../shared/career-auth";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -18,6 +25,7 @@ import {
   careerDepartments,
   careerErrors,
   careerSubmitError,
+  CareerSubmissionError,
   emptyCareerDraft,
   getCareerCatalog,
   sendCareerApplication,
@@ -445,6 +453,45 @@ function CareerForm({
   const [privacy, setPrivacy] = useState(false);
   const key = useRef("");
   const sent = useRef(false);
+  const resubmit = useRef(false);
+  const submitRef = useRef<() => void>(() => undefined);
+  const [access, setAccess] = useState<"checking" | "authed" | "guest">(
+    "checking",
+  );
+  const [expired, setExpired] = useState(false);
+  const locked = access === "guest";
+  useEffect(() => {
+    let active = true;
+    const check = async () => {
+      if (!hasSession()) {
+        if (active) setAccess("guest");
+        return;
+      }
+      try {
+        await apiRequest("/api/v1/auth/me", { cache: "no-store" });
+        if (active) {
+          setAccess("authed");
+          setExpired(false);
+        }
+      } catch (cause) {
+        if (!active) return;
+        if (cause instanceof ApiError && cause.status === 401)
+          setAccess("guest");
+        else setAccess("authed");
+      }
+    };
+    const ended = () => setAccess("guest");
+    void check();
+    window.addEventListener("slivadoc:session-ended", ended);
+    window.addEventListener("focus", check);
+    window.addEventListener("storage", check);
+    return () => {
+      active = false;
+      window.removeEventListener("slivadoc:session-ended", ended);
+      window.removeEventListener("focus", check);
+      window.removeEventListener("storage", check);
+    };
+  }, []);
   const success = useRef<HTMLDivElement>(null);
   const errors = careerErrors(draft, position, file, language);
   const valid = Object.keys(errors).length === 0;
@@ -461,8 +508,8 @@ function CareerForm({
     key.current = "";
     setError("");
   }
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+  async function submit(e?: FormEvent) {
+    e?.preventDefault();
     if (sent.current || !valid || !file) return;
     sent.current = true;
     setBusy(true);
@@ -496,12 +543,35 @@ function CareerForm({
         success.current?.focus();
       });
     } catch (cause) {
-      setError(careerSubmitError(cause, language));
+      if (
+        cause instanceof CareerSubmissionError &&
+        cause.code === "login_required"
+      ) {
+        resubmit.current = true;
+        setExpired(true);
+        setAccess("guest");
+      } else setError(careerSubmitError(cause, language));
     } finally {
       setBusy(false);
       sent.current = false;
     }
   }
+  useEffect(() => {
+    submitRef.current = () => void submit();
+  });
+  useEffect(() => {
+    if (access === "authed" && resubmit.current) {
+      resubmit.current = false;
+      submitRef.current();
+    }
+  }, [access]);
+  const started =
+    Boolean(file) ||
+    Object.values(draft).some(
+      (v) => v === true || (typeof v === "string" && v),
+    );
+  const loginHref = () =>
+    careerLoginURL(`${location.pathname}${location.search}#career-application`);
   if (receipt)
     return (
       <div className="career-success" ref={success} tabIndex={-1} role="status">
@@ -528,233 +598,266 @@ function CareerForm({
       </span>
     ) : null;
   return (
-    <form className="career-form" onSubmit={submit} noValidate>
-      <header>
-        <span className="career-eyebrow">YOUR APPLICATION</span>
-        <h2>{c.formTitle}</h2>
-        <p>{c.formIntro}</p>
-      </header>
-      <fieldset disabled={busy || !hydrated}>
-        <legend>{c.personal}</legend>
-        <div className="career-form-grid">
-          {(position.employment_types?.length ?? 0) > 1 && (
-            <label className="career-full" htmlFor="career-employment_type">
-              <span>
-                {c.employment_type} <b>*</b>
-              </span>
-              <SlivaSelect
-                id="career-employment_type"
-                aria-label={c.employment_type}
-                name="employment_type"
-                required
-                value={draft.employment_type ?? ""}
-                onChange={(e) => change("employment_type", e.target.value)}
-                onBlur={() => touch("employment_type")}
-                aria-invalid={Boolean(
-                  touched.employment_type && errors.employment_type,
-                )}
+    <div className="career-form-lock" data-access={access}>
+      <form
+        className="career-form"
+        onSubmit={submit}
+        noValidate
+        inert={locked}
+        aria-hidden={locked || undefined}
+      >
+        <header>
+          <span className="career-eyebrow">YOUR APPLICATION</span>
+          <h2>{c.formTitle}</h2>
+          <p>{c.formIntro}</p>
+        </header>
+        <fieldset disabled={busy || !hydrated}>
+          <legend>{c.personal}</legend>
+          <div className="career-form-grid">
+            {(position.employment_types?.length ?? 0) > 1 && (
+              <label className="career-full" htmlFor="career-employment_type">
+                <span>
+                  {c.employment_type} <b>*</b>
+                </span>
+                <SlivaSelect
+                  id="career-employment_type"
+                  aria-label={c.employment_type}
+                  name="employment_type"
+                  required
+                  value={draft.employment_type ?? ""}
+                  onChange={(e) => change("employment_type", e.target.value)}
+                  onBlur={() => touch("employment_type")}
+                  aria-invalid={Boolean(
+                    touched.employment_type && errors.employment_type,
+                  )}
+                >
+                  <option value="">{c.chooseType}</option>
+                  {position.employment_types?.map((type) => (
+                    <option key={type} value={type}>
+                      {careerEmploymentTypes[type]?.[language] ?? type}
+                    </option>
+                  ))}
+                </SlivaSelect>
+                {showError("employment_type")}
+              </label>
+            )}
+            {careerBasicFields.map((f) => (
+              <label
+                className={f.kind === "textarea" ? "career-full" : ""}
+                key={f.id}
+                htmlFor={`career-${f.id}`}
               >
-                <option value="">{c.chooseType}</option>
-                {position.employment_types?.map((type) => (
-                  <option key={type} value={type}>
-                    {careerEmploymentTypes[type]?.[language] ?? type}
-                  </option>
-                ))}
-              </SlivaSelect>
-              {showError("employment_type")}
-            </label>
-          )}
-          {careerBasicFields.map((f) => (
-            <label
-              className={f.kind === "textarea" ? "career-full" : ""}
-              key={f.id}
-              htmlFor={`career-${f.id}`}
-            >
-              <span>
-                {c[f.id]} <b>*</b>
-              </span>
-              {f.kind === "textarea" ? (
-                <textarea
-                  id={`career-${f.id}`}
-                  value={draft[f.id]}
-                  rows={4}
-                  minLength={f.min}
-                  maxLength={f.max}
-                  required
-                  onChange={(e) => change(f.id, e.target.value)}
-                  onBlur={() => touch(f.id)}
-                  aria-invalid={Boolean(touched[f.id] && errors[f.id])}
-                  aria-describedby={`hint-${f.id} error-${f.id}`}
-                />
-              ) : (
-                <input
-                  id={`career-${f.id}`}
-                  type={f.kind === "number" ? "text" : f.kind}
-                  inputMode={
-                    f.kind === "number" || f.kind === "tel"
-                      ? "numeric"
-                      : f.kind === "email"
-                        ? "email"
-                        : "text"
-                  }
-                  autoComplete={
-                    f.id === "full_name"
-                      ? "name"
-                      : f.id === "phone"
-                        ? "tel"
-                        : f.id === "email"
-                          ? "email"
-                          : "off"
-                  }
-                  value={draft[f.id]}
-                  maxLength={
-                    f.kind === "tel" || f.kind === "number" ? undefined : f.max
-                  }
-                  required
-                  onChange={(e) =>
-                    change(
-                      f.id,
+                <span>
+                  {c[f.id]} <b>*</b>
+                </span>
+                {f.kind === "textarea" ? (
+                  <textarea
+                    id={`career-${f.id}`}
+                    value={draft[f.id]}
+                    rows={4}
+                    minLength={f.min}
+                    maxLength={f.max}
+                    required
+                    onChange={(e) => change(f.id, e.target.value)}
+                    onBlur={() => touch(f.id)}
+                    aria-invalid={Boolean(touched[f.id] && errors[f.id])}
+                    aria-describedby={`hint-${f.id} error-${f.id}`}
+                  />
+                ) : (
+                  <input
+                    id={`career-${f.id}`}
+                    type={f.kind === "number" ? "text" : f.kind}
+                    inputMode={
                       f.kind === "number" || f.kind === "tel"
-                        ? e.target.value.replace(/\D/g, "").slice(0, f.max)
-                        : e.target.value,
-                    )
-                  }
-                  onBlur={() => touch(f.id)}
-                  aria-invalid={Boolean(touched[f.id] && errors[f.id])}
-                  aria-describedby={errors[f.id] ? `error-${f.id}` : undefined}
-                />
-              )}{" "}
-              {f.id === "motivation" && (
-                <small id={`hint-${f.id}`}>{c.motivationHint}</small>
-              )}
-              {showError(f.id)}
+                        ? "numeric"
+                        : f.kind === "email"
+                          ? "email"
+                          : "text"
+                    }
+                    autoComplete={
+                      f.id === "full_name"
+                        ? "name"
+                        : f.id === "phone"
+                          ? "tel"
+                          : f.id === "email"
+                            ? "email"
+                            : "off"
+                    }
+                    value={draft[f.id]}
+                    maxLength={
+                      f.kind === "tel" || f.kind === "number"
+                        ? undefined
+                        : f.max
+                    }
+                    required
+                    onChange={(e) =>
+                      change(
+                        f.id,
+                        f.kind === "number" || f.kind === "tel"
+                          ? e.target.value.replace(/\D/g, "").slice(0, f.max)
+                          : e.target.value,
+                      )
+                    }
+                    onBlur={() => touch(f.id)}
+                    aria-invalid={Boolean(touched[f.id] && errors[f.id])}
+                    aria-describedby={
+                      errors[f.id] ? `error-${f.id}` : undefined
+                    }
+                  />
+                )}{" "}
+                {f.id === "motivation" && (
+                  <small id={`hint-${f.id}`}>{c.motivationHint}</small>
+                )}
+                {showError(f.id)}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset disabled={busy || !hydrated}>
+          <legend>{c.role}</legend>
+          <div className="career-role-tag">
+            <Icon name="bag" size={16} />
+            {position.title[language]}
+          </div>
+          <div className="career-form-grid">
+            {position.fields.map((f) => (
+              <label
+                className="career-full"
+                htmlFor={`career-answer-${f.id}`}
+                key={f.id}
+              >
+                <span>
+                  {f.label[language]} {f.required && <b>*</b>}
+                </span>
+                {f.kind === "textarea" ? (
+                  <textarea
+                    id={`career-answer-${f.id}`}
+                    value={draft.answers[f.id] ?? ""}
+                    rows={4}
+                    required={f.required}
+                    minLength={f.min_length}
+                    maxLength={f.max_length}
+                    onChange={(e) => answer(f.id, e.target.value)}
+                    onBlur={() => touch(`answers.${f.id}`)}
+                    aria-invalid={Boolean(
+                      touched[`answers.${f.id}`] && errors[`answers.${f.id}`],
+                    )}
+                    aria-describedby={`error-answers.${f.id}`}
+                  />
+                ) : (
+                  <input
+                    id={`career-answer-${f.id}`}
+                    type={f.kind}
+                    value={draft.answers[f.id] ?? ""}
+                    required={f.required}
+                    maxLength={f.max_length}
+                    placeholder={f.kind === "url" ? "https://…" : undefined}
+                    onChange={(e) => answer(f.id, e.target.value)}
+                    onBlur={() => touch(`answers.${f.id}`)}
+                    aria-invalid={Boolean(
+                      touched[`answers.${f.id}`] && errors[`answers.${f.id}`],
+                    )}
+                    aria-describedby={`error-answers.${f.id}`}
+                  />
+                )}{" "}
+                {f.kind === "textarea" && (
+                  <small>
+                    {c.min} {f.min_length} {c.chars}
+                  </small>
+                )}
+                {showError(`answers.${f.id}`)}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset disabled={busy || !hydrated}>
+          <legend>{c.documents}</legend>
+          <label className="career-upload">
+            <Icon name="download" size={28} />
+            <strong>{file?.name ?? c.upload} *</strong>
+            <small>{c.uploadHint}</small>
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              aria-label={c.resume}
+              required
+              onChange={(e) => {
+                setFile(e.target.files?.[0] ?? null);
+                touch("resume");
+                key.current = "";
+              }}
+            />
+          </label>
+          {showError("resume")}
+          <div className="career-privacy-note">
+            <strong>{c.readPrivacy}</strong>
+            <p>{c.privacyNote}</p>
+            <button type="button" onClick={() => setPrivacy(true)}>
+              {c.privacy} ↗
+            </button>
+          </div>
+          {(["consent", "truth_declaration"] as const).map((id) => (
+            <label className="career-checkbox" key={id}>
+              <input
+                type="checkbox"
+                required
+                checked={draft[id]}
+                onChange={(e) =>
+                  id === "consent" && e.target.checked
+                    ? setPrivacy(true)
+                    : change(id, e.target.checked)
+                }
+              />
+              <span>{id === "consent" ? c.consent : c.truth} *</span>
             </label>
           ))}
-        </div>
-      </fieldset>
-      <fieldset disabled={busy || !hydrated}>
-        <legend>{c.role}</legend>
-        <div className="career-role-tag">
-          <Icon name="bag" size={16} />
-          {position.title[language]}
-        </div>
-        <div className="career-form-grid">
-          {position.fields.map((f) => (
-            <label
-              className="career-full"
-              htmlFor={`career-answer-${f.id}`}
-              key={f.id}
-            >
-              <span>
-                {f.label[language]} {f.required && <b>*</b>}
-              </span>
-              {f.kind === "textarea" ? (
-                <textarea
-                  id={`career-answer-${f.id}`}
-                  value={draft.answers[f.id] ?? ""}
-                  rows={4}
-                  required={f.required}
-                  minLength={f.min_length}
-                  maxLength={f.max_length}
-                  onChange={(e) => answer(f.id, e.target.value)}
-                  onBlur={() => touch(`answers.${f.id}`)}
-                  aria-invalid={Boolean(
-                    touched[`answers.${f.id}`] && errors[`answers.${f.id}`],
-                  )}
-                  aria-describedby={`error-answers.${f.id}`}
-                />
-              ) : (
-                <input
-                  id={`career-answer-${f.id}`}
-                  type={f.kind}
-                  value={draft.answers[f.id] ?? ""}
-                  required={f.required}
-                  maxLength={f.max_length}
-                  placeholder={f.kind === "url" ? "https://…" : undefined}
-                  onChange={(e) => answer(f.id, e.target.value)}
-                  onBlur={() => touch(`answers.${f.id}`)}
-                  aria-invalid={Boolean(
-                    touched[`answers.${f.id}`] && errors[`answers.${f.id}`],
-                  )}
-                  aria-describedby={`error-answers.${f.id}`}
-                />
-              )}{" "}
-              {f.kind === "textarea" && (
-                <small>
-                  {c.min} {f.min_length} {c.chars}
-                </small>
-              )}
-              {showError(`answers.${f.id}`)}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <fieldset disabled={busy || !hydrated}>
-        <legend>{c.documents}</legend>
-        <label className="career-upload">
-          <Icon name="download" size={28} />
-          <strong>{file?.name ?? c.upload} *</strong>
-          <small>{c.uploadHint}</small>
-          <input
-            type="file"
-            accept=".pdf,application/pdf"
-            aria-label={c.resume}
-            required
-            onChange={(e) => {
-              setFile(e.target.files?.[0] ?? null);
-              touch("resume");
-              key.current = "";
+        </fieldset>
+        {error && (
+          <p className="career-submit-error" role="alert">
+            {error}
+          </p>
+        )}
+        <button
+          type="submit"
+          className="career-primary career-submit"
+          disabled={!valid || busy}
+        >
+          {busy ? c.sending : c.submit}
+          <Icon name="arrow" size={18} />
+        </button>
+        {!valid && <p className="career-form-hint">{c.check}</p>}
+        {privacy && (
+          <LegalConsentDialog
+            policy="privacy"
+            onClose={() => setPrivacy(false)}
+            onAccept={() => {
+              change("consent", true);
+              setPrivacy(false);
             }}
           />
-        </label>
-        {showError("resume")}
-        <div className="career-privacy-note">
-          <strong>{c.readPrivacy}</strong>
-          <p>{c.privacyNote}</p>
-          <button type="button" onClick={() => setPrivacy(true)}>
-            {c.privacy} ↗
-          </button>
+        )}
+      </form>
+      {locked && (
+        <div
+          className="career-lock-card"
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="career-lock-title"
+        >
+          <Icon name="shield" size={28} />
+          <h3 id="career-lock-title">{c.lockTitle}</h3>
+          <p>{expired ? c.lockExpired : c.lockNote}</p>
+          <a
+            className="career-primary"
+            href={loginHref()}
+            target={started ? "_blank" : undefined}
+            rel={started ? "noopener" : undefined}
+            ref={(el) => el?.focus({ preventScroll: true })}
+          >
+            {c.lockCta}
+          </a>
         </div>
-        {(["consent", "truth_declaration"] as const).map((id) => (
-          <label className="career-checkbox" key={id}>
-            <input
-              type="checkbox"
-              required
-              checked={draft[id]}
-              onChange={(e) =>
-                id === "consent" && e.target.checked
-                  ? setPrivacy(true)
-                  : change(id, e.target.checked)
-              }
-            />
-            <span>{id === "consent" ? c.consent : c.truth} *</span>
-          </label>
-        ))}
-      </fieldset>
-      {error && (
-        <p className="career-submit-error" role="alert">
-          {error}
-        </p>
       )}
-      <button
-        type="submit"
-        className="career-primary career-submit"
-        disabled={!valid || busy}
-      >
-        {busy ? c.sending : c.submit}
-        <Icon name="arrow" size={18} />
-      </button>
-      {!valid && <p className="career-form-hint">{c.check}</p>}
-      {privacy && (
-        <LegalConsentDialog
-          policy="privacy"
-          onClose={() => setPrivacy(false)}
-          onAccept={() => {
-            change("consent", true);
-            setPrivacy(false);
-          }}
-        />
-      )}
-    </form>
+    </div>
   );
 }

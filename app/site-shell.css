@@ -217,7 +217,7 @@
   .main-shell {
     --app-sidebar-width: 0px;
     --app-header-offset: 0px;
-    --app-header-height: 120px;
+    --app-header-height: 108px;
   }
   .main-shell > .topbar {
     margin: 0;

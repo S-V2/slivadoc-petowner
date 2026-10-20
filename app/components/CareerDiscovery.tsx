@@ -1,7 +1,6 @@
 "use client";
 import { SlivaSelect } from "./SlivaSelect";
 
-import Link from "next/link";
 import { BrandMark } from "./BrandLogo";
 import { useEffect, useRef } from "react";
 import {
@@ -215,19 +214,19 @@ export function CareerJobCard({
           <Icon name="map" size={15} />
           {careerLocation(p, language)}
         </span>
-        <Link
-          prefetch={false}
+        <a
           href={`/career/${p.id}${careerFilterQuery(filters)}`}
           aria-label={`${c.detail}: ${p.title[language]}`}
         >
           {c.detail}
           <span aria-hidden="true">↗</span>
-        </Link>
+        </a>
       </div>
     </article>
   );
 }
 
+// Role changes use document navigation so Back remains correct after reload.
 export function CareerJobList({
   positions,
   selected,
@@ -256,9 +255,7 @@ export function CareerJobList({
   return (
     <nav className="career-job-list" aria-label={d.list} ref={list}>
       {positions.map((p) => (
-        <Link
-          prefetch={false}
-          scroll={false}
+        <a
           className="career-list-item"
           key={p.id}
           href={`/career/${p.id}${careerFilterQuery(filters)}`}
@@ -288,7 +285,7 @@ export function CareerJobList({
               </span>
             )}
           </div>
-        </Link>
+        </a>
       ))}
     </nav>
   );

@@ -17,11 +17,14 @@ const facilityLabels: Record<string, string> = {
 };
 
 /** Format presentation only; API codes and partner-entered names stay intact. */
-export function worldLabel(value: string): string {
-  const clean = value.trim();
+export function worldLabel(value: unknown): string {
+  const clean = typeof value === "string" ? value.trim() : "";
   return facilityLabels[clean.toLowerCase()] ?? clean.replace(/_+/g, " ").replace(/\s+/g, " ");
 }
 
-export function facilityNames(values: ReadonlyArray<string | { name: string }>): string[] {
-  return [...new Set(values.map(value => worldLabel(typeof value === "string" ? value : value.name)).filter(Boolean))];
+export function facilityNames(values: ReadonlyArray<unknown> | null | undefined): string[] {
+  if (!Array.isArray(values)) return [];
+  return [...new Set(values.map(value => worldLabel(
+    typeof value === "string" ? value : value && typeof value === "object" && "name" in value ? value.name : undefined,
+  )).filter(Boolean))];
 }

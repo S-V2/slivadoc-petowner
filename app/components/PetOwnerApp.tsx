@@ -1147,6 +1147,7 @@ export default function PetOwnerApp() {
     if (veterinarianId) url.searchParams.set("veterinarian", veterinarianId);
     window.history.pushState({ view: "world", worldMode: mode }, "", `${url.pathname}${url.search}${url.hash}`);
     window.dispatchEvent(new PopStateEvent("popstate"));
+    requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" }));
   };
   const openConsultation = (veterinarianId?: string) => openWorld("consult", undefined, veterinarianId);
 

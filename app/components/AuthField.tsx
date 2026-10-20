@@ -42,7 +42,17 @@ export function AuthField({ label, hint, accessory, ...props }: Props) {
               .join(" ") || undefined
           }
           onBlur={(event) => {
-            validate(event.currentTarget);
+            // Do not move an action between pointer-down and pointer-up (e.g.
+            // resend OTP or open a consent document) by inserting an error.
+            const next = event.relatedTarget;
+            if (!(
+              next instanceof HTMLElement &&
+              next.closest(
+                'button, a, input[type="checkbox"], input[type="radio"]',
+              )
+            )) {
+              validate(event.currentTarget);
+            }
             props.onBlur?.(event);
           }}
           onChange={(event) => {

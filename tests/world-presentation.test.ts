@@ -12,3 +12,9 @@ test("venue amenities have readable names without changing partner names or API 
 test("World explorer and amenity names have reviewed offline English copy", () => {
   for (const [source, expected] of [["Fasilitas", "Amenities"], ["Mangkuk minum", "Water bowls"], ["Dunia pet, satu destinasi", "Your pet's world, in one place"], ["Cari dari posisi saya", "Search near me"]]) assert.equal(translateText(source!, "en"), expected);
 });
+
+test("incomplete facility entries cannot crash the discovery page or invent amenities", () => {
+  assert.deepEqual(facilityNames([null, {}, { name: null }, undefined, { code: "wifi" }, "parking", { name: "wifi" }]), ["Parkir", "Wi-Fi"]);
+  assert.deepEqual(facilityNames(null), []);
+  assert.equal(worldLabel(undefined), "");
+});

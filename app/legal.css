@@ -52,6 +52,7 @@
 .legal-public-body .legal-hero { padding:36px; }.legal-public-body .legal-hero h1 { font-size:38px; }
 .legal-public-body .legal-section { padding:32px; }.legal-public-body .legal-clause { font-size:15px; }
 .legal-contents { padding:22px; margin-bottom:24px; background:white; border-color:#e0eaf0; }.legal-contents h2 { color:#153b5b; font-size:16px; }.legal-contents a { color:var(--legal-accent); font-size:13px; line-height:1.7; }.legal-contents-scroll { scrollbar-gutter:stable; }
+.legal-contents a { display:block; min-height:44px; padding:8px 0; }
 .legal-related { display:flex; justify-content:space-between; gap:16px; padding:20px; border:1px solid var(--legal-line); border-radius:16px; color:var(--legal-accent); background:var(--legal-tint); font-weight:700; font-size:14px; text-decoration:none; }
 @media(max-width:480px) {
   .modal.legal-consent-dialog { width:100%; height:94dvh; max-height:94dvh; border-radius:26px 26px 0 0; }

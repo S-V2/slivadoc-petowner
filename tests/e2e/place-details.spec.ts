@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { marketplaceProduct } from "./mock-data";
+import { marketplaceProduct, paymentMethods } from "./mock-data";
 import { collectionSamples } from "./world-collection-data";
 
 const businessID = "59000000-0000-4000-8000-000000000101";
@@ -29,9 +29,11 @@ async function setup(page: Page, type: "petclinic" | "petshop" = "petclinic", em
       categories: empty ? [] : [{ name: "Makanan", product_count: 8 }], reviews: [],
     });
     if (path === "/api/v1/public/discovery/products") return json({ data: empty ? [] : Array.from({ length: 8 }, (_, i) => marketplaceProduct({ id: `52000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`, name: `Kebutuhan sehat pet ${i + 1}`, business_name: name, image_url: collectionSamples.petspots.cover_url })), count: empty ? 0 : 8 });
-    if (path === "/api/v1/public/discovery/services") return json({ data: empty ? [] : Array.from({ length: 4 }, (_, i) => ({ id: `53000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`, branch_id: branchID, business_id: businessID, business_name: name, branch_name: branch.branch_name, name: `Konsultasi dokter dan pemeriksaan kesehatan lengkap ${i + 1}`, category: "Clinic", image_url: "", image_urls: [], duration_minutes: 45, price: 150000, address: branch.address, city: branch.city, rating: 4.8, review_count: 1, description: "Pemeriksaan kesehatan pet.", inclusions: [], supported_species: ["cat", "dog"], cancellation_policy: "", business_license_status: "verified" })), count: empty ? 0 : 4 });
-    if (path === "/api/v1/public/petspots") return json({ data: [spot], count: 1 });
+    if (path === "/api/v1/public/discovery/services") return json({ data: empty ? [] : Array.from({ length: 4 }, (_, i) => ({ id: `53000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`, branch_id: branchID, business_id: businessID, business_name: name, branch_name: branch.branch_name, name: `Konsultasi dokter dan pemeriksaan kesehatan lengkap ${i + 1}`, category: "Clinic", image_url: "", image_urls: [], duration_minutes: 45, price: 150000, address: branch.address, city: branch.city, latitude: branch.latitude, longitude: branch.longitude, distance_km: branch.distance_km, description: "Pemeriksaan kesehatan pet.", inclusions: [], supported_species: ["cat", "dog"], cancellation_policy: "", business_license_status: "verified" })), count: empty ? 0 : 4 });
+    if (path === "/api/v1/public/petspots") return json({ data: [{ ...collectionSamples.petspots, name: spot.name, description: spot.description }], count: 1 });
     if (path === `/api/v1/public/petspots/${spot.id}`) return json(spot);
+    if (path === "/api/v1/payment-methods") return json(paymentMethods());
+    if (path.endsWith("/petship/places")) return json({ data: [], count: 0, privacy: "Lokasi tempat, tanpa koordinat pengguna." });
     return json({ data: [], count: 0 });
   });
 }
@@ -94,7 +96,7 @@ test("empty catalogs and English visit details remain useful", async ({ page }) 
   await page.addInitScript(() => localStorage.setItem("slivadoc.petowner.language", "en"));
   await page.goto(`/?view=shop&store=${businessID}&branch=${branchID}`);
   await expect(page.locator(".place-detail-identity h1")).toHaveText(name);
-  await expect(page.getByText("No products match this selection yet")).toBeVisible();
+  await expect(page.getByText("No products yet")).toBeVisible();
   await page.getByRole("tab", { name: "Category", exact: true }).click();
   await expect(page.getByText("No product categories yet")).toBeVisible();
   await expect(page.locator(".place-visit-card")).toContainText("Monday");

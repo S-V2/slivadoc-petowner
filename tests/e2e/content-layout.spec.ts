@@ -93,7 +93,7 @@ for (const width of [390, 768, 1440]) {
     await expect(dialog).toHaveCount(0);
   });
 
-  test(`community comments contain long threads and can send a reply at ${width}px`, async ({ page }) => {
+  test(`community comments contain long threads and can send a reply at ${width}px`, async ({ page }, testInfo) => {
     const submitted = await setup(page);
     await page.setViewportSize({ width, height: 650 });
     await page.goto('/?view=community');
@@ -113,7 +113,7 @@ for (const width of [390, 768, 1440]) {
     expect(submitted[0]).toEqual({ body: 'Sehat selalu, Bella!', parent_id: 'comment-0' });
     const composer = await dialog.locator('.community-comment-composer').boundingBox();
     expect(composer!.y + composer!.height).toBeLessThanOrEqual(650);
-    await page.screenshot({ path: `/private/tmp/sliva-ui-audit/comments-fixed-${width}.png` });
+    await page.screenshot({ path: testInfo.outputPath(`comments-fixed-${width}.png`) });
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
   });

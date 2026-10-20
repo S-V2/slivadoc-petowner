@@ -56,8 +56,10 @@ export function AuthField({ label, hint, accessory, ...props }: Props) {
             props.onBlur?.(event);
           }}
           onChange={(event) => {
-            if (error) validate(event.currentTarget);
+            const input = event.currentTarget;
             props.onChange?.(event);
+            // Recheck the final DOM value after controlled fields normalize it.
+            if (error) queueMicrotask(() => validate(input));
           }}
           onInvalid={(event) => {
             event.preventDefault();

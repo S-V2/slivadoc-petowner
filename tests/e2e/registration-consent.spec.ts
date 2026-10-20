@@ -16,6 +16,14 @@ test("registration requires both full documents, submits consent, and completes 
  await page.getByRole("button",{name:"Masuk / Daftar",exact:true}).click();
  await page.getByRole("button",{name:"Belum punya akun? Daftar gratis"}).click();
  const form=page.locator(".login-form");
+ await expect(form.locator(".sliva-field-error")).toHaveCount(0);
+ const phone=form.locator('[name="phone"]');
+ await phone.fill("1");
+ await form.locator('[name="email"]').click();
+ await expect(phone).toHaveAttribute("aria-invalid","true");
+ await phone.fill("0812 3456 7890");
+ await expect(phone).toHaveValue("081234567890");
+ await expect(phone).toHaveAttribute("aria-invalid","false");
  await form.locator('[name="full_name"]').fill("Registrasi Pet Parent");
  await form.locator('[name="email"]').fill("parent@example.test");
  await form.locator('[name="phone"]').fill("081234567890");

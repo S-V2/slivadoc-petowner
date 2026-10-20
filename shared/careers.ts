@@ -445,7 +445,8 @@ export async function sendCareerApplication(
   const result = await response.json().catch(() => ({}));
   if (!response.ok)
     throw new CareerSubmissionError(
-      result.code ?? "network_error",
+      result.code ??
+        (response.status === 413 ? "invalid_resume" : "network_error"),
       result.fields ?? {},
     );
   if (typeof result.id !== "string")

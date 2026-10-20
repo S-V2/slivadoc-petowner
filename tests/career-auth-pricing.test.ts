@@ -5,6 +5,7 @@ import { sitterPackageRate } from "../shared/pet-sitter.ts";
 import {
   sendCareerApplication,
   CareerSubmissionError,
+  careerSubmitError,
 } from "../shared/careers.ts";
 test("career return accepts only internal career paths and preserves role filters", () => {
   const path = "/career/pet-sitter?employment=PART_TIME#career-role-title";
@@ -83,4 +84,23 @@ test("application transport requires a token and refreshes a rejected session", 
   );
   assert.equal(receipt.id, "receipt");
   assert.equal(attempts, 2);
+});
+test("proxy 413 on an oversized CV surfaces the resume-size message, not the network error", async (t) => {
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async () => new Response("Request Entity Too Large", { status: 413 }),
+  );
+  const error = await sendCareerApplication(
+    "http://localhost",
+    new FormData(),
+    {
+      getToken: () => "token",
+      refresh: async () => {},
+    },
+  ).catch((e) => e);
+  assert.equal(
+    careerSubmitError(error, "id"),
+    "Pilih CV berformat PDF maksimal 5 MB.",
+  );
 });

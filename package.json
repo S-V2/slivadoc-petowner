@@ -21,7 +21,8 @@
     "api:dev": "npm --prefix services/petowner-api run dev",
     "api:start": "npm --prefix services/petowner-api start",
     "api:test": "npm --prefix services/petowner-api test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "social:images": "node scripts/build-social-images.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -47,6 +48,7 @@
     "eslint": "9.39.4",
     "eslint-config-next": "^16.3.6",
     "react-server-dom-webpack": "^19.2.8",
+    "sharp": "0.35.5",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vinext": "1.0.0-beta.8",

@@ -23,8 +23,8 @@ test("career metadata stays available behind the required login gate; pet sitter
   };
   const {default:worker}=await import("../dist/server/index.js");
   const render=async(path)=>{const r=await worker.fetch(new Request(`http://localhost${path}`,{headers:{accept:"text/html"}}),{ASSETS:{fetch:async()=>new Response("Not found",{status:404})}},{waitUntil(){},passThroughOnException(){}});return {status:r.status,text:await r.text()};};
-  const catalog=await render("/career");assert.equal(catalog.status,200);assert.doesNotMatch(catalog.text,/class="career-access"/);assert.match(catalog.text,/Pet Sitter/);assert.match(catalog.text,/"@type":"CollectionPage"/);
-  const detail=await render("/career/pet-sitter");assert.equal(detail.status,200);assert.doesNotMatch(detail.text,/class="career-access"/);assert.match(detail.text,/"@type":"JobPosting"/);assert.match(detail.text,/<form[^>]*class="career-form"/);assert.match(detail.text,/rel="canonical"[^>]*\/career\/pet-sitter/);assert.match(detail.text,/<title>Pet Sitter/);
+  const catalog=await render("/career");assert.equal(catalog.status,200);assertCareerPreview(catalog.text);assert.doesNotMatch(catalog.text,/class="career-access"/);assert.match(catalog.text,/Pet Sitter/);assert.match(catalog.text,/"@type":"CollectionPage"/);
+  const detail=await render("/career/pet-sitter");assert.equal(detail.status,200);assertCareerPreview(detail.text);assert.doesNotMatch(detail.text,/class="career-access"/);assert.match(detail.text,/"@type":"JobPosting"/);assert.match(detail.text,/<form[^>]*class="career-form"/);assert.match(detail.text,/rel="canonical"[^>]*\/career\/pet-sitter/);assert.match(detail.text,/<title>Pet Sitter/);
   job.status="talent_pool";assert.doesNotMatch((await render("/career/pet-sitter")).text,/"@type":"JobPosting"/);
   job.status="open";job.city="";assert.doesNotMatch((await render("/career/pet-sitter")).text,/"@type":"JobPosting"/);
   const sitter=await render("/pet-sitter");assert.equal(sitter.status,200);assert.match(sitter.text,/Apa itu pet sitter/);assert.match(sitter.text,/rel="canonical"[^>]*\/pet-sitter/);assert.match(sitter.text,/href="\/career"/);
@@ -32,3 +32,14 @@ test("career metadata stays available behind the required login gate; pet sitter
   available=false;assert.equal((await render("/career/pet-sitter")).status,404);assert.doesNotMatch((await render("/sitemap.xml")).text,/\/career\/pet-sitter/);
   const home=await render("/");assert.match(home.text,/<footer[^>]*class="sliva-site-footer/);assert.match(home.text,/href="\/career"/);
 });
+
+function assertCareerPreview(html) {
+  assert.match(html, /property="og:image" content="https:\/\/slivadoc\.com\/social\/slivadoc-career-20261020\.jpg"/);
+  assert.match(html, /property="og:image:width" content="1200"/);
+  assert.match(html, /property="og:image:height" content="630"/);
+  assert.match(html, /property="og:image:type" content="image\/jpeg"/);
+  assert.match(html, /name="twitter:image" content="https:\/\/slivadoc\.com\/social\/slivadoc-career-20261020\.jpg"/);
+  assert.match(html, /name="twitter:image:alt" content="Slivadoc Career/);
+  assert.equal([...html.matchAll(/property="og:image" /g)].length, 1);
+  assert.doesNotMatch(html, /slivadoc-pet-hero\.png/);
+}

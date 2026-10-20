@@ -23,8 +23,8 @@ test("career metadata stays available behind the required login gate; pet sitter
   };
   const {default:worker}=await import("../dist/server/index.js");
   const render=async(path)=>{const r=await worker.fetch(new Request(`http://localhost${path}`,{headers:{accept:"text/html"}}),{ASSETS:{fetch:async()=>new Response("Not found",{status:404})}},{waitUntil(){},passThroughOnException(){}});return {status:r.status,text:await r.text()};};
-  const catalog=await render("/career");assert.equal(catalog.status,200);assert.match(catalog.text,/class="career-access"/);assert.match(catalog.text,/<h1>Slivadoc Career<\/h1>/);assert.doesNotMatch(catalog.text,/"@type":"JobPosting"/);
-  const detail=await render("/career/pet-sitter");assert.equal(detail.status,200);assert.match(detail.text,/class="career-access"/);assert.doesNotMatch(detail.text,/<form[^>]*class="career-form"/);assert.match(detail.text,/rel="canonical"[^>]*\/career\/pet-sitter/);assert.match(detail.text,/<title>Pet Sitter/);
+  const catalog=await render("/career");assert.equal(catalog.status,200);assert.doesNotMatch(catalog.text,/class="career-access"/);assert.match(catalog.text,/Pet Sitter/);assert.match(catalog.text,/"@type":"CollectionPage"/);
+  const detail=await render("/career/pet-sitter");assert.equal(detail.status,200);assert.doesNotMatch(detail.text,/class="career-access"/);assert.match(detail.text,/"@type":"JobPosting"/);assert.match(detail.text,/<form[^>]*class="career-form"/);assert.match(detail.text,/rel="canonical"[^>]*\/career\/pet-sitter/);assert.match(detail.text,/<title>Pet Sitter/);
   job.status="talent_pool";assert.doesNotMatch((await render("/career/pet-sitter")).text,/"@type":"JobPosting"/);
   job.status="open";job.city="";assert.doesNotMatch((await render("/career/pet-sitter")).text,/"@type":"JobPosting"/);
   const sitter=await render("/pet-sitter");assert.equal(sitter.status,200);assert.match(sitter.text,/Apa itu pet sitter/);assert.match(sitter.text,/rel="canonical"[^>]*\/pet-sitter/);assert.match(sitter.text,/href="\/career"/);

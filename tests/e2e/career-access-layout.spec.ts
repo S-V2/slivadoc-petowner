@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { petOwner, petOwnerBootstrap } from "./mock-data";
-test("career redirects guests to the existing login and restores the requested role", async ({
+test("career is public; applying asks guests to sign in and returns to the form", async ({
   page,
 }) => {
   await page.route("**/api/v1/**", async (route) => {
@@ -21,10 +21,16 @@ test("career redirects guests to the existing login and restores the requested r
       return route.fulfill({ json: petOwnerBootstrap() });
     return route.fulfill({ json: { data: [] } });
   });
-  await page.goto("/career/pet-sitter?employment=PART_TIME#career-role-title");
+  await page.goto("/career/pet-sitter?employment=PART_TIME");
+  await expect(page).not.toHaveURL(/login=1/);
+  await expect(page.locator("#career-role-title")).toHaveText("Pet Sitter");
+  const lock = page.getByRole("dialog", { name: "Masuk untuk melamar" });
+  await expect(lock).toBeVisible();
+  await expect(page.locator(".career-form")).toHaveAttribute("inert", "");
+  await lock.getByRole("link", { name: "Masuk untuk melamar" }).click();
   await expect(page).toHaveURL(/login=1/);
   expect(new URL(page.url()).searchParams.get("returnTo")).toBe(
-    "/career/pet-sitter?employment=PART_TIME#career-role-title",
+    "/career/pet-sitter?employment=PART_TIME#career-application",
   );
   const modal = page.locator(".petowner-login");
   await expect(modal).toBeVisible();
@@ -32,17 +38,10 @@ test("career redirects guests to the existing login and restores the requested r
   await modal.locator('input[type="password"]').fill("ExamplePass123!");
   await modal.locator(".primary-button").click();
   await expect(page).toHaveURL(
-    /career\/pet-sitter\?employment=PART_TIME#career-role-title/,
+    /career\/pet-sitter\?employment=PART_TIME#career-application/,
   );
-  await expect(page.locator("#career-role-title")).toHaveText("Pet Sitter");
-  await page.reload();
-  await expect(page.locator("#career-role-title")).toBeVisible();
-  await page.evaluate(() => {
-    localStorage.removeItem("slivadoc.access_token");
-    localStorage.removeItem("slivadoc.refresh_token");
-    window.dispatchEvent(new Event("slivadoc:session-ended"));
-  });
-  await expect(page).toHaveURL(/login=1/);
+  await expect(page.getByRole("dialog", { name: "Masuk untuk melamar" })).toHaveCount(0);
+  await expect(page.locator(".career-form")).not.toHaveAttribute("inert", "");
 });
 test("sitter search, header frost and discovery align on desktop and mobile", async ({
   page,

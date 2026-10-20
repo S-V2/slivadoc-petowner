@@ -152,6 +152,12 @@ export const careerCopy = {
       "Saya menyatakan informasi lamaran benar dan dokumen ini milik saya atau saya berhak membagikannya.",
     privacy: "Baca Kebijakan Privasi",
     submit: "Kirim lamaran",
+    lockTitle: "Masuk untuk melamar",
+    lockNote:
+      "Kamu sudah melihat posisinya. Masuk ke akun Slivadoc untuk mengisi dan mengirim lamaran.",
+    lockCta: "Masuk untuk melamar",
+    lockExpired:
+      "Sesi berakhir. Masuk kembali di tab baru; lamaranmu tetap tersimpan di halaman ini.",
     sending: "Mengirim lamaran…",
     success: "Lamaranmu sudah diterima!",
     successNote:
@@ -253,6 +259,12 @@ export const careerCopy = {
       "I confirm my application is accurate and I own or am authorized to share these documents.",
     privacy: "Read Privacy Policy",
     submit: "Submit application",
+    lockTitle: "Sign in to apply",
+    lockNote:
+      "You have seen the role. Sign in to your Slivadoc account to fill in and send your application.",
+    lockCta: "Sign in to apply",
+    lockExpired:
+      "Your session ended. Sign in again in a new tab; your application stays on this page.",
     sending: "Submitting application…",
     success: "Your application is in!",
     successNote:

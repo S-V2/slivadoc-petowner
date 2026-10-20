@@ -1566,3 +1566,34 @@
 .career-filter-fields .sliva-select,.career-form-grid .sliva-select { min-width:0; width:100%; }
 .career-filter-fields .sliva-select-trigger,.career-form-grid .sliva-select-trigger { width:100%; min-height:46px; background:#fff; border:1px solid #d6e9f4; border-radius:12px; color:#23485e; font:inherit; font-size:14px; text-align:left; padding:12px; }
 .career-filter-fields label > .sliva-select { font-size:14px; letter-spacing:normal; }
+.career-form-lock {
+  position: relative;
+}
+.career-form-lock[data-access="guest"] .career-form {
+  filter: blur(6px);
+  opacity: 0.6;
+  user-select: none;
+  pointer-events: none;
+}
+.career-form-lock[data-access="checking"] .career-form {
+  opacity: 0.7;
+}
+.career-lock-card {
+  position: absolute;
+  top: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(380px, calc(100% - 32px));
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 28px 24px;
+  text-align: center;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(15, 40, 80, 0.18);
+}
+.career-lock-card h3,
+.career-lock-card p {
+  margin: 0;
+}

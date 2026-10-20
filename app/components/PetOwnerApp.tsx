@@ -2102,9 +2102,11 @@ function PetOwnerLogin({
             ref={registrationFormRef}
             className="world-form login-form auth-form"
             onSubmit={submit}
-            onInput={(event) =>
-              setFormValid(authFormIsValid(event.currentTarget))
-            }
+            onInput={(event) => {
+              const form = event.currentTarget;
+              // Controlled inputs may sanitize a pasted phone number first.
+              queueMicrotask(() => setFormValid(authFormIsValid(form)));
+            }}
             aria-busy={busy}
           >
             {mode === "verify" ? (

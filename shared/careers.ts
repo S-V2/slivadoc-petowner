@@ -87,6 +87,20 @@ export const careerEmploymentTypes: Record<string, CareerText> = {
   PER_DIEM: { id: "Harian", en: "Per diem" },
   OTHER: { id: "Lainnya", en: "Other" },
 };
+export const careerEducationOptions: CareerText[] = [
+  { id: "SD / sederajat", en: "Primary school / equivalent" },
+  { id: "SMP / sederajat", en: "Junior secondary school / equivalent" },
+  { id: "SMA / SMK / sederajat", en: "Senior secondary / vocational school" },
+  { id: "Diploma (D1–D3)", en: "Diploma (D1–D3)" },
+  { id: "Diploma IV / Sarjana Terapan (D4)", en: "Applied bachelor's degree (D4)" },
+  { id: "Sarjana (S1)", en: "Bachelor's degree (S1)" },
+  { id: "Magister (S2)", en: "Master's degree (S2)" },
+  { id: "Doktor (S3)", en: "Doctoral degree (S3)" },
+  { id: "Pendidikan profesi", en: "Professional education" },
+  { id: "Kursus / bootcamp / sertifikasi", en: "Courses / bootcamp / certification" },
+  { id: "Otodidak", en: "Self-taught" },
+  { id: "Lainnya", en: "Other" },
+];
 export function careerLocationArea(p: CareerPosition): string {
   return [...new Set([p.city?.trim(), p.region?.trim()].filter(Boolean))].join(
     ", ",
@@ -137,7 +151,9 @@ export const careerCopy = {
     email: "Email aktif",
     phone: "Nomor telepon",
     city: "Kota / domisili",
+    chooseCity: "Pilih kota / domisili",
     education: "Pendidikan / latar pembelajaran",
+    chooseEducation: "Pilih pendidikan / latar pembelajaran",
     experience: "Pengalaman relevan (tahun)",
     availability: "Kapan kamu bisa mulai?",
     motivation: "Mengapa ingin bergabung dengan Slivadoc?",
@@ -243,7 +259,9 @@ export const careerCopy = {
     email: "Active email",
     phone: "Phone number",
     city: "City / location",
+    chooseCity: "Choose city / location",
     education: "Education / learning background",
+    chooseEducation: "Choose education / learning background",
     experience: "Relevant experience (years)",
     availability: "When can you start?",
     motivation: "Why would you like to join Slivadoc?",

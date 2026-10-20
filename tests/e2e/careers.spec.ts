@@ -66,10 +66,10 @@ test("career catalog filters, restores role links, and submits a role-specific a
     .fill(`career-e2e-${Date.now()}@example.test`);
   await form.getByLabel("Phone number").fill("abc08123-4567890");
   await expect(form.getByLabel("Phone number")).toHaveValue("081234567890");
-  await form.getByLabel("City / location").fill("Jakarta");
-  await form
-    .getByLabel("Education / learning background")
-    .fill("Computer Science");
+  await form.getByRole("combobox", { name: "City / location", exact: true }).click();
+  await page.getByRole("option", { name: "Kota Administrasi Jakarta Selatan", exact: true }).click();
+  await form.getByRole("combobox", { name: "Education / learning background", exact: true }).click();
+  await page.getByRole("option", { name: "Bachelor's degree (S1)", exact: true }).click();
   await form.getByLabel("Relevant experience (years)").fill("3");
   await form.getByLabel("When can you start?").fill("One month notice");
   await form

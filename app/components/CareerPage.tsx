@@ -20,6 +20,7 @@ import {
 import {
   careerBasicFields,
   careerEmploymentTypes,
+  careerEducationOptions,
   careerLocation,
   careerCopy,
   careerDepartments,
@@ -38,6 +39,7 @@ import { usePetOwnerI18n } from "./PetOwnerI18n";
 import { LegalConsentDialog } from "./LegalConsentDialog";
 import { Icon } from "./Icon";
 import { BrandLogo } from "./BrandLogo";
+import regionIndex from "../data/regions/index.json";
 
 import {
   careerDiscoveryCopy,
@@ -58,6 +60,10 @@ import {
 const subscribeHydration = () => () => {};
 const clientReady = () => true;
 const serverReady = () => false;
+const careerCities = regionIndex
+  .filter((region) => region.parent.length === 2)
+  .map((region) => ({ ...region, name: region.name.trim() }))
+  .sort((a, b) => a.name.localeCompare(b.name, "id"));
 
 export function CareerPage({
   initialCatalog,
@@ -650,7 +656,34 @@ function CareerForm({
                 <span>
                   {c[f.id]} <b>*</b>
                 </span>
-                {f.kind === "textarea" ? (
+                {f.id === "city" || f.id === "education" ? (
+                  <SlivaSelect
+                    id={`career-${f.id}`}
+                    name={f.id}
+                    aria-label={c[f.id]}
+                    required
+                    value={draft[f.id]}
+                    onChange={(e) => change(f.id, e.target.value)}
+                    onBlur={() => touch(f.id)}
+                    aria-invalid={Boolean(touched[f.id] && errors[f.id])}
+                    aria-describedby={errors[f.id] ? `error-${f.id}` : undefined}
+                  >
+                    <option value="">
+                      {f.id === "city" ? c.chooseCity : c.chooseEducation}
+                    </option>
+                    {f.id === "city"
+                      ? careerCities.map((city) => (
+                          <option key={city.code} value={city.name}>
+                            {city.name}
+                          </option>
+                        ))
+                      : careerEducationOptions.map((education) => (
+                          <option key={education.id} value={education.id}>
+                            {education[language]}
+                          </option>
+                        ))}
+                  </SlivaSelect>
+                ) : f.kind === "textarea" ? (
                   <textarea
                     id={`career-${f.id}`}
                     value={draft[f.id]}

@@ -2035,6 +2035,8 @@ function PetOwnerLogin({
           className="modal petowner-login auth-dialog"
           role="dialog"
           aria-modal="true"
+          aria-hidden={policy ? true : undefined}
+          inert={policy ? true : undefined}
           aria-labelledby="auth-title"
           aria-describedby="auth-description"
           tabIndex={-1}

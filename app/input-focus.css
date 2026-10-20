@@ -9,3 +9,27 @@
 .password-input-wrap:focus-within {
   box-shadow: none !important;
 }
+
+/* Keep editable text readable on touch screens, including portalled dialogs.
+ * This final cascade must win over feature typography to avoid iOS focus zoom.
+ * One-time codes retain their existing larger text. */
+@media (max-width: 860px), (hover: none) and (pointer: coarse) {
+  #slivadoc-top input:not(
+    [type="hidden"],
+    [type="checkbox"],
+    [type="radio"],
+    [type="range"],
+    [type="color"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="file"],
+    [autocomplete="one-time-code"]
+  ),
+  #slivadoc-top textarea,
+  #slivadoc-top select,
+  #slivadoc-top [contenteditable="true"],
+  #slivadoc-top [contenteditable="plaintext-only"] {
+    font-size: 16px !important;
+  }
+}

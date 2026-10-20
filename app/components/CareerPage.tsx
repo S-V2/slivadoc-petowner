@@ -562,7 +562,9 @@ function CareerForm({
       sent.current = false;
     }
   }
-  submitRef.current = () => void submit();
+  useEffect(() => {
+    submitRef.current = () => void submit();
+  });
   const started =
     Boolean(file) ||
     Object.values(draft).some(

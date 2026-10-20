@@ -4,7 +4,6 @@ import { activityCenter, activityItem, marketplaceProduct, petOwner, petOwnerBoo
 import { collectionSamples } from './world-collection-data';
 
 const spot = collectionSamples.petspots;
-const post = { pet_id: '', pet_name: '', group_id: '', group_name: '', location: '', id: 'community-layout-post', author_name: 'Bella & Bima', user_id: petOwner.id, body: 'Bella lulus pemeriksaan kesehatan tahunan. Semua catatan masuk ke timeline medisnya.', category: 'story', created_at: new Date().toISOString(), like_count: 2, comment_count: 20, liked: false, image_url: '' };
 const event = activityItem({ id: '7c000000-0000-4000-8000-000000000001', type: 'event', title: 'Cat Parent Mini Class', subtitle: 'M Bloc Space · Jakarta Selatan', pet_name: 'Milo', amount: 50000, payment_reference_type: 'event_registration', qr_token: '19e148d8-39be-4c3d-9e8f-0a1b2c3d4e5f', venue: 'M Bloc Space', address: 'Jl. Panglima Polim, Jakarta Selatan', latitude: -6.2, longitude: 106.8, scheduled_at: new Date(Date.now() + 3600000).toISOString(), ends_at: new Date(Date.now() + 7200000).toISOString(), ticket_quantity: 1 });
 
 async function setup(page: Page) {
@@ -13,7 +12,6 @@ async function setup(page: Page) {
     localStorage.setItem('slivadoc.access_token', 'content-layout-token');
     localStorage.setItem('slivadoc.access_expires_at', String(Date.now() + 3600000));
   });
-  const submitted: Array<{ body: string; parent_id?: string }> = [];
   await page.route('https://example.test/**', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="440"><rect width="640" height="440" fill="#dff3ff"/></svg>' }));
   await page.route('**/api/v1/**', async route => {
     const path = new URL(route.request().url()).pathname;
@@ -24,14 +22,6 @@ async function setup(page: Page) {
     if (path === '/api/v1/petowner/activities') return json(activityCenter([event]));
     if (path.endsWith('/medical-records')) return json({ data: [{ id: 'layout-medical-record', record_type: 'laboratory', title: 'Panel darah tahunan Milo', complaint: '', diagnosis: 'CBC dan kimia darah dalam rentang normal', treatment: '', clinical_notes: '', doctor_name: 'drh. Maya', occurred_at: '2026-09-15T04:56:31Z', attachments: [], prescriptions: [], weight_kg: null, temperature_c: null, next_control_at: null }], count: 1 });
     if (path === '/api/v1/public/discovery/products') return json({ data: Array.from({ length: 16 }, (_, i) => marketplaceProduct({ id: `52000000-0000-4000-8000-${String(i+1).padStart(12, '0')}`, name: 'Makanan sehat anabul untuk perawatan harian', image_url: 'https://example.test/product.svg' })), count: 16 });
-    if (path === '/api/v1/public/community/posts') return json({ data: [post], count: 1 });
-    if (path.endsWith(`/community/posts/${post.id}/comments`)) {
-      if (route.request().method() === 'POST') {
-        submitted.push(route.request().postDataJSON());
-        return json({ id: 'new-comment', created_at: new Date().toISOString(), message: 'Komentar terkirim' }, 201);
-      }
-      return json({ data: Array.from({ length: 20 }, (_, i) => ({ parent_id: '', id: `comment-${i}`, user_id: petOwner.id, author_name: 'Andi Pet Parent', body: 'Congrats ya! Semoga Bella sehat selalu. '.repeat(3), created_at: new Date().toISOString() })), count: 20 });
-    }
     if (path.startsWith('/api/v1/public/petspots/')) return json(spot);
     const sample = collectionSamples[path.replace('/api/v1/public/', '') as keyof typeof collectionSamples];
     if (sample) return json({ data: [sample], count: 1 });
@@ -41,7 +31,6 @@ async function setup(page: Page) {
     if (path === '/api/v1/payment-methods') return json(paymentMethods());
     return json({ data: [], count: 0 });
   });
-  return submitted;
 }
 
 for (const width of [390, 768, 1440]) {
@@ -93,29 +82,28 @@ for (const width of [390, 768, 1440]) {
     await expect(dialog).toHaveCount(0);
   });
 
-  test(`community comments contain long threads and can send a reply at ${width}px`, async ({ page }, testInfo) => {
-    const submitted = await setup(page);
+  test(`Donate replaces Community and old links open Animal Fund at ${width}px`, async ({ page }, testInfo) => {
+    await setup(page);
+    const communityRequests: string[] = [];
+    page.on('request', request => {
+      if (/\/api\/v1\/(public\/)?community\//.test(request.url())) communityRequests.push(request.url());
+    });
     await page.setViewportSize({ width, height: 650 });
     await page.goto('/?view=community');
-    await page.locator('.community-post footer button').filter({ hasText: '20' }).click();
-    const dialog = page.locator('.community-comments-dialog');
-    await expect(dialog).toBeVisible();
-    await expect(dialog.locator('.community-comment')).toHaveCount(20);
-    const heading = await dialog.locator('h2').boundingBox();
-    const box = await dialog.boundingBox();
-    expect(heading!.x - box!.x).toBeGreaterThanOrEqual(16);
-    const list = dialog.locator('.community-comments-list');
-    expect(await list.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
-    await dialog.getByRole('button', { name: 'Balas', exact: true }).first().click();
-    await dialog.getByRole('textbox', { name: 'Tulis komentar' }).fill('Sehat selalu, Bella!');
-    await dialog.getByRole('button', { name: 'Kirim komentar' }).click();
-    await expect.poll(() => submitted.length).toBe(1);
-    expect(submitted[0]).toEqual({ body: 'Sehat selalu, Bella!', parent_id: 'comment-0' });
-    const composer = await dialog.locator('.community-comment-composer').boundingBox();
-    expect(composer!.y + composer!.height).toBeLessThanOrEqual(650);
-    await page.screenshot({ path: testInfo.outputPath(`comments-fixed-${width}.png`) });
-    await page.keyboard.press('Escape');
-    await expect(dialog).toHaveCount(0);
+    await expect(page).toHaveURL(/view=fundraising/);
+    await expect(page.locator('.fundraising-hero')).toContainText('SLIVADOC ANIMAL FUND');
+    await expect(page.locator('.community-layout')).toHaveCount(0);
+    const nav = page.locator(width >= 1024 ? '.sidebar' : '.mobile-nav');
+    await expect(nav.getByRole('button', { name: 'Komunitas', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: 'Donate', exact: true })).toBeVisible();
+    await nav.getByRole('button', { name: 'Beranda', exact: true }).click();
+    await nav.getByRole('button', { name: 'Donate', exact: true }).click();
+    await expect(page).toHaveURL(/view=fundraising/);
+    await page.reload();
+    await expect(page.locator('.fundraising-page')).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem('slivadoc.active_view'))).toBe('fundraising');
+    expect(communityRequests).toEqual([]);
+    await page.screenshot({ path: testInfo.outputPath(`donate-${width}.png`) });
   });
 }
 

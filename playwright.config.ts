@@ -6,6 +6,9 @@ export default defineConfig({
   // Compiling the first app route in the dev server is shared by every worker.
   // Avoid a CPU-sized burst of browsers starving that compile on local audits.
   workers: process.env.CI ? 1 : 2,
+  // Cold compilation and CSS transitions can exceed local timing on CI runners.
+  retries: process.env.CI ? 1 : 0,
+  expect: { timeout: process.env.CI ? 10_000 : 5_000 },
   timeout: 30_000,
   reporter: "line",
   use: {

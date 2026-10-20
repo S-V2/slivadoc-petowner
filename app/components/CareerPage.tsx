@@ -492,6 +492,12 @@ function CareerForm({
       window.removeEventListener("storage", check);
     };
   }, []);
+  useEffect(() => {
+    if (access === "authed" && resubmit.current) {
+      resubmit.current = false;
+      submitRef.current();
+    }
+  }, [access]);
   const success = useRef<HTMLDivElement>(null);
   const errors = careerErrors(draft, position, file, language);
   const valid = Object.keys(errors).length === 0;
@@ -559,12 +565,6 @@ function CareerForm({
   useEffect(() => {
     submitRef.current = () => void submit();
   });
-  useEffect(() => {
-    if (access === "authed" && resubmit.current) {
-      resubmit.current = false;
-      submitRef.current();
-    }
-  }, [access]);
   const started =
     Boolean(file) ||
     Object.values(draft).some(

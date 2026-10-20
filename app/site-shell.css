@@ -217,7 +217,7 @@
   .main-shell {
     --app-sidebar-width: 0px;
     --app-header-offset: 0px;
-    --app-header-height: 108px;
+    --app-header-height: 120px;
   }
   .main-shell > .topbar {
     margin: 0;
@@ -232,7 +232,7 @@
     display: flex !important;
     order: 3;
     flex: 1 0 100%;
-    min-height: 32px;
+    min-height: 44px;
     gap: 8px;
   }
   .main-shell > .topbar .location-picker > span:first-child {

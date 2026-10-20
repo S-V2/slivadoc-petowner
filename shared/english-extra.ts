@@ -3,6 +3,7 @@ import { englishSpecies } from "./english-species.ts";
 export const englishExtra: Record<string, string> = {
   ...englishSpecies,
   ...englishPolish,
+  "Belum ada produk": "No products yet",
   "Buat akun Slivadoc": "Create a Slivadoc account",
   "Masuk untuk melanjutkan perawatan dan aktivitas pet kamu.": "Sign in to continue caring for your pet and manage their activities.",
   "Satu akun untuk profil pet, layanan, dan riwayat perawatannya.": "One account for pet profiles, services, and care history.",

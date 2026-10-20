@@ -14,6 +14,12 @@
  * This final cascade must win over feature typography to avoid iOS focus zoom.
  * One-time codes retain their existing larger text. */
 @media (max-width: 860px), (hover: none) and (pointer: coarse) {
+  /* A zero basis keeps the larger input from wrapping the header actions. */
+  .topbar .global-search {
+    flex-basis: 0;
+    min-width: 0;
+  }
+
   #slivadoc-top input:not(
     [type="hidden"],
     [type="checkbox"],

@@ -46,6 +46,17 @@ const branch = {
   product_count: 8,
 };
 
+async function expectReadableMobileInputs(page: Page) {
+  const smallInputs = await page.locator("input, textarea").evaluateAll(nodes => nodes.flatMap(node => {
+    if (node instanceof HTMLInputElement && ["hidden", "checkbox", "radio", "range", "color", "button", "submit", "reset", "file"].includes(node.type)) return [];
+    const box = node.getBoundingClientRect();
+    if (box.width <= 1 || box.height <= 1 || node.hasAttribute("disabled")) return [];
+    const fontSize = parseFloat(getComputedStyle(node).fontSize);
+    return fontSize < 16 ? [{ label: node.getAttribute("aria-label") || node.getAttribute("placeholder") || node.id, fontSize }] : [];
+  }));
+  expect(smallInputs, "Mobile text inputs must remain readable without focus zoom").toEqual([]);
+}
+
 async function signedInCatalog(page: Page) {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addInitScript(() => {
@@ -95,12 +106,14 @@ for (const viewport of viewports) {
       await expect(page.locator(".marketplace-loading"), view).toHaveCount(0);
       const header = page.locator(".topbar");
       await expect(header).toHaveCSS("position", "fixed");
-      const clipped = await header.locator("button").evaluateAll(nodes => nodes.flatMap(node => {
+      const clipped = await header.locator("button, .mobile-brand, .global-search, .location-picker").evaluateAll(nodes => nodes.flatMap(node => {
         const box = node.getBoundingClientRect();
         if (!box.width || !box.height) return [];
-        return box.left < -1 || box.right > innerWidth + 1 ? [node.getAttribute("aria-label") || node.textContent] : [];
+        const frame = node.closest(".topbar")!.getBoundingClientRect();
+        return box.left < -1 || box.right > innerWidth + 1 || box.top < frame.top - 1 || box.bottom > frame.bottom + 1 ? [node.getAttribute("aria-label") || node.textContent] : [];
       }));
       expect(clipped, view).toEqual([]);
+      if (viewport.width <= 860) await expectReadableMobileInputs(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), view).toBeLessThanOrEqual(1);
       if (viewport.width > 860) {
         const sidebar = (await page.locator(".sidebar").boundingBox())!;
@@ -124,6 +137,7 @@ for (const viewport of viewports) {
       const header = page.locator(".seo-header, .career-header").filter({ visible: true });
       await expect(header, path).toBeVisible();
       await expect(header.locator(".brand-mark"), path).toBeVisible();
+      if (viewport.width <= 860) await expectReadableMobileInputs(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), path).toBeLessThanOrEqual(1);
       await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
       expect((await header.boundingBox())!.y, path).toBe(0);

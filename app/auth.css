@@ -1,0 +1,302 @@
+/* Scoped auth surface: field errors never change the password control's box. */
+.modal-overlay.auth-overlay {
+  padding: 24px;
+}
+.modal.petowner-login.auth-dialog {
+  width: min(520px, 100%);
+  max-height: min(900px, calc(100dvh - 48px));
+  padding: 28px 30px;
+  border: 1px solid #e1edf4;
+  border-radius: 24px;
+  background: #fff;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.auth-dialog .login-brand {
+  margin: 0 0 22px;
+  padding-right: 40px;
+}
+.auth-dialog .login-brand > span {
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+.auth-dialog > #auth-title {
+  margin: 0 0 8px;
+  padding: 0;
+  font-size: 25px;
+  line-height: 1.25;
+  letter-spacing: -0.6px;
+}
+.auth-dialog > #auth-description {
+  margin: 0 0 22px;
+  font-size: 13px !important;
+  font-weight: 400;
+  line-height: 1.65;
+  color: #637b8c;
+}
+.auth-steps {
+  display: flex;
+  gap: 18px;
+  margin: 0 0 24px;
+  padding: 0 0 20px;
+  list-style: none;
+  border-bottom: 1px solid #edf2f6;
+}
+.auth-steps li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #718797;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.auth-steps li > span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #f0f5f8;
+  font-size: 11px;
+}
+.auth-steps .is-current {
+  color: #087da9;
+  font-weight: 700;
+}
+.auth-steps .is-current > span {
+  background: #e2f5ff;
+  box-shadow: 0 0 0 3px #f2fbff;
+}
+.auth-steps .is-complete {
+  color: #16836f;
+}
+.auth-steps .is-complete > span {
+  background: #e6f6f0;
+}
+.auth-dialog .auth-form {
+  display: grid;
+  gap: 17px;
+}
+.auth-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 14px;
+}
+.auth-field {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+}
+.auth-dialog .auth-field > label {
+  display: block;
+  margin: 0;
+  color: #25465d;
+  font-size: 12px !important;
+  font-weight: 650;
+  line-height: 1.5;
+}
+.auth-input-shell {
+  position: relative;
+  min-width: 0;
+}
+.auth-dialog .auth-form .auth-input-shell > input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 48px;
+  min-height: 48px;
+  padding: 0 13px;
+  border: 1px solid #d8e6ef;
+  border-radius: 12px !important;
+  background: #fcfdff;
+  color: #234258;
+  font-family: inherit;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 1.4;
+}
+.auth-dialog .auth-form .auth-input-shell > input::placeholder {
+  font-size: 14px !important;
+  font-weight: 400;
+  color: #889baa !important;
+}
+.auth-dialog .auth-form .auth-input-shell > input[aria-invalid="true"] {
+  border-color: #d64664;
+  background: #fffafb;
+}
+.auth-input-shell:has(.auth-password-toggle) > input {
+  padding-right: 53px !important;
+}
+.auth-dialog .auth-password-toggle {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #688295;
+}
+.auth-dialog .auth-password-toggle:hover {
+  color: #087da9;
+  background: #eaf6fd;
+}
+.auth-dialog .auth-field > small {
+  margin: 0;
+  font-size: 11px !important;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #708596;
+}
+.auth-dialog .auth-field > .sliva-field-error {
+  color: #ba294e;
+}
+.auth-dialog .auth-consents {
+  gap: 12px;
+  margin: 0;
+  padding: 15px;
+  border: 1px solid #e4edf3;
+  border-radius: 13px;
+  background: #f8fbfd;
+}
+.auth-dialog .auth-form .auth-consents label {
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+  color: #546d80;
+  font-size: 12px !important;
+  font-weight: 400;
+  line-height: 1.6;
+}
+.auth-dialog .auth-form .auth-consents label > span {
+  font-size: 12px !important;
+  font-weight: 400;
+}
+.auth-dialog .auth-consents button {
+  color: #087fae;
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+.auth-dialog .auth-consents > small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 10px !important;
+  font-weight: 400;
+  color: #7d909e;
+}
+.auth-dialog .auth-submit {
+  min-height: 48px;
+  margin: 0;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: none;
+}
+.auth-dialog .auth-submit:disabled {
+  background: #dceaf2;
+  color: #698494;
+  opacity: 1;
+  cursor: not-allowed;
+}
+.auth-dialog .login-switch {
+  min-height: 44px;
+  margin: 10px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.auth-dialog .auth-resend:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.auth-dialog .auth-message {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #d9eee8;
+  border-radius: 10px;
+  background: #f1faf6;
+  color: #2c6e5d;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.auth-dialog .auth-message.is-error {
+  border-color: #f0d8df;
+  background: #fff5f7;
+  color: #ad3451;
+}
+.auth-otp-recipient {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid #ddecf6;
+  border-radius: 13px;
+  background: #f4faff;
+  color: #678297;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.auth-otp-recipient b {
+  color: #234b66;
+  font-size: 14px;
+}
+.auth-dialog .auth-form .auth-otp-input {
+  height: 58px;
+  text-align: center;
+  font-size: 24px !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.35em;
+}
+.auth-dialog .auth-form .auth-otp-input::placeholder {
+  font-size: 24px !important;
+}
+@media (max-width: 580px) {
+  .modal-overlay.auth-overlay {
+    padding: 12px;
+  }
+  .modal.petowner-login.auth-dialog {
+    width: 100%;
+    max-width: 520px;
+    max-height: calc(100dvh - 24px);
+    padding: 24px 20px calc(20px + env(safe-area-inset-bottom));
+    border-radius: 22px;
+  }
+  .auth-dialog .login-brand {
+    margin-bottom: 20px;
+  }
+  .auth-dialog > #auth-title {
+    font-size: 23px;
+  }
+  .auth-dialog > #auth-description {
+    font-size: 12px !important;
+    margin-bottom: 18px;
+  }
+  .auth-steps {
+    gap: 14px;
+    margin-bottom: 20px;
+    padding-bottom: 18px;
+  }
+  .auth-steps li {
+    font-size: 10px;
+    gap: 5px;
+  }
+  .auth-field-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 17px;
+  }
+  .auth-dialog .auth-form {
+    gap: 16px;
+  }
+}

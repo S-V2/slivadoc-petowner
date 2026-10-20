@@ -1,0 +1,72 @@
+"use client";
+
+import { useId, useState, type ComponentProps, type ReactNode } from "react";
+import { LocalizedCopy, LocalizedInput } from "./LocalizedCopy";
+
+type Props = ComponentProps<"input"> & {
+  label: string;
+  hint?: string;
+  accessory?: ReactNode;
+};
+
+export function AuthField({ label, hint, accessory, ...props }: Props) {
+  const generatedId = useId();
+  const id = props.id ?? generatedId;
+  const [error, setError] = useState("");
+  function validate(input: HTMLInputElement) {
+    const validity = input.validity;
+    setError(
+      validity.valid
+        ? ""
+        : validity.valueMissing
+          ? "Kolom ini wajib diisi."
+          : props.title ||
+            (validity.typeMismatch
+              ? "Masukkan alamat email yang valid."
+              : "Masukkan format data yang valid."),
+    );
+  }
+  return (
+    <div className="auth-field">
+      <label htmlFor={id}>
+        <LocalizedCopy>{label}</LocalizedCopy>
+      </label>
+      <div className="auth-input-shell">
+        <LocalizedInput
+          {...props}
+          id={id}
+          aria-invalid={Boolean(error)}
+          aria-describedby={
+            [hint && `${id}-hint`, error && `${id}-error`]
+              .filter(Boolean)
+              .join(" ") || undefined
+          }
+          onBlur={(event) => {
+            validate(event.currentTarget);
+            props.onBlur?.(event);
+          }}
+          onChange={(event) => {
+            if (error) validate(event.currentTarget);
+            props.onChange?.(event);
+          }}
+          onInvalid={(event) => {
+            event.preventDefault();
+            validate(event.currentTarget);
+            props.onInvalid?.(event);
+          }}
+        />
+        {accessory}
+      </div>
+      {hint && (
+        <small id={`${id}-hint`}>
+          <LocalizedCopy>{hint}</LocalizedCopy>
+        </small>
+      )}
+      {error && (
+        <small id={`${id}-error`} className="sliva-field-error" role="alert">
+          <LocalizedCopy>{error}</LocalizedCopy>
+        </small>
+      )}
+    </div>
+  );
+}

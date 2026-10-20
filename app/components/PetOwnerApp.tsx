@@ -12,6 +12,8 @@ import { HorizontalTabPositioning } from "./HorizontalTabPositioning";
 import { petOwnerIntlLocale } from "../lib/petowner-locale";
 import { confirmSlivaDialog } from "./SlivaDialog";
 import { LocalizedCopy, LocalizedButton, LocalizedInput, LocalizedTextarea } from "./LocalizedCopy";
+import { AuthField } from "./AuthField";
+import { authFormIsValid } from "../lib/auth-form";
 import { SlivaDatePicker } from "./SlivaDatePicker";
 import { useDialogFocus } from "./useDialogFocus";
 import { PetOwnerFlowProvider, PetRequiredNotice, usePetOwnerFlow } from "./PetOwnerFlow";
@@ -1835,6 +1837,11 @@ function PetOwnerLogin({
   const [mode, setMode] = useState<"login" | "register" | "verify">("login");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageError, setMessageError] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+  const dialogRef = useDialogFocus<HTMLElement>(true, () => {
+    if (!busy) close();
+  });
   const [visible, setVisible] = useState(false);
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
@@ -1849,13 +1856,25 @@ function PetOwnerLogin({
   const [registrationEmail, setRegistrationEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [policy, setPolicy] = useState<"terms" | "privacy" | null>(null);
-  const passwordValid = /(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}/.test(
-    password,
-  );
+  const passwordValid =
+    mode === "login"
+      ? password.length > 0
+      : /(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}/.test(password);
   const registrationConsent =
-    mode !== "register" ||
-    (terms && privacy && /^0[0-9]{8,15}$/.test(phone));
-  useEffect(() => { queueMicrotask(() => setFormValid(registrationFormRef.current?.checkValidity() ?? false)); }, [terms, privacy, mode, legal]);
+    mode !== "register" || (terms && privacy && /^0[0-9]{8,15}$/.test(phone));
+  useEffect(() => {
+    queueMicrotask(() =>
+      setFormValid(authFormIsValid(registrationFormRef.current)),
+    );
+  }, [terms, privacy, mode, legal]);
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = window.setTimeout(
+      () => setResendIn((seconds) => Math.max(0, seconds - 1)),
+      1000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [resendIn]);
   async function loadLegal() {
     try {
       const response = await fetch(
@@ -1879,9 +1898,16 @@ function PetOwnerLogin({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !registrationConsent || (mode === "register" && !legal) || !event.currentTarget.checkValidity()) return;
+    if (
+      busy ||
+      !registrationConsent ||
+      (mode === "register" && !legal) ||
+      !event.currentTarget.checkValidity()
+    )
+      return;
     setBusy(true);
     setMessage("");
+    setMessageError(false);
     const values = Object.fromEntries(new FormData(event.currentTarget));
     try {
       if (mode === "verify") {
@@ -1911,13 +1937,31 @@ function PetOwnerLogin({
       const response = await fetch(`${PLATFORM_API_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mode === "register" && legal ? { ...values, terms_accepted: terms, privacy_accepted: privacy, legal_version: legal.version } : values),
+        body: JSON.stringify(
+          mode === "register" && legal
+            ? {
+                ...values,
+                terms_accepted: terms,
+                privacy_accepted: privacy,
+                legal_version: legal.version,
+              }
+            : values,
+        ),
       });
       const data = await response.json();
-      if (!response.ok)
+      if (!response.ok) {
+        if (mode === "login" && data.code === "email_not_verified") {
+          setRegistrationEmail(String(values.email).trim().toLowerCase());
+          setOtp("");
+          setMode("verify");
+          setMessage(data.message);
+          return;
+        }
         throw new Error(data.message || "Login belum dapat diproses");
+      }
       if (mode === "register") {
-        setRegistrationEmail(String(values.email));
+        setRegistrationEmail(String(values.email).trim().toLowerCase());
+        setResendIn(60);
         setOtp(String(data.development_otp ?? ""));
         setMode("verify");
         setFormValid(false);
@@ -1939,15 +1983,17 @@ function PetOwnerLogin({
       notify("Login berhasil. Selamat datang di Slivadoc.");
       close();
     } catch (error) {
+      setMessageError(true);
       setMessage(error instanceof Error ? error.message : "Login gagal");
     } finally {
       setBusy(false);
     }
   }
   async function resendOTP() {
-    if (!registrationEmail || busy) return;
+    if (!registrationEmail || busy || resendIn > 0) return;
     setBusy(true);
     setMessage("");
+    setMessageError(false);
     try {
       const response = await fetch(
         `${PLATFORM_API_URL}/api/v1/auth/otp/resend`,
@@ -1963,8 +2009,10 @@ function PetOwnerLogin({
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.message || "OTP belum dapat dikirim ulang");
+      setResendIn(60);
       setMessage("OTP baru sudah dikirim. Periksa inbox dan folder spam.");
     } catch (error) {
+      setMessageError(true);
       setMessage(
         error instanceof Error
           ? error.message
@@ -1976,76 +2024,133 @@ function PetOwnerLogin({
   }
   return (
     <>
-      <div className="modal-overlay" onMouseDown={close}>
+      <div
+        className="modal-overlay auth-overlay"
+        onMouseDown={() => {
+          if (!busy) close();
+        }}
+      >
         <section
-          className="modal petowner-login"
+          ref={dialogRef}
+          className="modal petowner-login auth-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="auth-title"
+          aria-describedby="auth-description"
+          tabIndex={-1}
           onMouseDown={(event) => event.stopPropagation()}
         >
-          <LocalizedButton className="modal-close" onClick={close} aria-label="Tutup">
+          <LocalizedButton
+            type="button"
+            className="modal-close"
+            disabled={busy}
+            onClick={close}
+            aria-label="Tutup"
+          >
             <Icon name="close" />
           </LocalizedButton>
           <div className="login-brand">
             <Logo />
-            <span><LocalizedCopy>{"Pet Owner"}</LocalizedCopy></span>
+            <span>Pet Owner</span>
           </div>
-          <span className="world-kicker"><LocalizedCopy>{"AKUN PET FAMILY"}</LocalizedCopy></span>
-          <h2>
-            <LocalizedCopy>{mode === "login"
-              ? "Senang melihatmu kembali"
-              : mode === "register"
-                ? "Mulai perjalanan pet parent"
-                : "Verifikasi email kamu"}</LocalizedCopy>
+          <h2 id="auth-title">
+            <LocalizedCopy>
+              {mode === "login"
+                ? "Senang melihatmu kembali"
+                : mode === "register"
+                  ? "Buat akun Slivadoc"
+                  : "Verifikasi email kamu"}
+            </LocalizedCopy>
           </h2>
-          <p><LocalizedCopy>{"Profil pet, rekam medis, booking, komunitas, dan benefit tersinkron aman dalam satu akun."}</LocalizedCopy></p>
+          <p id="auth-description">
+            <LocalizedCopy>
+              {mode === "login"
+                ? "Masuk untuk melanjutkan perawatan dan aktivitas pet kamu."
+                : mode === "register"
+                  ? "Satu akun untuk profil pet, layanan, dan riwayat perawatannya."
+                  : "Satu langkah lagi. Aktifkan akun dengan kode yang dikirim ke email kamu."}
+            </LocalizedCopy>
+          </p>
+          {mode !== "login" && (
+            <ol className="auth-steps" aria-label="Tahap registrasi">
+              <li
+                className={mode === "register" ? "is-current" : "is-complete"}
+                aria-current={mode === "register" ? "step" : undefined}
+              >
+                <span>
+                  {mode === "verify" ? <Icon name="check" size={14} /> : "1"}
+                </span>
+                <LocalizedCopy>Akun</LocalizedCopy>
+              </li>
+              <li
+                className={mode === "verify" ? "is-current" : ""}
+                aria-current={mode === "verify" ? "step" : undefined}
+              >
+                <span>2</span>
+                <LocalizedCopy>Verifikasi email</LocalizedCopy>
+              </li>
+              <li>
+                <span>3</span>
+                <LocalizedCopy>Login</LocalizedCopy>
+              </li>
+            </ol>
+          )}
           <form
+            key={mode}
             ref={registrationFormRef}
-            className="world-form login-form"
+            className="world-form login-form auth-form"
             onSubmit={submit}
             onInput={(event) =>
-              setFormValid(event.currentTarget.checkValidity())
+              setFormValid(authFormIsValid(event.currentTarget))
             }
+            aria-busy={busy}
           >
-            <LocalizedCopy>{mode === "verify" ? (
+            {mode === "verify" ? (
               <>
-                <div className="access-warning"><LocalizedCopy>{"Masukkan 6 digit OTP yang dikirim ke"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
-                  <b><LocalizedCopy>{registrationEmail}</LocalizedCopy></b><LocalizedCopy>{"."}</LocalizedCopy></div>
-                <label>
-                  <span><LocalizedCopy>{"Kode OTP"}</LocalizedCopy></span>
-                  <LocalizedInput
-                    name="otp"
-                    value={otp}
-                    onChange={(event) =>
-                      setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
-                    }
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    pattern="[0-9]{6}"
-                    minLength={6}
-                    maxLength={6}
-                    placeholder="000000"
-                    required
-                    autoFocus
-                  />
-                </label>
+                <div className="auth-otp-recipient">
+                  <LocalizedCopy>Kode OTP dikirim ke</LocalizedCopy>
+                  <b>{registrationEmail}</b>
+                  <LocalizedCopy>
+                    Periksa juga folder spam. Kode berlaku 5 menit.
+                  </LocalizedCopy>
+                </div>
+                <AuthField
+                  label="Kode OTP"
+                  name="otp"
+                  className="auth-otp-input"
+                  value={otp}
+                  onChange={(event) =>
+                    setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  minLength={6}
+                  maxLength={6}
+                  placeholder="000000"
+                  required
+                  autoFocus
+                />
               </>
             ) : (
-              mode === "register" && (
-                <>
-                  <label>
-                    <span><LocalizedCopy>{"Nama lengkap"}</LocalizedCopy></span>
-                    <LocalizedInput
+              <>
+                {mode === "register" && (
+                  <div className="auth-field-row">
+                    <AuthField
+                      label="Nama lengkap"
                       name="full_name"
+                      autoComplete="name"
                       minLength={3}
+                      title="Nama lengkap minimal 3 karakter"
                       placeholder="Nama sesuai identitas"
                       required
                     />
-                  </label>
-                  <label>
-                    <span><LocalizedCopy>{"WhatsApp"}</LocalizedCopy></span>
-                    <LocalizedInput
+                    <AuthField
+                      label="WhatsApp"
                       name="phone"
                       type="tel"
-                      inputMode="numeric"
+                      inputMode="tel"
+                      autoComplete="tel-national"
                       value={phone}
                       onChange={(event) =>
                         setPhone(
@@ -2057,96 +2162,142 @@ function PetOwnerLogin({
                       maxLength={16}
                       title="Nomor HP harus diawali 0 dan berisi 9–16 digit"
                       placeholder="08xxxxxxxxxx"
+                      hint="Awali dengan 0, tanpa spasi."
                       required
                     />
-                    <small><LocalizedCopy>{"Harus diawali angka 0, tanpa spasi atau simbol."}</LocalizedCopy></small>
-                  </label>
-                </>
-              )
-            )}</LocalizedCopy>
-            <LocalizedCopy>{mode !== "verify" && (
-              <label>
-                <span><LocalizedCopy>{"Email"}</LocalizedCopy></span>
-                <LocalizedInput
+                  </div>
+                )}
+                <AuthField
+                  label="Email"
                   name="email"
                   type="email"
                   defaultValue={
                     mode === "login" ? registrationEmail : undefined
                   }
                   autoComplete="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   placeholder="petparent@email.com"
                   required
                 />
-              </label>
-            )}</LocalizedCopy>
-            <LocalizedCopy>{mode !== "verify" && (
-              <label>
-                <span><LocalizedCopy>{"Password"}</LocalizedCopy></span>
-                <span className="password-input">
-                  <LocalizedInput
-                    name="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    type={visible ? "text" : "password"}
-                    autoComplete={
-                      mode === "login" ? "current-password" : "new-password"
-                    }
-                    placeholder="Minimal 8 karakter"
-                    minLength={8}
-                    pattern="(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}"
-                    title="Wajib berisi huruf, angka, dan simbol"
-                    required
-                  />
-                  <LocalizedButton
-                    type="button"
-                    onClick={() => setVisible((value) => !value)}
-                    aria-label={
-                      visible ? "Sembunyikan password" : "Tampilkan password"
-                    }
-                  >
-                    <LocalizedCopy>{visible ? "◉" : "◎"}</LocalizedCopy>
-                  </LocalizedButton>
-                </span>
-                <small><LocalizedCopy>{"Gunakan kombinasi huruf, angka, dan simbol."}</LocalizedCopy></small>
-              </label>
-            )}</LocalizedCopy>
-            <LocalizedCopy>{mode === "register" && (
-              <div className="legal-consents">
+                <AuthField
+                  label="Password"
+                  name="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  type={visible ? "text" : "password"}
+                  autoComplete={
+                    mode === "login" ? "current-password" : "new-password"
+                  }
+                  placeholder={
+                    mode === "login" ? "Masukkan password" : "Buat password"
+                  }
+                  minLength={mode === "register" ? 8 : undefined}
+                  pattern={
+                    mode === "register"
+                      ? "(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}"
+                      : undefined
+                  }
+                  title={
+                    mode === "register"
+                      ? "Minimal 8 karakter, dengan huruf, angka, dan simbol."
+                      : undefined
+                  }
+                  hint={
+                    mode === "register"
+                      ? "Minimal 8 karakter, dengan huruf, angka, dan simbol."
+                      : undefined
+                  }
+                  required
+                  accessory={
+                    <LocalizedButton
+                      type="button"
+                      className="auth-password-toggle"
+                      onClick={() => setVisible((value) => !value)}
+                      aria-pressed={visible}
+                      aria-label={
+                        visible ? "Sembunyikan password" : "Tampilkan password"
+                      }
+                    >
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        aria-hidden="true"
+                      >
+                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+                        <circle cx="12" cy="12" r="3" />
+                        {visible && <path d="m3 3 18 18" />}
+                      </svg>
+                    </LocalizedButton>
+                  }
+                />
+              </>
+            )}
+            {mode === "register" && (
+              <div className="legal-consents auth-consents">
                 <label>
                   <LocalizedInput
                     type="checkbox"
                     checked={terms}
-                    onChange={() => terms ? setTerms(false) : setPolicy("terms")}
+                    onChange={() =>
+                      terms ? setTerms(false) : setPolicy("terms")
+                    }
                     required
+                    onInvalid={(event) => event.preventDefault()}
                   />
-                  <span><LocalizedCopy>{"Saya menyetujui"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
-                    <LocalizedButton type="button" onClick={() => setPolicy("terms")}>
-                      <b><LocalizedCopy>{"Syarat dan Ketentuan"}</LocalizedCopy></b>
-                    </LocalizedButton><LocalizedCopy>{"."}</LocalizedCopy></span>
+                  <span>
+                    <LocalizedCopy>Saya menyetujui</LocalizedCopy>{" "}
+                    <LocalizedButton
+                      type="button"
+                      onClick={() => setPolicy("terms")}
+                    >
+                      <LocalizedCopy>Syarat dan Ketentuan</LocalizedCopy>
+                    </LocalizedButton>
+                    .
+                  </span>
                 </label>
                 <label>
                   <LocalizedInput
                     type="checkbox"
                     checked={privacy}
-                    onChange={() => privacy ? setPrivacy(false) : setPolicy("privacy")}
+                    onChange={() =>
+                      privacy ? setPrivacy(false) : setPolicy("privacy")
+                    }
                     required
+                    onInvalid={(event) => event.preventDefault()}
                   />
-                  <span><LocalizedCopy>{"Saya menyetujui"}</LocalizedCopy><LocalizedCopy>{" "}</LocalizedCopy>
-                    <LocalizedButton type="button" onClick={() => setPolicy("privacy")}>
-                      <b><LocalizedCopy>{"Kebijakan Privasi"}</LocalizedCopy></b>
-                    </LocalizedButton><LocalizedCopy>{"."}</LocalizedCopy></span>
+                  <span>
+                    <LocalizedCopy>Saya menyetujui</LocalizedCopy>{" "}
+                    <LocalizedButton
+                      type="button"
+                      onClick={() => setPolicy("privacy")}
+                    >
+                      <LocalizedCopy>Kebijakan Privasi</LocalizedCopy>
+                    </LocalizedButton>
+                    .
+                  </span>
                 </label>
                 <small>
-                  <LocalizedCopy>{"Berlaku sejak"}</LocalizedCopy>
-                  <LocalizedCopy>{" "}</LocalizedCopy>
+                  <Icon name="shield" size={14} />
+                  <LocalizedCopy>Berlaku sejak</LocalizedCopy>{" "}
                   {legal.effective_at}
                 </small>
-
               </div>
-            )}</LocalizedCopy>
-            <LocalizedCopy>{message && <div className="form-message"><LocalizedCopy>{message}</LocalizedCopy></div>}</LocalizedCopy>
+            )}
+            {message && (
+              <div
+                className={`form-message auth-message${messageError ? " is-error" : ""}`}
+                role={messageError ? "alert" : "status"}
+              >
+                <LocalizedCopy>{message}</LocalizedCopy>
+              </div>
+            )}
             <LocalizedButton
-              className="primary-button full"
+              className="primary-button full auth-submit"
               disabled={
                 busy ||
                 (mode === "verify"
@@ -2154,34 +2305,43 @@ function PetOwnerLogin({
                   : !passwordValid || !formValid || !registrationConsent)
               }
             >
-              <LocalizedCopy>{busy ? (
-                <>
-                  <span className="button-spinner" /> Memproses…
-                </>
-              ) : mode === "login" ? (
-                "Masuk ke Slivadoc"
-              ) : mode === "verify" ? (
-                "Verifikasi & aktifkan akun"
-              ) : (
-                "Daftar & kirim OTP"
-              )}</LocalizedCopy>
+              <LocalizedCopy>
+                {busy ? (
+                  <>
+                    <span className="button-spinner" /> Memproses…
+                  </>
+                ) : mode === "login" ? (
+                  "Masuk ke Slivadoc"
+                ) : mode === "verify" ? (
+                  "Verifikasi & aktifkan akun"
+                ) : (
+                  "Daftar & kirim OTP"
+                )}
+              </LocalizedCopy>
             </LocalizedButton>
           </form>
-          <LocalizedCopy>{mode === "verify" && (
+          {mode === "verify" && (
             <LocalizedButton
               type="button"
-              className="text-button login-switch"
-              disabled={busy}
+              className="text-button login-switch auth-resend"
+              disabled={busy || resendIn > 0}
               onClick={() => void resendOTP()}
-            ><LocalizedCopy>{"Kirim ulang OTP"}</LocalizedCopy></LocalizedButton>
-          )}</LocalizedCopy>
+            >
+              <LocalizedCopy>Kirim ulang OTP</LocalizedCopy>
+              {resendIn > 0 ? ` (${resendIn}s)` : ""}
+            </LocalizedButton>
+          )}
           <LocalizedButton
+            type="button"
             className="text-button login-switch"
+            disabled={busy}
             onClick={() => {
               const next = mode === "login" ? "register" : "login";
               setMode(next);
               setMessage("");
+              setMessageError(false);
               setPassword("");
+              setVisible(false);
               setPhone("");
               setTerms(false);
               setPrivacy(false);
@@ -2189,16 +2349,28 @@ function PetOwnerLogin({
               if (next === "register") void loadLegal();
             }}
           >
-            <LocalizedCopy>{mode === "login"
-              ? "Belum punya akun? Daftar gratis"
-              : mode === "verify"
-                ? "Kembali ke login"
-                : "Sudah punya akun? Login"}</LocalizedCopy>
+            <LocalizedCopy>
+              {mode === "login"
+                ? "Belum punya akun? Daftar gratis"
+                : mode === "verify"
+                  ? "Kembali ke login"
+                  : "Sudah punya akun? Login"}
+            </LocalizedCopy>
           </LocalizedButton>
         </section>
       </div>
-      {policy && <LegalConsentDialog key={policy} policy={policy} onClose={() => setPolicy(null)} onAccept={() => { if (policy === "terms") setTerms(true); else setPrivacy(true); setPolicy(null); }} />}
-
+      {policy && (
+        <LegalConsentDialog
+          key={policy}
+          policy={policy}
+          onClose={() => setPolicy(null)}
+          onAccept={() => {
+            if (policy === "terms") setTerms(true);
+            else setPrivacy(true);
+            setPolicy(null);
+          }}
+        />
+      )}
     </>
   );
 }

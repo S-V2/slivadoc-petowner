@@ -47,7 +47,10 @@ test("renders Slivadoc SEO metadata and entity schema", async () => {
   const html = await response.text();
   assert.match(html, /<title>Slivadoc[^<]+Ekosistem Pet Care/i);
   assert.match(html, /Temukan dokter hewan, pet clinic, petshop, grooming/i);
-  assert.match(html, /property="og:image"[^>]+slivadoc-pet-hero\.png/i);
+  assert.match(html, /property="og:image"[^>]+\/social\/slivadoc-20261020\.jpg/i);
+  assert.match(html, /property="og:image:width" content="1200"/i);
+  assert.match(html, /property="og:image:height" content="630"/i);
+  assert.match(html, /property="og:image:type" content="image\/jpeg"/i);
   assert.match(html, /"@type":"Organization"/i);
   assert.match(html, /href="\/services\//i);
   assert.doesNotMatch(html, /\/_vinext\/image/i);

@@ -19,6 +19,23 @@ export function absoluteUrl(path = "/") {
   return `${SEO.siteUrl}${normalizedPath}`;
 }
 
+export const socialImages = {
+  default: {
+    url: absoluteUrl("/social/slivadoc-20261020.jpg"),
+    alt: "Slivadoc — One Platform. Every Animal. Kesehatan, layanan, dan kebutuhan pet.",
+    width: 1200,
+    height: 630,
+    type: "image/jpeg",
+  },
+  career: {
+    url: absoluteUrl("/social/slivadoc-career-20261020.jpg"),
+    alt: "Slivadoc Career — Tumbuh bersama Slivadoc. Full-time, Part-time, dan Freelance.",
+    width: 1200,
+    height: 630,
+    type: "image/jpeg",
+  },
+} as const;
+
 export function pageMetadata(input: {
   title: string;
   description: string;
@@ -26,15 +43,13 @@ export function pageMetadata(input: {
   keywords?: string[];
   type?: "website" | "article";
   noIndex?: boolean;
-  image?: { url: string; alt: string };
+  image?: { url: string; alt: string; width?: number; height?: number; type?: string };
   locale?: "id_ID" | "en_US";
   languages?: Record<string, string>;
 }): Metadata {
   const canonical = absoluteUrl(input.path);
-  const socialImage = input.image ?? {
-    url: absoluteUrl("/slivadoc-pet-hero.png"),
-    alt: "Slivadoc, ekosistem layanan dan kesehatan hewan",
-  };
+  const careerPage = input.path === "/career" || input.path.startsWith("/career/");
+  const socialImage = input.image ?? (careerPage ? socialImages.career : socialImages.default);
   return {
     title: input.title,
     description: input.description,
@@ -66,7 +81,7 @@ export function pageMetadata(input: {
       card: "summary_large_image",
       title: input.title,
       description: input.description,
-      images: [socialImage.url],
+      images: [{ url: socialImage.url, alt: socialImage.alt }],
     },
   };
 }

@@ -20,7 +20,7 @@ import "./site-footer.css";
 import "./place-details.css";
 import "./input-focus.css";
 import "./auth.css";
-import { SEO, absoluteUrl } from "./lib/seo-config";
+import { SEO, absoluteUrl, socialImages } from "./lib/seo-config";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SEO.siteUrl),
@@ -66,13 +66,13 @@ export const metadata: Metadata = {
     url: absoluteUrl("/"),
     title: SEO.defaultTitle,
     description: SEO.defaultDescription,
-    images: [{ url: absoluteUrl("/slivadoc-pet-hero.png"), alt: "Slivadoc, ekosistem pet care Indonesia" }],
+    images: [socialImages.default],
   },
   twitter: {
     card: "summary_large_image",
     title: SEO.defaultTitle,
     description: SEO.defaultDescription,
-    images: [absoluteUrl("/slivadoc-pet-hero.png")],
+    images: [{ url: socialImages.default.url, alt: socialImages.default.alt }],
   },
   verification: {
     google: process.env.GOOGLE_SITE_VERIFICATION || undefined,

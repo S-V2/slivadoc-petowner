@@ -8,6 +8,7 @@ import {
   refreshSession,
 } from "../lib/session";
 import { careerLoginURL } from "../../shared/career-auth";
+import { careerVisitorID, recordCareerDetailView, type CareerEngagement } from "../../shared/career-engagement";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -55,6 +56,7 @@ import {
   CareerJobCard,
   CareerJobList,
   CareerLogo,
+  CareerMetrics,
 } from "./CareerDiscovery";
 
 const subscribeHydration = () => () => {};
@@ -88,18 +90,43 @@ export function CareerPage({
   const [loading, setLoading] = useState(!initialCatalog);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const position = initialPosition;
+  const [engagement, setEngagement] = useState<Record<string, CareerEngagement>>({});
+  const [engagementRevision, setEngagementRevision] = useState(0);
+  const positionID = initialPosition?.id;
+  const position = initialPosition ? { ...initialPosition, ...engagement[initialPosition.id] } : undefined;
   const filters = readCareerFilters(searchParams);
   const positions = discoverCareerPositions(
-    catalog?.data ?? [],
+    (catalog?.data ?? []).map(item => engagement[item.id] ? { ...item, ...engagement[item.id] } : item),
     filters,
     language,
   );
   const backHref = `/career${careerFilterQuery(filters)}#career-positions`;
   const title = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    if (position) title.current?.focus({ preventScroll: true });
-  }, [position]);
+    if (positionID) title.current?.focus({ preventScroll: true });
+  }, [positionID]);
+  useEffect(() => {
+    if (!positionID) return;
+    const controller = new AbortController();
+    let recorded = false;
+    const record = () => {
+      if (recorded || document.visibilityState !== "visible") return;
+      const visitor = careerVisitorID();
+      if (!visitor) return;
+      recorded = true;
+      void recordCareerDetailView(PLATFORM_API_URL, positionID, visitor, controller.signal)
+        .then(stats => {
+          if (!controller.signal.aborted) setEngagement(current => ({ ...current, [positionID]: stats }));
+        })
+        .catch(() => { /* Statistics must not block the position or application form. */ });
+    };
+    record();
+    document.addEventListener("visibilitychange", record);
+    return () => {
+      controller.abort();
+      document.removeEventListener("visibilitychange", record);
+    };
+  }, [positionID, engagementRevision]);
   useEffect(() => {
     if (initialCatalog && attempt === 0) return;
     const controller = new AbortController();
@@ -251,10 +278,13 @@ export function CareerPage({
                       language={language}
                     />
                   </div>
-                  <a className="career-primary" href="#career-application">
-                    {position.status === "talent_pool" ? d.interest : d.apply}
-                    <span aria-hidden="true">↗</span>
-                  </a>
+                  <div className="career-role-actions">
+                    <CareerMetrics position={position} language={language} />
+                    <a className="career-primary" href="#career-application">
+                      {position.status === "talent_pool" ? d.interest : d.apply}
+                      <span aria-hidden="true">↗</span>
+                    </a>
+                  </div>
                   {position.status === "talent_pool" && (
                     <p className="career-notice">
                       <Icon name="clock" />
@@ -297,6 +327,7 @@ export function CareerPage({
                     position={position}
                     version={catalog.consent_version}
                     onDone={() => router.push(backHref)}
+                    onApplied={() => setEngagementRevision(current => current + 1)}
                   />
                 </div>
               </article>
@@ -438,10 +469,12 @@ function CareerForm({
   position,
   version,
   onDone,
+  onApplied,
 }: {
   position: CareerPosition;
   version: string;
   onDone: () => void;
+  onApplied: () => void;
 }) {
   const { language } = usePetOwnerI18n(),
     c = careerCopy[language];
@@ -548,6 +581,7 @@ function CareerForm({
         refresh: refreshSession,
       });
       setReceipt(result.id);
+      onApplied();
       setFile(null);
       setDraft(emptyCareerDraft());
       requestAnimationFrame(() => {

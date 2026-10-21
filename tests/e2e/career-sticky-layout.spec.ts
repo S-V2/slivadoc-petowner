@@ -76,7 +76,7 @@ test("mobile header remains visible without covering career content", async ({
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
-    await expect(page.locator(".career-job-bottom > span")).toHaveText(
+    await expect(page.locator(".career-job-location")).toHaveText(
       Array(6).fill("DKI Jakarta, Indonesia"),
     );
   }

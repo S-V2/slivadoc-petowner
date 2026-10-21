@@ -1845,7 +1845,9 @@ function PetOwnerLogin({
 }) {
   const router = useRouter();
   const registrationFormRef = useRef<HTMLFormElement>(null);
-  const [mode, setMode] = useState<"login" | "register" | "verify">("login");
+  const [mode, setMode] = useState<
+    "login" | "register" | "verify" | "forgot" | "reset"
+  >("login");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [messageError, setMessageError] = useState(false);
@@ -1871,6 +1873,7 @@ function PetOwnerLogin({
     mode === "login"
       ? password.length > 0
       : /(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}/.test(password);
+  const newPassword = mode === "register" || mode === "reset";
   const registrationConsent =
     mode !== "register" || (terms && privacy && /^0[0-9]{8,15}$/.test(phone));
   useEffect(() => {
@@ -1941,6 +1944,42 @@ function PetOwnerLogin({
         notify("Registrasi berhasil. Akun Pet Owner sudah aktif.");
         return;
       }
+      if (mode === "forgot" || mode === "reset") {
+        const email =
+          mode === "forgot"
+            ? String(values.email).trim().toLowerCase()
+            : registrationEmail;
+        const response = await fetch(
+          `${PLATFORM_API_URL}/api/v1/auth/${mode === "forgot" ? "forgot-password" : "reset-password"}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(
+              mode === "forgot"
+                ? { email }
+                : { email, otp, new_password: password },
+            ),
+          },
+        );
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(data.message || "Permintaan belum dapat diproses");
+        setPassword("");
+        setVisible(false);
+        setOtp("");
+        setFormValid(false);
+        if (mode === "forgot") {
+          setRegistrationEmail(email);
+          setResendIn(60);
+          setMode("reset");
+          setMessage(data.message);
+        } else {
+          setMode("login");
+          setMessage(data.message);
+          notify("Password berhasil diperbarui.");
+        }
+        return;
+      }
       const endpoint =
         mode === "login"
           ? "/api/v1/auth/login"
@@ -2007,14 +2046,15 @@ function PetOwnerLogin({
     setMessageError(false);
     try {
       const response = await fetch(
-        `${PLATFORM_API_URL}/api/v1/auth/otp/resend`,
+        `${PLATFORM_API_URL}/api/v1/auth/${mode === "reset" ? "forgot-password" : "otp/resend"}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: registrationEmail,
-            purpose: "registration",
-          }),
+          body: JSON.stringify(
+            mode === "reset"
+              ? { email: registrationEmail }
+              : { email: registrationEmail, purpose: "registration" },
+          ),
         },
       );
       const data = await response.json();
@@ -2033,6 +2073,48 @@ function PetOwnerLogin({
       setBusy(false);
     }
   }
+  const otpFields = (
+    <>
+      <div className="auth-otp-recipient">
+        <LocalizedCopy>Kode OTP dikirim ke</LocalizedCopy>
+        <b>{registrationEmail}</b>
+        <LocalizedCopy>
+          Periksa juga folder spam. Kode berlaku 5 menit.
+        </LocalizedCopy>
+      </div>
+      <AuthField
+        label="Kode OTP"
+        name="otp"
+        className="auth-otp-input"
+        value={otp}
+        onChange={(event) =>
+          setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
+        }
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        pattern="[0-9]{6}"
+        minLength={6}
+        maxLength={6}
+        placeholder="000000"
+        required
+        autoFocus
+      />
+    </>
+  );
+  const emailField = (
+    <AuthField
+      label="Email"
+      name="email"
+      type="email"
+      defaultValue={mode === "login" ? registrationEmail : undefined}
+      autoComplete="email"
+      autoCapitalize="none"
+      spellCheck={false}
+      placeholder="petparent@email.com"
+      required
+      autoFocus={mode === "forgot"}
+    />
+  );
   return (
     <>
       <div
@@ -2072,7 +2154,11 @@ function PetOwnerLogin({
                 ? "Senang melihatmu kembali"
                 : mode === "register"
                   ? "Buat akun Slivadoc"
-                  : "Verifikasi email kamu"}
+                  : mode === "forgot"
+                    ? "Lupa password?"
+                    : mode === "reset"
+                      ? "Atur ulang password"
+                      : "Verifikasi email kamu"}
             </LocalizedCopy>
           </h2>
           <p id="auth-description">
@@ -2081,10 +2167,14 @@ function PetOwnerLogin({
                 ? "Masuk untuk melanjutkan perawatan dan aktivitas pet kamu."
                 : mode === "register"
                   ? "Satu akun untuk profil pet, layanan, dan riwayat perawatannya."
-                  : "Satu langkah lagi. Aktifkan akun dengan kode yang dikirim ke email kamu."}
+                  : mode === "forgot"
+                    ? "Masukkan email akunmu. Kami kirim kode OTP untuk mengatur ulang password."
+                    : mode === "reset"
+                      ? "Masukkan kode OTP dari email dan buat password baru."
+                      : "Satu langkah lagi. Aktifkan akun dengan kode yang dikirim ke email kamu."}
             </LocalizedCopy>
           </p>
-          {mode !== "login" && (
+          {(mode === "register" || mode === "verify") && (
             <ol className="auth-steps" aria-label="Tahap registrasi">
               <li
                 className={mode === "register" ? "is-current" : "is-complete"}
@@ -2121,32 +2211,9 @@ function PetOwnerLogin({
             aria-busy={busy}
           >
             {mode === "verify" ? (
-              <>
-                <div className="auth-otp-recipient">
-                  <LocalizedCopy>Kode OTP dikirim ke</LocalizedCopy>
-                  <b>{registrationEmail}</b>
-                  <LocalizedCopy>
-                    Periksa juga folder spam. Kode berlaku 5 menit.
-                  </LocalizedCopy>
-                </div>
-                <AuthField
-                  label="Kode OTP"
-                  name="otp"
-                  className="auth-otp-input"
-                  value={otp}
-                  onChange={(event) =>
-                    setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  pattern="[0-9]{6}"
-                  minLength={6}
-                  maxLength={6}
-                  placeholder="000000"
-                  required
-                  autoFocus
-                />
-              </>
+              otpFields
+            ) : mode === "forgot" ? (
+              emailField
             ) : (
               <>
                 {mode === "register" && (
@@ -2182,21 +2249,9 @@ function PetOwnerLogin({
                     />
                   </div>
                 )}
+                {mode === "reset" ? otpFields : emailField}
                 <AuthField
-                  label="Email"
-                  name="email"
-                  type="email"
-                  defaultValue={
-                    mode === "login" ? registrationEmail : undefined
-                  }
-                  autoComplete="email"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  placeholder="petparent@email.com"
-                  required
-                />
-                <AuthField
-                  label="Password"
+                  label={mode === "reset" ? "Password baru" : "Password"}
                   name="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
@@ -2207,19 +2262,19 @@ function PetOwnerLogin({
                   placeholder={
                     mode === "login" ? "Masukkan password" : "Buat password"
                   }
-                  minLength={mode === "register" ? 8 : undefined}
+                  minLength={newPassword ? 8 : undefined}
                   pattern={
-                    mode === "register"
+                    newPassword
                       ? "(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}"
                       : undefined
                   }
                   title={
-                    mode === "register"
+                    newPassword
                       ? "Minimal 8 karakter, dengan huruf, angka, dan simbol."
                       : undefined
                   }
                   hint={
-                    mode === "register"
+                    newPassword
                       ? "Minimal 8 karakter, dengan huruf, angka, dan simbol."
                       : undefined
                   }
@@ -2250,6 +2305,23 @@ function PetOwnerLogin({
                     </LocalizedButton>
                   }
                 />
+                {mode === "login" && (
+                  <LocalizedButton
+                    type="button"
+                    className="text-button login-switch auth-forgot"
+                    disabled={busy}
+                    onClick={() => {
+                      setMode("forgot");
+                      setMessage("");
+                      setMessageError(false);
+                      setPassword("");
+                      setVisible(false);
+                      setFormValid(false);
+                    }}
+                  >
+                    <LocalizedCopy>Lupa password?</LocalizedCopy>
+                  </LocalizedButton>
+                )}
               </>
             )}
             {mode === "register" && (
@@ -2317,7 +2389,11 @@ function PetOwnerLogin({
                 busy ||
                 (mode === "verify"
                   ? otp.length !== 6
-                  : !passwordValid || !formValid || !registrationConsent)
+                  : mode === "reset"
+                    ? otp.length !== 6 || !passwordValid
+                    : mode === "forgot"
+                      ? !formValid
+                      : !passwordValid || !formValid || !registrationConsent)
               }
             >
               <LocalizedCopy>
@@ -2329,13 +2405,17 @@ function PetOwnerLogin({
                   "Masuk ke Slivadoc"
                 ) : mode === "verify" ? (
                   "Verifikasi & aktifkan akun"
+                ) : mode === "forgot" ? (
+                  "Kirim kode OTP"
+                ) : mode === "reset" ? (
+                  "Atur ulang password"
                 ) : (
                   "Daftar & kirim OTP"
                 )}
               </LocalizedCopy>
             </LocalizedButton>
           </form>
-          {mode === "verify" && (
+          {(mode === "verify" || mode === "reset") && (
             <LocalizedButton
               type="button"
               className="text-button login-switch auth-resend"
@@ -2367,7 +2447,7 @@ function PetOwnerLogin({
             <LocalizedCopy>
               {mode === "login"
                 ? "Belum punya akun? Daftar gratis"
-                : mode === "verify"
+                : mode === "verify" || mode === "forgot" || mode === "reset"
                   ? "Kembali ke login"
                   : "Sudah punya akun? Login"}
             </LocalizedCopy>

@@ -196,24 +196,28 @@ export function CareerJobCard({
   return (
     <article className="career-job">
       <div className="career-job-top">
-        <span className="career-company-mark" aria-label="Slivadoc">
-          <CareerLogo />
+        <span className="career-company-mark" aria-hidden="true">
+          <CareerLogo size={32} />
         </span>
+        <div className="career-job-company">
+          <strong>Slivadoc</strong>
+          <span className="career-job-dept">
+            {careerDepartments[p.department]?.[language] ?? p.department}
+          </span>
+        </div>
         <span className="career-badge career-work-mode">
           {careerWorkMode(p, language)}
         </span>
       </div>
-      <span className="career-job-dept">
-        {careerDepartments[p.department]?.[language] ?? p.department}
-      </span>
       <h3>{p.title[language]}</h3>
-      <p>{p.summary[language]}</p>
+      <p className="career-job-summary">{p.summary[language]}</p>
+      <p className="career-job-location">
+        <Icon name="map" size={15} />
+        <span>{careerLocation(p, language)}</span>
+      </p>
       <CareerEmploymentBadges position={p} language={language} />
+      <CareerMetrics position={p} language={language} />
       <div className="career-job-bottom">
-        <span>
-          <Icon name="map" size={15} />
-          {careerLocation(p, language)}
-        </span>
         <a
           href={`/career/${p.id}${careerFilterQuery(filters)}`}
           aria-label={`${c.detail}: ${p.title[language]}`}
@@ -223,6 +227,30 @@ export function CareerJobCard({
         </a>
       </div>
     </article>
+  );
+}
+
+export function CareerMetrics({ position, language, compact = false }: {
+  position: Pick<CareerPosition, "applicant_count" | "detail_viewer_count">;
+  language: CareerLanguage;
+  compact?: boolean;
+}) {
+  const en = language === "en";
+  const format = (value: number | undefined) =>
+    typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+      ? value.toLocaleString(en ? "en-US" : "id-ID")
+      : "—";
+  return (
+    <dl className={`career-metrics${compact ? " career-metrics-compact" : ""}`} aria-label={en ? "Position activity" : "Aktivitas posisi"}>
+      <div>
+        <dt><Icon name="users" size={15} />{en ? "Applicants" : "Pelamar"}</dt>
+        <dd>{format(position.applicant_count)}</dd>
+      </div>
+      <div title={en ? "Detail visitors. Reloading does not add another visitor." : "Pengunjung detail. Refresh tidak menambah hitungan."}>
+        <dt><Icon name="eye" size={15} />{en ? "Visitors" : "Pengunjung"}</dt>
+        <dd>{format(position.detail_viewer_count)}</dd>
+      </div>
+    </dl>
   );
 }
 
@@ -278,6 +306,7 @@ export function CareerJobList({
               {careerWorkMode(p, language)}
             </span>
             <CareerEmploymentBadges position={p} language={language} />
+            <CareerMetrics position={p} language={language} compact />
             {p.id === selected && (
               <span className="career-selected">
                 <Icon name="check" size={13} />

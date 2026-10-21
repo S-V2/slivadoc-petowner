@@ -25,6 +25,8 @@ export type CareerPosition = {
   published_at?: string | null;
   closes_at?: string | null;
   updated_at?: string;
+  applicant_count?: number;
+  detail_viewer_count?: number;
 };
 export type CareerCatalog = { data: CareerPosition[]; consent_version: string };
 export type CareerDraft = {

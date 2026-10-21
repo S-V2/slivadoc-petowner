@@ -9,6 +9,7 @@ export type IconName =
   | "heart"
   | "bag"
   | "users"
+  | "eye"
   | "user"
   | "bell"
   | "map"
@@ -37,6 +38,7 @@ export type IconName =
   | "clinic";
 
 const paths: Record<IconName, React.ReactNode> = {
+  eye: <><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></>,
   home: <><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/></>,
   paw: <><circle cx="7.2" cy="8" r="2.2"/><circle cx="16.8" cy="8" r="2.2"/><circle cx="4.5" cy="13" r="1.9"/><circle cx="19.5" cy="13" r="1.9"/><path d="M8 18c0-2.6 1.8-4.5 4-4.5s4 1.9 4 4.5c0 1.7-1.3 3-4 3s-4-1.3-4-3Z"/></>,
   search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { careerSignedIn } from "./career-auth-setup";
 test.beforeEach(async ({ page }) => careerSignedIn(page));
 
-test("mobile careers show two readable columns with official branding", async ({
+test("career cards stack on phones and use two columns on tablets with official branding", async ({
   page,
 }, testInfo) => {
   await page.goto("/career?employment=PART_TIME");
@@ -19,9 +19,16 @@ test("mobile careers show two readable columns with official branding", async ({
       expect(boxes).toHaveLength(3);
       const [first, second, third] = boxes;
       expect(first.width).toBeGreaterThan(0);
-      expect(first.y).toBe(second.y);
-      expect(second.x).toBeGreaterThan(first.x + first.width);
-      expect(third.y).toBeGreaterThan(first.y);
+      if (width <= 600) {
+        expect(first.width).toBeGreaterThan(width * 0.8);
+        expect(second.x).toBe(first.x);
+        expect(second.y).toBeGreaterThan(first.y + first.height);
+        expect(third.y).toBeGreaterThan(second.y + second.height);
+      } else {
+        expect(first.y).toBe(second.y);
+        expect(second.x).toBeGreaterThan(first.x + first.width);
+        expect(third.y).toBeGreaterThan(first.y);
+      }
     }).toPass();
     expect(
       await page.evaluate(
@@ -35,7 +42,7 @@ test("mobile careers show two readable columns with official branding", async ({
     if (width === 390) {
       await cards.first().scrollIntoViewIfNeeded();
       await page.screenshot({
-        path: testInfo.outputPath("career-two-columns-mobile.png"),
+        path: testInfo.outputPath("career-single-column-mobile.png"),
       });
     }
   }
